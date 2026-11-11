@@ -154,7 +154,7 @@ function fromPastShow(a, past) {
 }
 
 // Add or edit one time seen. A score from 1 to 100 (a slider beside the box); where is one of your venues or typed.
-function logSighting(a, s = {}) {
+export function logSighting(a, s = {}) { // shared: bookings.js offers it as Score this show
   const editing = !!s.id, venues = [...db.venues].sort(byName);
   openForm({
     title: editing ? 'Edit a time seen' : 'Log a time seen',

@@ -97,6 +97,9 @@ export function seenStats(a) {
 // Where a sighting was: the venue's name while it is in Venues, else what was typed.
 export const seenWhere = s => (s && s.venueId && byId('venues', s.venueId) ? byId('venues', s.venueId).name : (s && s.where) || '');
 // The act's bookings still to come, soonest first (the dates on its card).
+// The act's time seen for a booking: the entry carrying its id, or one on the same date logged without a booking (from
+// the act's card on the night). A booking with one of these is already scored.
+export const seenEntryFor = (a, b) => (a && b ? (Array.isArray(a.seen) ? a.seen : []).find(s => s && (s.bookingId === b.id || (!s.bookingId && s.date && s.date === b.date))) || null : null);
 export const actUpcoming = a => (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && lastDate(b) >= todayIso()).sort((x, y) => (x.date + firstTime(x)).localeCompare(y.date + firstTime(y)));
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 

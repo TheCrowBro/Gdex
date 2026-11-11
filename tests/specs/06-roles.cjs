@@ -149,7 +149,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
       await page.evaluate(x => import('./js/roles.js').then(m => m.setRole(x)), r.id);
       await go(page, id);
       await sleep(200);
-      const head = await page.textContent('#page .page-head h1').catch(() => '');
+      const head = await page.textContent('#page .page-head h1', { timeout: 1500 }).catch(() => '');
       ok(`${r.label}: ${id} is called ${name} on the menu and the page`, (await page.textContent('#deck .dk-name')) === name && (head === name || id === 'bookings'), head);
     }
   }

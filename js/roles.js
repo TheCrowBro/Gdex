@@ -6,25 +6,109 @@
 const KEY = 'gdex-role';
 export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'backline', 'venues', 'money', 'tools', 'insurance', 'settings'];
 
-// sections: the menu in order (Settings is always there, last). start: the section a fresh start opens on.
-// names: a section's name for this role, used on the menu and as the page's heading. newKind: + New on the calendar.
-// hide: booking blocks (js/blocks) this role does not use. money: false keeps fees out of the role's view.
+// Each role, in the shape the app reads (docs/developers.md → Roles):
+//   sections   the menu in order (Settings is always added, last); start: the section a fresh start opens on.
+//   names      a section's name for this role ({ acts: 'Roster' }): on the menu, as the page's heading, in the tour.
+//              Only Bookings and Acts are ever renamed, and never inside documents that go to other people.
+//   what       fills "What you do" in the welcome tour when it is empty ('' leaves it empty).
+//   newKind    the kind + New offers first; kinds: the order of the rest; kindHelp: the role's words for each kind.
+//   hide       booking boxes (js/blocks) the role keeps under "More boxes" on a booking's page.
+//   money      false: the deal, settlement, quote & invoice and costs boxes are left off booking pages altogether (their
+//              data stays, and comes back with a role that uses money); new shows start Confirmed, not on Hold.
+//   welcome, tour   the welcome tour's first card and its stops ({ id, text }, at most five, in menu order).
+//   pages      small defaults on existing pages, read with pageOpt(page, key, fallback):
+//              bookings.open { kind: [box ids open at first] }, bookings.score (Score this show on a show you went to),
+//              acts.order ('name' | 'latest' | 'recent'), acts.tabs (an act's tabs: ['about'] leaves out the press kit and rider), acts.seen ('always' | 'logged': the times-seen line and log lead
+//              only once something is logged), acts.empty (the empty list's words), people.group (+ Add starts there),
+//              songs.view ('setlists' to open there when there are songs), tools.tool (the first tool while none is
+//              remembered), money.earned (the label of the year's income).
+const HIDE_ALL = ['lineup', 'advance', 'deal', 'running', 'guests', 'settlement', 'daysheet', 'setlist', 'money', 'budget', 'clock', 'takes', 'worksongs', 'deliverables'];
 export const ROLES = [
-  { id: 'producer', label: 'Producer', icon: '🎚️', blurb: 'Studio sessions, takes, songs and the artists you record.',
-    sections: ['bookings', 'sessions', 'songs', 'acts', 'people', 'backline', 'venues', 'money', 'tools', 'settings'], start: 'bookings', names: {}, newKind: 'session', hide: [], money: true },
-  { id: 'manager', label: 'Manager', icon: '📋', blurb: 'Your acts’ dates, deals, settlements and the people around them.',
-    sections: ['bookings', 'acts', 'money', 'people', 'venues', 'songs', 'insurance', 'settings'], start: 'bookings', names: {}, newKind: 'show', hide: [], money: true },
-  { id: 'band', label: 'Band', icon: '🥁', blurb: 'Gigs and rehearsals, setlists, backline and the split.',
-    sections: ['bookings', 'songs', 'acts', 'backline', 'venues', 'money', 'people', 'tools', 'settings'], start: 'bookings', names: {}, newKind: 'show', hide: [], money: true },
-  { id: 'solo', label: 'Solo artist', icon: '🎤', blurb: 'Your own shows and sessions, songs, gear and getting paid.',
-    sections: ['bookings', 'songs', 'money', 'venues', 'backline', 'people', 'tools', 'settings'], start: 'bookings', names: {}, newKind: 'show', hide: [], money: true },
-  { id: 'scout', label: 'Scout', icon: '🔭', blurb: 'Acts you are watching: times seen, scores and where they play next.',
-    sections: ['acts', 'bookings', 'venues', 'people', 'settings'], start: 'acts', names: {}, newKind: 'show', hide: ['deal', 'settlement', 'money', 'budget', 'guests', 'running'], money: false },
-  { id: 'audiophile', label: 'Audiophile', icon: '🎧', blurb: 'Bands you have seen, how they sounded, the venues and the sound meter.',
-    sections: ['acts', 'bookings', 'venues', 'tools', 'settings'], start: 'acts', names: {}, newKind: 'show', hide: ['deal', 'settlement', 'money', 'budget', 'guests', 'running', 'advance', 'daysheet'], money: false },
+  { id: 'producer', label: 'Producer', icon: '🎛️', what: 'Producer',
+    blurb: 'Studio sessions on the clock, take logs, songs and splits, your artists and the invoices.',
+    sections: ['bookings', 'sessions', 'songs', 'acts', 'money', 'people', 'venues', 'tools'], start: 'bookings', names: { acts: 'Artists' },
+    newKind: 'session', kinds: ['session', 'show', 'other', 'rehearsal'], hide: ['guests', 'settlement'], money: true,
+    kindHelp: { session: 'Studio time with an artist: the rate, the clock, the songs, the take log and what you deliver.', show: 'A live date you are producing or playing: times, the deal, the setlist and the day sheet.' },
+    welcome: 'Gdex is set up for a producer: studio sessions on one calendar, a clock for the hours, take logs with the keepers, the songs you cut with their split sheets, your artists, and invoices for the time. This takes about a minute. Tap Skip any time.',
+    tour: [
+      { id: 'bookings', text: 'Your studio diary. + New starts a studio session: the artist, the studio and the rate. Open one for the clock, the songs worked on, the take log and the mixes, stems and masters you owe.' },
+      { id: 'sessions', text: 'Start a log when you hit record and tap + Take as each take starts: it is numbered and timed. Mark each one Keep, Maybe or No, then send the keepers to the engineer as text or a spreadsheet.' },
+      { id: 'songs', text: 'Key, tempo, length and status for every song you work on, and the split sheet: who wrote it and their share, agreed before release.' },
+      { id: 'acts', text: 'The artists you produce: contacts, links, members, the tech rider, and their sessions coming up.' },
+      { id: 'money', text: 'Invoices from your rate or the clock’s hours, what’s unpaid or overdue, and the year’s totals.' },
+    ],
+    pages: { bookings: { open: { session: ['clock', 'takes'] } }, acts: { seen: 'logged' }, people: { group: 'session' }, tools: { tool: 'tempo' } } },
+  { id: 'manager', label: 'Manager', icon: '💼', what: 'Artist manager',
+    blurb: 'Your acts’ dates, deals and deposits, advancing, settlements and the people around them.',
+    sections: ['bookings', 'acts', 'money', 'people', 'venues', 'insurance'], start: 'bookings', names: { acts: 'Roster' },
+    newKind: 'show', kinds: ['show', 'session', 'rehearsal', 'other'], hide: ['clock', 'takes'], money: true,
+    kindHelp: { show: 'A date for one of your acts: the deal and deposit, advancing, the guest list, settlement and invoice.', session: 'Studio time for one of your acts: the songs, the rate and what gets delivered.' },
+    welcome: 'Gdex is set up for a manager: every act on your roster on one calendar, with holds and offers, deals and deposits, advancing, day sheets, settlements and payouts, and the people around them. This takes about a minute. Tap Skip any time.',
+    tour: [
+      { id: 'bookings', text: 'Every act on your roster on one calendar: holds, offers and confirmed dates, and a filter by act. Open a show for the deal, the advance checklist, running order, guest list, day sheet and settlement.' },
+      { id: 'acts', text: 'Your roster: each act’s members, links, a press kit with its QR code, and the tech rider with input list and stage plot, ready to send to a promoter, plus its dates coming up.' },
+      { id: 'money', text: 'Deposits still to come in, unpaid invoices with the overdue ones first, what each settled show made, totals per act and what each player was paid.' },
+      { id: 'people', text: 'Promoters, agents, crew and players, with what each is booked on. Ask if someone is free for a date in one tap; the message never carries the money.' },
+      { id: 'venues', text: 'Capacity, curfew, noise limit, load-in and the contact for every room. A show there warns you when the set would run past curfew.' },
+    ],
+    pages: { bookings: { open: { show: ['deal', 'advance'] } }, acts: { seen: 'logged' }, people: { group: 'contact' }, money: { earned: 'your acts earned' } } },
+  { id: 'band', label: 'Band', icon: '🥁', what: 'Musician',
+    blurb: 'Gigs and rehearsals, setlists, who brings what gear, and the split after the show.',
+    sections: ['bookings', 'songs', 'backline', 'tools', 'acts', 'money', 'people', 'venues'], start: 'bookings', names: { acts: 'Bands' },
+    newKind: 'show', kinds: ['show', 'rehearsal', 'session', 'other'], hide: ['clock', 'takes'], money: true,
+    kindHelp: { show: 'A gig: load-in, set times, the deal, the setlist, guest list and the split after.', rehearsal: 'Band practice: the room, the times and the setlist to run.' },
+    welcome: 'Gdex is set up for a band: gigs and rehearsals on one calendar, setlists that fit the slot, who brings what gear, the tuner and set timer for the night, and the split after the show. This takes about a minute. Tap Skip any time.',
+    tour: [
+      { id: 'bookings', text: 'Gigs and rehearsals on one calendar. Open a show for load-in and set times, the deal, the running order and setlist, the guest list, the day sheet for everyone and the settlement.' },
+      { id: 'songs', text: 'Key, tempo and length for every song, and setlists that add up to the slot. Print the big stage copy for the floor.' },
+      { id: 'backline', text: 'Every guitar, amp and mic with its serial number, value and owner. Stage packs put a whole gig’s gear on a booking in one go.' },
+      { id: 'acts', text: 'Your band’s page: members, links, a press kit with a QR code for the merch desk, and the tech rider with input list and stage plot. Add any other band you play in too.' },
+      { id: 'money', text: 'What each gig paid, the settlement on the night and what every player got, settled or still owed.' },
+    ],
+    pages: { bookings: { open: { show: ['running', 'setlist'], rehearsal: ['setlist'] } }, acts: { seen: 'logged' }, songs: { view: 'setlists' } } },
+  { id: 'solo', label: 'Solo artist', icon: '🎤', what: 'Singer-songwriter',
+    blurb: 'Your own gigs and studio days, songs and setlists, your press kit and getting paid.',
+    sections: ['bookings', 'songs', 'money', 'acts', 'venues', 'people', 'tools'], start: 'bookings', names: { acts: 'My act' },
+    newKind: 'show', kinds: ['show', 'session', 'other', 'rehearsal'], hide: ['takes'], money: true,
+    kindHelp: { show: 'A gig, public or private (a wedding, party or corporate date): set times, the deal and deposit, your setlist, the day sheet and getting paid.', session: 'Session or topline work: the rate, the clock, the songs and what to deliver.' },
+    welcome: 'Gdex is set up for a solo artist: your gigs and studio days on one calendar, songs and setlists, split sheets for co-writes, your press kit and rider, and the invoices you send. This takes about a minute. Tap Skip any time.',
+    tour: [
+      { id: 'bookings', text: 'Your gigs, studio days and private bookings on one calendar. Open one for set times, the deal, your setlist, the guest list, the day sheet and the invoice.' },
+      { id: 'songs', text: 'Key, tempo and length for every song, setlists that fit the slot, and split sheets for the songs you co-write.' },
+      { id: 'money', text: 'What you’re owed and what’s come in: deposits due, unpaid or overdue invoices, settled shows and the year’s totals.' },
+      { id: 'acts', text: 'You as an act: bio and links, a one-page press kit with a QR code for the merch table, and the tech rider to send ahead.' },
+      { id: 'venues', text: 'The rooms you play or want to: capacity, stage, PA, curfew and the contact. + Book here starts a booking there.' },
+    ],
+    pages: { bookings: { open: { show: ['deal', 'setlist'] } }, acts: { seen: 'logged' }, people: { group: 'session' } } },
+  { id: 'scout', label: 'Scout', icon: '🔭', what: 'A&R scout',
+    blurb: 'Acts you’re watching: a score out of 100 each time you see them, and where they play next.',
+    sections: ['acts', 'bookings', 'people', 'venues'], start: 'acts', names: { bookings: 'Shows' },
+    newKind: 'show', kinds: ['show', 'other', 'session', 'rehearsal'], hide: HIDE_ALL, money: false,
+    kindHelp: { show: 'A show or showcase you’re going to: the act you’re there to see, where, doors and their time on stage. Score them on the night or after.', other: 'A meeting or call with an act or their team.', session: 'A studio visit or a demo playback.', rehearsal: 'An open rehearsal or soundcheck you’re invited to.' },
+    welcome: 'Gdex is set up for scouting: the acts you’re watching, a score out of 100 each time you see them, where they play next, and the managers and agents around them. Fees and settlements stay off your pages. This takes about a minute. Tap Skip any time.',
+    tour: [
+      { id: 'acts', text: 'Every act you’re watching, latest scores first. Each card shows how many times you’ve seen them, your average and latest score, and their next dates. Drop a card open to log tonight’s set.' },
+      { id: 'bookings', text: 'The shows you’re going to: the act, the venue, doors, their time on stage and your notes. On the night or after, Score this show logs it on the act’s card.' },
+      { id: 'people', text: 'Managers, agents, promoters and label contacts, with call, text and email one tap away and the acts they’re with.' },
+      { id: 'venues', text: 'The rooms you scout in: capacity, so you know what a sell-out means, the address and map, and the shows you’ve been to there.' },
+    ],
+    pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { order: 'latest', tabs: ['about'], empty: 'Add an act you’re watching: its name and links. Each time you see them, log a score out of 100; the card keeps the count, your average and latest score, and where they play next.' }, people: { group: 'contact' } } },
+  { id: 'audiophile', label: 'Audiophile', icon: '🎧', what: '',
+    blurb: 'Bands you’ve seen with a score each time, gigs coming up, the rooms and the sound meter.',
+    sections: ['acts', 'bookings', 'venues', 'tools'], start: 'acts', names: { acts: 'Bands', bookings: 'Gigs' },
+    newKind: 'show', kinds: ['show', 'other', 'session', 'rehearsal'], hide: HIDE_ALL, money: false,
+    kindHelp: { show: 'A gig you’re going to (an in-store or a listening session too): the band, the venue, doors and set time. Score it on the night or after.', other: 'A record fair or anything else in the diary.', session: 'A studio visit or a playback.', rehearsal: 'An open rehearsal or soundcheck.' },
+    welcome: 'Gdex is set up for a gig-goer who listens closely: the bands you’ve seen with a score out of 100 each time and notes on the set and the sound, the gigs coming up, the rooms you go to, and a sound level meter. This takes about a minute. Tap Skip any time.',
+    tour: [
+      { id: 'acts', text: 'The bands you’ve seen, latest first. Each time, log a score out of 100 with notes on the set and the sound. The card keeps your average, your latest score and their next dates.' },
+      { id: 'bookings', text: 'The gigs you’re going to: the band, the venue, doors and set time. On the night or after, Score this show logs it on the band’s card.' },
+      { id: 'venues', text: 'Every room you’ve been to: capacity, the PA and the noise limit, and the gigs you saw there.' },
+      { id: 'tools', text: 'The sound level meter: the level now in dB(A), the loudest moment and the last minute’s average, against the venue’s noise limit. A tuner, a metronome and tap tempo are here too.' },
+    ],
+    pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { order: 'recent', tabs: ['about'], empty: 'Add a band you’ve seen or want to see. Each time you see them, log a score out of 100 with notes on the set and the sound; the card keeps your average, your latest score and their next dates.' }, tools: { tool: 'meter' } } },
 ];
 // Before a role is chosen (and for anyone who wants it): every section, as Gdex has always been.
-export const EVERYTHING = { id: 'all', label: 'Everything', icon: '🗂️', blurb: 'Every section on the menu.', sections: SECTIONS.slice(), start: 'bookings', names: {}, newKind: 'show', hide: [], money: true };
+export const EVERYTHING = { id: 'all', label: 'Everything', icon: '🗂️', what: '', blurb: 'Every section on the menu, as Gdex has always been.', sections: SECTIONS.slice(), start: 'bookings', names: {}, newKind: 'show', hide: [], money: true, pages: {} };
 const ALL = [...ROLES, EVERYTHING];
 
 const read = () => { try { const v = localStorage.getItem(KEY); return ALL.some(r => r.id === v) ? v : ''; } catch { return ''; } };
@@ -40,10 +124,21 @@ export const menuSections = (r = role()) => clean(r);
 export const offMenu = (r = role()) => SECTIONS.filter(id => !clean(r).includes(id));
 export const startSection = (r = role()) => (clean(r).includes(r.start) ? r.start : clean(r)[0]);
 export const sectionName = (id, fallback) => role().names[id] || fallback;
-export const blockShown = id => !role().hide.includes(id);
+// One act in the role's words, for labels like "Artist" on the booking form: 'artist', 'band' or 'act'.
+export const actWord = () => ({ producer: 'artist', band: 'band', audiophile: 'band' })[roleId()] || 'act';
+// The boxes that never show for a role without money, whatever its hide list says.
+export const MONEY_BLOCKS = ['deal', 'settlement', 'money', 'budget'];
+const moneyOff = (rl = role()) => rl.money === false;
+// A box on a booking's page: shown, under "More boxes" (folded), or left off (a money box for a role without money).
+export const blockShown = id => !(role().hide || []).includes(id) && !(moneyOff() && MONEY_BLOCKS.includes(id));
+export const blockFolded = id => !blockShown(id) && !(moneyOff() && MONEY_BLOCKS.includes(id));
 export const newKind = () => role().newKind || 'show';
 export const kindHelp = kind => (role().kindHelp || {})[kind] || '';
 export const moneyShown = () => role().money !== false;
+// A page's default for this role (see pages above): pageOpt('tools', 'tool', 'tuner').
+export const pageOpt = (page, key, fallback) => { const v = ((role().pages || {})[page] || {})[key]; return v === undefined ? fallback : v; };
+// The kinds of booking in the order the role uses them: its usual kind first.
+export const kindOrder = () => { const r = role(), base = ['show', 'session', 'rehearsal', 'other']; const list = (r.kinds || [r.newKind || 'show']).filter(k => base.includes(k)); return [...list, ...base.filter(k => !list.includes(k))]; };
 // Choose a role: kept on this device; the app redraws its menu on the gdex-role event.
 // start: open the role's start section (the first-run question); otherwise the page on screen stays.
 export function setRole(id, { start = false } = {}) {
