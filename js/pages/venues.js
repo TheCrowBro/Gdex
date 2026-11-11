@@ -7,7 +7,7 @@ import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMi
 import { openForm } from '../form.js';
 import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
-import { sectionName } from '../roles.js';
+import { sectionName, moneyShown } from '../roles.js';
 
 // What the page is showing. Kept here so it survives the redraw after every change.
 const S = { kind: '', q: '' };
@@ -59,7 +59,9 @@ function keepFocus(root, fn) {
 // A time more than 18 hours after the anchor is read as before it (a curfew set before the band goes on).
 const offset = (anchor, t) => { if (!isTime(anchor) || !isTime(t)) return null; const m = minutesBetween(anchor, t); return m > 1080 ? m - 1440 : m; };
 
-// What to know about a booking at its venue: [{ level: 'warn' | 'info', text }].
+// What to know about a booking at its venue: [{ level: 'warn' | 'info', text }]. The words are neutral ("the set", not
+// "your set"): the person may be the band, its manager or someone in the crowd. The capacity lines are about the deal
+// and the settlement, so they show only for a role that uses money.
 export function venueChecks(b) {
   const out = [];
   const v = b && b.venueId ? byId('venues', b.venueId) : null;
@@ -71,15 +73,15 @@ export function venueChecks(b) {
     const len = Math.max(0, Math.round(num(b.setLength)));
     if (isTime(v.curfew) && isTime(b.setTime)) {
       const start = offset(anchor, b.setTime), cur = offset(anchor, v.curfew), end = start + len;
-      if (cur < start) warn(`The curfew at ${name} (${v.curfew}) is before your set starts (${b.setTime}).`);
-      else if (len > 0 && end > cur) warn(`Your set ends at ${addMinutes(b.setTime, len)}, ${fmtMin(end - cur)} after the ${v.curfew} curfew at ${name}.`);
+      if (cur < start) warn(`The curfew at ${name} (${v.curfew}) is before the set starts (${b.setTime}).`);
+      else if (len > 0 && end > cur) warn(`The set ends at ${addMinutes(b.setTime, len)}, ${fmtMin(end - cur)} after the ${v.curfew} curfew at ${name}.`);
     }
     if (isTime(v.curfew) && isTime(b.curfew) && b.curfew !== v.curfew) {
       const later = minutesBetween(v.curfew, b.curfew); // the same night: within 12 hours after the venue's own
       if (later > 0 && later <= 720) warn(`This show’s curfew (${b.curfew}) is later than the usual ${v.curfew} at ${name}. Check it with the venue.`);
     }
     const cap = num(v.capacity);
-    if (cap > 0) {
+    if (cap > 0 && moneyShown()) {
       const dealCap = num(b.deal && b.deal.capacity), sold = num(b.settlement && b.settlement.tickets);
       if (dealCap > cap) warn(`The deal counts on ${dealCap} tickets, but ${name} holds ${cap}.`);
       if (sold > cap) warn(`The settlement counts ${sold} tickets, more than ${name} holds (${cap}).`);
@@ -150,6 +152,10 @@ function bookingRow(b, close, withWarnings) {
     issues.map(x => h('span', { class: 'vn-row-warn' }, '⚠ ' + x.text)));
 }
 
+// The sheet's button. A role without money (a scout, a gig-goer) is going to things, not booking them: it adds a show
+// (or a studio session, or a rehearsal) here to the calendar.
+const bookWords = v => (moneyShown() ? { btn: '+ Book here', none: `Nothing booked here yet. + Book here starts a ${kindLabel(bookKind(v)).toLowerCase()} at ${venueName(v)}.` }
+  : { btn: `+ Add a ${kindLabel(bookKind(v)).toLowerCase()} here`, none: 'Nothing on your calendar here yet.' });
 function bookHere(v) {
   return import('./bookings.js').then(m => m.newBooking({ kind: bookKind(v), venueId: v.id })).catch(e => { console.error(e); toast('A booking could not be started here.'); });
 }
@@ -184,7 +190,7 @@ export function openVenue(id) {
     body.replaceChildren(...nodes(
       h('div', { class: 'vn-top' }, h('span', { class: 'pill vn-kind' }, kindText(v)), v.address && h('p', { class: 'prewrap vn-address' }, v.address)),
       h('div', { class: 'actions vn-sheet-actions' },
-        h('button', { type: 'button', class: 'btn primary', id: 'vn-book', onclick: () => { close(); bookHere(v); } }, '+ Book here'),
+        h('button', { type: 'button', class: 'btn primary', id: 'vn-book', onclick: () => { close(); bookHere(v); } }, bookWords(v).btn),
         h('button', { type: 'button', class: 'btn ghost', id: 'vn-edit', onclick: () => editVenue(v) }, '✎ Edit')),
       h('div', { class: 'vn-map' }, map, buttons || h('p', { class: 'muted small' }, 'Add an address or a map location to get directions.')),
       (v.contact || v.phone || v.email || site) && h('section', { class: 'vn-contact' }, h('h3', null, 'Contact'),
@@ -200,7 +206,7 @@ export function openVenue(id) {
       h('section', { class: 'vn-bookings' },
         h('h3', null, `Coming up here (${next.length})`),
         next.length ? h('div', { class: 'vn-rows' }, next.map(b => bookingRow(b, close, true)))
-          : h('p', { class: 'muted small' }, `Nothing booked here yet. + Book here starts a ${kindLabel(bookKind(v)).toLowerCase()} at ${venueName(v)}.`),
+          : h('p', { class: 'muted small' }, bookWords(v).none),
         past.length > 0 && [
           h('h3', null, `Before (${past.length})`),
           h('div', { class: 'vn-rows' }, (allPast ? past : past.slice(0, 5)).map(b => bookingRow(b, close, false))),
@@ -265,8 +271,9 @@ const PAGE_STEPS = [
   { title: 'Find a place', text: 'Search by name, address, contact or what the stage and PA are.', target: ['#vn-search'] },
   { title: 'A place', text: 'How many it holds, the curfew and noise limit, and your next booking there. Tap it for the map, details and every booking there.', target: ['.vn-card'] },
 ];
-const SHEET_STEPS = [
-  { title: 'Book here', text: 'Starts a booking at this place: a show at a venue or festival, a session at a studio, a rehearsal at a room. Edit changes the details or deletes it.', target: ['.vn-sheet-actions'] },
+const SHEET_STEPS = () => [
+  moneyShown() ? { title: 'Book here', text: 'Starts a booking at this place: a show at a venue or festival, a session at a studio, a rehearsal at a room. Edit changes the details or deletes it.', target: ['.vn-sheet-actions'] }
+    : { title: 'Add one here', text: 'Puts a date at this place on your calendar: a show at a venue or festival, a studio session at a studio, a rehearsal at a room. Edit changes the details or deletes it.', target: ['.vn-sheet-actions'] },
   { title: 'Getting there', text: 'The map, and directions in your maps app.', target: ['.vn-map'] },
   { title: 'What to know', text: 'Capacity, stage, PA, backline provided, load-in, parking, curfew and noise limit: the things to check before the day.', target: ['.vn-details'] },
   { title: 'Bookings here', text: 'What is coming up and what you played before. A warning shows when a set would run past the curfew. Tap one to open it.', target: ['.vn-bookings'] },

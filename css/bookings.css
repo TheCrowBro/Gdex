@@ -89,6 +89,11 @@
 .bk-act-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .bk-act { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .bk-client { cursor: default; }
+/* Score this show (a role that scores the acts it sees), and its score once logged */
+.bk-score { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.bk-score .btn.primary { min-width: 0; }
+.bk-score-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.bk-score-text b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .bk-contact { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .bk-contact-who { display: grid; min-width: 0; overflow-wrap: anywhere; }
 .bk-contact-btns { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -98,8 +103,8 @@
 .bk-actions .bk-delete { color: var(--danger); }
 .bk-actions .bk-delete:hover { border-color: var(--danger); }
 
-/* the boxes (blocks) */
-.bk-blocks { display: grid; gap: 8px; align-items: start; }
+/* the boxes (blocks); the ones the role keeps out of the way sit in the More boxes fold, laid out the same */
+.bk-blocks, .bk-more-blocks { display: grid; gap: 8px; align-items: start; }
 .blk { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); scroll-margin-top: 12px; min-width: 0; }
 .blk > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 12px; min-height: calc(var(--hit) + 8px); }
 .blk > summary::-webkit-details-marker { display: none; }
@@ -113,6 +118,14 @@
 .blk-sum { color: var(--muted); font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .blk-body { padding: 10px 12px 12px; display: grid; gap: 8px; min-width: 0; }
 .blk-body > .warn { margin: 0; }
+.bk-more { margin-top: 8px; border: 1px dashed var(--line); border-radius: var(--radius); scroll-margin-top: 12px; min-width: 0; }
+.bk-more > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 12px; min-height: calc(var(--hit) + 8px); color: var(--muted); }
+.bk-more > summary::-webkit-details-marker { display: none; }
+.bk-more > summary::after { content: '›'; content: '›' / ''; color: var(--muted); font-size: 1.3rem; transition: transform .15s ease; }
+.bk-more[open] > summary::after { transform: rotate(90deg); }
+.bk-more > summary:focus-visible { outline: 3px solid var(--focus); border-radius: var(--radius); }
+.bk-more > summary .blk-title { color: var(--text); }
+.bk-more-blocks { padding: 0 8px 8px; }
 
 /* sheets: the kind of booking, its status */
 .bk-kinds { display: grid; gap: 8px; }
@@ -128,6 +141,7 @@
 .bk-status-opt .pill { justify-self: start; font-size: .8rem; }
 .bk-tick { color: var(--accent); font-weight: 800; }
 .bk-venue-note { display: block; margin-top: 2px; }
+.field .bk-bonus { justify-self: start; margin-top: 4px; }
 .bk-del-when { display: block; }
 
 /* ------------------------------ advance checklist ------------------------------ */
@@ -178,8 +192,8 @@
   .bk-monthview .bk-agenda .list { grid-template-columns: 1fr; }
   .bk-monthview .bk-day { min-height: 104px; }
   .bk-actions { max-width: 620px; }
-  .bk-blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bk-blocks > .blk[open] { grid-column: 1 / -1; } /* closed boxes two by two; an open one takes the whole width, never leaving a gap beside it */
+  .bk-blocks, .bk-more-blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bk-blocks > .blk[open], .bk-more-blocks > .blk[open] { grid-column: 1 / -1; } /* closed boxes two by two; an open one takes the whole width, never leaving a gap beside it */
 }
 
 /* The legend shows the dot shapes (filled, hollow, faded); a day's dots take the act's colour, so the legend's are neutral. */
