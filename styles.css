@@ -379,6 +379,7 @@ html[data-motion=off] *, html[data-motion=off] *::before, html[data-motion=off] 
 .rp-blurb, .rp-menu { overflow-wrap: anywhere; }
 .rp-check { font-weight: 800; color: var(--accent); min-width: 1ch; }
 .rp-all { width: 100%; justify-content: center; }
+.rp-nudge { margin: 0 0 12px; display: grid; gap: 8px; border-left: 4px solid var(--accent); } .rp-nudge-text { margin: 0; overflow-wrap: anywhere; }
 .theme-list { display: grid; gap: 6px; }
 
 /* the clock: a slim strip under the Rolodex while it runs, and the card in a booking's Hours box */

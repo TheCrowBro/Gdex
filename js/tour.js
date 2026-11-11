@@ -2,15 +2,18 @@
 // A step can carry a form (its body) that is saved on Next, so a walkthrough can set things up as well as point.
 import { h, nodes } from './util.js';
 import { db, update } from './store.js';
-import { role, roleId, roleChosen, menuSections, sectionName } from './roles.js';
+import { role, roleChosen, menuSections, offMenu, sectionName, moneyShown } from './roles.js';
 
 // The first-run walkthrough (also Settings → Help → Take the welcome tour). It follows the role (js/roles.js): its own
 // welcome, then the sections on its menu in order. The profile card saves what is typed on Next.
+// A role without money (scout, audiophile) is asked only for a name and what they do: no business, no currency.
+const PROFILE_FIELDS = [['Your name', 'name'], ['Business or project name', 'business', '', true], ['What you do', 'role', 'Producer, band leader, tour manager…'], ['Currency symbol', 'currency', '$, £, €…', true]];
 const profileStep = {
-  title: 'Your details', text: 'They go on your invoices, day sheets and contact card. Change them any time under Settings.',
-  body: () => h('div', { class: 'tour-fields' }, ...[['Your name', 'name'], ['Business or project name', 'business'], ['What you do', 'role', 'Producer, band leader, tour manager…'], ['Currency symbol', 'currency', '$, £, €…']].map(([label, key, ph]) => {
-    // What you do starts as the role picked at the first question, until something else is typed.
-    const value = db.profile[key] || (key === 'role' && roleChosen() && roleId() !== 'all' ? role().label : '');
+  title: 'Your details',
+  get text() { return moneyShown() ? 'They go on your invoices, day sheets and contact card. Change them any time under Settings.' : 'Your name goes on your contact card. Change it any time under Settings.'; },
+  body: () => h('div', { class: 'tour-fields' }, ...PROFILE_FIELDS.filter(f => moneyShown() || !f[3]).map(([label, key, ph]) => {
+    // What you do starts as the role's own word for it (Producer, Artist manager…) until something else is typed.
+    const value = db.profile[key] || (key === 'role' && roleChosen() ? role().what || '' : '');
     return h('label', { class: 'tour-field' }, h('span', null, label), h('input', { type: 'text', value, 'data-key': key, placeholder: ph || '', 'aria-label': label, autocomplete: 'off' }));
   })),
   onNext: () => {
@@ -32,21 +35,32 @@ export const STOP_TEXT = {
   tools: 'A tuner, a metronome with tap tempo, delay times for any tempo, a sound level meter and a set timer.',
   insurance: 'Your policies and what they cover, next to the backline they insure.',
 };
-const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs & setlists', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance' };
+export const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', settings: 'Settings' };
 const MAX_STOPS = 5; // the tour stays about a minute: the first sections on the menu
+const tapeMenu = () => { try { return JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu === 'tape'; } catch { return false; } };
+const listWords = list => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`);
 export function welcomeSteps() {
-  const r = role(), menu = menuSections(r).filter(id => id !== 'settings');
-  const own = new Map((r.tour || []).filter(s => menu.includes(s.id)).map(s => [s.id, s.text]));
-  const stops = (own.size ? [...own.keys()] : menu).slice(0, MAX_STOPS);
+  const r = role(), menu = menuSections(r), stopsOn = menu.filter(id => id !== 'settings');
+  const own = new Map((r.tour || []).filter(s => stopsOn.includes(s.id)).map(s => [s.id, s.text]));
+  const stops = (own.size ? [...own.keys()] : stopsOn).slice(0, MAX_STOPS);
+  const bonus = offMenu(r).map(id => sectionName(id, NAMES[id]));
+  const sideA = Math.ceil(menu.length / 2);
   return [
     { title: 'Welcome to Gdex', text: r.welcome || 'The booking deck for producers and bands: shows, studio sessions and rehearsals, your acts and people, backline, venues, songs and setlists, settlements and invoices, and the tools you need on the night. This takes about a minute. Tap Skip any time.' },
     profileStep,
-    { go: menu[0], target: ['.deck'], title: 'Your sections are tracks',
-      get text() { let tape = false; try { tape = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu === 'tape'; } catch { /* the record */ }
-        return tape ? 'Swipe the cassette or tap ⏪ ⏩ to change section; tap Tracks (or the cassette) to see them all, with the bonus tracks your role does not use. Prefer a record player? Aa → Section menu.'
-          : 'Swipe the record or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve, with the bonus tracks your role does not use. Prefer a tape deck? Aa → Section menu.'; } },
+    { go: stopsOn[0] || 'settings', target: ['.deck'], title: 'Your sections are tracks',
+      get text() {
+        const count = `${menu.length} tracks: ${sideA} on Side A, ${menu.length - sideA} on Side B${bonus.length ? '; the rest are bonus tracks' : ''}.`;
+        return tapeMenu() ? `${count} Swipe the cassette or tap ⏪ ⏩ to change section; tap Tracks (or the cassette) to see them all${bonus.length ? ', bonus tracks too' : ''}. Prefer a record player? Aa → Section menu.`
+          : `${count} Swipe the record or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve${bonus.length ? ', bonus tracks too' : ''}. Prefer a tape deck? Aa → Section menu.`;
+      } },
     ...stops.map(id => ({ go: id, target: ['.page-head'], title: sectionName(id, NAMES[id]), text: own.get(id) || STOP_TEXT[id] })),
-    { go: 'settings', target: ['.page-head'], title: 'Settings', text: `Your role (${roleChosen() ? r.label : 'not chosen yet'}), your details, quotes and invoices, backups, display and this tour again. Change your role there any time: the menu follows, and nothing is removed. Everything stays on this device unless you save a backup.` },
+    { go: 'settings', target: ['.page-head'], title: 'Settings',
+      get text() {
+        const what = moneyShown() ? 'your details, quotes and invoices, backups, display and this tour again' : 'your details, backups, display and this tour again';
+        const more = bonus.length ? ` Not on your menu: ${listWords(bonus)}. ${tapeMenu() ? 'Tap Tracks' : 'Tap the record'} to open any of them.` : '';
+        return `Your role (${roleChosen() ? r.label : 'not chosen yet'}), ${what}. Change your role there any time: the menu follows, and nothing is deleted.${more} Everything stays on this device unless you save a backup.`;
+      } },
   ];
 }
 const RESUME = 'gdex-tour-at'; // the step to resume at when a step leaves the page (a calendar sign-in that redirects)

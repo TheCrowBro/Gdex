@@ -68,7 +68,7 @@ function show(i, dir = 0) {
     if (token !== showToken) return; // the drum moved on while this section was loading
     cleanup && cleanup();
     cleanup = null;
-    const holder = h('section', { class: 'page-card' + (dir ? ' fade-in' : ''), 'aria-label': p.label, 'data-page': p.id });
+    const holder = h('section', { class: 'page-card' + (dir ? ' fade-in' : ''), 'aria-label': tabs[i] ? tabs[i].label : p.label, 'data-page': p.id }); // the role's name for it (Roster, Gigs…)
     page.replaceChildren(holder);
     cleanup = p.render(holder) || null;
   }).catch(e => { console.error(e); toast('That section could not be loaded. Check the connection and try again.'); });
@@ -172,5 +172,8 @@ idle(() => import('./backup.js').then(m => m.nudgeIfStale && m.nudgeIfStale()).c
 if (!tourSeen()) {
   if (roleChosen()) setTimeout(() => startTour(), 700);
   else setTimeout(() => import('./role-pick.js').then(m => m.askRole({ then: () => startTour() })).catch(e => { console.error(e); startTour(); }), 500);
+} else if (!roleChosen()) {
+  // Gdex was in use before roles came: say once, without getting in the way, that it can set itself up for a role.
+  idle(() => import('./role-pick.js').then(m => m.nudgeRole(document.getElementById('clockbar'))).catch(e => console.error(e)));
 }
 initUpdates(); // service worker, offline copy, and the "new version" bar

@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
 async function openKept({ sample = false, tab = null, init = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gdex-profile-'));
   const ctx = await chromium.launchPersistentContext(dir, { viewport: { width: 420, height: 900 }, serviceWorkers: 'block', acceptDownloads: true });
-  await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); } catch (e) { /* ignore */ } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); } catch (e) { /* ignore */ } });
   if (init) await ctx.addInitScript(init);
   const page = ctx.pages()[0] || await ctx.newPage();
   const errors = [];

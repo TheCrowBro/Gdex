@@ -66,6 +66,67 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await browser.close();
   }
 
+  /* ---------------- a device that used Gdex before roles: one card, once ---------------- */
+  {
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+    await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); } catch (e) { /* ignore */ } });
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(BASE);
+    await page.waitForSelector('.rp-nudge', { timeout: 8000 });
+    ok('an install whose tour is done, with no role, gets one card about roles', (await page.locator('.rp-nudge').count()) === 1 && (await page.locator('.sheet, .tour-card').count()) === 0);
+    ok('…under the section menu, not over the page', await page.evaluate(() => { const c = document.querySelector('.rp-nudge'); return !!c && !document.getElementById('page').contains(c) && c.getBoundingClientRect().top >= document.getElementById('deck').getBoundingClientRect().bottom - 1; }));
+    await page.click('#rp-nudge-no');
+    ok('Not now puts it away', (await page.locator('.rp-nudge').count()) === 0);
+    await page.reload();
+    await page.waitForSelector('#deck .dk-next');
+    await sleep(2800);
+    ok('…for good', (await page.locator('.rp-nudge').count()) === 0);
+    await page.evaluate(() => localStorage.removeItem('gdex-role-nudged'));
+    await page.reload();
+    await page.waitForSelector('.rp-nudge', { timeout: 8000 });
+    await page.click('#rp-nudge-go');
+    await page.waitForSelector('.rp-ask');
+    ok('Choose my role asks the question', (await page.locator('.rp-ask .rp-card').count()) === 6);
+    await page.click('.rp-card[data-role="manager"]');
+    await sleep(500);
+    ok('…and the answer sets the menu, with no welcome tour again', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'manager' && (await page.locator('.tour-card').count()) === 0);
+    ok('no errors in the console (the role card)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
+  /* ---------------- the welcome tour in the role's words ---------------- */
+  {
+    const { browser, page, errors } = await open({ init: "localStorage.setItem('gdex-role','scout')" });
+    const steps = await page.evaluate(() => import('./js/tour.js').then(m => m.welcomeSteps().map(s => ({ title: s.title, text: s.text, body: !!s.body }))));
+    ok('the scout’s tour opens with its own welcome', /scouting/.test(steps[0].text) && /Fees and settlements stay off/.test(steps[0].text));
+    ok('it counts the tracks and the sides', /5 tracks: 3 on Side A, 2 on Side B; the rest are bonus tracks/.test(steps[2].text), steps[2].text);
+    ok('its stops use the role’s names', steps.some(s => s.title === 'Shows') && !steps.some(s => s.title === 'Bookings'), steps.map(s => s.title).join(' › '));
+    ok('the last card names the bonus tracks and leaves out quotes and invoices', /Not on your menu: Songs, Studio log, Backline, Money, Tools and Insurance/.test(steps[steps.length - 1].text) && !/quotes and invoices/.test(steps[steps.length - 1].text), steps[steps.length - 1].text);
+    await page.evaluate(() => import('./js/tour.js').then(m => m.startTour()));
+    await page.waitForSelector('.tour-card');
+    await page.click('.tour-actions .btn.primary');
+    await page.waitForSelector('.tour-form');
+    const fields = await page.$$eval('.tour-form input', i => i.map(x => [x.dataset.key, x.value]));
+    ok('the scout’s details card asks only for a name and what they do', JSON.stringify(fields.map(f => f[0])) === JSON.stringify(['name', 'role']), JSON.stringify(fields));
+    ok('…with What you do filled in as A&R scout', (fields.find(f => f[0] === 'role') || [])[1] === 'A&R scout');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('audiophile')));
+    await page.evaluate(() => import('./js/tour.js').then(m => m.startTour()));
+    await page.waitForSelector('.tour-card');
+    await page.click('.tour-actions .btn.primary');
+    await page.waitForSelector('.tour-form');
+    ok('the audiophile’s What you do starts empty', (await page.$eval('.tour-form input[data-key=role]', i => i.value)) === '');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('manager')));
+    const mgr = await page.evaluate(() => import('./js/tour.js').then(m => m.welcomeSteps().map(s => s.text)));
+    ok('a role with money keeps quotes and invoices on the last card', /quotes and invoices/.test(mgr[mgr.length - 1]));
+    ok('no errors in the console (tour)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
   /* ---------------- Settings → Your role, bonus tracks, booking boxes ---------------- */
   const { browser, page, errors } = await open({ sample: true, tab: 'settings' });
   const R = await roles(page);
@@ -77,6 +138,8 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   const radios = await page.$$eval('#se-role .rp-card', bs => bs.map(b => [b.dataset.role, b.getAttribute('role'), b.getAttribute('aria-checked')]));
   ok('it lists the six roles and Everything as one choice', radios.length === 7 && radios.every(r => r[1] === 'radio') && radios.find(r => r[0] === 'all')[2] === 'true', JSON.stringify(radios));
   ok('…in a radio group', (await page.locator('#se-role [role=radiogroup]').count()) === 1);
+  ok('Settings says the role is kept on this device, not in backups', /not in backups/.test(await page.textContent('#se-role')));
+  ok('…and offers a tour of the role', (await page.locator('#rp-tour').count()) === 1);
 
   for (const id of ['manager', 'band', 'solo', 'scout', 'audiophile', 'producer']) {
     await page.click(`#se-role .rp-card[data-role="${id}"]`);
@@ -87,6 +150,9 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok(`${id}: the rest are bonus tracks`, s.bonus.length + s.ids.length === 11);
     ok(`${id}: Settings is last on the menu`, s.ids[s.ids.length - 1] === 'settings');
   }
+  ok('a role without money says where fees went', await page.evaluate(() => import('./js/roles.js').then(m => { m.setRole('scout'); return new Promise(r => setTimeout(() => r(/Fees, deals and settlements are off/.test(document.getElementById('se-role').textContent)), 300)); })));
+  await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('producer')));
+  await sleep(300);
   ok('the line says the role and its menu', new RegExp(`Producer · ${R.menus.producer.length} sections`).test(await page.textContent('#se-role summary')), await page.textContent('#se-role summary'));
 
   /* a section off the menu, from a link and from the sleeve */
