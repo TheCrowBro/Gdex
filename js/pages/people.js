@@ -10,13 +10,16 @@ import { openForm } from '../form.js';
 import { qrSvg, loadQR } from '../qr.js';
 import { saveFile, fileName } from '../print.js';
 import { sheetTutorial } from '../tour.js';
-import { sectionName } from '../roles.js';
+import { sectionName, pageOpt } from '../roles.js';
 
 /* ------------------------------- small helpers ------------------------------- */
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const GROUP_IDS = PEOPLE_GROUPS.map(g => g[0]);
 const groupOf = p => (GROUP_IDS.includes(p && p.group) ? p.group : '');
 const groupLabel = g => (PEOPLE_GROUPS.find(x => x[0] === g) || ['', 'Not sorted yet'])[1];
+// The group + Add starts a new person in: the role's (Session players for a producer or a solo artist, Industry
+// contacts for a manager or a scout), else Band members.
+const newGroup = () => { const g = pageOpt('people', 'group', 'band'); return GROUP_IDS.includes(g) ? g : 'band'; };
 const ONE = { band: 'Band member', session: 'Session player', crew: 'Crew', contact: 'Industry contact' };
 const SHORT = { band: 'Band', session: 'Session', crew: 'Crew', contact: 'Contacts' }; // the filter chips, so all fit a phone
 const unitLabel = u => (PERSON_RATE_UNITS.find(x => x[0] === u) || PERSON_RATE_UNITS[0])[1];
@@ -411,7 +414,7 @@ function draw(root) {
     const el = id && root.querySelector('#' + CSS.escape(id));
     if (el) { el.focus({ preventScroll: true }); if (caret != null) try { el.setSelectionRange(caret, caret); } catch { /* not a text box */ } }
   };
-  const add = () => edit({ group: S.group || 'band' }, null, { actIds: S.act ? [S.act] : null });
+  const add = () => edit({ group: S.group || newGroup() }, null, { actIds: S.act ? [S.act] : null }); // a group on show wins
   const chip = (id, on, onclick, ...kids) => h('button', { class: 'chip' + (on ? ' on' : ''), type: 'button', id, 'aria-pressed': String(on), onclick }, ...kids);
   const count = n => h('span', { class: 'pp-n' }, String(n));
   const groupChips = PEOPLE_GROUPS.filter(([g]) => counts[g] || S.group === g);
@@ -448,6 +451,12 @@ function draw(root) {
       h('button', { class: 'btn ghost small', type: 'button', id: 'pp-export', onclick: () => exportContacts(shown) }, filtered ? `⤓ Save these ${shown.length} as contacts (.vcf)` : '⤓ Save everyone as contacts (.vcf)'))));
 }
 
+// Who to add first, by the group + Add starts in.
+const FIRST_ADD = {
+  band: 'Add your band first, then the players, crew and contacts you work with.',
+  session: 'Add the session players you hire first, then the band, crew and contacts you work with.',
+  contact: 'Add the promoters, agents, managers and label people you deal with first, then anyone else you work with.',
+};
 export const people = {
   id: 'people', label: 'People', icon: '👥',
   render(root) { draw(root); },
@@ -459,7 +468,7 @@ export const people = {
     { title: 'A person', text: 'Their role, instruments, company, acts and next booking. Tap the card for their bookings, rate and notes, to ask if they’re free, or to share their contact.', target: ['.pp-card .pp-main'] },
     { title: 'Call, text or email', text: 'Straight from the card, with the number and address saved for them.', target: ['.pp-card .pp-quick'] },
     { title: 'Save as contacts', text: 'Save the people on screen as a contacts file (.vcf) your phone or computer can import.', target: ['#pp-export'] },
-    { title: 'Nobody here yet', text: 'Add your band first, then the players, crew and contacts you work with.', target: ['#pp-empty-add'] },
+    { title: 'Nobody here yet', text: FIRST_ADD[newGroup()] || FIRST_ADD.band, target: ['#pp-empty-add'] },
   ],
 };
 

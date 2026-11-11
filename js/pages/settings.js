@@ -14,7 +14,7 @@ import { VERSION, BUILD, BUILT } from '../version.js';
 import { updatePanel } from '../update.js';
 import { installState, openInstallHelp } from '../install.js';
 import { backupPanel, health, fileState, onBackupChange, unlinkFile } from '../backup.js';
-import { role, roleChosen, menuSections } from '../roles.js';
+import { role, roleChosen, menuSections, sectionName } from '../roles.js';
 import { rolePanel } from '../role-pick.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
@@ -228,7 +228,7 @@ function loadSample() {
   const before = sampleCount();
   store.loadSample();
   const added = sampleCount() - before;
-  toast(added ? `Sample loaded: ${plural(added, 'record')}. Open Bookings to have a look.` : 'The whole sample is already here.');
+  toast(added ? `Sample loaded: ${plural(added, 'record')}. Open ${sectionName('bookings', 'Bookings')} to have a look.` : 'The whole sample is already here.');
 }
 // Every sample record goes through store.remove, so anything of yours that pointed at one (a booking for the sample
 // act, at a sample venue, with a sample song) is unlinked instead of left pointing at nothing. Returns how many went.

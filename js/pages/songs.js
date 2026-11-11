@@ -9,10 +9,20 @@ import { printElement } from '../print.js';
 import { sheetTutorial } from '../tour.js';
 import { openSetlist, newSetlist, liveSheet, plural, shortKey, tickShows } from '../setlist.js';
 import { openBooking } from './bookings.js';
-import { sectionName } from '../roles.js';
+import { sectionName, pageOpt, roleId } from '../roles.js';
 
 // View state survives redraws: which view, which act's chip, the search.
-const S = { view: 'songs', act: '', q: '', lyrics: false, qBox: false }; // qBox: the search box was showing (kept until the view changes, so clearing it never pulls it away mid-typing)
+const S = { view: '', act: '', q: '', lyrics: false, qBox: false }; // qBox: the search box was showing (kept until the view changes, so clearing it never pulls it away mid-typing)
+// The view Songs opens on: the role's (Setlists for a band, when there are songs to make them from), else Songs.
+// Worked out when the page is first drawn in a visit (and again for a role chosen since), not when this file loads,
+// then left alone, so adding the first song never moves the page; once the person picks a view, theirs stays.
+const V = { picked: false, role: '' };
+function settleView() {
+  if (V.picked || (S.view && V.role === roleId())) return;
+  V.role = roleId();
+  S.view = pageOpt('songs', 'view', 'songs') === 'setlists' && db.songs.length > 0 ? 'setlists' : 'songs';
+  S.qBox = false;
+}
 const NO_ACT = '-';
 export const TUNINGS = ['Standard', 'Drop D', 'E♭ standard', 'D standard', 'Drop C', 'Open G', 'Open D', 'DADGAD'];
 
@@ -44,6 +54,7 @@ function groupsOf(records) {
 export const songs = {
   id: 'songs', label: 'Songs', icon: '🎼',
   render(root) {
+    settleView();
     const draw = () => {
       const a = document.activeElement, typing = a && a.id === 'sg-q' && root.contains(a);
       root.replaceChildren(h('div', { class: 'sg-page' }, ...view(draw)));
@@ -82,7 +93,7 @@ function view(draw) {
     h('div', { class: 'seg sg-views', role: 'group', 'aria-label': 'Show songs or setlists' },
       [['songs', 'Songs', db.songs.length], ['setlists', 'Setlists', db.setlists.length]].map(([v, l, n]) => h('button', {
         type: 'button', id: 'sg-view-' + v, class: S.view === v || (v === 'songs' && isSongs) ? 'on' : '', 'aria-pressed': String(S.view === v || (v === 'songs' && isSongs)),
-        onclick: () => { S.view = v; S.qBox = false; draw(); },
+        onclick: () => { S.view = v; V.picked = true; S.qBox = false; draw(); },
       }, l, h('span', { class: 'sg-count' }, ' ' + n)))),
     // Kept while a search is on, so a search typed earlier can still be seen and cleared when few songs are left.
     isSongs && (db.songs.length > 3 || S.q || S.qBox) && (S.qBox = true) && h('input', { class: 'search sg-search', type: 'search', id: 'sg-q', placeholder: 'Search songs, keys, writers…', 'aria-label': 'Search songs', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; draw(); } }),

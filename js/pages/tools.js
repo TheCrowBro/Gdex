@@ -1,5 +1,6 @@
 // Tools: the musician's kit for the night. A tuner, a metronome, tap tempo with delay and reverb times, a sound
-// level meter and a set timer, one at a time under a switcher that remembers the last one used. The page is static
+// level meter and a set timer, one at a time under a switcher that remembers the last one picked (until then, the
+// role's first tool: tap tempo for a producer, the meter for an audiophile, else the tuner). The page is static
 // (live audio is never redrawn away by a data change); it listens to the store itself for the few things that show
 // data (songs' tempos, venues' noise limits, tonight's show), and its cleanup stops every sound, microphone, timer,
 // wake lock and listener when you leave.
@@ -12,17 +13,35 @@ import { metronome, setMetronomeBpm, METRONOME_STEPS } from '../tools-metronome.
 import { tempo, TEMPO_STEPS } from '../tools-tempo.js';
 import { meter, METER_STEPS } from '../tools-meter.js';
 import { setTimer, TIMER_STEPS } from '../tools-timer.js';
-import { sectionName } from '../roles.js';
+import { sectionName, pageOpt } from '../roles.js';
 
+// called: the tool in a sentence ("Gdex opens tap tempo…").
 const TOOLS = [
-  { id: 'tuner', label: 'Tuner', icon: '🎸', make: tuner, steps: TUNER_STEPS },
-  { id: 'metronome', label: 'Metronome', icon: '🥁', make: metronome, steps: METRONOME_STEPS },
-  { id: 'tempo', label: 'Tempo', icon: '👆', make: tempo, steps: TEMPO_STEPS },
-  { id: 'meter', label: 'Meter', icon: '🔊', make: meter, steps: METER_STEPS },
-  { id: 'timer', label: 'Set timer', icon: '⏱️', make: setTimer, steps: TIMER_STEPS },
+  { id: 'tuner', label: 'Tuner', called: 'the tuner', icon: '🎸', make: tuner, steps: TUNER_STEPS },
+  { id: 'metronome', label: 'Metronome', called: 'the metronome', icon: '🥁', make: metronome, steps: METRONOME_STEPS },
+  { id: 'tempo', label: 'Tempo', called: 'tap tempo', icon: '👆', make: tempo, steps: TEMPO_STEPS },
+  { id: 'meter', label: 'Meter', called: 'the sound level meter', icon: '🔊', make: meter, steps: METER_STEPS },
+  { id: 'timer', label: 'Set timer', called: 'the set timer', icon: '⏱️', make: setTimer, steps: TIMER_STEPS },
 ];
 const TOOL_KEY = 'gdex-tool';
-const S = { tool: (() => { try { const t = localStorage.getItem(TOOL_KEY); return TOOLS.some(x => x.id === t) ? t : 'tuner'; } catch { return 'tuner'; } })() };
+const known = id => TOOLS.some(x => x.id === id);
+// tool: the one on screen (the walkthrough follows it). picked: the one the person last picked in this visit, which
+// also lasts the visit where storage is blocked.
+const S = { tool: '', picked: '' };
+// The tool the person picked last, kept on this device; '' until they pick one.
+function remembered() {
+  if (S.picked) return S.picked;
+  try { const t = localStorage.getItem(TOOL_KEY); return known(t) ? t : ''; } catch { return ''; }
+}
+// The tool Tools opens on: the remembered one, else the role's (pageOpt), else the tuner. Worked out each time the
+// page is drawn, not when this file loads, so a new role chosen in the same visit applies while nothing is remembered.
+const firstTool = () => [remembered(), pageOpt('tools', 'tool', 'tuner')].find(known) || 'tuner';
+// Only a pick is remembered (a tab, the arrow keys on the tabs, Use in the metronome), never the tool a visit opens
+// on: looking at Tools must not lock the role's first tool in.
+function remember(id) {
+  S.picked = id;
+  try { localStorage.setItem(TOOL_KEY, id); } catch { /* private mode: for this visit only */ }
+}
 const ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 
 export const tools = {
@@ -32,16 +51,17 @@ export const tools = {
     const panel = h('div', { class: 'tl-panel', id: 'tl-panel', role: 'tabpanel', tabindex: '-1' });
     const tabs = TOOLS.map(t => h('button', {
       type: 'button', role: 'tab', id: 'tl-tab-' + t.id, class: 'tl-tab', 'data-tool': t.id, 'aria-controls': 'tl-panel', 'aria-selected': 'false', tabindex: '-1',
-      onclick: () => open(t.id),
+      onclick: () => open(t.id, true),
     }, h('span', { class: 'tl-tab-ico', 'aria-hidden': 'true' }, t.icon), h('span', { class: 'tl-tab-name' }, t.label)));
     const seg = h('div', { class: 'tl-seg', role: 'tablist', 'aria-label': 'Tools' }, tabs);
 
-    function open(id) {
+    // pick: the person chose this tool (remembered for next time); without it, the page is only opening on one.
+    function open(id, pick = false) {
+      if (pick) remember(id);
       if (active && active.id === id) return;
       if (active) { try { active.api.stop && active.api.stop(); } catch (e) { console.error(e); } }
       stopAll(); // nothing from the last tool keeps sounding or listening
       S.tool = id;
-      try { localStorage.setItem(TOOL_KEY, id); } catch { /* private mode */ }
       tabs.forEach(b => { const on = b.dataset.tool === id; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; b.classList.toggle('on', on); });
       panel.setAttribute('aria-labelledby', 'tl-tab-' + id);
       panel.dataset.tool = id;
@@ -53,13 +73,13 @@ export const tools = {
     }
     const ctx = {
       // The Tempo tool's "Use in the metronome".
-      toMetronome(bpm) { setMetronomeBpm(bpm); open('metronome'); document.getElementById('tl-tab-metronome')?.focus({ preventScroll: true }); },
+      toMetronome(bpm) { setMetronomeBpm(bpm); open('metronome', true); document.getElementById('tl-tab-metronome')?.focus({ preventScroll: true }); },
     };
 
     root.append(h('div', { class: 'tl-page' },
       h('div', { class: 'page-head' }, h('h1', null, sectionName('tools', 'Tools'))),
       seg, panel));
-    open(S.tool);
+    open(firstTool());
 
     // Keys: the tab strip moves with the arrows; Space runs the metronome and the set timer; T taps the tempo. Arrow
     // keys used inside a tool never reach the section menu, which would otherwise spin to another section.
@@ -76,7 +96,7 @@ export const tools = {
         e.preventDefault();
         const i = tabs.indexOf(e.target), n = tabs.length;
         const to = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : (i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1) + n) % n;
-        open(TOOLS[to].id); tabs[to].focus();
+        open(TOOLS[to].id, true); tabs[to].focus();
         return;
       }
       if (!w.inside && !w.loose && !w.tab) return;
@@ -109,8 +129,12 @@ export const tools = {
     };
   },
   // The walkthrough for whichever tool is open.
-  tutorial: () => [
-    { target: ['.tl-seg'], title: 'Five tools', text: 'A tuner, a metronome, tap tempo with delay times, a sound level meter and a set timer. Gdex opens the one you used last.' },
-    ...((TOOLS.find(t => t.id === S.tool) || TOOLS[0]).steps),
-  ],
+  // Until a tool is picked, it says which one Gdex opens on (the role's first tool).
+  tutorial: () => {
+    const first = TOOLS.find(t => t.id === firstTool()) || TOOLS[0];
+    return [
+      { target: ['.tl-seg'], title: 'Five tools', text: 'A tuner, a metronome, tap tempo with delay times, a sound level meter and a set timer. ' + (remembered() ? 'Gdex opens the one you used last.' : `Gdex opens ${first.called} until you pick one, then the one you used last.`) },
+      ...((TOOLS.find(t => t.id === (S.tool || first.id)) || TOOLS[0]).steps),
+    ];
+  },
 };
