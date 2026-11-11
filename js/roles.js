@@ -18,7 +18,8 @@ export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'bac
 //   welcome, tour   the welcome tour's first card and its stops ({ id, text }, at most five, in menu order).
 //   pages      small defaults on existing pages, read with pageOpt(page, key, fallback):
 //              bookings.open { kind: [box ids open at first] }, bookings.score (Score this show on a show you went to),
-//              acts.order ('name' | 'latest' | 'recent'), acts.tabs (an act's tabs: ['about'] leaves out the press kit and rider), acts.seen ('always' | 'logged': the times-seen line and log lead
+//              acts.order ('name' | 'latest' | 'recent'), acts.tabs (an act's tabs: ['about'] leaves out the press kit and rider,
+//              and puts the times seen at the top of its Overview), acts.seen ('always' | 'logged': the times-seen line and log lead
 //              only once something is logged), acts.empty (the empty list's words), people.group (+ Add starts there),
 //              songs.view ('setlists' to open there when there are songs), tools.tool (the first tool while none is
 //              remembered), money.earned (the label of the year's income).
@@ -37,7 +38,7 @@ export const ROLES = [
       { id: 'acts', text: 'The artists you produce: contacts, links, members, the tech rider, and their sessions coming up.' },
       { id: 'money', text: 'Invoices from your rate or the clock’s hours, what’s unpaid or overdue, and the year’s totals.' },
     ],
-    pages: { bookings: { open: { session: ['clock', 'takes'] } }, acts: { seen: 'logged' }, people: { group: 'session' }, tools: { tool: 'tempo' } } },
+    pages: { bookings: { open: { session: ['clock', 'takes'] } }, acts: { seen: 'logged', empty: 'Add an artist you produce: their name, links and members. Their page keeps the tech rider and their sessions coming up.' }, people: { group: 'session' }, tools: { tool: 'tempo' } } },
   { id: 'manager', label: 'Manager', icon: '💼', what: 'Artist manager',
     blurb: 'Your acts’ dates, deals and deposits, advancing, settlements and the people around them.',
     sections: ['bookings', 'acts', 'money', 'people', 'venues', 'insurance'], start: 'bookings', names: { acts: 'Roster' },
@@ -51,7 +52,7 @@ export const ROLES = [
       { id: 'people', text: 'Promoters, agents, crew and players, with what each is booked on. Ask if someone is free for a date in one tap; the message never carries the money.' },
       { id: 'venues', text: 'Capacity, curfew, noise limit, load-in and the contact for every room. A show there warns you when the set would run past curfew.' },
     ],
-    pages: { bookings: { open: { show: ['deal', 'advance'] } }, acts: { seen: 'logged' }, people: { group: 'contact' }, money: { earned: 'your acts earned' } } },
+    pages: { bookings: { open: { show: ['deal', 'advance'] } }, acts: { seen: 'logged', empty: 'Add an act on your roster: its name, members and links. Its page keeps the press kit and the tech rider to send to promoters, and its dates coming up.' }, people: { group: 'contact' }, money: { earned: 'your acts earned' } } },
   { id: 'band', label: 'Band', icon: '🥁', what: 'Musician',
     blurb: 'Gigs and rehearsals, setlists, who brings what gear, and the split after the show.',
     sections: ['bookings', 'songs', 'backline', 'tools', 'acts', 'money', 'people', 'venues'], start: 'bookings', names: { acts: 'Bands' },
@@ -65,7 +66,7 @@ export const ROLES = [
       { id: 'acts', text: 'Your band’s page: members, links, a press kit with a QR code for the merch desk, and the tech rider with input list and stage plot. Add any other band you play in too.' },
       { id: 'money', text: 'What each gig paid, the settlement on the night and what every player got, settled or still owed.' },
     ],
-    pages: { bookings: { open: { show: ['running', 'setlist'], rehearsal: ['setlist'] } }, acts: { seen: 'logged' }, songs: { view: 'setlists' } } },
+    pages: { bookings: { open: { show: ['running', 'setlist'], rehearsal: ['setlist'] } }, acts: { seen: 'logged', empty: 'Add your band: its name, members and links. Its page keeps the press kit and the tech rider, and its gigs coming up. Add any other band you play in too.' }, songs: { view: 'setlists' } } },
   { id: 'solo', label: 'Solo artist', icon: '🎤', what: 'Singer-songwriter',
     blurb: 'Your own gigs and studio days, songs and setlists, your press kit and getting paid.',
     sections: ['bookings', 'songs', 'money', 'acts', 'venues', 'people', 'tools'], start: 'bookings', names: { acts: 'My act' },
@@ -79,7 +80,7 @@ export const ROLES = [
       { id: 'acts', text: 'You as an act: bio and links, a one-page press kit with a QR code for the merch table, and the tech rider to send ahead.' },
       { id: 'venues', text: 'The rooms you play or want to: capacity, stage, PA, curfew and the contact. + Book here starts a booking there.' },
     ],
-    pages: { bookings: { open: { show: ['deal', 'setlist'] } }, acts: { seen: 'logged' }, people: { group: 'session' } } },
+    pages: { bookings: { open: { show: ['deal', 'setlist'] } }, acts: { seen: 'logged', empty: 'Add yourself as an act: your name, bio and links. Its page keeps a one-page press kit and the tech rider to send ahead.' }, people: { group: 'session' } } },
   { id: 'scout', label: 'Scout', icon: '🔭', what: 'A&R scout',
     blurb: 'Acts you’re watching: a score out of 100 each time you see them, and where they play next.',
     sections: ['acts', 'bookings', 'people', 'venues'], start: 'acts', names: { bookings: 'Shows' },

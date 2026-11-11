@@ -276,12 +276,13 @@ const SHEET_STEPS = () => [
     : { title: 'Add one here', text: 'Puts a date at this place on your calendar: a show at a venue or festival, a studio session at a studio, a rehearsal at a room. Edit changes the details or deletes it.', target: ['.vn-sheet-actions'] },
   { title: 'Getting there', text: 'The map, and directions in your maps app.', target: ['.vn-map'] },
   { title: 'What to know', text: 'Capacity, stage, PA, backline provided, load-in, parking, curfew and noise limit: the things to check before the day.', target: ['.vn-details'] },
-  { title: 'Bookings here', text: 'What is coming up and what you played before. A warning shows when a set would run past the curfew. Tap one to open it.', target: ['.vn-bookings'] },
+  { title: `${sectionName('bookings', 'Bookings')} here`, text: moneyShown() ? 'What is coming up and what you played before. A warning shows when a set would run past the curfew. Tap one to open it.' : 'What is coming up here and what you went to before. Tap one to open it.', target: ['.vn-bookings'] },
 ];
-const FORM_STEPS = [
+// Read when the walkthrough runs (sheetTutorial takes a function), so its words follow the role.
+const FORM_STEPS = () => [
   { title: 'The place', text: 'Its name, what kind of place it is, and the address.', target: ['[data-key=name]'] },
   { title: 'On the map', text: 'Find it from the address, paste a map link, or use where you are now. The map and directions use it.', target: ['.place'] },
-  { title: 'Curfew and limits', text: 'Shows here warn you when the set would run past the curfew or the deal counts on more people than it holds.', target: ['[data-key=curfew]', '[data-key=capacity]'] },
+  { title: 'Curfew and limits', text: moneyShown() ? 'Shows here warn you when the set would run past the curfew or the deal counts on more people than it holds.' : 'Shows here warn you when the set would run past the curfew. The noise limit is there for the sound meter.', target: ['[data-key=curfew]', '[data-key=capacity]'] },
 ];
 sheetTutorial('Add venue', FORM_STEPS);
 sheetTutorial('Edit venue', FORM_STEPS);

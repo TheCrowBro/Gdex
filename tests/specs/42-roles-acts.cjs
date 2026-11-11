@@ -199,9 +199,11 @@ async function logFromCard(page, id, score) {
     ok('audiophile: the empty list has the audiophile’s own words', (await page.textContent('.ac-page .empty p')) === await opt(page, 'empty') && /seen or want to see/.test(await page.textContent('.ac-page .empty p')));
     await role(page, 'manager');
     let text = await page.textContent('.ac-page .empty p');
-    ok('manager: the empty list names Roster, then says what an act is', /^Nothing in Roster yet\. An act is a band or artist you play in, manage or produce\./.test(text), text);
+    ok('manager: the empty list has the manager’s own words', text === await opt(page, 'empty') && /roster/.test(text), text);
     await role(page, 'solo');
-    ok('solo: …My act', /^Nothing in My act yet\. /.test(await page.textContent('.ac-page .empty p')));
+    ok('solo: …and the solo artist’s', (await page.textContent('.ac-page .empty p')) === await opt(page, 'empty') && /yourself as an act/.test(await page.textContent('.ac-page .empty p')));
+    await role(page, 'band');
+    ok('band: …and the band’s', /Add your band/.test(await page.textContent('.ac-page .empty p')));
     await role(page, 'all');
     text = await page.textContent('.ac-page .empty p');
     ok('Everything: the empty list reads as it always has', text === 'An act is a band or artist you play in, manage or produce. Its card counts the times you have seen them play, with your scores out of 100 and its dates coming up; it also keeps its members, links, press kit and tech rider.', text);

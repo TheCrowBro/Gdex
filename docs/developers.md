@@ -88,6 +88,12 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
 | `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
 
+Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
+seen last), and "From a past show" offers shows up to today (holds and offers too when money is off). Tools writes
+`gdex-tool` only when a tool is picked, and works out the first tool (remembered, else `tools.tool`, else the tuner)
+and Songs its first view each time it is drawn, so a role's default applies until the person chooses. The venue
+checks on a booking speak of "the set" for everyone and mention the deal or settlement only when money is on.
+
 Rules: a page reads the role through these helpers, never `roleId() === 'scout'`; ids stay ids (`sessions` is the
 Studio log, whatever a role calls anything); hiding never deletes or edits data; nothing inside a document that goes
 to other people (press kit, rider, day sheet, invoice, settlement) follows the role. On the section menu, sections
@@ -220,7 +226,15 @@ so in your report rather than forking it.
 ## Booking blocks (`js/blocks/*.js`)
 
 The booking page (`pages/bookings.js`) shows a header (title, kind, status, date, times, venue, act, contact) and then
-one collapsible box per block whose `kinds` include the booking's kind, sorted by `order`:
+one collapsible box per block whose `kinds` include the booking's kind, sorted by `order`. The role decides which
+(`js/blocks/index.js`): `blocksFor(kind)` in `.bk-blocks`; `foldedFor(kind)` in one closed fold after it,
+`details#bk-more` "More boxes (n)" with its boxes in `.bk-more-blocks` (same `blk-<id>` ids, drawn closed with the
+page and filled when opened; `ctx.open(id)` opens the fold first and keeps it open, under `'more'` in the booking's
+open set); `hiddenFor(kind)` is everything not shown, including money boxes, which a role without money never sees.
+A role's `pages.bookings.open` opens some boxes the first time a booking is drawn in a visit. With money off, new and
+duplicated bookings start Confirmed and an act's members are not copied into the line-up. For a role with
+`pages.bookings.score`, a show with an act, dated today or earlier and not yet scored (`model.seenEntryFor`) has
+"★ Score <act>" in its header (`acts.js` `logSighting`), then "★ Scored 86/100" with Edit.
 
 ```js
 export default {
@@ -266,6 +280,7 @@ may call it.
 | `pages/bookings.js` `openBooking(id)` | bookings | Go to Bookings and show that booking's page. Returns a promise. |
 | `pages/bookings.js` `newBooking(preset)` | bookings | Open the new-booking form, prefilled (`{ kind, actId, venueId, date, setlistId }`). |
 | `pages/acts.js` `openAct(id)` / `editAct(a, onSaved)` / `printRider(actId)` | acts | View sheet / edit form / print the tech rider. |
+| `pages/acts.js` `logSighting(a, entry)` | acts | Add (no `entry.id`) or edit a time seen, prefilled (`{ date, venueId, where, bookingId }`): Score this show uses it. A new entry from the act's card gets the act's one show that day. |
 | `pages/people.js` `openPerson(id)` / `editPerson(p, onSaved)` | people | View sheet / edit form (it also edits which acts the person is in: `act.members`). |
 | `pages/songs.js` `openSong(id)` / `editSong(s, onSaved)` | songs | View sheet / edit form. |
 | `js/setlist.js` `openSetlist(id, { target, bookingId })` / `newSetlist(preset)` / `printSetlist(id, { bookingId })` / `setlistText(list)` | songs | Editor sheet (target = slot minutes) / create and return the record / print the big stage copy (with the show's date, venue and set time) / plain text. |
@@ -343,8 +358,8 @@ backline, take, comp, stems, split sheet.
   `const { browser, page, errors } = await open({ sample: true, tab: 'songs' });` Each `ok(name, condition, extra)`
   prints a PASS or FAIL line. End every spec with `ok('no errors in the console', errors.length === 0, …)` and
   `await browser.close()`, and wrap the whole spec in `(async () => { … })().catch(e => { console.log('FAIL … crashed — ' + e.message); process.exit(1); })`.
-* Spec files by owner: `00-smoke` (core), `05-deck` and `06-roles` (core), `10-bookings`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
-  `35-songs`, `40-acts`, `41-seen`, `45-people`, `50-backline`, `55-venues`, `60-tools`, `65-insurance`, `70-settings`.
+* Spec files by owner: `00-smoke` (core), `05-deck` and `06-roles` (core), `10-bookings`, `12-roles-bookings`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
+  `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `45-people`, `50-backline`, `55-venues`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
   meter, timer, wake lock): a spec can check that leaving a page leaves nothing listening.
@@ -359,16 +374,16 @@ need a change there, describe it in your report instead.
 
 | Feature | Files |
 |---|---|
-| bookings | `js/pages/bookings.js`, `js/blocks/advance.js`, `js/blocks/lineup.js`, `js/blocks/notes.js`, `js/ics.js`, `css/bookings.css`, `tests/specs/10-bookings.cjs` |
+| bookings | `js/pages/bookings.js`, `js/blocks/advance.js`, `js/blocks/lineup.js`, `js/blocks/notes.js`, `js/ics.js`, `css/bookings.css`, `tests/specs/10-bookings.cjs`, `tests/specs/12-roles-bookings.cjs` |
 | show | `js/blocks/deal.js`, `js/blocks/running.js`, `js/blocks/guests.js`, `js/blocks/settlement.js`, `css/show.css`, `tests/specs/15-show.cjs` |
 | daysheet | `js/daysheet.js`, `js/blocks/daysheet.js`, `daysheet.html`, `js/daysheet-page.js`, `css/daysheet.css`, `tests/specs/20-daysheet.cjs` |
 | money | `js/money.js`, `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs` |
 | studio | `js/clock.js`, `js/blocks/clock.js`, `js/blocks/takes.js`, `js/blocks/worksongs.js`, `js/blocks/deliverables.js`, `js/pages/sessions.js`, `css/studio.css`, `tests/specs/30-studio.cjs` |
 | songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs` |
-| acts | `js/pages/acts.js`, `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs` |
+| acts | `js/pages/acts.js`, `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs` |
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs` |
-| tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs` |
+| tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |
 | settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs` |
 
 A feature may add new files of its own under `js/` (named after the feature) if it needs them.
