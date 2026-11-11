@@ -1,0 +1,38 @@
+# The browser specs (tests/specs) on every push and pull request, and on demand. They run Gdex in Chromium with
+# Playwright against a local copy of the site. The run also fails when the offline file list in sw.js is out of date
+# (a file added or removed without running node tools/stamp-build.mjs --dev).
+name: Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - run: npx playwright install --with-deps chromium
+      - name: The offline file list is up to date
+        run: |
+          node tools/stamp-build.mjs --dev
+          git diff --exit-code -- sw.js js/version.js || { echo "::error::Run node tools/stamp-build.mjs --dev and commit sw.js"; exit 1; }
+      - run: npm test
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: test-output
+          path: tests/output
+          if-no-files-found: ignore
