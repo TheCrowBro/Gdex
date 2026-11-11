@@ -47,7 +47,7 @@ npm run serve                   # http://localhost:8124/
 | id | Label | Module | What it is |
 |---|---|---|---|
 | `bookings` | Bookings | `pages/bookings.js` | Calendar and list of shows, studio sessions, rehearsals; the booking page with its blocks. |
-| `acts` | Acts | `pages/acts.js` | Bands and artists: members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider. |
+| `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider. |
 | `people` | People | `pages/people.js` | Band members, session players, crew, industry contacts (promoters, agents…). |
 | `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, split sheet) and setlists. |
 | `sessions` | Studio log | `pages/sessions.js` | Take logs for recording sessions: song, take number, time, keep/maybe/no, notes. |
@@ -134,7 +134,9 @@ Statuses per kind: `model.statusesFor(kind)` (`hold`, `offer`, `confirmed`, `adv
 `cancelled`). Pills: `h('span', { class: 'pill ' + statusTone(s) }, statusLabel(s))`.
 
 `acts`: `{ id, name, genre, color, bio, links (text, one "Label: url" per line), email, phone, members: [personId],
-inputList: [{ id, ch, source, mic, stand, note }], stagePlot: [{ id, label, x, y }], riderTech, riderHospitality, notes }`
+inputList: [{ id, ch, source, mic, stand, note }], stagePlot: [{ id, label, x, y }], riderTech, riderHospitality, notes,
+seen: [{ id, date, venueId, where, rating (1–100), notes, bookingId }] }` (`seen`: each time the person saw them play;
+`model.seenStats(a)` gives times seen, the average and latest score)
 
 `people`: `{ id, name, group: 'band'|'session'|'crew'|'contact', role, instrument, company, phone, email, rate,
 rateUnit: 'day'|'hour'|'show', notes }`. Act membership lives on the act (`act.members`).
@@ -168,7 +170,7 @@ by `js/money.js`.
 Constants: `KINDS`, `STATUSES`, `statusesFor`, `statusLabel`, `statusTone`, `kindLabel`, `kindIcon`, `SHOW_TIMES`,
 `SESSION_TIMES`, `timesFor`, `PEOPLE_GROUPS`, `ROLES`, `GEAR_CATS`, `VENUE_KINDS`, `RATE_UNITS`, `SONG_STATUS`,
 `NOTES`, `KEYS`, `SPLIT_ROLES`, `DEAL_TYPES`.
-Helpers: `bookingTitle(b)`, `actName(id)`, `venueOf(b)`, `firstTime(b)`, `coversDay(b, iso)`, `fmtDur(sec)`,
+Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `actUpcoming(a)`, `bookingTitle(b)`, `actName(id)`, `venueOf(b)`, `firstTime(b)`, `coversDay(b, iso)`, `fmtDur(sec)`,
 `parseDur(text)`, `fmtMin(min)`, `addMinutes('HH:MM', min)`, `minutesBetween(a, b)`, `setlistLength(list)`,
 `itemTitle(item)`, `fmtMoney(n, sym?)`, `currency()`, `dealPays(deal, gross)`, `dealSummary(deal)`, `dealBest(deal)`,
 `settle(b)`, `sessionFee(b, hours?)`, `sessionHoursPlanned(b)`, `bookingIncome(b)`.
@@ -309,7 +311,7 @@ backline, take, comp, stems, split sheet.
   prints a PASS or FAIL line. End every spec with `ok('no errors in the console', errors.length === 0, …)` and
   `await browser.close()`, and wrap the whole spec in `(async () => { … })().catch(e => { console.log('FAIL … crashed — ' + e.message); process.exit(1); })`.
 * Spec files by owner: `00-smoke` (core), `10-bookings`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
-  `35-songs`, `40-acts`, `45-people`, `50-backline`, `55-venues`, `60-tools`, `65-insurance`, `70-settings`.
+  `35-songs`, `40-acts`, `41-seen`, `45-people`, `50-backline`, `55-venues`, `60-tools`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
   meter, timer, wake lock): a spec can check that leaving a page leaves nothing listening.
@@ -330,7 +332,7 @@ need a change there, describe it in your report instead.
 | money | `js/money.js`, `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs` |
 | studio | `js/clock.js`, `js/blocks/clock.js`, `js/blocks/takes.js`, `js/blocks/worksongs.js`, `js/blocks/deliverables.js`, `js/pages/sessions.js`, `css/studio.css`, `tests/specs/30-studio.cjs` |
 | songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs` |
-| acts | `js/pages/acts.js`, `css/acts.css`, `tests/specs/40-acts.cjs` |
+| acts | `js/pages/acts.js`, `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs` |
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs` |
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs` |

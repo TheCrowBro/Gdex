@@ -2,10 +2,46 @@
    js/acts-docs.js). Colours come from the theme; an act's own colour arrives as --ac-color on its card. */
 
 /* list */
-.ac-card { display: grid; gap: 3px; border-left: 6px solid var(--ac-color, var(--accent)); padding-left: 12px; }
-.ac-card-name { font-weight: 800; font-size: 1.08rem; overflow-wrap: anywhere; }
-.ac-card-sub, .ac-card-next { display: block; overflow-wrap: anywhere; }
-.ac-card-next b { font-weight: 700; }
+/* A drop-down card: the head button opens the log under it; the dates coming up sit between. */
+.ac-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; font-size: 1rem; border-left: 6px solid var(--ac-color, var(--accent)); padding: 0 12px 12px; }
+.ac-card-head { display: grid; gap: 3px; width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit; padding: 12px 0 0; cursor: pointer; min-height: var(--hit); }
+.ac-card-head:hover .ac-card-name, .ac-card-head:focus-visible .ac-card-name { color: var(--accent); }
+.ac-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ac-card-name { font-weight: 800; font-size: 1.08rem; overflow-wrap: anywhere; min-width: 0; }
+.ac-chev { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--bg2); color: var(--muted); transition: transform .2s; }
+.ac-card.open .ac-chev { transform: rotate(180deg); color: var(--accent); }
+.ac-card-sub, .ac-seen-line { display: block; overflow-wrap: anywhere; }
+.ac-seen-line b { font-weight: 800; }
+.ac-seen-n { font-weight: 700; color: var(--accent); }
+.ac-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ac-dates-head { width: 100%; text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; font-weight: 700; }
+.ac-date { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; min-height: 36px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg2); color: inherit; font: inherit; font-size: .88rem; cursor: pointer; text-align: left; }
+.ac-date:hover, .ac-date:focus-visible { border-color: var(--accent); }
+.ac-date b { white-space: nowrap; }
+.ac-date-where { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ac-dates-more { align-self: center; }
+
+/* the log under an open card */
+.ac-pnl { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.ac-pnl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ac-seen-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ac-seen { display: flex; align-items: flex-start; gap: 6px; background: var(--bg2); border-radius: 10px; padding: 8px 4px 8px 10px; }
+.ac-seen-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.ac-seen-when { overflow-wrap: anywhere; }
+.ac-seen-notes { margin: 0; overflow-wrap: anywhere; }
+.ac-score { display: flex; align-items: center; gap: 2px; }
+.ac-score > b { font-weight: 800; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.ac-score-of { color: var(--muted); font-size: .8rem; margin-right: 8px; }
+.ac-score-bar { flex: 1; max-width: 180px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.ac-score-bar i { display: block; height: 100%; background: var(--ac-color, var(--accent)); border-radius: 3px; }
+.ac-pnl-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-pnl-actions .btn { flex: 1 1 auto; justify-content: center; }
+.ac-pick { display: grid; gap: 2px; }
+.ac-form-act { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 800; overflow-wrap: anywhere; }
+.ac-form-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--ac-color, var(--accent)); }
+.ac-slider { width: 100%; margin-top: 8px; accent-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .ac-chev { transition: none; } }
+@media (forced-colors: active) { .ac-score-bar { border: 1px solid CanvasText; } .ac-score-bar i { background: Highlight; forced-color-adjust: none; } }
 .ac-nomatch { padding: 8px 2px; }
 
 /* one act */

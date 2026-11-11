@@ -108,6 +108,7 @@ export function remove(list, id) {
       d.kits.forEach(k => { if ((k.items || []).includes(id)) { k.items = without(k.items, id); if (k.qty) delete k.qty[id]; touch(k); } });
     }
     if (list === 'acts') for (const c of ['bookings', 'songs', 'setlists']) d[c].forEach(r => { if (r.actId === id) { r.actId = ''; touch(r); } });
+    if (list === 'venues') d.acts.forEach(a => { let hit = false; (a.seen || []).forEach(x => { if (x.venueId === id) { x.venueId = ''; x.where = x.where || (gone && gone.name) || ''; hit = true; } }); if (hit) touch(a); }); // a sighting keeps the place's name
     if (list === 'venues') d.bookings.forEach(b => { if (b.venueId === id) { b.venueId = ''; b.venueName = b.venueName || (gone && gone.name) || ''; b.address = b.address || (gone && gone.address) || ''; touch(b); } });
     if (list === 'songs') {
       // A setlist keeps the song's title and length as its own, so the set still reads and times right.
@@ -122,6 +123,7 @@ export function remove(list, id) {
       // Take logs stand on their own in the Studio log; clock shifts only mean something on their booking, so they go
       // with it (a clock left running on it stops).
       d.logs.forEach(l => { if (l.bookingId === id) { l.bookingId = ''; touch(l); } });
+      d.acts.forEach(a => { let hit = false; (a.seen || []).forEach(x => { if (x.bookingId === id) { x.bookingId = ''; hit = true; } }); if (hit) touch(a); }); // a sighting stays: you still saw them
       d.shifts.filter(x => x.bookingId === id).forEach(x => { d.deleted[x.id] = now; });
       d.shifts = d.shifts.filter(x => x.bookingId !== id);
     }
@@ -234,8 +236,14 @@ export function loadSample() {
           { id: 'in7', ch: 7, source: 'Keys L', mic: 'DI', stand: '' }, { id: 'in8', ch: 8, source: 'Keys R', mic: 'DI', stand: '' },
           { id: 'in9', ch: 9, source: 'Lead vocal', mic: 'Beta 58 (own)', stand: 'Tall boom' }, { id: 'in10', ch: 10, source: 'Backing vocal', mic: 'SM58', stand: 'Tall boom' },
         ],
-        riderTech: '4 monitor mixes. Drum riser if available.', riderHospitality: 'Water, 8 towels, hot food for 6.' },
-      { id: 's-sablea', name: 'Sable', genre: 'Alt R&B', color: '#22d3ee', members: ['s-sable'], bio: 'Solo artist; debut EP in production. Sample act.' },
+        riderTech: '4 monitor mixes. Drum riser if available.', riderHospitality: 'Water, 8 towels, hot food for 6.',
+        seen: [
+          { id: 'sn1', date: day(-10), venueId: 's-lantern', bookingId: 's-past', rating: 86, notes: 'Tightest they have sounded. Lanterns went down well.' },
+          { id: 'sn2', date: day(-38), where: 'The Crown, Bristol', rating: 78, notes: 'Muddy sound; the new bassist settling in.' },
+          { id: 'sn3', date: day(-80), venueId: 's-harbour', rating: 71 },
+        ] },
+      { id: 's-sablea', name: 'Sable', genre: 'Alt R&B', color: '#22d3ee', members: ['s-sable'], bio: 'Solo artist; debut EP in production. Sample act.',
+        seen: [{ id: 'sn4', date: day(-24), where: 'Open mic, The Bell', rating: 90, notes: 'Signed her for the EP the week after.' }] },
     ],
     venues: [
       { id: 's-lantern', kind: 'venue', name: 'The Lantern Rooms', address: '12 Quay Street, Harbourtown', geo: { lat: 51.5072, lon: -0.1276 }, capacity: 350, stage: '6m × 4m', pa: 'd&b, Midas M32 at FOH', backline: 'Drum kit shell pack, bass cab', loadIn: 'Rear door on Ship Lane, 2 steps', parking: '2 spaces behind the venue', curfew: '23:00', noiseLimit: 98, contact: 'Rosa Lind', phone: '+1 555 0170', email: 'rosa@example.com', notes: 'Sample venue.' },

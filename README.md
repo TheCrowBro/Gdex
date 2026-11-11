@@ -29,7 +29,7 @@ The record player at the top is how you move around: every card is a track, Side
 | Card | What it's for |
 |---|---|
 | 📅 **Bookings** | Shows, studio sessions and rehearsals on one calendar. Open one for everything about it. |
-| 🎸 **Acts** | The bands and artists you work with: members, links, press kit, tech rider with the input list and stage plot. |
+| 🎸 **Acts** | The bands and artists you work with, as drop-down cards: how many times you have seen each one play, your scores out of 100 (average and latest), and their dates coming up on the calendar. Open a card for the log of each time seen. Each act keeps its members, links, press kit and tech rider with the input list and stage plot. |
 | 👥 **People** | Band members, session players, crew, promoters and agents, and how to reach them. |
 | 🎼 **Songs** | Keys, tempos and lengths; split sheets for the writers; setlists that add up to your slot. |
 | 🎙️ **Studio log** | A take log for recording: tap + Take, mark the keepers, note what to fix. |

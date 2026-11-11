@@ -1,10 +1,12 @@
-// Acts: the bands and artists the person plays in, manages or produces. The list of acts, and one act's page in three
+// Acts: the bands and artists the person plays in, manages or produces. The list is a drop-down of cards: closed, a card
+// shows how many times you have seen the act play, its scores out of 100 and its dates coming up on the calendar; open, it
+// shows the log of each time you saw them (date, where, score, notes). Then one act's page in three
 // parts: Overview (links, contact, bookings coming up, members, songs), Press kit (a one-page EPK and a big QR code for
 // the merch desk) and Tech rider (input list, stage plot, riders, printed for the sound engineer). The documents live in
 // js/acts-docs.js, the rider editors in js/acts-rider.js.
-import { h, empty, backBtn, telUrl, toast, sheet, fmtShort, daysUntil, todayISO, parseISO } from '../util.js';
+import { h, empty, backBtn, telUrl, toast, sheet, fmtShort, daysUntil, todayISO, parseISO, uid } from '../util.js';
 import { db, byId, upsert, update, remove, upcoming, redraw } from '../store.js';
-import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur } from '../model.js';
+import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, lastDate } from '../model.js';
 import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { openBooking, newBooking } from './bookings.js';
@@ -13,7 +15,7 @@ import { parseLinks, ACT_COLORS, colorOf, stripeStyle, roleOf, membersOf, initia
 import { openInputList, openRiders, stagePlot } from '../acts-rider.js';
 
 // View state survives the redraw after every change: which act is open, which part of it, the search.
-const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false };
+const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set() }; // open: the act cards dropped open on the list
 const people = fn => import('./people.js').then(fn).catch(e => { console.error(e); toast('People could not be opened.'); });
 const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
 const toTop = () => setTimeout(() => window.scrollTo(0, 0), 0);
@@ -83,7 +85,6 @@ function deleteAct(id, confirmed = false) {
 
 /* ------------------------------- the list ------------------------------- */
 const newAct = () => editAct({}, rec => openAct(rec.id));
-const nextOf = a => upcoming().find(b => b.actId === a.id) || null;
 function whenText(b) {
   const t = todayISO();
   if (b.date <= t && t <= (b.endDate || b.date) && b.date !== t) return 'On now';
@@ -92,13 +93,104 @@ function whenText(b) {
 }
 const whereText = b => { const v = venueOf(b).name; return v ? `${kindLabel(b.kind)} at ${v}` : kindLabel(b.kind); };
 
+/* ------------------------------- the drop-down cards ------------------------------- */
+const yearOf = iso => String(iso).slice(0, 4);
+const seenDate = iso => { const d = parseISO(iso), y = yearOf(iso) !== String(new Date().getFullYear()); return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', ...(y ? { year: 'numeric' } : {}) }); };
+const scoreBar = r => h('span', { class: 'ac-score', role: 'img', 'aria-label': `${r} out of 100` }, h('b', null, String(r)), h('span', { class: 'ac-score-of', 'aria-hidden': 'true' }, '/100'),
+  h('span', { class: 'ac-score-bar', 'aria-hidden': 'true' }, h('i', { style: `width:${r}%` })));
+function toggle(id) { if (S.open.has(id)) S.open.delete(id); else S.open.add(id); redraw(); focusSoon(`#ac-head-${CSS.escape(id)}`); }
+
 function actCard(a) {
-  const next = nextOf(a), n = membersOf(a).length, songs = db.songs.filter(s => s.actId === a.id).length;
-  return h('button', { type: 'button', class: 'card tap ac-card', style: stripeStyle(a), 'data-id': a.id, onclick: () => openAct(a.id) },
-    h('span', { class: 'ac-card-name' }, a.name || 'Untitled act'),
+  const open = S.open.has(a.id), st = seenStats(a), ahead = actUpcoming(a), n = membersOf(a).length, songs = db.songs.filter(s => s.actId === a.id).length;
+  const name = a.name || 'Untitled act', panelId = 'ac-pnl-' + a.id;
+  const seenLine = st.times
+    ? [h('span', { class: 'ac-seen-n' }, `Seen ${st.times === 1 ? 'once' : st.times + ' times'}`),
+      st.avg != null && h('span', null, ' · average ', h('b', null, String(st.avg)), '/100'), st.latest != null && st.times > 1 && h('span', null, ' · latest ', h('b', null, String(st.latest)))]
+    : h('span', { class: 'muted' }, 'Not seen live yet');
+  const head = h('button', { type: 'button', class: 'ac-card-head', id: 'ac-head-' + a.id, 'aria-expanded': String(open), 'aria-controls': panelId, onclick: () => toggle(a.id) },
+    h('span', { class: 'ac-card-top' }, h('span', { class: 'ac-card-name' }, name), h('span', { class: 'ac-chev', 'aria-hidden': 'true' }, '▾')),
     h('span', { class: 'ac-card-sub muted' }, [a.genre, n ? plural(n, 'member') : 'No members yet', songs > 0 && plural(songs, 'song')].filter(Boolean).join(' · ')),
-    h('span', { class: 'ac-card-next small' + (next ? '' : ' muted') }, next ? [kindIcon(next.kind), ' Next: ', h('b', null, whenText(next)), ' · ', whereText(next)] : 'Nothing booked yet'));
+    h('span', { class: 'ac-seen-line' }, seenLine));
+  const dates = h('div', { class: 'ac-dates', role: 'list', 'aria-label': `${name}: coming up on the calendar` },
+    ahead.length ? [h('span', { class: 'ac-dates-head small muted' }, 'Coming up'), ...ahead.slice(0, 3).map(b => h('button', { type: 'button', role: 'listitem', class: 'ac-date', onclick: () => openBooking(b.id), 'aria-label': `${whenText(b)}: ${whereText(b)}. Open the booking` },
+      h('span', { 'aria-hidden': 'true' }, kindIcon(b.kind)), h('b', null, whenText(b)), h('span', { class: 'ac-date-where' }, whereText(b)))),
+      ahead.length > 3 && h('span', { class: 'small muted ac-dates-more' }, `and ${ahead.length - 3} more`)]
+      : h('span', { class: 'small muted' }, 'Nothing on the calendar yet'));
+  return h('div', { class: 'card ac-card' + (open ? ' open' : ''), style: stripeStyle(a), 'data-id': a.id }, head, dates,
+    open && h('div', { class: 'ac-pnl', id: panelId, role: 'region', 'aria-labelledby': 'ac-head-' + a.id }, seenPanel(a)));
 }
+
+// The log of each time you saw the act, newest first, and the ways to add to it.
+function seenPanel(a) {
+  const list = seenOf(a), st = seenStats(a), past = pastShows(a);
+  return [
+    h('div', { class: 'ac-pnl-head' }, h('strong', null, 'Times seen'), st.best != null && st.times > 1 && h('span', { class: 'small muted' }, `best ${st.best}/100`)),
+    list.length ? h('ol', { class: 'ac-seen-list', 'aria-label': `Times you saw ${a.name || 'this act'}` }, list.map(s => {
+      const r = ratingOf(s), where = seenWhere(s);
+      return h('li', { class: 'ac-seen' },
+        h('div', { class: 'ac-seen-main' },
+          h('span', { class: 'ac-seen-when' }, h('b', null, seenDate(s.date)), where && h('span', { class: 'muted' }, ' · ' + where)),
+          r != null ? scoreBar(r) : h('span', { class: 'small muted' }, 'No score'),
+          s.notes && h('p', { class: 'small ac-seen-notes' }, s.notes)),
+        h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Edit the time you saw them on ${seenDate(s.date)}`, onclick: () => logSighting(a, s) }, '✎'));
+    })) : h('p', { class: 'small muted' }, 'Each time you see them play, log the date, where, and a score out of 100. The card adds them up.'),
+    h('div', { class: 'actions ac-pnl-actions' },
+      h('button', { type: 'button', class: 'btn primary small', id: 'ac-log-' + a.id, onclick: () => logSighting(a) }, '+ Log a time you saw them'),
+      past.length > 0 && h('button', { type: 'button', class: 'btn ghost small', id: 'ac-past-' + a.id, onclick: () => fromPastShow(a, past) }, '📅 From a past show'),
+      h('button', { type: 'button', class: 'btn ghost small', id: 'ac-open-' + a.id, onclick: () => openAct(a.id) }, 'Open the act ›')),
+  ];
+}
+
+// The act's past shows that went ahead (not a hold or an offer) and are not in the log yet: a quick way to log one you were at.
+const pastShows = a => (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && lastDate(b) < todayISO() && b.kind === 'show' && !['hold', 'offer'].includes(b.status) && !(a.seen || []).some(s => s.bookingId === b.id))
+  .sort((x, y) => y.date.localeCompare(x.date));
+function fromPastShow(a, past) {
+  let close = () => {};
+  ({ close } = sheet('From a past show', h('div', { class: 'stack' },
+    h('p', { class: 'small muted' }, `Shows of ${a.name || 'this act'} on your calendar that are not in its log yet. Pick one to log it with its date and place.`),
+    h('div', { class: 'list' }, past.slice(0, 20).map(b => h('button', { type: 'button', class: 'card tap ac-pick', onclick: () => { close(); logSighting(a, { date: b.date, venueId: b.venueId || '', where: b.venueId ? '' : (b.venueName || ''), bookingId: b.id }); } },
+      h('strong', null, seenDate(b.date)), h('span', { class: 'small muted' }, whereText(b))))))));
+}
+
+// Add or edit one time seen. A score from 1 to 100 (a slider beside the box); where is one of your venues or typed.
+function logSighting(a, s = {}) {
+  const editing = !!s.id, venues = [...db.venues].sort(byName);
+  openForm({
+    title: editing ? 'Edit a time seen' : 'Log a time seen',
+    values: { date: todayISO(), rating: 75, ...s, venueId: s.venueId || '', where: s.venueId ? '' : (s.where || '') },
+    fields: [
+      { key: 'date', label: 'When', type: 'date', required: true },
+      { key: 'venueId', label: 'Where', type: 'select', options: [['', 'Somewhere not in my venues'], ...venues.map(v => [v.id, v.name || 'Unnamed venue'])] },
+      { key: 'where', label: 'Or type the place', placeholder: 'e.g. The Crown, Bristol' },
+      { key: 'rating', label: 'Score out of 100', type: 'number', min: 1, max: 100, step: 1, required: true, hint: '1 is the worst you have seen them, 100 the best.' },
+      { key: 'notes', label: 'Notes', type: 'textarea', rows: 2, placeholder: 'The set, the sound, the crowd, new songs…' },
+    ],
+    onReady: form => {
+      // A slider beside the score box, kept in step with it; the typed-place box only while no venue is picked.
+      form.prepend(h('p', { class: 'ac-form-act' }, h('span', { class: 'ac-form-dot', 'aria-hidden': 'true', style: stripeStyle(a) }), a.name || 'Untitled act'));
+      const box = form.querySelector('input[data-key=rating]'), venue = form.querySelector('select[data-key=venueId]'), where = form.querySelector('input[data-key=where]');
+      if (box) {
+        const slider = h('input', { type: 'range', min: 1, max: 100, step: 1, value: box.value || 75, class: 'ac-slider', 'aria-label': 'Score out of 100, slider' });
+        slider.addEventListener('input', () => { box.value = slider.value; });
+        box.addEventListener('input', () => { const v = Math.round(Number(box.value)); if (v >= 1 && v <= 100) slider.value = v; });
+        box.after(slider);
+      }
+      const sync = () => { const f = where && where.closest('.field'); if (f) f.hidden = !!(venue && venue.value); };
+      if (venue) venue.addEventListener('change', sync);
+      sync();
+    },
+    onSave: v => {
+      const rating = Math.min(100, Math.max(1, Math.round(Number(v.rating)) || 1));
+      const entry = { id: s.id || uid(), date: v.date || todayISO(), venueId: v.venueId || '', where: v.venueId ? '' : String(v.where || '').trim(), rating, notes: String(v.notes || '').trim(), bookingId: s.bookingId || '' };
+      update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; const list = Array.isArray(x.seen) ? x.seen.filter(e => e.id !== entry.id) : []; x.seen = [...list, entry]; x.updatedAt = Date.now(); });
+      S.open.add(a.id);
+      toast(editing ? 'Saved' : `Logged: ${rating}/100`);
+    },
+    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (x.seen || []).filter(e => e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); } : null,
+    confirmDelete: `Remove the time you saw ${a.name || 'them'} on ${s.date ? seenDate(s.date) : 'this date'}?`,
+  });
+}
+
 function listView() {
   const all = [...db.acts].sort(byName);
   const listBox = h('div', { class: 'list ac-list' });
@@ -111,7 +203,7 @@ function listView() {
   return h('div', { class: 'ac-page' },
     h('div', { class: 'page-head' }, h('h1', null, 'Acts'), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, '+ New act')),
     all.length > 5 && h('input', { class: 'search', id: 'ac-search', type: 'search', placeholder: 'Search acts, genres, members…', 'aria-label': 'Search acts', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; fill(); } }),
-    all.length ? listBox : empty('An act is a band or artist you play in, manage or produce. Each one keeps its members, links, press kit and tech rider, and its shows and songs point back to it.',
+    all.length ? listBox : empty('An act is a band or artist you play in, manage or produce. Its card counts the times you have seen them play, with your scores out of 100 and its dates coming up; it also keeps its members, links, press kit and tech rider.',
       h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, '+ New act')));
 }
 
@@ -317,7 +409,9 @@ function riderTab(a) {
 const listSteps = () => [
   { title: 'Acts', text: 'The bands and artists you play in, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
   { title: 'Add an act', text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] },
-  { title: 'Your acts', text: 'Each card shows the genre, the members, the songs and the next booking. Tap one for everything else.', target: ['.ac-card', '.ac-page .empty'] },
+  { title: 'Your acts', text: 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.', target: ['.ac-card', '.ac-page .empty'] },
+  { title: 'Drop it open', text: 'Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its members, press kit and rider.', target: ['.ac-card-head'] },
+  { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
   { title: 'Search', text: 'Find an act by its name, genre or a member’s name.', target: ['#ac-search'] },
 ];
 const actSteps = () => [
@@ -352,6 +446,13 @@ const formSteps = [
   { title: 'Bio', text: 'Two or three sentences for promoters and press. It heads the press kit.', target: ['textarea[data-key=bio]'] },
 ];
 sheetTutorial('New act', formSteps);
+const seenSteps = [
+  { title: 'When and where', text: 'The date, and one of your venues or any other place typed in.', target: ['input[data-key=date]'] },
+  { title: 'Score', text: 'Out of 100: type it or slide it. The card shows the average and the latest, so you can see whether they are getting better.', target: ['input[data-key=rating]'] },
+  { title: 'Notes', text: 'Whatever you want to remember: the set, the sound, the crowd.', target: ['textarea[data-key=notes]'] },
+];
+sheetTutorial('Log a time seen', seenSteps);
+sheetTutorial('Edit a time seen', seenSteps);
 sheetTutorial('Edit act', formSteps);
 sheetTutorial('Add members', [
   { title: 'Add members', text: 'Tap someone to add them to the act. Each tap adds one, and the sheet stays open for the next.', target: ['.ac-addm-list'] },

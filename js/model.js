@@ -77,6 +77,29 @@ export function markCheck(bookingId, id, on = true) {
   update(d => { const x = d.bookings.find(r => r.id === bookingId); if (!x) return; x.checks = { ...(x.checks || {}) }; if (on) x.checks[id] = true; else delete x.checks[id]; x.updatedAt = Date.now(); });
 }
 
+/* ------------------------------- times seen ------------------------------- */
+// An act's sightings: act.seen = [{ id, date, venueId, where, rating (1–100), notes, bookingId }], one per time the
+// person saw them play. Newest first.
+export const seenOf = a => (Array.isArray(a && a.seen) ? a.seen.filter(s => s && s.date) : []).slice().sort((x, y) => String(y.date).localeCompare(String(x.date)));
+export const ratingOf = s => { const r = Math.round(Number(s && s.rating)); return r >= 1 && r <= 100 ? r : null; };
+// { times, avg, latest, best, last }: how many times seen, the average and latest score out of 100 (null when none is
+// scored), the best, and the date last seen.
+export function seenStats(a) {
+  const list = seenOf(a), scored = list.map(ratingOf).filter(r => r != null);
+  return {
+    times: list.length,
+    avg: scored.length ? Math.round(scored.reduce((t, r) => t + r, 0) / scored.length) : null,
+    latest: scored.length ? scored[0] : null,
+    best: scored.length ? Math.max(...scored) : null,
+    last: list.length ? list[0].date : '',
+  };
+}
+// Where a sighting was: the venue's name while it is in Venues, else what was typed.
+export const seenWhere = s => (s && s.venueId && byId('venues', s.venueId) ? byId('venues', s.venueId).name : (s && s.where) || '');
+// The act's bookings still to come, soonest first (the dates on its card).
+export const actUpcoming = a => (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && lastDate(b) >= todayIso()).sort((x, y) => (x.date + firstTime(x)).localeCompare(y.date + firstTime(y)));
+const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
 /* ------------------------------- people & gear ------------------------------- */
 export const PEOPLE_GROUPS = [['band', 'Band members'], ['session', 'Session players'], ['crew', 'Crew'], ['contact', 'Industry contacts']];
 export const ROLES = ['Vocals', 'Guitar', 'Bass', 'Drums', 'Keys', 'Producer', 'Engineer', 'Mix engineer', 'Mastering engineer', 'Session musician',

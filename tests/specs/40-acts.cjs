@@ -43,7 +43,7 @@ const printed = async (page, click) => {
   ok('the sample acts are listed', (await page.locator('.ac-card').count()) === 2);
   const owls = page.locator('.ac-card[data-id="s-owls"]');
   ok('a card shows genre, members and songs', /Indie rock · 4 members · 8 songs/.test(await owls.textContent()), await owls.textContent());
-  ok('a card shows the next booking', /Next:/.test(await owls.textContent()));
+  ok('a card shows its dates coming up', (await owls.locator('.ac-date').count()) >= 3);
   ok('the act colour is the card stripe', ((await owls.getAttribute('style')) || '').includes('#ff5c8a'));
 
   /* make an act */
