@@ -4,16 +4,20 @@
 // parts: Overview (links, contact, bookings coming up, members, songs), Press kit (a one-page EPK and a big QR code for
 // the merch desk) and Tech rider (input list, stage plot, riders, printed for the sound engineer). The documents live in
 // js/acts-docs.js, the rider editors in js/acts-rider.js.
+// The role (js/roles.js) names the section (Artists, Roster, Bands, My act), orders the list (A to Z, latest score, last
+// seen), keeps the times-seen line back until something is logged for a role that doesn't score its own acts, and may
+// keep an act's page to its Overview, with the log at the top. The role's names never reach the press kit or the rider:
+// those go to other people.
 import { h, empty, backBtn, telUrl, toast, sheet, fmtShort, daysUntil, todayISO, parseISO, uid } from '../util.js';
 import { db, byId, upsert, update, remove, upcoming, redraw } from '../store.js';
-import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, lastDate } from '../model.js';
+import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, coversDay, seenEntryFor } from '../model.js';
 import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { openBooking, newBooking } from './bookings.js';
 import { parseLinks, ACT_COLORS, colorOf, stripeStyle, roleOf, membersOf, initials, plural, qrTarget, fillQr, epkDoc, printEpk, saveEpk,
   inputTable, inputRows, dupChannels, saveInputCsv, plotOf, saveRider, printRider as printRiderDoc } from '../acts-docs.js';
 import { openInputList, openRiders, stagePlot } from '../acts-rider.js';
-import { sectionName } from '../roles.js';
+import { sectionName, pageOpt, moneyShown, newKind } from '../roles.js';
 
 // View state survives the redraw after every change: which act is open, which part of it, the search.
 const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set() }; // open: the act cards dropped open on the list
@@ -21,13 +25,28 @@ const people = fn => import('./people.js').then(fn).catch(e => { console.error(e
 const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
 const toTop = () => setTimeout(() => window.scrollTo(0, 0), 0);
 const focusSoon = sel => setTimeout(() => { const el = document.querySelector(sel); if (el) el.focus({ preventScroll: true }); }, 0);
+// The section's name for the role ('Roster', 'My act'…): the page's heading, its back button and its toasts.
+const secName = () => sectionName('acts', 'Acts');
+// The act page's parts the role keeps (pages.acts.tabs, ['about'] for a scout): a role that trims them follows acts
+// rather than playing in them, so its Overview leads with the times seen.
+const TABS = [['about', 'Overview'], ['epk', 'Press kit'], ['rider', 'Tech rider']];
+const keptTabs = () => { const want = pageOpt('acts', 'tabs', null); const list = Array.isArray(want) ? TABS.filter(([id]) => want.includes(id)) : []; return list.length ? list : TABS; };
+const hasTab = id => keptTabs().some(([t]) => t === id);
+const seenOnPage = () => Array.isArray(pageOpt('acts', 'tabs', null));
+// A role that doesn't score its own acts (pages.acts.seen 'logged') sees the times seen only once something is logged.
+const seenHidden = a => pageOpt('acts', 'seen', 'always') === 'logged' && !seenOf(a).length;
+// What + Book on an act's page makes: the role's usual kind of booking.
+const BOOK = { show: ['+ Book a show', 'show'], session: ['+ Book a session', 'session'], rehearsal: ['+ Book a rehearsal', 'rehearsal'], other: ['+ Add a diary entry', 'diary entry'] };
+const book = () => BOOK[newKind()] || BOOK.show;
+// "4 members", or "No members yet" unless the role has no use for members (no money: it follows acts, it doesn't run them).
+const membersText = n => (n ? plural(n, 'member') : moneyShown() ? 'No members yet' : '');
 const GENRES = ['Indie rock', 'Rock', 'Pop', 'Alt R&B', 'R&B / Soul', 'Hip-hop', 'Electronic', 'Dance', 'Jazz', 'Folk', 'Country', 'Americana',
   'Singer-songwriter', 'Metal', 'Punk', 'Blues', 'Funk', 'Reggae', 'Latin', 'Classical', 'World', 'Gospel', 'Covers band', 'Function / wedding band'];
 
 /* ------------------------------- the shared API ------------------------------- */
 // Go to Acts and show this act. Resolves once it is drawn.
 export function openAct(id) {
-  if (!byId('acts', id)) { toast('That act is no longer in Acts.'); return Promise.resolve(); }
+  if (!byId('acts', id)) { toast(`That act is no longer in ${secName()}.`); return Promise.resolve(); }
   Object.assign(S, { view: 'act', id, tab: 'about', allBk: false });
   return Promise.resolve(window.logiGo ? window.logiGo('acts') : null).then(() => { redraw(); toTop(); focusSoon('.ac-view .back-btn'); });
 }
@@ -50,8 +69,8 @@ export function editAct(a = {}, onSaved) {
       { key: 'color', label: 'Colour', type: 'select', options: colors, hint: 'The stripe on the act’s cards.' },
       { key: 'email', label: 'Email', type: 'email', placeholder: 'band@…' },
       { key: 'phone', label: 'Phone', type: 'tel' },
-      { key: 'links', label: 'Links', type: 'textarea', rows: 4, placeholder: 'Website: https://…\nSpotify: https://…\nInstagram: https://…', hint: 'One per line: a name, a colon, then the address. The first one is the QR code on the press kit.' },
-      { key: 'bio', label: 'Bio', type: 'textarea', rows: 5, placeholder: 'Two or three sentences for promoters and press: who you are, what you sound like, where you’ve played.' },
+      { key: 'links', label: 'Links', type: 'textarea', rows: 4, placeholder: 'Website: https://…\nSpotify: https://…\nInstagram: https://…', hint: 'One per line: a name, a colon, then the address.' + (hasTab('epk') ? ' The first one is the QR code on the press kit.' : '') },
+      { key: 'bio', label: 'Bio', type: 'textarea', rows: 5, placeholder: hasTab('epk') ? 'Two or three sentences for promoters and press: who you are, what you sound like, where you’ve played.' : 'A few lines on who they are, what they sound like and where they’ve played.' },
       { key: 'notes', label: 'Notes', type: 'textarea', rows: 3, placeholder: 'Only you see these.' },
     ],
     saveLabel: isNew ? 'Add act' : 'Save',
@@ -104,14 +123,15 @@ function toggle(id) { if (S.open.has(id)) S.open.delete(id); else S.open.add(id)
 function actCard(a) {
   const open = S.open.has(a.id), st = seenStats(a), ahead = actUpcoming(a), n = membersOf(a).length, songs = db.songs.filter(s => s.actId === a.id).length;
   const name = a.name || 'Untitled act', panelId = 'ac-pnl-' + a.id;
+  const sub = [a.genre, membersText(n), songs > 0 && plural(songs, 'song')].filter(Boolean).join(' · ');
   const seenLine = st.times
     ? [h('span', { class: 'ac-seen-n' }, `Seen ${st.times === 1 ? 'once' : st.times + ' times'}`),
       st.avg != null && h('span', null, ' · average ', h('b', null, String(st.avg)), '/100'), st.latest != null && st.times > 1 && h('span', null, ' · latest ', h('b', null, String(st.latest)))]
     : h('span', { class: 'muted' }, 'Not seen live yet');
   const head = h('button', { type: 'button', class: 'ac-card-head', id: 'ac-head-' + a.id, 'aria-expanded': String(open), 'aria-controls': panelId, onclick: () => toggle(a.id) },
     h('span', { class: 'ac-card-top' }, h('span', { class: 'ac-card-name' }, name), h('span', { class: 'ac-chev', 'aria-hidden': 'true' }, '▾')),
-    h('span', { class: 'ac-card-sub muted' }, [a.genre, n ? plural(n, 'member') : 'No members yet', songs > 0 && plural(songs, 'song')].filter(Boolean).join(' · ')),
-    h('span', { class: 'ac-seen-line' }, seenLine));
+    !!sub && h('span', { class: 'ac-card-sub muted' }, sub),
+    !seenHidden(a) && h('span', { class: 'ac-seen-line' }, seenLine));
   const dates = h('div', { class: 'ac-dates', role: 'list', 'aria-label': `${name}: coming up on the calendar` },
     ahead.length ? [h('span', { class: 'ac-dates-head small muted' }, 'Coming up'), ...ahead.slice(0, 3).map(b => h('button', { type: 'button', role: 'listitem', class: 'ac-date', onclick: () => openBooking(b.id), 'aria-label': `${whenText(b)}: ${whereText(b)}. Open the booking` },
       h('span', { 'aria-hidden': 'true' }, kindIcon(b.kind)), h('b', null, whenText(b)), h('span', { class: 'ac-date-where' }, whereText(b)))),
@@ -121,11 +141,19 @@ function actCard(a) {
     open && h('div', { class: 'ac-pnl', id: panelId, role: 'region', 'aria-labelledby': 'ac-head-' + a.id }, seenPanel(a)));
 }
 
-// The log of each time you saw the act, newest first, and the ways to add to it.
-function seenPanel(a) {
+// The log of each time you saw the act, newest first, and the ways to add to it. Under a card it ends with Open the
+// act; on the act's own page (onPage, for a role that keeps the act to its Overview) it heads the Overview instead.
+function seenPanel(a, onPage = false) {
   const list = seenOf(a), st = seenStats(a), past = pastShows(a);
+  const logBtn = tone => h('button', { type: 'button', class: `btn ${tone} small`, id: 'ac-log-' + a.id, onclick: () => logSighting(a) }, '+ Log a time you saw them');
+  const pastBtn = past.length > 0 && h('button', { type: 'button', class: 'btn ghost small', id: 'ac-past-' + a.id, onclick: () => fromPastShow(a, past) }, '📅 From a past show');
+  const openBtn = tone => h('button', { type: 'button', class: `btn ${tone} small`, id: 'ac-open-' + a.id, onclick: () => openAct(a.id) }, 'Open the act ›');
+  // A role that doesn't score its own acts, before anything is logged: the card is the way in to the act, and logging
+  // a time seen waits under it.
+  if (!onPage && seenHidden(a)) return [h('div', { class: 'actions ac-pnl-actions ac-pnl-lead' }, openBtn('primary'), logBtn('ghost'), pastBtn)];
+  const best = st.best != null && st.times > 1 && h('span', { class: 'small muted' }, `best ${st.best}/100`);
   return [
-    h('div', { class: 'ac-pnl-head' }, h('strong', null, 'Times seen'), st.best != null && st.times > 1 && h('span', { class: 'small muted' }, `best ${st.best}/100`)),
+    h('div', { class: 'ac-pnl-head' }, onPage ? h('h3', { id: 'ac-h-seen' }, 'Times seen') : h('strong', null, 'Times seen'), best),
     list.length ? h('ol', { class: 'ac-seen-list', 'aria-label': `Times you saw ${a.name || 'this act'}` }, list.map(s => {
       const r = ratingOf(s), where = seenWhere(s);
       return h('li', { class: 'ac-seen' },
@@ -135,22 +163,47 @@ function seenPanel(a) {
           s.notes && h('p', { class: 'small ac-seen-notes' }, s.notes)),
         h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Edit the time you saw them on ${seenDate(s.date)}`, onclick: () => logSighting(a, s) }, '✎'));
     })) : h('p', { class: 'small muted' }, 'Each time you see them play, log the date, where, and a score out of 100. The card adds them up.'),
-    h('div', { class: 'actions ac-pnl-actions' },
-      h('button', { type: 'button', class: 'btn primary small', id: 'ac-log-' + a.id, onclick: () => logSighting(a) }, '+ Log a time you saw them'),
-      past.length > 0 && h('button', { type: 'button', class: 'btn ghost small', id: 'ac-past-' + a.id, onclick: () => fromPastShow(a, past) }, '📅 From a past show'),
-      h('button', { type: 'button', class: 'btn ghost small', id: 'ac-open-' + a.id, onclick: () => openAct(a.id) }, 'Open the act ›')),
+    h('div', { class: 'actions ac-pnl-actions' }, logBtn('primary'), pastBtn, !onPage && openBtn('ghost')),
   ];
 }
 
-// The act's past shows that went ahead (not a hold or an offer) and are not in the log yet: a quick way to log one you were at.
-const pastShows = a => (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && lastDate(b) < todayISO() && b.kind === 'show' && !['hold', 'offer'].includes(b.status) && !(a.seen || []).some(s => s.bookingId === b.id))
-  .sort((x, y) => y.date.localeCompare(x.date));
+// The act's shows up to today that are not in the log yet: a quick way to log one you were at, tonight's included. A
+// role with money leaves out holds and offers (they never happened); a role without money doesn't track deals, so only
+// a cancelled show is left out. A show is in the log when an entry carries its id, or shares its date without one.
+const pastShows = a => {
+  const today = todayISO(), money = moneyShown();
+  return (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && b.date <= today && b.kind === 'show' && !(money && ['hold', 'offer'].includes(b.status)) && !seenEntryFor(a, b))
+    .sort((x, y) => y.date.localeCompare(x.date));
+};
 function fromPastShow(a, past) {
   let close = () => {};
+  const today = todayISO();
   ({ close } = sheet('From a past show', h('div', { class: 'stack' },
-    h('p', { class: 'small muted' }, `Shows of ${a.name || 'this act'} on your calendar that are not in its log yet. Pick one to log it with its date and place.`),
+    h('p', { class: 'small muted' }, `Shows of ${a.name || 'this act'} on your calendar, up to today, that are not in its log yet. Pick one to log it with its date and place.`),
     h('div', { class: 'list' }, past.slice(0, 20).map(b => h('button', { type: 'button', class: 'card tap ac-pick', onclick: () => { close(); logSighting(a, { date: b.date, venueId: b.venueId || '', where: b.venueId ? '' : (b.venueName || ''), bookingId: b.id }); } },
-      h('strong', null, seenDate(b.date)), h('span', { class: 'small muted' }, whereText(b))))))));
+      h('strong', null, b.date === today ? 'Today' : seenDate(b.date)), h('span', { class: 'small muted' }, whereText(b))))))));
+}
+
+// A time seen logged from the card on the night belongs to the act's show that day, when there is exactly one (not
+// cancelled) and no other entry has it: then Score this show and From a past show don't offer it again. '' otherwise.
+function showThatDay(actId, iso) {
+  const x = byId('acts', actId) || {};
+  const shows = (db.bookings || []).filter(b => b.actId === actId && b.kind === 'show' && isLive(b) && b.date && coversDay(b, iso));
+  return shows.length === 1 && !(x.seen || []).some(e => e && e.bookingId === shows[0].id) ? shows[0].id : '';
+}
+// After a change to the log the list may re-sort (a role that orders by score or by last seen). The card stays open,
+// and app.js gives the focus back by id to the button used; when that one has gone (the last past show is logged),
+// + Log a time you saw them takes it. Either way it is brought into view.
+function refocus(id) {
+  setTimeout(() => {
+    const page = document.getElementById('page');
+    if (!page || document.querySelector('.sheet-back') || (window.logiPage && window.logiPage() !== 'acts')) return;
+    let el = document.activeElement;
+    if (!el || el === page || !page.contains(el)) { el = document.getElementById('ac-log-' + id); if (el) el.focus({ preventScroll: true }); }
+    if (!el || el === page || !page.contains(el)) return;
+    const r = el.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({ block: 'center' });
+  }, 60);
 }
 
 // Add or edit one time seen. A score from 1 to 100 (a slider beside the box); where is one of your venues or typed.
@@ -183,17 +236,37 @@ export function logSighting(a, s = {}) { // shared: bookings.js offers it as Sco
     onSave: v => {
       const rating = Math.min(100, Math.max(1, Math.round(Number(v.rating)) || 1));
       const entry = { id: s.id || uid(), date: v.date || todayISO(), venueId: v.venueId || '', where: v.venueId ? '' : String(v.where || '').trim(), rating, notes: String(v.notes || '').trim(), bookingId: s.bookingId || '' };
+      if (!editing && !entry.bookingId) entry.bookingId = showThatDay(a.id, entry.date);
       update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; const list = Array.isArray(x.seen) ? x.seen.filter(e => e.id !== entry.id) : []; x.seen = [...list, entry]; x.updatedAt = Date.now(); });
       S.open.add(a.id);
       toast(editing ? 'Saved' : `Logged: ${rating}/100`);
+      refocus(a.id);
     },
-    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (x.seen || []).filter(e => e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); } : null,
+    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (x.seen || []).filter(e => e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
     confirmDelete: `Remove the time you saw ${a.name || 'them'} on ${s.date ? seenDate(s.date) : 'this date'}?`,
   });
 }
 
+// The list's order for the role (pages.acts.order): 'name', A to Z; 'latest', the best latest score first, then the
+// best average (a scout's shortlist, where an act getting better rises); 'recent', the one seen last first (a gig
+// diary). Acts seen without a score come after the scored ones, and acts never seen go last, both A to Z.
+function ordered(list) {
+  const how = pageOpt('acts', 'order', 'name');
+  if (how !== 'latest' && how !== 'recent') return list.sort(byName);
+  const st = new Map(list.map(a => [a.id, seenStats(a)]));
+  const rank = x => (!x.times ? 2 : how === 'latest' && x.latest == null ? 1 : 0);
+  const desc = (p, q) => (q ?? -1) - (p ?? -1);
+  return list.sort((x, y) => {
+    const p = st.get(x.id), q = st.get(y.id);
+    return rank(p) - rank(q) || (how === 'recent' ? String(q.last).localeCompare(String(p.last)) : desc(p.latest, q.latest) || desc(p.avg, q.avg)) || byName(x, y);
+  });
+}
+// The empty list: the role's own words (pages.acts.empty), or what an act is, under the section's name for the role.
+const emptyText = () => pageOpt('acts', 'empty', '') || (secName() === 'Acts' ? '' : `Nothing in ${secName()} yet. `) +
+  'An act is a band or artist you play in, manage or produce. Its card counts the times you have seen them play, with your scores out of 100 and its dates coming up; it also keeps its members, links, press kit and tech rider.';
+
 function listView() {
-  const all = [...db.acts].sort(byName);
+  const all = ordered([...db.acts]);
   const listBox = h('div', { class: 'list ac-list' });
   const fill = () => {
     const q = all.length > 5 ? S.q.trim().toLowerCase() : ''; // no search box, no filter
@@ -202,38 +275,40 @@ function listView() {
   };
   if (all.length) fill();
   return h('div', { class: 'ac-page' },
-    h('div', { class: 'page-head' }, h('h1', null, sectionName('acts', 'Acts')), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, '+ New act')),
+    h('div', { class: 'page-head' }, h('h1', null, secName()), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, '+ New act')),
     all.length > 5 && h('input', { class: 'search', id: 'ac-search', type: 'search', placeholder: 'Search acts, genres, members…', 'aria-label': 'Search acts', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; fill(); } }),
-    all.length ? listBox : empty('An act is a band or artist you play in, manage or produce. Its card counts the times you have seen them play, with your scores out of 100 and its dates coming up; it also keeps its members, links, press kit and tech rider.',
-      h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, '+ New act')));
+    all.length ? listBox : empty(emptyText(), h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, '+ New act')));
 }
 
 /* ------------------------------- one act ------------------------------- */
-const TABS = [['about', 'Overview'], ['epk', 'Press kit'], ['rider', 'Tech rider']];
 const setTab = t => { if (S.tab !== t) { S.tab = t; redraw(); } };
 function back() { Object.assign(S, { view: 'list', id: null }); redraw(); toTop(); focusSoon('#ac-new'); }
 
 function hero(a) {
-  const links = parseLinks(a.links), n = membersOf(a).length;
+  const links = parseLinks(a.links), sub = [a.genre, membersText(membersOf(a).length)].filter(Boolean).join(' · ');
   return h('div', { class: 'card ac-hero', style: stripeStyle(a) },
     h('h1', { class: 'ac-title' }, a.name || 'Untitled act'),
-    h('div', { class: 'muted' }, [a.genre, n ? plural(n, 'member') : 'No members yet'].filter(Boolean).join(' · ')),
+    !!sub && h('div', { class: 'muted' }, sub),
     links.length > 0 && h('div', { class: 'actions ac-links', role: 'list', 'aria-label': 'Links' }, links.map(l =>
       h('a', { class: 'btn ghost small', role: 'listitem', href: l.url, target: '_blank', rel: 'noopener noreferrer', title: l.url, 'aria-label': `${l.label} (opens ${l.url})` }, h('span', { 'aria-hidden': 'true' }, l.icon), ' ' + l.label))),
     (a.email || a.phone) && h('div', { class: 'actions ac-contact' },
       a.email && h('a', { class: 'btn ghost small', href: 'mailto:' + a.email, 'aria-label': 'Email ' + a.email }, '✉ ', h('span', { class: 'ac-addr' }, a.email)),
       a.phone && h('a', { class: 'btn ghost small', href: telUrl(a.phone), 'aria-label': 'Call ' + a.phone }, '📞 ', h('span', { class: 'ac-addr' }, a.phone))),
-    !links.length && !a.email && !a.phone && h('p', { class: 'small muted ac-hint' }, 'No links or contact yet. ✎ Edit adds them: they make the buttons here, the press kit and its QR code.'));
+    !links.length && !a.email && !a.phone && h('p', { class: 'small muted ac-hint' }, hasTab('epk') ? 'No links or contact yet. ✎ Edit adds them: they make the buttons here, the press kit and its QR code.' : 'No links or contact yet. ✎ Edit adds them as buttons here.'));
 }
 
+// Back to the list, by its name for the role (‹ Roster); the plain Acts list keeps "All acts".
+const backLabel = () => (secName() === 'Acts' ? 'All acts' : secName());
 function actView(a) {
+  const tabs = keptTabs(), part = S.tab === 'epk' ? epkTab(a) : S.tab === 'rider' ? riderTab(a) : aboutTab(a);
   return h('div', { class: 'ac-view' + (S.tab === 'rider' ? ' ac-view-rider' : '') },
-    h('div', { class: 'page-head' }, backBtn('All acts', back), h('button', { type: 'button', class: 'btn ghost', id: 'ac-edit', 'aria-label': `Edit ${a.name || 'act'}`, onclick: () => editAct(a) }, '✎ Edit')),
+    h('div', { class: 'page-head' }, backBtn(backLabel(), back), h('button', { type: 'button', class: 'btn ghost', id: 'ac-edit', 'aria-label': `Edit ${a.name || 'act'}`, onclick: () => editAct(a) }, '✎ Edit')),
     hero(a),
-    h('div', { class: 'seg wide ac-tabs', role: 'tablist', 'aria-label': 'Parts of the act' }, TABS.map(([id, label]) =>
+    // One part needs no tabs: the page is just that part.
+    tabs.length > 1 ? [h('div', { class: 'seg wide ac-tabs', role: 'tablist', 'aria-label': 'Parts of the act' }, tabs.map(([id, label]) =>
       h('button', { type: 'button', role: 'tab', id: 'ac-tab-' + id, class: S.tab === id ? 'on' : '', 'aria-selected': String(S.tab === id), onclick: () => setTab(id) }, label))),
-    h('div', { role: 'tabpanel', 'aria-labelledby': 'ac-tab-' + S.tab, class: 'ac-panel' },
-      S.tab === 'epk' ? epkTab(a) : S.tab === 'rider' ? riderTab(a) : aboutTab(a)));
+    h('div', { role: 'tabpanel', 'aria-labelledby': 'ac-tab-' + S.tab, class: 'ac-panel' }, part)]
+      : h('div', { class: 'ac-panel' }, part));
 }
 
 /* Overview */
@@ -256,11 +331,13 @@ function aboutTab(a) {
   const members = membersOf(a), emails = members.map(p => String(p.email || '').trim()).filter(Boolean);
   const songs = db.songs.filter(s => s.actId === a.id), sets = db.setlists.filter(s => s.actId === a.id);
   return h('div', { class: 'ac-cols ac-about' },
+    // A role that follows acts (it keeps the act to its Overview) reads the times seen first.
+    seenOnPage() && h('section', { class: 'ac-sec ac-about-seen', id: 'ac-seen', 'aria-labelledby': 'ac-h-seen' }, seenPanel(a, true)),
     h('section', { class: 'ac-sec', id: 'ac-coming', 'aria-labelledby': 'ac-h-coming' },
       h('h3', { id: 'ac-h-coming' }, 'Coming up'),
       coming.length ? h('div', { class: 'list ac-bks' }, shown.map(bookingRow)) : h('p', { class: 'muted ac-none' }, 'Nothing booked for this act yet.'),
       h('div', { class: 'actions' },
-        h('button', { type: 'button', class: 'btn primary small', id: 'ac-book', onclick: () => newBooking({ kind: 'show', actId: a.id }) }, '+ Book a show'),
+        h('button', { type: 'button', class: 'btn primary small', id: 'ac-book', onclick: () => newBooking({ kind: newKind(), actId: a.id }) }, book()[0]),
         coming.length > 4 && h('button', { type: 'button', class: 'btn ghost small', id: 'ac-allbk', 'aria-expanded': String(S.allBk), onclick: () => { S.allBk = !S.allBk; redraw(); } }, S.allBk ? 'Show fewer' : `Show all ${coming.length}`))),
     h('section', { class: 'ac-sec', id: 'ac-members', 'aria-labelledby': 'ac-h-members' },
       h('h3', { id: 'ac-h-members' }, 'Members'),
@@ -281,7 +358,7 @@ function aboutTab(a) {
         h('span', { class: 'small muted' }, songs.length || sets.length ? 'Open Songs →' : 'Add songs and setlists in Songs →'))),
     h('section', { class: 'ac-sec', id: 'ac-bio', 'aria-labelledby': 'ac-h-bio' },
       h('h3', { id: 'ac-h-bio' }, 'Bio'),
-      a.bio ? h('p', { class: 'prewrap ac-text' }, a.bio) : h('p', { class: 'muted ac-none' }, 'No bio yet. A few lines for promoters and press go on the press kit: ✎ Edit to add them.')),
+      a.bio ? h('p', { class: 'prewrap ac-text' }, a.bio) : h('p', { class: 'muted ac-none' }, hasTab('epk') ? 'No bio yet. A few lines for promoters and press go on the press kit: ✎ Edit to add them.' : 'No bio yet. ✎ Edit adds a few lines on who they are.')),
     a.notes && h('section', { class: 'ac-sec', id: 'ac-notes', 'aria-labelledby': 'ac-h-notes' }, h('h3', { id: 'ac-h-notes' }, 'Notes'), h('p', { class: 'prewrap ac-text' }, a.notes)),
     h('div', { class: 'ac-sec ac-danger' }, h('button', { type: 'button', class: 'btn danger small', id: 'ac-delete', onclick: () => deleteAct(a.id) }, 'Delete this act')));
 }
@@ -407,44 +484,64 @@ function riderTab(a) {
 }
 
 /* ------------------------------- the page ------------------------------- */
-const listSteps = () => [
-  { title: 'Acts', text: 'The bands and artists you play in, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
-  { title: 'Add an act', text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] },
-  { title: 'Your acts', text: 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.', target: ['.ac-card', '.ac-page .empty'] },
-  { title: 'Drop it open', text: 'Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its members, press kit and rider.', target: ['.ac-card-head'] },
-  { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
-  { title: 'Search', text: 'Find an act by its name, genre or a member’s name.', target: ['#ac-search'] },
-];
-const actSteps = () => [
-  { title: 'The act', text: 'Name, genre and members, with its links as buttons and its contact. ✎ Edit changes them.', target: ['.ac-hero'], before: () => setTab('about') },
-  { title: 'Three parts', text: 'Overview for bookings and members, Press kit for promoters and fans, Tech rider for the sound engineer.', target: ['.ac-tabs'] },
-  { title: 'Coming up', text: 'This act’s bookings from today on. Tap one to open it, or book a new show for the act.', target: ['#ac-coming'] },
-  { title: 'Members', text: 'People from the People section. Add someone already there or a new person; ✕ takes them out of the act (they stay in People).', target: ['#ac-members'] },
-  { title: 'Songs & setlists', text: 'How many songs and setlists the act has. Tap to open Songs.', target: ['#ac-songs'] },
-  { title: 'Press kit', text: 'A one-page press kit from the act’s details: bio, links, line-up, confirmed shows and contact. Print it, or save it as a web page to send.', target: ['.ac-epk'], before: () => setTab('epk') },
-  { title: 'QR code', text: 'The act’s first link (or its contact card) as a QR code. Show it big at the merch desk so people can scan it.', target: ['.ac-qr-card'] },
-  { title: 'Input list', text: 'Every channel for the sound engineer: source, mic or DI, stand. Start from a preset and change what differs.', target: ['#ac-inputs'], before: () => setTab('rider') },
-  { title: 'Stage plot', text: 'Who and what stands where, the audience at the bottom. Drag the labels; add players and gear from the chips.', target: ['#ac-plot'] },
-  { title: 'Riders', text: 'The technical and hospitality riders, as text.', target: ['#ac-riders'] },
-  { title: 'Print the tech rider', text: 'Input list, stage plot, riders and contact on one document to print or send ahead of the show.', target: ['#ac-print-rider'] },
-];
+// The walkthroughs follow the role: the section's name, the parts of an act it keeps, the list's order, and whether
+// the times seen lead (EVERYTHING reads as it always has).
+const andList = xs => (xs.length > 1 ? xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1] : xs[0] || '');
+const listSteps = () => {
+  const follows = seenOnPage(), logged = pageOpt('acts', 'seen', 'always') === 'logged', how = pageOpt('acts', 'order', 'name');
+  const parts = andList(keptTabs().map(([id]) => ({ about: follows ? 'bookings and members' : 'members', epk: 'press kit', rider: 'rider' })[id]));
+  return [
+    { title: secName(), text: follows ? 'The bands and artists you go to see. Each keeps its links, members and notes and the log of each time you saw them; bookings point back to it.' : 'The bands and artists you play in, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
+    { title: 'Add an act', text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] },
+    { title: 'Your acts', text: (logged ? 'Each card shows their dates coming up on the calendar and, once you log a time you saw them play, how many times, your average and latest score out of 100.' : 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.')
+      + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'] },
+    { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. You can log a time you saw them play there too; once you have, the card keeps the log: when, where, the score and your notes.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
+    { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
+    { title: 'Search', text: 'Find an act by its name, genre or a member’s name.', target: ['#ac-search'] },
+  ];
+};
+const PART_TEXT = { about: 'Overview for bookings and members', epk: 'Press kit for promoters and fans', rider: 'Tech rider for the sound engineer' };
+const actSteps = () => {
+  const tabs = keptTabs(), has = id => tabs.some(([t]) => t === id);
+  return [
+    { title: 'The act', text: 'Name, genre and members, with its links as buttons and its contact. ✎ Edit changes them.', target: ['.ac-hero'], before: () => setTab('about') },
+    tabs.length > 1 && { title: tabs.length === 3 ? 'Three parts' : 'Two parts', text: tabs.map(([id]) => PART_TEXT[id]).join(', ') + '.', target: ['.ac-tabs'] },
+    seenOnPage() && { title: 'Times seen', text: 'Each time you saw them play, newest first: when, where, the score and your notes. Log another, or pick one of their past shows.', target: ['#ac-seen'] },
+    ...(has('about') ? [
+      { title: 'Coming up', text: `This act’s bookings from today on. Tap one to open it, or book a new ${book()[1]} for the act.`, target: ['#ac-coming'] },
+      { title: 'Members', text: 'People from the People section. Add someone already there or a new person; ✕ takes them out of the act (they stay in People).', target: ['#ac-members'] },
+      { title: 'Songs & setlists', text: 'How many songs and setlists the act has. Tap to open Songs.', target: ['#ac-songs'] },
+    ] : []),
+    ...(has('epk') ? [
+      { title: 'Press kit', text: 'A one-page press kit from the act’s details: bio, links, line-up, confirmed shows and contact. Print it, or save it as a web page to send.', target: ['.ac-epk'], before: () => setTab('epk') },
+      { title: 'QR code', text: 'The act’s first link (or its contact card) as a QR code. Show it big at the merch desk so people can scan it.', target: ['.ac-qr-card'] },
+    ] : []),
+    ...(has('rider') ? [
+      { title: 'Input list', text: 'Every channel for the sound engineer: source, mic or DI, stand. Start from a preset and change what differs.', target: ['#ac-inputs'], before: () => setTab('rider') },
+      { title: 'Stage plot', text: 'Who and what stands where, the audience at the bottom. Drag the labels; add players and gear from the chips.', target: ['#ac-plot'] },
+      { title: 'Riders', text: 'The technical and hospitality riders, as text.', target: ['#ac-riders'] },
+      { title: 'Print the tech rider', text: 'Input list, stage plot, riders and contact on one document to print or send ahead of the show.', target: ['#ac-print-rider'] },
+    ] : []),
+  ].filter(Boolean);
+};
 
 export const acts = {
   id: 'acts', label: 'Acts', icon: '🎸',
   render(root) {
     const a = S.view === 'act' ? byId('acts', S.id) : null;
     if (S.view === 'act' && !a) Object.assign(S, { view: 'list', id: null }); // deleted elsewhere
-    if (!TABS.some(([id]) => id === S.tab)) S.tab = 'about';
+    if (!keptTabs().some(([id]) => id === S.tab)) S.tab = keptTabs()[0][0]; // a part the role leaves out (or unknown)
     root.append(a ? actView(a) : listView());
   },
   tutorial: () => (S.view === 'act' && byId('acts', S.id) ? actSteps() : listSteps()),
 };
 
-const formSteps = [
-  { title: 'Name', text: 'The band or artist name, as it goes on posters and the press kit.', target: ['input[data-key=name]'] },
+// The press kit is named only for a role that keeps it on the act's page.
+const formSteps = () => [
+  { title: 'Name', text: hasTab('epk') ? 'The band or artist name, as it goes on posters and the press kit.' : 'The band or artist name, as it goes on posters.', target: ['input[data-key=name]'] },
   { title: 'Colour', text: 'The stripe on the act’s cards, so its bookings and songs are quick to tell apart.', target: ['select[id$="-color"]'] },
-  { title: 'Links', text: 'One per line: a name, a colon, the address. They become buttons on the act, lines on the press kit, and the first one is its QR code.', target: ['textarea[data-key=links]'] },
-  { title: 'Bio', text: 'Two or three sentences for promoters and press. It heads the press kit.', target: ['textarea[data-key=bio]'] },
+  { title: 'Links', text: hasTab('epk') ? 'One per line: a name, a colon, the address. They become buttons on the act, lines on the press kit, and the first one is its QR code.' : 'One per line: a name, a colon, the address. They become buttons on the act.', target: ['textarea[data-key=links]'] },
+  { title: 'Bio', text: hasTab('epk') ? 'Two or three sentences for promoters and press. It heads the press kit.' : 'A few lines on who they are, what they sound like and where they’ve played.', target: ['textarea[data-key=bio]'] },
 ];
 sheetTutorial('New act', formSteps);
 const seenSteps = [

@@ -36,6 +36,9 @@
 .ac-score-bar i { display: block; height: 100%; background: var(--ac-color, var(--accent)); border-radius: 3px; }
 .ac-pnl-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .ac-pnl-actions .btn { flex: 1 1 auto; justify-content: center; }
+/* An act nothing is logged for, for a role that doesn't score its own acts: Open the act on a line of its own, the ways
+   to log a time seen under it. */
+.ac-pnl-lead .btn.primary { flex-basis: 100%; }
 .ac-pick { display: grid; gap: 2px; }
 .ac-form-act { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 800; overflow-wrap: anywhere; }
 .ac-form-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--ac-color, var(--accent)); }
@@ -58,6 +61,10 @@
 .ac-none { margin: 4px 0; }
 .ac-text { margin: 4px 0; overflow-wrap: anywhere; }
 .ac-danger { margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--line); }
+/* The times seen at the top of the Overview, for a role that follows acts (no press kit or rider tabs). */
+.ac-about-seen { display: grid; gap: 8px; }
+.ac-about-seen .ac-pnl-head h3 { margin-bottom: 0; }
+@media (min-width: 700px) { .ac-about-seen .ac-pnl-actions .btn { flex: 0 1 auto; } } /* not a bar across a laptop screen */
 
 /* bookings coming up */
 .ac-bk { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 12px; align-items: center; }
@@ -173,7 +180,7 @@
 @media (min-width: 1000px) {
   .ac-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 28px; align-items: start; }
   .ac-cols .list { grid-template-columns: 1fr; }
-  .ac-rider #ac-riders, .ac-rider .ac-rider-out, .ac-about .ac-danger { grid-column: 1 / -1; }
+  .ac-rider #ac-riders, .ac-rider .ac-rider-out, .ac-about .ac-danger, .ac-about .ac-about-seen { grid-column: 1 / -1; }
   .ac-epk-wrap { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 28px; align-items: start; }
   .ac-epk-wrap .ac-qr-card { position: sticky; top: 16px; margin-top: 22px; }
 }
