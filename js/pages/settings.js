@@ -305,7 +305,7 @@ function eraseBody() {
     onkeydown: e => { if (e.key === 'Enter' && eraseArmed()) { e.preventDefault(); eraseDevice(); } } });
   input.spellcheck = false;
   return [
-    h('p', { class: 'warn small', id: 'se-erase-warn' }, 'This removes everything Gdex keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings. Backup files, and a copy kept in a file, stay as they are. There is no undo.'),
+    h('p', { class: 'warn small', id: 'se-erase-warn' }, 'This removes everything Gdex keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings, and your role (Gdex asks again when it next opens). Backup files, and a copy kept in a file, stay as they are. There is no undo.'),
     h('div', { class: 'field' }, h('label', { for: 'se-erase-input' }, 'Type ERASE to confirm'), input),
     h('div', { class: 'actions' }, go),
   ];
