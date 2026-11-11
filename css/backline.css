@@ -34,7 +34,7 @@
   .bl-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0 16px; align-items: start; }
   .bl-groups .list { grid-template-columns: minmax(0, 1fr); }
 }
-.bl-group > h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.bl-group > h3 { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 10px; } /* the total drops under the name when both do not fit */
 .bl-group-sum { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: .8rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bl-qty { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
 .bl-sub { overflow-wrap: anywhere; }
