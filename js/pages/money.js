@@ -10,7 +10,7 @@ import { dateText } from '../money-doc.js';
 import { csv, saveFile } from '../print.js';
 import { openBooking, newBooking } from './bookings.js';
 import { isSettled } from '../blocks/settlement.js';
-import { sectionName } from '../roles.js';
+import { sectionName, pageOpt } from '../roles.js';
 
 let year = null;          // the year on show (null: this year)
 let showAllSettled = false;
@@ -32,6 +32,13 @@ const tap = (b, ...kids) => h('button', { class: 'card tap mn-row', type: 'butto
 // Text a spreadsheet must not run as a formula.
 const tx = v => { const s = v == null ? '' : String(v); return /^[=+\-@\t\r]/.test(s) ? "'" + s : s; };
 const money2 = n => r2(n).toFixed(2);
+// The year's income in the role's words: 'earned' (by you), or for a manager 'your acts earned', since the sum is the
+// acts' fees and settlements, not the manager's commission (which Gdex does not work out).
+const earnedWord = () => String(pageOpt('money', 'earned', 'earned') || 'earned');
+const ownEarned = () => earnedWord() === 'earned';
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+// "what you earned" / "what your acts earned", for sentences (the empty page, the walkthrough).
+const whatEarned = () => (ownEarned() ? 'what you earned' : 'what ' + earnedWord());
 
 // Money received in a year on an invoice: each payment by its date, and the rest of an invoice marked paid in full
 // on the day it was marked.
@@ -51,7 +58,7 @@ function yearRange() {
 function render(root) {
   const head = h('div', { class: 'page-head' }, h('h1', null, sectionName('money', 'Money')));
   if (!db.bookings.length) {
-    root.append(head, empty('Your money shows up here once you have bookings: what you earned, what is owed to you, deposits due, and what each player was paid.', h('button', { class: 'btn primary', type: 'button', onclick: () => newBooking({ kind: 'show' }) }, '+ Add a booking')));
+    root.append(head, empty(`Your money shows up here once you have bookings: ${whatEarned()}, what is owed to you, deposits due, and what each player was paid.`, h('button', { class: 'btn primary', type: 'button', onclick: () => newBooking({ kind: 'show' }) }, '+ Add a booking')));
     return;
   }
   const [lo, hi] = yearRange();
@@ -135,10 +142,12 @@ function render(root) {
   const settledShown = showAllSettled ? settled : settled.slice(0, 5);
   root.append(head,
     h('div', { class: 'mn-stats' },
-      stat(fmtMoney(earned), `earned in ${Y}`, '', 'mn-stat-earned'), stat(fmtMoney(booked), 'booked ahead', '', 'mn-stat-booked'),
+      stat(fmtMoney(earned), `${earnedWord()} in ${Y}`, '', 'mn-stat-earned'), stat(fmtMoney(booked), 'booked ahead', '', 'mn-stat-booked'),
       stat(fmtMoney(invoiced), 'invoiced', '', 'mn-stat-invoiced'), stat(fmtMoney(paid), `paid in ${Y}`, '', 'mn-stat-paid'),
       stat(fmtMoney(unpaid), 'unpaid', '', 'mn-stat-unpaid'), stat(fmtMoney(overdue), 'overdue', overdue > 0 ? 'bad' : '', 'mn-stat-overdue')),
-    h('p', { class: 'small muted mn-note' }, `Earned counts the ${plural(done.length, 'booking')} done or settled in ${Y}; booked ahead, the ${ahead.length} confirmed still to come.`),
+    h('p', { class: 'small muted mn-note' }, ownEarned()
+      ? `Earned counts the ${plural(done.length, 'booking')} done or settled in ${Y}; booked ahead, the ${ahead.length} confirmed still to come.`
+      : `“${cap(earnedWord())}” counts the ${plural(done.length, 'booking')} done or settled in ${Y}, at their full fees before any commission; booked ahead, the ${ahead.length} confirmed still to come.`),
 
     h('div', { class: 'mn-grid' },
     deposits.length > 0 && section('mn-deposits', 'Deposits due', h('div', { class: 'list' }, ...deposits.map(b => {
@@ -195,9 +204,9 @@ function render(root) {
 export const money = {
   id: 'money', label: 'Money', icon: '💰',
   render,
-  tutorial: [
-    { title: 'Money', text: 'Your year in money: what you earned, what is owed, deposits due, settled shows and each person’s share. It fills in as you add bookings, settle shows and send invoices.', target: ['#page .page-head'] },
-    { title: 'Your year', text: 'What you earned from bookings done or settled, what is booked ahead, what you invoiced, what came in, and what is still owed.', target: ['.mn-stats'] },
+  tutorial: () => [
+    { title: 'Money', text: `Your year in money: ${whatEarned()}, what is owed, deposits due, settled shows and each person’s share. It fills in as you add bookings, settle shows and send invoices.`, target: ['#page .page-head'] },
+    { title: 'Your year', text: `${cap(whatEarned())} from bookings done or settled${ownEarned() ? '' : ' (their fees, before any commission)'}, what is booked ahead, what you invoiced, what came in, and what is still owed.`, target: ['.mn-stats'] },
     { title: 'Pick a year', text: 'Step back through earlier years, or ahead to bookings next year.', target: ['.mn-year'] },
     { title: 'Deposits due', text: 'Shows with a deposit not in yet. Tap Received when it lands.', target: ['.mn-deposits'] },
     { title: 'Unpaid invoices', text: 'Overdue first. Tap one to open the booking, then send a reminder or record the payment.', target: ['.mn-unpaid'] },

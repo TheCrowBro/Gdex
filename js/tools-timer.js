@@ -8,6 +8,7 @@ import { bookingTitle, fmtDur, fmtMin } from './model.js';
 import { haptic } from './a11y.js';
 import { registerState } from './audio.js';
 import { pref, clamp, num, keepAwake, letSleep, wakeState } from './tools-ui.js';
+import { sectionName } from './roles.js';
 
 const KEY = 'gdex-settimer';
 const MAX_MIN = 600;
@@ -156,7 +157,7 @@ export function setTimer(panel) {
     if (key === showKey) return;
     const hadFocus = showBox.contains(document.activeElement);
     showKey = key;
-    if (!b) { showBox.replaceChildren(h('p', { class: 'muted small tl-note-p' }, 'No show in Bookings tonight. Type the set length above.')); return; }
+    if (!b) { showBox.replaceChildren(h('p', { class: 'muted small tl-note-p' }, `No show in ${sectionName('bookings', 'Bookings')} tonight. Type the set length above.`)); return; }
     const len = Number(b.setLength) > 0 ? Number(b.setLength) : 0;
     showBox.replaceChildren(h('div', { class: 'tl-show-card' },
       h('div', { class: 'tl-show-text' },
@@ -238,8 +239,9 @@ export function setTimer(panel) {
   };
 }
 
+// Bookings by the role's name for it (Shows, Gigs), read when the walkthrough shows the step.
 export const TIMER_STEPS = [
-  { target: ['#tl-set-min'], title: 'Set length', text: 'Type the length of your set in minutes, or take it from tonight’s show in Bookings.' },
+  { target: ['#tl-set-min'], title: 'Set length', get text() { return `Type the length of your set in minutes, or take it from tonight’s show in ${sectionName('bookings', 'Bookings')}.`; } },
   { target: ['#tl-clock'], title: 'The countdown', text: 'It turns amber at five minutes left and red at one, then counts up in red if the set runs over. Your phone buzzes at each point.' },
   { target: ['#tl-set-run'], title: 'Start and pause', text: 'Space works too. The screen stays awake while it runs, and it keeps counting if you look at another page.' },
   { target: ['#tl-set-big'], title: 'Big screen', text: 'Just the clock, as big as it goes: prop the phone on the monitor wedge.' },
