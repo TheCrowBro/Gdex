@@ -68,6 +68,43 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await page.waitForSelector('#deck .dk-next');
   ok('with reduced motion asked for, the reels do not animate', (await page.$eval('#deck .dk-reel', el => getComputedStyle(el).transitionDuration)) === '0s');
 
+  /* ---------------- from the review ---------------- */
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'record' })); }); await page.reload(); await page.waitForSelector('#deck .dk-record');
+  await page.evaluate(() => window.logiGo('bookings')); await sleep(500);
+  // A press released off the record, then a plain hover across it, changes nothing.
+  let r = await page.locator('#deck .dk-record').boundingBox();
+  await page.mouse.move(r.x + 80, r.y + 75); await page.mouse.down(); await page.mouse.move(r.x + 80, r.y + 400, { steps: 5 }); await page.mouse.up(); await sleep(200);
+  await page.mouse.move(r.x + 140, r.y + 75); await page.mouse.move(r.x + 20, r.y + 75, { steps: 8 }); await sleep(400);
+  ok('a press released off the record, then a hover across it, does not change section', (await page$(page)) === 'bookings' && (await page.locator('.sheet').count()) === 0);
+  ok('the record and cassette still let a pinch zoom the page', /pinch-zoom/.test(await page.$eval('#deck .dk-record', el => getComputedStyle(el).touchAction)));
+  // One wheel gesture over the record changes one section.
+  await page.mouse.move(r.x + 80, r.y + 75); await sleep(500);
+  for (let k = 0; k < 8; k++) { await page.mouse.wheel(0, 60); await sleep(30); }
+  await sleep(500);
+  ok('a wheel flick over the record moves one section, not several', (await page$(page)) === 'acts', await page$(page));
+  // Arrow keys on a tab strip stay with the tabs.
+  await page.evaluate(() => window.logiGo('backline')); await sleep(500);
+  await page.focus('[role=tab]'); await page.keyboard.press('ArrowRight'); await sleep(400);
+  ok('→ on a tab strip (Backline’s Items / Stage packs) does not change section', (await page$(page)) === 'backline');
+  ok('Backline’s count is pieces, as the Backline page counts them (4 SM58s, 3 SM57s, 4 DI boxes and 7 more: 18)', /18 items$/.test(await page.textContent('#deck .dk-meta')), await page.textContent('#deck .dk-meta'));
+  ok('the rim print fits its circle exactly', (await page.getAttribute('#deck .dk-rim textPath', 'textLength')) === '146');
+  ok('the page is a main landmark, not a tab panel of a tab list that no longer exists', (await page.getAttribute('#page', 'role')) === null);
+  // Choosing a display option keeps the keyboard focus on it.
+  await page.click('#displayBtn'); await page.waitForSelector('[data-pref="menu:tape"]');
+  await page.focus('[data-pref="menu:tape"]'); await page.keyboard.press('Enter'); await sleep(300);
+  ok('choosing Tape deck by keyboard keeps the focus on that choice', await page.evaluate(() => document.activeElement && document.activeElement.dataset.pref === 'menu:tape'));
+  await page.keyboard.press('Escape'); await sleep(300);
+  ok('the welcome tour describes the tape deck when that is the menu', await page.evaluate(() => import('./js/tour.js').then(m => /cassette/.test(m.STEPS.find(s => s.title === 'Your sections are tracks').text))));
+  // Narrow phones with extra-large text and buttons: nothing runs off the screen, in either menu.
+  for (const menu of ['record', 'tape']) {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.evaluate(m => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: m, text: 'xlarge', targets: 'large' })); }, menu); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
+    const fit = await page.evaluate(() => { const d = document.querySelector('#deck .deck').getBoundingClientRect(); return { scroll: document.documentElement.scrollWidth <= innerWidth, next: document.querySelector('#deck .dk-next').getBoundingClientRect().right <= d.right + 1 }; });
+    ok(`320px wide, extra-large text and buttons: the ${menu} menu fits and ⏭ stays inside it`, fit.scroll && fit.next, JSON.stringify(fit));
+  }
+  await page.setViewportSize({ width: 420, height: 900 });
+
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 })().catch(e => { console.log('FAIL deck crashed — ' + e.message); process.exit(1); });

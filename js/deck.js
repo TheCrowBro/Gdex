@@ -39,7 +39,7 @@ export function createDeck(root, tabs, { onSelect, start = 0 }) {
   function buildRecord() {
     const gaps = []; for (let k = 0; k < n - 1; k++) gaps.push(svg('circle', { cx: 70, cy: 70, r: ((radius(k) + radius(k + 1)) / 2).toFixed(1), class: 'dk-gap' }));
     const band = svg('circle', { cx: 70, cy: 70, r: radius(0), class: 'dk-band' });
-    const rim = svg('text', { class: 'dk-rim' }, svg('textPath', { href: '#dk-rim-path' }, 'GDEX · THE BOOKING DECK · 33⅓ RPM · SIDE A · SIDE B ·'));
+    const rim = svg('text', { class: 'dk-rim' }, svg('textPath', { href: '#dk-rim-path', textLength: '146', lengthAdjust: 'spacing' }, 'GDEX · THE BOOKING DECK · 33⅓ RPM ·')); // fills the circle exactly
     const disc = h('span', { class: 'dk-disc', 'aria-hidden': 'true' },
       svg('svg', { width: 140, height: 140, viewBox: '0 0 140 140' },
         svg('defs', {}, svg('path', { id: 'dk-rim-path', d: 'M70,70 m-23.5,0 a23.5,23.5 0 1,1 47,0 a23.5,23.5 0 1,1 -47,0' })),
@@ -72,7 +72,7 @@ export function createDeck(root, tabs, { onSelect, start = 0 }) {
       h('span', { class: 'dk-window', 'aria-hidden': 'true' }, h('span', { class: 'dk-tape-run' }), ...packs, ...reels));
     const counter = h('span', { class: 'dk-counter-n' }), counterOf = h('span', { class: 'dk-counter-of' });
     const prev = h('button', { type: 'button', class: 'dk-btn dk-prev', onclick: () => step(-1) }, icon(ICONS.rew));
-    const list = h('button', { type: 'button', class: 'dk-btn dk-list dk-tracks', 'aria-haspopup': 'dialog', onclick: openList }, icon(ICONS.list), 'Tracks');
+    const list = h('button', { type: 'button', class: 'dk-btn dk-list dk-tracks', 'aria-label': 'Track list: every section', 'aria-haspopup': 'dialog', onclick: openList }, icon(ICONS.list), h('span', { class: 'dk-tracks-word', 'aria-hidden': 'true' }, 'Tracks'));
     const next = h('button', { type: 'button', class: 'dk-btn dk-next', onclick: () => step(1) }, icon(ICONS.ffw));
     holder.replaceChildren(cassette, h('div', { class: 'dk-transport' }, prev, h('span', { class: 'dk-counter', 'aria-hidden': 'true' }, counter, counterOf), list, next));
     return { cassette, reels, packs, labelId, labelName, labelSide, counter, counterOf, prev, next, swipe: cassette };
@@ -134,25 +134,47 @@ export function createDeck(root, tabs, { onSelect, start = 0 }) {
     setTimeout(() => document.querySelector('.dk-sheet .dk-track.on')?.focus(), 60);
   }
 
-  // A swipe across the record or the cassette changes section; a tap opens the list.
-  let moved = false;
+  // A swipe across the record or the cassette changes section; a tap opens the list. One finger (or the mouse button)
+  // only: the pointer is captured so a release elsewhere still ends the gesture, a second finger (a pinch) cancels it,
+  // and a plain mouse hover never counts.
+  let moved = false, dragged = false;
   function wireSwipe(el) {
-    let sx = null, sy = null;
-    el.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; moved = false; });
-    el.addEventListener('pointermove', e => {
-      if (sx == null || moved) return;
-      const dx = e.clientX - sx, dy = e.clientY - sy;
-      if (Math.abs(dx) > 32 && Math.abs(dx) > Math.abs(dy)) { moved = true; step(dx < 0 ? 1 : -1); }
+    let sx = null, sy = null, pid = null;
+    const end = () => { sx = sy = pid = null; if (moved || dragged) setTimeout(() => { moved = dragged = false; }, 0); }; // after any click the release brings
+    el.addEventListener('pointerdown', e => {
+      if (!e.isPrimary || pid != null) { sx = sy = pid = null; return; } // a second finger: a pinch, not a swipe
+      sx = e.clientX; sy = e.clientY; pid = e.pointerId; moved = dragged = false;
+      try { el.setPointerCapture(e.pointerId); } catch { /* not capturable: the gesture still ends on release */ }
     });
-    const end = () => { sx = null; };
-    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    el.addEventListener('pointermove', e => {
+      if (sx == null || e.pointerId !== pid || (e.pointerType === 'mouse' && !e.buttons)) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) dragged = true; // a drag that goes anywhere is not a tap
+      if (!moved && Math.abs(dx) > 32 && Math.abs(dx) > Math.abs(dy)) { moved = true; step(dx < 0 ? 1 : -1); }
+    });
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(t, end);
   }
-  function tapped() { if (moved) { moved = false; return; } openList(); }
+  function tapped() { if (moved || dragged) { moved = dragged = false; return; } openList(); }
 
-  holder.addEventListener('wheel', e => { if (Math.abs(e.deltaY) < 4 && Math.abs(e.deltaX) < 4) return; e.preventDefault(); if (holder._lock) return; holder._lock = true; step((e.deltaY || e.deltaX) > 0 ? 1 : -1); setTimeout(() => { holder._lock = false; }, 380); }, { passive: false });
+  // Scrolling on the record or the cassette changes section once per wheel gesture (a trackpad flick is one gesture: it
+  // ends when the wheel has been still for about a third of a second). Not while zooming (ctrl), and not in the moment after the
+  // menu slides back in under the pointer, when the wheel was scrolling the page.
+  let wheelBusy = false, wheelIdle = 0, shownAt = 0;
+  new MutationObserver(() => { if (!root.classList.contains('tucked')) shownAt = Date.now(); }).observe(root, { attributes: true, attributeFilter: ['class'] });
+  holder.addEventListener('wheel', e => {
+    if (e.ctrlKey || !e.target.closest('.dk-swipe')) return;
+    if (Math.abs(e.deltaY) < 4 && Math.abs(e.deltaX) < 4) return;
+    if (Date.now() - shownAt < 450) return; // still the page's scroll
+    e.preventDefault();
+    clearTimeout(wheelIdle); wheelIdle = setTimeout(() => { wheelBusy = false; }, 350);
+    if (wheelBusy) return;
+    wheelBusy = true; step((e.deltaY || e.deltaX) > 0 ? 1 : -1);
+  }, { passive: false });
+  const OWN_ARROWS = '[role=tab],[role=tablist],[role=radio],[role=radiogroup],[role=slider],[role=spinbutton],[role=listbox],[role=option],[role=menu],[role=menuitem],[role=grid],[role=tree]';
   document.addEventListener('keydown', e => {
-    if (/input|textarea|select/i.test(e.target.tagName) || e.target.isContentEditable) return;
-    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || document.querySelector('.sheet-back')) return; // a control that used the key keeps it
+    const t = e.target;
+    if (/input|textarea|select/i.test(t.tagName) || t.isContentEditable || (t.closest && t.closest(OWN_ARROWS))) return; // they use the arrows themselves
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || document.querySelector('.sheet-back, .tour') || document.getElementById('app')?.inert) return;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') step(1);
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') step(-1);
   });

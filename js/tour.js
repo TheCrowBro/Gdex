@@ -17,7 +17,10 @@ const profileStep = {
 export const STEPS = [
   { title: 'Welcome to Gdex', text: 'The booking deck for producers and bands: shows, studio sessions and rehearsals, your acts and people, backline, venues, songs and setlists, settlements and invoices, and the tools you need on the night. This takes about a minute. Tap Skip any time.' },
   profileStep,
-  { go: 'bookings', target: ['.deck'], title: 'Your sections are tracks', text: 'Swipe the record (or the cassette) or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve. Prefer a tape deck? Aa → Section menu.' },
+  { go: 'bookings', target: ['.deck'], title: 'Your sections are tracks',
+    get text() { let tape = false; try { tape = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu === 'tape'; } catch { /* the record */ }
+      return tape ? 'Swipe the cassette or tap ⏪ ⏩ to change section; tap Tracks (or the cassette) to see them all. Prefer a record player? Aa → Section menu.'
+        : 'Swipe the record or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve. Prefer a tape deck? Aa → Section menu.'; } },
   { go: 'bookings', target: ['.page-head'], title: 'Bookings', text: 'Shows, studio sessions and rehearsals on one calendar. Open one for its times, deal, setlist, guest list, day sheet, settlement and invoice.' },
   { go: 'acts', target: ['.page-head'], title: 'Acts', text: 'The bands and artists you play in, manage or produce: members, links, press kit and tech rider with the input list.' },
   { go: 'songs', target: ['.page-head'], title: 'Songs & setlists', text: 'Keys, tempos and lengths for every song, split sheets for the writers, and setlists that add up to the slot.' },

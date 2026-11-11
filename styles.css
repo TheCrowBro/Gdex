@@ -55,11 +55,11 @@ a { color: var(--accent); }
 /* the section menu (js/deck.js): a record player or a tape deck, sticky at the top; tucks away while the page scrolls down */
 .deckbar { position: sticky; top: 0; z-index: 20; margin: 0 calc(-1 * var(--pad)); padding: 6px var(--pad) 10px; background: var(--bg); border-bottom: 1px solid var(--line); box-shadow: 0 8px 20px #0004; transition: transform .28s ease, box-shadow .28s ease; }
 .deckbar.tucked { transform: translateY(-105%); box-shadow: none; pointer-events: none; }
-.deck { max-width: 560px; margin: 0 auto; padding: 10px; border-radius: 18px; background: var(--bg2); border: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+.deck { max-width: 560px; margin: 0 auto; padding: 10px; border-radius: 18px; background: var(--bg2); border: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
 .deck[data-style=tape] { flex-direction: column; align-items: stretch; gap: 10px; }
-.dk-swipe { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: pointer; }
+.dk-swipe { touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: pointer; }
 .dk-still, .dk-still * { transition: none !important; }
-.dk-record { position: relative; flex: none; width: 162px; height: 150px; padding: 0; border: 0; background: transparent; }
+.dk-record { position: relative; flex: none; width: 162px; height: 150px; margin-top: 8px; padding: 0; border: 0; background: transparent; } /* room above for the tonearm's weight */
 .dk-record > span { position: absolute; display: block; }
 .dk-platter { left: 0; top: 0; width: 146px; height: 146px; box-sizing: border-box; border-radius: 50%; background: var(--card); border: 2px solid var(--line); }
 .dk-disc { left: 3px; top: 3px; width: 140px; height: 140px; border-radius: 50%; background: repeating-radial-gradient(circle at 50% 50%, #0c0a10 0 1.4px, #1c1923 1.4px 2.6px); transition: transform .8s cubic-bezier(.22, .9, .3, 1); }
@@ -81,7 +81,7 @@ a { color: var(--accent); }
 .dk-head { left: 81px; top: -6px; width: 17px; height: 12px; box-sizing: border-box; border-radius: 3px; background: var(--paper); border: 1px solid var(--muted); }
 .dk-tip { left: 94px; top: -1.5px; width: 3px; height: 3px; border-radius: 50%; background: var(--accent); }
 .dk-arm-cap { left: 145px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
-.dk-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.dk-info { flex: 1 1 calc(3 * var(--hit) + 12px); min-width: calc(3 * var(--hit) + 12px); display: flex; flex-direction: column; gap: 5px; } /* drops under the record when the three buttons would not fit beside it */
 .dk-eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .dk-name { font-size: 1.45rem; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dk-meta { font: .78rem ui-monospace, 'SF Mono', Menlo, Consolas, monospace; color: var(--muted); }
@@ -93,8 +93,8 @@ a { color: var(--accent); }
 .dk-tl { left: 7px; top: 7px; } .dk-tr { right: 7px; top: 7px; } .dk-bl { left: 7px; bottom: 7px; } .dk-br { right: 7px; bottom: 7px; }
 .dk-tape-label { display: flex; align-items: baseline; gap: 10px; padding: 5px 12px 6px; border-radius: 6px; background: var(--paper); color: var(--paper-ink); border-top: 5px solid var(--accent); }
 .dk-tape-id, .dk-tape-side, .dk-counter { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
-.dk-tape-id { font-size: .8rem; font-weight: 700; color: color-mix(in srgb, var(--accent) 55%, var(--paper-ink)); }
-.dk-tape-name { flex: 1; min-width: 0; font: 700 1.6rem/1.05 'Segoe Print', 'Bradley Hand', 'Marker Felt', 'Chalkboard SE', 'Comic Sans MS', cursive; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dk-tape-id { font-size: .8rem; font-weight: 700; color: color-mix(in srgb, var(--accent) 35%, var(--paper-ink)); }
+.dk-tape-name { flex: 1; min-width: 0; font: 700 clamp(1.15rem, 6.2vw, 1.6rem)/1.05 'Segoe Print', 'Bradley Hand', 'Marker Felt', 'Chalkboard SE', 'Comic Sans MS', cursive; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dk-tape-side { font-size: .7rem; letter-spacing: .12em; }
 .dk-window { position: relative; display: block; align-self: center; width: 224px; height: 58px; border-radius: 29px; background: #0b0912; overflow: hidden; }
 .dk-window > span { position: absolute; display: block; }
@@ -104,7 +104,7 @@ a { color: var(--accent); }
 .dk-reel { top: 10px; width: 38px; height: 38px; transition: transform .7s cubic-bezier(.2, .7, .2, 1); }
 .dk-reel.dk-left { left: 25px; } .dk-reel.dk-right { left: 161px; }
 .dk-reel-ring { fill: none; stroke: #e8e1f5; stroke-width: 2; } .dk-reel-hub { fill: #e8e1f5; } .dk-reel-hole { fill: #0b0912; } .dk-reel-teeth { stroke: #e8e1f5; stroke-width: 2.4; stroke-linecap: round; }
-.dk-counter { flex: 1.4; height: var(--hit); border-radius: 10px; background: #0b0912; color: #ff7aa0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.dk-counter { flex: 1.4; min-width: 0; overflow: hidden; height: var(--hit); border-radius: 10px; background: #0b0912; color: color-mix(in srgb, var(--accent) 65%, #fff); display: flex; align-items: center; justify-content: center; gap: 10px; }
 .dk-counter-n { font-size: 1.2rem; font-weight: 700; letter-spacing: .14em; } .dk-counter-of { font-size: .7rem; letter-spacing: .1em; opacity: .75; white-space: nowrap; }
 .dk-tracks { flex: 1.6; }
 .dk-sheet { display: grid; gap: 14px; }
@@ -112,16 +112,19 @@ a { color: var(--accent); }
 .dk-cover { flex: none; width: 52px; height: 52px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 800; letter-spacing: .1em; font-size: .75rem; }
 .dk-jcard { background: var(--paper); color: var(--paper-ink); border-radius: 12px; padding: 12px 14px; }
 .dk-jcard-title { margin: 0; font: 700 1.6rem/1.1 'Segoe Print', 'Bradley Hand', 'Marker Felt', 'Chalkboard SE', 'Comic Sans MS', cursive; }
-.dk-sides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.dk-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: 14px; } /* one column when two would cut the names */
 .dk-side { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .dk-side-head { font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
 .dk-track { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--hit); padding: 0 8px; border: 0; border-bottom: 1px dotted var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .dk-track.on { background: var(--accent); color: var(--accent-ink); }
 .dk-track-id, .dk-track-n { flex: none; font: .72rem ui-monospace, 'SF Mono', Menlo, Consolas, monospace; } .dk-track-id { width: 22px; } .dk-track-n { opacity: .8; }
-.dk-track-name { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dk-track-name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
 .dk-jcard .dk-track { border-bottom: 1px dashed color-mix(in srgb, var(--paper-ink) 25%, transparent); }
 .dk-jcard .dk-track-name { font: 700 1.25rem/1.1 'Segoe Print', 'Bradley Hand', 'Marker Felt', 'Chalkboard SE', 'Comic Sans MS', cursive; }
-@media (max-width: 370px) { .dk-sides { grid-template-columns: 1fr; } .dk-record { zoom: .86; } }
+@media (max-width: 370px) { .dk-record { zoom: .86; } }
+@media (max-width: 359px) { .dk-tracks-word, .dk-counter-of { display: none; } } /* the Tracks button keeps its name for screen readers; the counter keeps its number */
+/* Mono: no colour at all, the tape included */
+html[data-palette=mono] .dk-pack, html[data-palette=mono] .dk-tape-run { background: #555; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 .page { outline: none; perspective: 1100px; }
@@ -248,8 +251,8 @@ button, .btn, a.btn, .chip, .check, .day, summary { touch-action: manipulation; 
 .help summary { min-height: var(--hit); display: flex; align-items: center; }
 .form-actions .btn { min-width: 96px; }
 .page-head .btn { min-width: 88px; }
-html[data-contrast=high] { --muted: color-mix(in srgb, var(--text) 82%, var(--bg)); --line: color-mix(in srgb, var(--text) 55%, var(--bg)); --focus: #ffd400; }
-html[data-contrast=high] .btn.ghost, html[data-contrast=high] .chip, html[data-contrast=high] .card, html[data-contrast=high] input, html[data-contrast=high] select, html[data-contrast=high] textarea { border-width: 2px; }
+:root[data-contrast=high], :root[data-contrast=high][data-palette][data-scheme] { --muted: color-mix(in srgb, var(--text) 82%, var(--bg)); --line: color-mix(in srgb, var(--text) 55%, var(--bg)); --focus: #ffd400; }
+html[data-contrast=high] .btn.ghost, html[data-contrast=high] .chip, html[data-contrast=high] .card, html[data-contrast=high] input, html[data-contrast=high] select, html[data-contrast=high] textarea, html[data-contrast=high] .deck, html[data-contrast=high] .dk-btn, html[data-contrast=high] .dk-cassette { border-width: 2px; }
 html[data-contrast=high] .pill { border-width: 2px; color: var(--text); }
 /* Motion. Default ("soft"): the Rolodex spins, page content fades in, and small touches below run.
    "bar": only the Rolodex. "off": nothing. The device's reduce-motion setting wins over all of them. */
@@ -258,7 +261,7 @@ html[data-contrast=high] .pill { border-width: 2px; color: var(--text); }
 html[data-motion=bar] *:not(.dk-disc):not(.dk-arm):not(.dk-band):not(.dk-reel):not(.dk-pack):not(.deckbar), html[data-motion=bar] *::before, html[data-motion=bar] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 html[data-motion=off] *, html[data-motion=off] *::before, html[data-motion=off] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
-@media (forced-colors: active) { .btn, .chip, .card, .dk-btn, .dk-track { border: 1px solid CanvasText; } .dk-track.on { outline: 2px solid Highlight; } }
+@media (forced-colors: active) { .btn, .chip, .card, .dk-btn, .dk-track { border: 1px solid CanvasText; } .dk-track.on { outline: 2px solid Highlight; } .dk-platter, .dk-disc, .dk-sheen, .dk-arm, .dk-arm-cap, .dk-arm-base, .dk-record > .dk-label, .dk-window { forced-color-adjust: none; } } /* the record and the tape window are pictures with their own colours */
 .cloud, .chip { min-width: var(--hit); justify-content: center; }
 .seg button { min-height: var(--hit); }
 .kv a { min-height: var(--hit); display: inline-flex; align-items: center; }

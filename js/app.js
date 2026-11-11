@@ -28,7 +28,7 @@ const tabs = [
   section('people', 'People', '👥', () => import('./pages/people.js').then(m => m.people), many('people', 'person', 'people')),
   section('songs', 'Songs', '🎼', () => import('./pages/songs.js').then(m => m.songs), many('songs', 'song', 'songs')),
   section('sessions', 'Studio log', '🎙️', () => import('./pages/sessions.js').then(m => m.sessions), many('logs', 'take log', 'take logs')),
-  section('backline', 'Backline', '🎛️', () => import('./pages/backline.js').then(m => m.backline), many('gear', 'item', 'items')),
+  section('backline', 'Backline', '🎛️', () => import('./pages/backline.js').then(m => m.backline), () => ({ n: store.db.gear.reduce((t, g) => t + store.qtyOf(g), 0), one: 'item', many: 'items' })), // pieces, as the Backline page counts them
   section('venues', 'Venues', '📍', () => import('./pages/venues.js').then(m => m.venues), many('venues', 'place', 'places')),
   section('money', 'Money', '💰', () => import('./pages/money.js').then(m => m.money)),
   section('tools', 'Tools', '🎚️', () => import('./pages/tools.js').then(m => m.tools), () => ({ n: 5, one: 'tool', many: 'tools' })),

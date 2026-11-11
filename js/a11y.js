@@ -52,8 +52,8 @@ export function displayPanel({ onTour } = {}) {
   const draw = () => groups.replaceChildren(...GROUPS.map(([key, label, opts]) => h('div', { class: 'pref', role: 'group', 'aria-label': label },
     h('div', { class: 'pref-label' }, label),
     h('div', { class: 'seg wide' }, opts.map(([v, l]) => h('button', {
-      type: 'button', class: prefs[key] === v ? 'on' : '', 'aria-pressed': prefs[key] === v,
-      onclick: () => { prefs[key] = v; save(); haptic(); draw(); },
+      type: 'button', class: prefs[key] === v ? 'on' : '', 'aria-pressed': prefs[key] === v, 'data-pref': key + ':' + v,
+      onclick: () => { prefs[key] = v; save(); haptic(); draw(); groups.querySelector(`[data-pref="${key}:${v}"]`)?.focus({ preventScroll: true }); }, // the redrawn twin keeps the focus
     }, l))))));
   draw();
   // Colour theme twirl-down: palette swatches plus light / dark / follow-device.
@@ -63,10 +63,10 @@ export function displayPanel({ onTour } = {}) {
     themeSum.textContent = themeSummary();
     themeBody.replaceChildren(
       h('div', { class: 'pref' }, h('div', { class: 'pref-label' }, 'Appearance'),
-        h('div', { class: 'seg wide' }, [['system', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => h('button', { type: 'button', class: prefs.scheme === v ? 'on' : '', 'aria-pressed': prefs.scheme === v, onclick: () => { prefs.scheme = v; save(); haptic(); drawTheme(); } }, l)))),
+        h('div', { class: 'seg wide' }, [['system', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => h('button', { type: 'button', class: prefs.scheme === v ? 'on' : '', 'aria-pressed': prefs.scheme === v, 'data-pref': 'scheme:' + v, onclick: () => { prefs.scheme = v; save(); haptic(); drawTheme(); themeBody.querySelector(`[data-pref="scheme:${v}"]`)?.focus({ preventScroll: true }); } }, l)))),
       h('div', { class: 'theme-list', role: 'radiogroup', 'aria-label': 'Colour theme' }, PALETTES.flatMap((p, i) => [i === 0 && h('div', { class: 'theme-group' }, 'Classic'), p.group === 'mood' && PALETTES[i - 1].group !== 'mood' && h('div', { class: 'theme-group' }, 'Stage moods'), (() => {
         const c = p[resolvedScheme()], on = prefs.palette === p.id;
-        return h('button', { type: 'button', class: 'theme-row', role: 'radio', 'aria-checked': on, onclick: () => { prefs.palette = p.id; save(); haptic(); drawTheme(); } },
+        return h('button', { type: 'button', class: 'theme-row', role: 'radio', 'aria-checked': on, 'data-pref': 'palette:' + p.id, onclick: () => { prefs.palette = p.id; save(); haptic(); drawTheme(); themeBody.querySelector(`[data-pref="palette:${p.id}"]`)?.focus({ preventScroll: true }); } },
           h('span', { class: 'swatches', 'aria-hidden': 'true' }, ['bg', 'card', 'accent', 'text'].map(k => h('i', { style: `background:${c[k]}` }))),
           h('span', null, p.name, h('span', { class: 'twirl-sub' }, p.blurb || '')),
           h('span', { class: 'check' }, on ? '✓' : ''));

@@ -186,4 +186,6 @@
 .bk-legend .bk-dot { --act: var(--text); }
 /* Extra-large text on a small phone: the month title gives way so the › button stays on screen. */
 .bk-monthview .cal-title { min-width: 0; }
-html[data-text=xlarge] .bk-monthview .cal-title { font-size: .92rem; }
+/* Extra-large text: the month gets a row of its own above ‹ Today ›, so a long month name never runs into them. */
+html[data-text=xlarge] .bk-monthview .cal-nav { flex-wrap: wrap; }
+html[data-text=xlarge] .bk-monthview .cal-title { order: -1; flex-basis: 100%; }
