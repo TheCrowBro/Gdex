@@ -59,7 +59,40 @@ npm run serve                   # http://localhost:8124/
 | `settings` | Settings | `pages/settings.js` | Profile, money settings, backups, display, tour, erase. |
 
 Navigate in code with `window.logiGo('venues')` (string ids only; resolves once drawn). `window.logiPage()` is the
-open section's id.
+open section's id. Which sections are on the menu depends on the role (below); `logiGo` opens any of them, a section
+off the menu as the bonus track.
+
+## Roles (`js/roles.js`, `js/role-pick.js`)
+
+The first open asks who is using Gdex: producer, manager, band, solo artist, scout or audiophile, or everything
+(`askRole` in `js/role-pick.js`, then the welcome tour for that role). Settings → Your role swaps it (`rolePanel`). A
+device whose welcome tour was done before roles came gets one card under the menu instead (`nudgeRole`, shown once:
+`gdex-role-nudged`). The role is a device preference in `localStorage` `gdex-role`, never in the database, so a swap
+writes nothing to `gdex-db` and backups do not carry it; Erase this device clears it. With none saved the role is
+`EVERYTHING`: every section on the menu, every box, no page defaults, as Gdex always was. **Every spec runs as
+Everything** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
+
+A role is data (`ROLES` in `js/roles.js`; not to be confused with `model.js`'s `ROLES`, the instruments people
+play): `sections` (the menu in order; Settings is always added last), `start`, `names` (only Bookings and Acts are
+renamed: Artists, Roster, Bands, My act, Shows, Gigs), `what` (fills What you do in the tour), `newKind`, `kinds` and
+`kindHelp` (the What are you booking? sheet), `hide` (booking boxes kept under More boxes), `money` (`false` leaves
+the deal, settlement, quote & invoice and costs boxes off booking pages altogether and starts new shows Confirmed),
+`welcome` and `tour` (the welcome tour, at most five stops), and `pages` (defaults read with `pageOpt`).
+
+| Helper | Use |
+|---|---|
+| `role()`, `roleId()`, `roleChosen()`, `setRole(id, { start })` | The current role; `setRole` saves it and fires `gdex-role` (the app redraws the menu and the page). |
+| `menuSections(r)`, `offMenu(r)`, `startSection(r)` | The menu (always ending with Settings), the bonus tracks, where a fresh start opens. |
+| `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act). |
+| `blockShown(id)`, `blockFolded(id)`, `MONEY_BLOCKS` | A booking box shown, under More boxes, or (a money box for a role without money) neither. `blocksFor(kind)` already leaves the others out. |
+| `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
+| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
+
+Rules: a page reads the role through these helpers, never `roleId() === 'scout'`; ids stay ids (`sessions` is the
+Studio log, whatever a role calls anything); hiding never deletes or edits data; nothing inside a document that goes
+to other people (press kit, rider, day sheet, invoice, settlement) follows the role. On the section menu, sections
+off the role's menu are listed on the sleeve under Bonus tracks; one that is open sits on the record as the bonus
+track (★) until you move on (`createDeck(…, { extras, onExtra })`, `deck.setTabs(tabs, index)`).
 
 ## Page contract
 
@@ -310,7 +343,7 @@ backline, take, comp, stems, split sheet.
   `const { browser, page, errors } = await open({ sample: true, tab: 'songs' });` Each `ok(name, condition, extra)`
   prints a PASS or FAIL line. End every spec with `ok('no errors in the console', errors.length === 0, …)` and
   `await browser.close()`, and wrap the whole spec in `(async () => { … })().catch(e => { console.log('FAIL … crashed — ' + e.message); process.exit(1); })`.
-* Spec files by owner: `00-smoke` (core), `10-bookings`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
+* Spec files by owner: `00-smoke` (core), `05-deck` and `06-roles` (core), `10-bookings`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `45-people`, `50-backline`, `55-venues`, `60-tools`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
@@ -320,7 +353,7 @@ backline, take, comp, stems, split sheet.
 ## Who owns which files
 
 Only edit files you own. Core files (`index.html`, `styles.css`, `js/app.js`, `js/store.js`, `js/model.js`,
-`js/util.js`, `js/form.js`, `js/tour.js`, `js/tutorials.js`, `js/print.js`, `js/blocks/index.js`, `sw.js`, `tools/`,
+`js/util.js`, `js/form.js`, `js/deck.js`, `js/roles.js`, `js/role-pick.js`, `js/tour.js`, `js/tutorials.js`, `js/print.js`, `js/blocks/index.js`, `sw.js`, `tools/`,
 `tests/lib.mjs`, `tests/run.mjs`, `tests/helpers.cjs`, `tests/specs/00-smoke.cjs`) belong to the integrator: if you
 need a change there, describe it in your report instead.
 

@@ -20,6 +20,24 @@ Gdex is a sibling of Vdex, the app for videographers, and shares its look and th
    - **Android and computers:** tap **Install** (⤓) at the top of the page.
 3. **Tap ? at the top of any page.** It walks you through that page, box by box.
 
+## Set up for the way you work
+
+The first time Gdex opens it asks who's using it: **producer, manager, band, solo artist, scout or audiophile** (or
+everything). Each gets its own menu and pages:
+
+| Role | Menu (Side A, then Side B) | What changes |
+|---|---|---|
+| 🎛️ Producer | Bookings · Studio log · Songs · Artists · Money · People · Venues · Tools | + New starts a studio session; a session opens with the clock and take log; Tools opens on tap tempo. |
+| 💼 Manager | Bookings · Roster · Money · People · Venues · Insurance | A show opens with the deal and the advance checklist; new people start as industry contacts. |
+| 🥁 Band | Bookings · Songs · Backline · Tools · Bands · Money · People · Venues | A show opens with the running order and setlist; Songs opens on your setlists. |
+| 🎤 Solo artist | Bookings · Songs · Money · My act · Venues · People · Tools | A show opens with the deal and setlist; private gigs (weddings, parties) are shows too. |
+| 🔭 Scout | Acts · Shows · People · Venues | Acts sorted by your latest score; Score this show on the night; no fees or settlements. |
+| 🎧 Audiophile | Bands · Gigs · Venues · Tools | Bands you've seen, most recent first; Score this show; Tools opens on the sound meter; no fees. |
+
+Nothing is ever deleted or out of reach: the sections a role doesn't use are **bonus tracks** on the sleeve (tap the
+record), and the booking boxes it doesn't use are under **More boxes**. Change role any time in **Settings → Your
+role**.
+
 ## What the cards are
 
 The record player at the top is how you move around: every card is a track, Side A and Side B. Swipe the record or tap
