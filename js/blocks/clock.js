@@ -120,7 +120,7 @@ export default {
         : h('p', { class: 'muted small' }, 'Each time the clock runs it adds a shift here. Forgot to start it? Add the hours by hand.'));
   },
   tutorial: [
-    { title: 'Session clock', text: 'Start it when the session starts. Take a break pauses it; Back starts it again; Stop ends the shift. While it runs, a strip under the Rolodex shows it on every page.', target: ['#blk-clock .sd-clock', '.sd-clock'] },
+    { title: 'Session clock', text: 'Start it when the session starts. Take a break pauses it; Back starts it again; Stop ends the shift. While it runs, a strip under the section menu shows it on every page.', target: ['#blk-clock .sd-clock', '.sd-clock'] },
     { title: 'Hours', text: 'Today’s time, all the hours logged against the hours planned (start to finish on the booking), and at an hourly rate what they come to. The invoice bills these hours, to the nearest quarter hour, and so does the amount here.', target: ['#blk-clock .sd-stats', '.sd-stats'] },
     { title: 'Shifts', text: 'Every shift with its breaks. Tap one to fix its times (or delete it), or add hours by hand when the clock was not running.', target: ['#blk-clock .sd-shifts-head', '.sd-shifts-head'] },
   ],

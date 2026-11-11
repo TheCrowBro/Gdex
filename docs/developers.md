@@ -5,7 +5,8 @@ backline and venues; songs, setlists and split sheets; day sheets, settlements, 
 musician needs on the night (tuner, metronome, delay times, sound level meter, set timer).
 
 It is a sibling of Vdex, the videographer app (repository TheCrowBro/Logi-Video-Production-app-). It began as a copy
-of Vdex's shell (the Rolodex, sheets, forms, themes, offline service worker) with everything rebuilt for music. It was
+of Vdex's shell (sheets, forms, themes, offline service worker) with everything rebuilt for music; Vdex's Rolodex became
+a record player or a tape deck, the person's choice. It was
 built in a folder of the Vdex repository and moved here with its history. It shares no code with Vdex at run time and
 keeps its own storage, cache and files.
 
@@ -31,16 +32,17 @@ npm run serve                   # http://localhost:8124/
 | `privacy.html` | The privacy page. |
 | `styles.css` | Core styles and themes (copied from Vdex, re-skinned). |
 | `css/<feature>.css` | One stylesheet per feature, owned by that feature. |
-| `js/app.js` | Boot, the Rolodex, sections, redraw on change. |
+| `js/app.js` | Boot, the section menu, sections, redraw on change. |
+| `js/deck.js` | The section menu: a record player or a tape deck (Aa → Section menu), each section a track on Side A or B. |
 | `js/store.js` | The database. |
 | `js/model.js` | Music domain constants and pure sums (deals, settlement, set lengths, durations). |
-| `js/pages/*.js` | One module per Rolodex section. |
+| `js/pages/*.js` | One module per section. |
 | `js/blocks/*.js` | Boxes on a booking's page (deal, setlist, guest list…), listed in `js/blocks/index.js`. |
 | `js/*.js` | Shared modules (see below). |
 | `tests/` | `run.mjs`, `lib.mjs`, `helpers.cjs`, `specs/NN-name.cjs`. |
 | `tools/` | `stamp-build.mjs`, `site-files.mjs`. |
 
-## The sections (Rolodex cards)
+## The sections (tracks on the section menu)
 
 | id | Label | Module | What it is |
 |---|---|---|---|
@@ -238,7 +240,7 @@ may call it.
 | `js/daysheet.js` `openDaySheet(bookingId)` / `printDaySheet(bookingId)` | daysheet | Preview sheet / print. |
 | `js/money.js` `docOf(b, 'quote'|'invoice')` / `docTotals(doc)` / `isOverdue(b)` | money | The document or null / `{ net, tax, total, paid, due }` / unpaid past due. |
 | `js/money.js` `billingPanel()` / `priceListPanel()` | money | Nodes for Settings: numbering, tax, payment details; the person's price list. |
-| `js/clock.js` `initClockBar(el)` / `clockCard(b)` | studio | The strip under the Rolodex while a clock runs / start-stop card. |
+| `js/clock.js` `initClockBar(el)` / `clockCard(b)` | studio | The strip under the section menu while a clock runs / start-stop card. |
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
 | `js/tour.js` `sheetTutorial(title, steps)` | core | Register walkthrough steps for a sheet by its title. |

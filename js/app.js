@@ -1,5 +1,5 @@
 import { h, toast } from './util.js';
-import { createRolodex } from './rolodex.js';
+import { createDeck } from './deck.js';
 import * as store from './store.js';
 import { applyPrefs, openDisplaySettings } from './a11y.js';
 import { initInstall } from './install.js';
@@ -19,18 +19,20 @@ initClockBar(document.getElementById('clockbar'));
 // The Bookings card is the usual start, so it loads with the app. Every other section is fetched and parsed the first
 // time it is opened (the service worker keeps them all offline regardless), which keeps the start-up parse small.
 // Sections are known by their id everywhere (window.logiGo('venues')), never by position.
-const section = (id, label, icon, load) => ({ id, label, icon, load });
+const section = (id, label, icon, load, count) => ({ id, label, icon, load, count });
+// Each section's count shows as its "length" on the section menu's track list (and under Now playing).
+const many = (list, one, more) => () => ({ n: (store.db[list] || []).length, one, many: more });
 const tabs = [
-  { id: bookings.id, label: bookings.label, icon: bookings.icon, page: bookings },
-  section('acts', 'Acts', '🎸', () => import('./pages/acts.js').then(m => m.acts)),
-  section('people', 'People', '👥', () => import('./pages/people.js').then(m => m.people)),
-  section('songs', 'Songs', '🎼', () => import('./pages/songs.js').then(m => m.songs)),
-  section('sessions', 'Studio log', '🎙️', () => import('./pages/sessions.js').then(m => m.sessions)),
-  section('backline', 'Backline', '🎛️', () => import('./pages/backline.js').then(m => m.backline)),
-  section('venues', 'Venues', '📍', () => import('./pages/venues.js').then(m => m.venues)),
+  { id: bookings.id, label: bookings.label, icon: bookings.icon, page: bookings, count: () => ({ n: store.upcoming().length, one: 'coming up', many: 'coming up' }) },
+  section('acts', 'Acts', '🎸', () => import('./pages/acts.js').then(m => m.acts), many('acts', 'act', 'acts')),
+  section('people', 'People', '👥', () => import('./pages/people.js').then(m => m.people), many('people', 'person', 'people')),
+  section('songs', 'Songs', '🎼', () => import('./pages/songs.js').then(m => m.songs), many('songs', 'song', 'songs')),
+  section('sessions', 'Studio log', '🎙️', () => import('./pages/sessions.js').then(m => m.sessions), many('logs', 'take log', 'take logs')),
+  section('backline', 'Backline', '🎛️', () => import('./pages/backline.js').then(m => m.backline), many('gear', 'item', 'items')),
+  section('venues', 'Venues', '📍', () => import('./pages/venues.js').then(m => m.venues), many('venues', 'place', 'places')),
   section('money', 'Money', '💰', () => import('./pages/money.js').then(m => m.money)),
-  section('tools', 'Tools', '🎚️', () => import('./pages/tools.js').then(m => m.tools)),
-  section('insurance', 'Insurance', '🛡️', () => import('./pages/insurance.js').then(m => m.insurance)),
+  section('tools', 'Tools', '🎚️', () => import('./pages/tools.js').then(m => m.tools), () => ({ n: 5, one: 'tool', many: 'tools' })),
+  section('insurance', 'Insurance', '🛡️', () => import('./pages/insurance.js').then(m => m.insurance), many('insurance', 'policy', 'policies')),
   section('settings', 'Settings', '⚙️', () => import('./pages/settings.js').then(m => m.settings)),
 ];
 window.gdexPages = () => tabs.map(t => ({ id: t.id, label: t.label, icon: t.icon, page: t.page || null }));
@@ -83,13 +85,14 @@ let pressed = false, pressTimer = 0;
 const flush = () => { clearTimeout(pressTimer); if (redrawQueued) setTimeout(redraw, 0); };
 document.addEventListener('pointerdown', () => { pressed = true; clearTimeout(pressTimer); pressTimer = setTimeout(() => { pressed = false; flush(); }, 1500); }, true);
 for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { if (!pressed) return; pressed = false; setTimeout(flush, 0); }, true); // after the click that follows the release
-store.subscribe(() => { if (redrawQueued) return; redrawQueued = true; if (!pressed) setTimeout(redraw, 0); });
+let deck = null; // the section menu, made below once the start section is known
+store.subscribe(() => { deck && deck.refresh(); if (redrawQueued) return; redrawQueued = true; if (!pressed) setTimeout(redraw, 0); });
 
 let start = 0;
 try { const saved = localStorage.getItem('gdex-tab'); start = Math.max(0, tabs.findIndex(t => t.id === saved)); } catch { /* ignore */ }
-const nav = document.getElementById('rolodex');
-const rolodex = createRolodex(nav, tabs, { start, onSelect: (i, dir) => { showNav(); show(i, dir); } });
-// The Rolodex bar: hidden by a slide while the page scrolls down, back the moment it scrolls up, and always there near
+const nav = document.getElementById('deck');
+deck = createDeck(nav, tabs, { start, onSelect: (i, dir) => { showNav(); show(i, dir); } });
+// The section menu: hidden by a slide while the page scrolls down, back the moment it scrolls up, and always there near
 // the top, when a section changes, when something in it takes the focus, and when a tour starts.
 function showNav() { nav.classList.remove('tucked'); }
 window.logiShowNav = showNav;
@@ -112,7 +115,7 @@ window.logiGo = id => {
   const i = typeof id === 'number' ? id : tabs.findIndex(t => t.id === id);
   if (i < 0 || i >= tabs.length) return showing;
   if (i === current) return showing;
-  rolodex.go(i);
+  deck.go(i);
   return showing;
 };
 window.logiPage = () => (tabs[current] ? tabs[current].id : null); // which section is open (the tutorials use it)

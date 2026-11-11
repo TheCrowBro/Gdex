@@ -22,7 +22,7 @@ async function open({ sample = false, viewport = { width: 420, height: 900 }, ta
   page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
   page.on('dialog', d => d.accept());
   await page.goto(BASE);
-  await page.waitForSelector('#rolodex .drum-btn');
+  await page.waitForSelector('#deck .dk-next');
   if (sample) { await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(150); }
   if (tab) { await page.evaluate(t => window.logiGo(t), tab); await sleep(400); }
   return { browser, ctx, page, errors };

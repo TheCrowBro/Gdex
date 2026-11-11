@@ -82,7 +82,7 @@ const ymdOffset = n => { const d = new Date(Date.now() + n * 864e5); return `${d
 
   // The clock survives a reload: it is stored.
   await page.reload();
-  await page.waitForSelector('#rolodex .drum-btn');
+  await page.waitForSelector('#deck .dk-next');
   await page.waitForSelector('#clockbar:not([hidden]) .sd-strip');
   ok('after a reload the strip is back', /Sable @ Echo Chamber Studios/.test(await page.textContent('#clockbar .sd-strip')));
 

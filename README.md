@@ -22,7 +22,9 @@ Gdex is a sibling of Vdex, the app for videographers, and shares its look and th
 
 ## What the cards are
 
-The spinning drum at the top is the Rolodex. Swipe it, or tap the little arrows, to move between the cards:
+The record player at the top is how you move around: every card is a track, Side A and Side B. Swipe the record or tap
+⏮ ⏭ to change card, or tap the record to see them all on the sleeve and jump straight to one. Prefer a tape deck? Tap
+**Aa** at the top, then **Section menu → Tape deck**.
 
 | Card | What it's for |
 |---|---|
@@ -58,7 +60,7 @@ The spinning drum at the top is the Rolodex. Swipe it, or tap the little arrows,
 1. **Bookings → + New → Studio session.** The act or client, the studio, the times and your rate (per hour, per day,
    per song or a flat fee).
 2. **Session clock:** tap **Start** when you begin, **Break** for lunch, **Stop** at the end. While it runs, a strip under
-   the Rolodex shows it on every page.
+   the section menu shows it on every page.
 3. **Take log:** tap **+ Take** for each take, mark the keepers, write what to fix.
 4. **Songs and deliverables:** what you worked on, and the rough mix, final mix, master and stems with due dates.
 5. **Quote & invoice:** the hours from the clock go straight onto the invoice.

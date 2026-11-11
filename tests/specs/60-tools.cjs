@@ -314,12 +314,12 @@ const stored = (page, key) => page.evaluate(k => localStorage.getItem(k), key);
   await page.keyboard.press('Escape'); await sleep(200); await page.keyboard.press('Escape');
 
   /* ------------------------------- after a reload, and an empty database ------------------------------- */
-  await page.reload(); await page.waitForSelector('#rolodex .drum-btn');
+  await page.reload(); await page.waitForSelector('#deck .dk-next');
   await go(page, 'tools'); await page.waitForSelector('.tl-seg');
   ok('the last tool is opened again after a reload', (await page.getAttribute('#tl-tab-metronome', 'aria-selected')) === 'true');
   ok('and so is its tempo', (await page.inputValue('#tl-bpm')) === '150' && JSON.parse(await stored(page, 'gdex-metronome')).bpm === 150);
   await page.evaluate(() => import('./js/store.js').then(st => st.eraseAll()));
-  await page.reload(); await page.waitForSelector('#rolodex .drum-btn');
+  await page.reload(); await page.waitForSelector('#deck .dk-next');
   await go(page, 'tools'); await page.waitForSelector('.tl-seg');
   ok('erasing everything resets the tools too', (await page.getAttribute('#tl-tab-tuner', 'aria-selected')) === 'true');
   await tab(page, 'metronome');

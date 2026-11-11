@@ -270,7 +270,7 @@ function labelEl(actId, p, stage) {
   btn.addEventListener('keydown', e => {
     const step = e.shiftKey ? 0.1 : 0.02;
     const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
-    if (d) { e.preventDefault(); sel = p.id; nudge(actId, p.id, d[0], d[1]); return; } // preventDefault: the Rolodex leaves the key alone
+    if (d) { e.preventDefault(); sel = p.id; nudge(actId, p.id, d[0], d[1]); return; } // preventDefault: the section menu leaves the key alone
     if (e.key === 'Enter') { e.preventDefault(); renameLabel(actId, p.id); return; }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeLabel(actId, p.id); }
   });

@@ -61,7 +61,7 @@ export const tools = {
     open(S.tool);
 
     // Keys: the tab strip moves with the arrows; Space runs the metronome and the set timer; T taps the tempo. Arrow
-    // keys used inside a tool never reach the Rolodex, which would otherwise spin to another section.
+    // keys used inside a tool never reach the section menu, which would otherwise spin to another section.
     const where = t => {
       const inside = panel.contains(t);
       const loose = t === document.body || t === document.documentElement || t === root || (t && t.id === 'page');
@@ -89,7 +89,7 @@ export const tools = {
       if ((w.inside || w.loose) && !w.field && !w.tab) e.preventDefault();
     };
     const onVis = () => { if (!active) return; if (document.hidden) active.api.hidden && active.api.hidden(); else active.api.visible && active.api.visible(); };
-    // Capture phase: the Rolodex listens on the document too (registered first), and must see the key as used.
+    // Capture phase: the section menu listens on the document too (registered first), and must see the key as used.
     document.addEventListener('keydown', onKey, true);
     document.addEventListener('keyup', onKeyUp, true);
     document.addEventListener('visibilitychange', onVis);

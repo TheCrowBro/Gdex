@@ -19,7 +19,7 @@ async function openKept({ sample = false, tab = null, init = null } = {}) {
   page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
   page.on('dialog', d => d.accept());
   await page.goto(BASE);
-  await page.waitForSelector('#rolodex .drum-btn');
+  await page.waitForSelector('#deck .dk-next');
   if (sample) { await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(150); }
   if (tab) await go(page, tab);
   const browser = { close: async () => { await ctx.close(); fs.rmSync(dir, { recursive: true, force: true }); } };
@@ -277,7 +277,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   // Sections stay open across a reload
   const openNow = await page.$$eval('#page details.se-sec[open]', ds => ds.map(x => x.id).sort().join());
   await page.reload();
-  await page.waitForSelector('#rolodex .drum-btn');
+  await page.waitForSelector('#deck .dk-next');
   await go(page, 'settings');
   await page.waitForSelector('#se-profile');
   ok('open sections are remembered', (await page.$$eval('#page details.se-sec[open]', ds => ds.map(x => x.id).sort().join())) === openNow, openNow);
@@ -310,7 +310,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   await page.fill('#se-erase-input', 'erase');
   ok('typing erase arms it', !(await page.$eval('#se-erase-go', b => b.disabled)));
   await Promise.all([page.waitForEvent('load', { timeout: 15000 }), page.click('#se-erase-go')]);
-  await page.waitForSelector('#rolodex .drum-btn');
+  await page.waitForSelector('#deck .dk-next');
   await sleep(300);
   d = await data(page);
   ok('erase empties the database', ['bookings', 'acts', 'people', 'gear', 'songs', 'venues', 'setlists'].every(c => d[c].length === 0) && d.profile.name === '' && d.profile.currency === '$');
@@ -351,7 +351,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   copy = await readCopy();
   ok('a change is written to the file a moment later', copy.includes('Copy Test Song'));
   await page.reload();
-  await page.waitForSelector('#rolodex .drum-btn');
+  await page.waitForSelector('#deck .dk-next');
   await go(page, 'settings');
   await page.waitForSelector('#page .se-bk-file[data-state=saved]', { timeout: 15000 });
   ok('after a reload the file is linked again', /Copy kept in gdex-db\.json/.test(await text(page, '#page .se-bk-file')));

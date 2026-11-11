@@ -1,5 +1,5 @@
 // The session clock. One clock runs at a time, started from a studio session's or rehearsal's Session clock box; while
-// it runs, a slim strip under the Rolodex shows it on every page with Break / Back and Stop, so the day can be paused or
+// it runs, a slim strip under the section menu shows it on every page with Break / Back and Stop, so the day can be paused or
 // stopped from anywhere. Shifts are kept in the store (db.shifts), so the clock carries on through a reload, and the
 // hours it counts (breaks taken off) feed the invoice through clockHours(). Adapted from Vdex's js/clock.js and
 // js/hours.js, without the overtime rules, the standard day or the break allowance.
@@ -191,7 +191,7 @@ export function clockCard(b) {
 }
 
 /* ------------------------------ the strip ------------------------------ */
-// The strip under the Rolodex: "⏺ Studio · Title · 1:23:45" with Break / Back and Stop, shown only while a clock runs.
+// The strip under the section menu: "⏺ Studio · Title · 1:23:45" with Break / Back and Stop, shown only while a clock runs.
 // The time ticks every second without a redraw; screen readers hear it at most once a minute.
 let started = false;
 export function initClockBar(root) {

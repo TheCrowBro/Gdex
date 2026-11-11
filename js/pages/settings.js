@@ -51,7 +51,7 @@ export async function openSettingsSection(id) {
   const d = document.getElementById('se-' + id);
   if (!d) return false;
   d.open = true;
-  const nav = document.getElementById('rolodex'); // sticky at the top: the section lands under it, not behind it
+  const nav = document.getElementById('deck'); // sticky at the top: the section lands under it, not behind it
   d.style.scrollMarginTop = `${(nav ? nav.getBoundingClientRect().height : 0) + 8}px`;
   d.scrollIntoView({ block: 'start' });
   d.querySelector(':scope > summary')?.focus({ preventScroll: true });

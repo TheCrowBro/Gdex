@@ -283,7 +283,7 @@ function itemRow(list, p, r, i, ctx) {
 function keyMove(e, id, itemId) {
   const k = e.key;
   if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(k)) return;
-  e.preventDefault(); e.stopPropagation(); // the arrows move the item, not the Rolodex
+  e.preventDefault(); e.stopPropagation(); // the arrows move the item, not the section menu
   if (k === 'Home') return moveTo(id, itemId, 0);
   if (k === 'End') return moveTo(id, itemId, itemsOf(id).length - 1);
   moveBy(id, itemId, k === 'ArrowUp' ? -1 : 1);

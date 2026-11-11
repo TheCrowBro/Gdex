@@ -460,7 +460,7 @@ function arrowKeys(grid) {
     const cell = e.target.closest && e.target.closest('[data-date]');
     const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
     if (!cell || !step) return;
-    e.preventDefault(); // the Rolodex keeps its arrows for the rest of the page
+    e.preventDefault(); // the section menu keeps its arrows for the rest of the page
     const iso = addDays(cell.dataset.date, step);
     if (iso.slice(0, 7) !== cell.dataset.date.slice(0, 7)) go({ cursor: monthStart(iso) }, { top: false });
     const next = ROOT && ROOT.querySelector(`[data-date="${iso}"]`);

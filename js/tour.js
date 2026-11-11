@@ -1,4 +1,4 @@
-// Spotlight walkthrough: dims the page, cuts a hole over the thing being explained, moves the Rolodex as it goes.
+// Spotlight walkthrough: dims the page, cuts a hole over the thing being explained, moves the section menu as it goes.
 // A step can carry a form (its body) that is saved on Next, so a walkthrough can set things up as well as point.
 import { h, nodes } from './util.js';
 import { db, update } from './store.js';
@@ -17,7 +17,7 @@ const profileStep = {
 export const STEPS = [
   { title: 'Welcome to Gdex', text: 'The booking deck for producers and bands: shows, studio sessions and rehearsals, your acts and people, backline, venues, songs and setlists, settlements and invoices, and the tools you need on the night. This takes about a minute. Tap Skip any time.' },
   profileStep,
-  { go: 'bookings', target: ['.binder'], title: 'The Rolodex', text: 'Spin it to move between sections: drag it, tap ▲ ▼, use the arrow keys, or scroll on it.' },
+  { go: 'bookings', target: ['.deck'], title: 'Your sections are tracks', text: 'Swipe the record (or the cassette) or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve. Prefer a tape deck? Aa → Section menu.' },
   { go: 'bookings', target: ['.page-head'], title: 'Bookings', text: 'Shows, studio sessions and rehearsals on one calendar. Open one for its times, deal, setlist, guest list, day sheet, settlement and invoice.' },
   { go: 'acts', target: ['.page-head'], title: 'Acts', text: 'The bands and artists you play in, manage or produce: members, links, press kit and tech rider with the input list.' },
   { go: 'songs', target: ['.page-head'], title: 'Songs & setlists', text: 'Keys, tempos and lengths for every song, split sheets for the writers, and setlists that add up to the slot.' },
@@ -52,7 +52,7 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   const card = h('div', { class: 'tour-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'tour-title' });
   const layer = h('div', { class: 'tour' }, spot, card);
   const wasInert = !!(app && app.inert);
-  window.logiShowNav?.(); // the Rolodex bar may be slid away: the tour points at it
+  window.logiShowNav?.(); // the section menu may be slid away: the tour points at it
   document.body.append(layer); if (app) app.inert = true;
   let i = from, target = null, dir = 1;
   const seen = new Set(); // steps already shown: they keep their place in the count when going back
