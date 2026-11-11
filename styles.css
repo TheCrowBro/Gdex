@@ -114,6 +114,8 @@ a { color: var(--accent); }
 .dk-jcard-title { margin: 0; font: 700 1.6rem/1.1 'Segoe Print', 'Bradley Hand', 'Marker Felt', 'Chalkboard SE', 'Comic Sans MS', cursive; }
 .dk-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: 14px; } /* one column when two would cut the names */
 .dk-side { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dk-bonus { margin-top: 14px; } .dk-bonus .dk-side-head { border-bottom-style: dashed; }
+.dk-bonus-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); column-gap: 14px; row-gap: 2px; }
 .dk-side-head { font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
 .dk-track { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--hit); padding: 0 8px; border: 0; border-bottom: 1px dotted var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .dk-track.on { background: var(--accent); color: var(--accent-ink); }
@@ -366,6 +368,17 @@ html[data-motion=off] *, html[data-motion=off] *::before, html[data-motion=off] 
 .theme-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); font: inherit; cursor: pointer; min-height: var(--hit); text-align: left; }
 .theme-row[aria-checked=true] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
 .theme-row .check { font-weight: 800; color: var(--accent); }
+/* roles: the first-run question and Settings → Your role (js/role-pick.js) */
+.rp-intro { margin: 0; }
+.rp-list { display: grid; gap: 8px; }
+.rp-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; margin: 0; }
+.rp-card[aria-checked=true], .rp-card.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.rp-icon { font-size: 1.7rem; width: 2.2rem; text-align: center; }
+.rp-text { display: grid; gap: 2px; min-width: 0; }
+.rp-name { font-size: 1.05rem; }
+.rp-blurb, .rp-menu { overflow-wrap: anywhere; }
+.rp-check { font-weight: 800; color: var(--accent); min-width: 1ch; }
+.rp-all { width: 100%; justify-content: center; }
 .theme-list { display: grid; gap: 6px; }
 
 /* the clock: a slim strip under the Rolodex while it runs, and the card in a booking's Hours box */

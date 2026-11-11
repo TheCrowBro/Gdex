@@ -9,6 +9,7 @@ import { printElement } from '../print.js';
 import { sheetTutorial } from '../tour.js';
 import { openSetlist, newSetlist, liveSheet, plural, shortKey, tickShows } from '../setlist.js';
 import { openBooking } from './bookings.js';
+import { sectionName } from '../roles.js';
 
 // View state survives redraws: which view, which act's chip, the search.
 const S = { view: 'songs', act: '', q: '', lyrics: false, qBox: false }; // qBox: the search box was showing (kept until the view changes, so clearing it never pulls it away mid-typing)
@@ -74,7 +75,7 @@ function view(draw) {
   if (S.act && !chipList.some(([k]) => k === S.act)) chipList.push([S.act, S.act === NO_ACT ? 'No act' : actName(S.act)]);
   const chip = (k, name) => h('button', { class: 'chip' + (S.act === k ? ' on' : ''), type: 'button', 'aria-pressed': String(S.act === k), onclick: () => { S.act = S.act === k || !k ? '' : k; draw(); } }, name);
   return [
-    h('div', { class: 'page-head' }, h('h1', null, 'Songs'),
+    h('div', { class: 'page-head' }, h('h1', null, sectionName('songs', 'Songs')),
       isSongs
         ? h('button', { class: 'btn primary', type: 'button', id: 'sg-new-song', 'data-fk': 'pg-new', onclick: () => editSong({ actId: S.act && S.act !== NO_ACT ? S.act : '' }) }, '+ Song')
         : h('button', { class: 'btn primary', type: 'button', id: 'sg-new-setlist', 'data-fk': 'pg-new', onclick: () => newSetlistForm() }, '+ New setlist')),

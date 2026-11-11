@@ -12,6 +12,7 @@ import { metronome, setMetronomeBpm, METRONOME_STEPS } from '../tools-metronome.
 import { tempo, TEMPO_STEPS } from '../tools-tempo.js';
 import { meter, METER_STEPS } from '../tools-meter.js';
 import { setTimer, TIMER_STEPS } from '../tools-timer.js';
+import { sectionName } from '../roles.js';
 
 const TOOLS = [
   { id: 'tuner', label: 'Tuner', icon: '🎸', make: tuner, steps: TUNER_STEPS },
@@ -56,7 +57,7 @@ export const tools = {
     };
 
     root.append(h('div', { class: 'tl-page' },
-      h('div', { class: 'page-head' }, h('h1', null, 'Tools')),
+      h('div', { class: 'page-head' }, h('h1', null, sectionName('tools', 'Tools'))),
       seg, panel));
     open(S.tool);
 

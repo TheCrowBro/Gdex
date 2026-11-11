@@ -6,6 +6,7 @@ import { db, upsert, remove, byId, totalValue } from '../store.js';
 import { fmtMoney } from '../model.js';
 import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
+import { sectionName } from '../roles.js';
 
 const TYPES = ['Instruments & equipment', 'Public liability', 'Employers liability', 'Travel & touring', 'Vehicle', 'Event cancellation', 'Professional indemnity', 'Studio contents', 'Other'];
 const ICONS = { instrument: '🎸', public: '👥', employer: '👷', travel: '✈️', vehicle: '🚐', cancel: '📅', indemnity: '⚖️', studio: '🎚️' };
@@ -129,7 +130,7 @@ export const insurance = {
     const add = () => edit();
 
     root.append(h('div', { class: 'ins-page' },
-      h('div', { class: 'page-head' }, h('h1', null, 'Insurance'), h('button', { class: 'btn primary', type: 'button', id: 'ins-add', 'aria-label': 'Add a policy', onclick: add }, '+ Add')),
+      h('div', { class: 'page-head' }, h('h1', null, sectionName('insurance', 'Insurance')), h('button', { class: 'btn primary', type: 'button', id: 'ins-add', 'aria-label': 'Add a policy', onclick: add }, '+ Add')),
       list.length > 0 && h('div', { class: 'stats ins-stats' },
         stat(String(list.length), list.length === 1 ? 'policy' : 'policies'),
         stat(fmtMoney(annual), 'premiums a year'),

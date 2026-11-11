@@ -10,6 +10,7 @@ import { dateText } from '../money-doc.js';
 import { csv, saveFile } from '../print.js';
 import { openBooking, newBooking } from './bookings.js';
 import { isSettled } from '../blocks/settlement.js';
+import { sectionName } from '../roles.js';
 
 let year = null;          // the year on show (null: this year)
 let showAllSettled = false;
@@ -48,7 +49,7 @@ function yearRange() {
 }
 
 function render(root) {
-  const head = h('div', { class: 'page-head' }, h('h1', null, 'Money'));
+  const head = h('div', { class: 'page-head' }, h('h1', null, sectionName('money', 'Money')));
   if (!db.bookings.length) {
     root.append(head, empty('Your money shows up here once you have bookings: what you earned, what is owed to you, deposits due, and what each player was paid.', h('button', { class: 'btn primary', type: 'button', onclick: () => newBooking({ kind: 'show' }) }, '+ Add a booking')));
     return;

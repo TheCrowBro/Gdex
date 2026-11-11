@@ -7,6 +7,7 @@ import { startTour, tourSeen } from './tour.js';
 import { initClockBar } from './clock.js';
 import { initUpdates } from './update.js';
 import { bookings } from './pages/bookings.js';
+import { roleChosen, menuSections, offMenu, startSection, sectionName } from './roles.js';
 
 applyPrefs();
 const help = () => import('./tutorials.js').then(m => m.openTutorial()); // the tutorials load on first use
@@ -18,11 +19,13 @@ initClockBar(document.getElementById('clockbar'));
 
 // The Bookings card is the usual start, so it loads with the app. Every other section is fetched and parsed the first
 // time it is opened (the service worker keeps them all offline regardless), which keeps the start-up parse small.
-// Sections are known by their id everywhere (window.logiGo('venues')), never by position.
+// Sections are known by their id everywhere (window.logiGo('venues')), never by position: which ones are tracks on the
+// section menu, and in what order, depends on the role (js/roles.js). A section off the role's menu opens all the same
+// (from a link, or from the sleeve's bonus tracks) and sits on the record as a bonus track until you move on.
 const section = (id, label, icon, load, count) => ({ id, label, icon, load, count });
 // Each section's count shows as its "length" on the section menu's track list (and under Now playing).
 const many = (list, one, more) => () => ({ n: (store.db[list] || []).length, one, many: more });
-const tabs = [
+const ALL_TABS = [
   { id: bookings.id, label: bookings.label, icon: bookings.icon, page: bookings, count: () => ({ n: store.upcoming().length, one: 'coming up', many: 'coming up' }) },
   section('acts', 'Acts', '🎸', () => import('./pages/acts.js').then(m => m.acts), many('acts', 'act', 'acts')),
   section('people', 'People', '👥', () => import('./pages/people.js').then(m => m.people), many('people', 'person', 'people')),
@@ -35,8 +38,23 @@ const tabs = [
   section('insurance', 'Insurance', '🛡️', () => import('./pages/insurance.js').then(m => m.insurance), many('insurance', 'policy', 'policies')),
   section('settings', 'Settings', '⚙️', () => import('./pages/settings.js').then(m => m.settings)),
 ];
-window.gdexPages = () => tabs.map(t => ({ id: t.id, label: t.label, icon: t.icon, page: t.page || null }));
-const pageOf = t => (t.page ? Promise.resolve(t.page) : (t.loading || (t.loading = t.load().then(p => { t.page = p; return p; }).catch(e => { t.loading = null; throw e; }))));
+const BASE = new Map(ALL_TABS.map(t => [t.id, t.label])); // each section's own name; a role may call it something else
+const tabOf = id => ALL_TABS.find(t => t.id === id) || null;
+let guest = null; // the off-menu section open as a bonus track, if any
+// The menu for the current role: its sections in order, then the bonus track. Names follow the role.
+function buildTabs() {
+  ALL_TABS.forEach(t => { t.label = sectionName(t.id, BASE.get(t.id)); });
+  const ids = menuSections();
+  if (guest && (ids.includes(guest) || !tabOf(guest))) guest = null;
+  const list = ids.map(tabOf).filter(Boolean);
+  if (guest) { const t = tabOf(guest); list.push({ id: t.id, label: t.label, icon: t.icon, count: t.count, bonus: true }); }
+  return list;
+}
+let tabs = buildTabs();
+const extras = () => offMenu().map(tabOf).filter(Boolean);
+// Every section, the role's menu first (the tutorials' chooser lists them all).
+window.gdexPages = () => [...tabs.filter(t => !t.bonus).map(t => tabOf(t.id)), ...extras()].map(t => ({ id: t.id, label: t.label, icon: t.icon, page: t.page || null }));
+const pageOf = x => { const t = tabOf(x.id); return t.page ? Promise.resolve(t.page) : (t.loading || (t.loading = t.load().then(p => { t.page = p; return p; }).catch(e => { t.loading = null; throw e; }))); };
 const page = document.getElementById('page');
 let current = -1;
 let cleanup = null;
@@ -66,7 +84,7 @@ let redrawQueued = false;
 const focusKey = el => (el && el !== document.body && page.contains(el) ? (el.id ? `${el.tagName}|#${el.id}` : [el.tagName, el.type || '', el.getAttribute('aria-label') || el.name || '', ((el.closest('label') || el).textContent || '').trim().slice(0, 80)].join('|')) : null);
 function redraw() {
   redrawQueued = false;
-  const p = current >= 0 && tabs[current] && tabs[current].page;
+  const p = current >= 0 && tabs[current] && tabOf(tabs[current].id).page;
   if (!p || p.static) return; // a section still loading draws itself fresh when it arrives
   const y = window.scrollY, key = focusKey(document.activeElement);
   const holder = page.firstElementChild;
@@ -88,10 +106,16 @@ for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () 
 let deck = null; // the section menu, made below once the start section is known
 store.subscribe(() => { deck && deck.refresh(); if (redrawQueued) return; redrawQueued = true; if (!pressed) setTimeout(redraw, 0); });
 
-let start = 0;
-try { const saved = localStorage.getItem('gdex-tab'); start = Math.max(0, tabs.findIndex(t => t.id === saved)); } catch { /* ignore */ }
+// Where to start: the section open last time if it is on the menu, else the role's first section.
+let start = Math.max(0, tabs.findIndex(t => t.id === startSection()));
+try { const saved = localStorage.getItem('gdex-tab'); const i = tabs.findIndex(t => t.id === saved); if (i >= 0) start = i; } catch { /* ignore */ }
 const nav = document.getElementById('deck');
-deck = createDeck(nav, tabs, { start, onSelect: (i, dir) => { showNav(); show(i, dir); } });
+// Moving to any other track puts the bonus track back on the sleeve.
+function select(i, dir) {
+  if (guest && tabs[i] && tabs[i].id !== guest) { guest = null; tabs = buildTabs(); deck.setTabs(tabs, i); }
+  showNav(); show(i, dir);
+}
+deck = createDeck(nav, tabs, { start, onSelect: select, extras, onExtra: id => window.logiGo(id) });
 // The section menu: hidden by a slide while the page scrolls down, back the moment it scrolls up, and always there near
 // the top, when a section changes, when something in it takes the focus, and when a tour starts.
 function showNav() { nav.classList.remove('tucked'); }
@@ -110,14 +134,33 @@ window.logiShowNav = showNav;
   nav.addEventListener('focusin', showNav);
 }
 show(start);
-// Jump to a section by id ('venues') and resolve once it is drawn. Unknown ids stay where they are.
+// Jump to a section by id ('venues') and resolve once it is drawn. Unknown ids stay where they are. A section that is
+// not on the role's menu comes onto the record as the bonus track.
 window.logiGo = id => {
-  const i = typeof id === 'number' ? id : tabs.findIndex(t => t.id === id);
+  let i = typeof id === 'number' ? id : tabs.findIndex(t => t.id === id);
+  if (i < 0 && typeof id === 'string' && tabOf(id)) {
+    const onGuest = !!(guest && tabs[current] && tabs[current].id === guest);
+    guest = id; tabs = buildTabs(); i = tabs.length - 1;
+    if (onGuest) { deck.setTabs(tabs, i); showNav(); return show(i, 1); } // one bonus track for another
+    deck.setTabs(tabs, current);
+  }
   if (i < 0 || i >= tabs.length) return showing;
   if (i === current) return showing;
   deck.go(i);
   return showing;
 };
+// A new role (Settings → Your role, or the first-run question): the menu changes in place. From Settings you stay on
+// Settings; a role chosen at the first-run question opens on its start section.
+window.addEventListener('gdex-role', e => {
+  const was = tabs[current] ? tabs[current].id : null;
+  guest = null; tabs = buildTabs();
+  const want = (e.detail && e.detail.start) || !was ? startSection() : was;
+  let i = tabs.findIndex(t => t.id === want);
+  if (i < 0) { guest = want; tabs = buildTabs(); i = tabs.length - 1; } // still on screen: kept as the bonus track
+  deck.setTabs(tabs, i);
+  if (want !== was) show(i, 0);
+  else { current = i; redraw(); } // the same page, perhaps with its role's name and boxes
+});
 window.logiPage = () => (tabs[current] ? tabs[current].id : null); // which section is open (the tutorials use it)
 
 /* ----------------------- backups ----------------------- */
@@ -125,5 +168,9 @@ document.getElementById('cloudBtn')?.addEventListener('click', () => import('./b
 
 const idle = window.requestIdleCallback ? fn => requestIdleCallback(fn, { timeout: 2500 }) : fn => setTimeout(fn, 1200);
 idle(() => import('./backup.js').then(m => m.nudgeIfStale && m.nudgeIfStale()).catch(() => {}));
-if (!tourSeen()) setTimeout(() => startTour(), 700); // first launch: the welcome walkthrough
+// First launch: who are you (the role sets the menu), then the welcome walkthrough for that role.
+if (!tourSeen()) {
+  if (roleChosen()) setTimeout(() => startTour(), 700);
+  else setTimeout(() => import('./role-pick.js').then(m => m.askRole({ then: () => startTour() })).catch(e => { console.error(e); startTour(); }), 500);
+}
 initUpdates(); // service worker, offline copy, and the "new version" bar

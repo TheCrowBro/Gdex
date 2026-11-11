@@ -2,31 +2,53 @@
 // A step can carry a form (its body) that is saved on Next, so a walkthrough can set things up as well as point.
 import { h, nodes } from './util.js';
 import { db, update } from './store.js';
+import { role, roleId, roleChosen, menuSections, sectionName } from './roles.js';
 
-// The first-run walkthrough (also Settings → About → Take the tour). The profile card saves what is typed on Next.
+// The first-run walkthrough (also Settings → Help → Take the welcome tour). It follows the role (js/roles.js): its own
+// welcome, then the sections on its menu in order. The profile card saves what is typed on Next.
 const profileStep = {
   title: 'Your details', text: 'They go on your invoices, day sheets and contact card. Change them any time under Settings.',
-  body: () => h('div', { class: 'tour-fields' }, ...[['Your name', 'name'], ['Business or project name', 'business'], ['What you do', 'role', 'Producer, band leader, tour manager…'], ['Currency symbol', 'currency', '$, £, €…']].map(([label, key, ph]) =>
-    h('label', { class: 'tour-field' }, h('span', null, label), h('input', { type: 'text', value: db.profile[key] || '', 'data-key': key, placeholder: ph || '', 'aria-label': label, autocomplete: 'off' })))),
+  body: () => h('div', { class: 'tour-fields' }, ...[['Your name', 'name'], ['Business or project name', 'business'], ['What you do', 'role', 'Producer, band leader, tour manager…'], ['Currency symbol', 'currency', '$, £, €…']].map(([label, key, ph]) => {
+    // What you do starts as the role picked at the first question, until something else is typed.
+    const value = db.profile[key] || (key === 'role' && roleChosen() && roleId() !== 'all' ? role().label : '');
+    return h('label', { class: 'tour-field' }, h('span', null, label), h('input', { type: 'text', value, 'data-key': key, placeholder: ph || '', 'aria-label': label, autocomplete: 'off' }));
+  })),
   onNext: () => {
     const patch = {};
     document.querySelectorAll('.tour-form input[data-key]').forEach(i => { const v = i.value.trim(); if ((db.profile[i.dataset.key] || '') !== v && !(i.dataset.key === 'currency' && !v)) patch[i.dataset.key] = v; });
     if (Object.keys(patch).length) update(d => { d.profile = { ...d.profile, ...patch, updatedAt: Date.now() }; });
   },
 };
-export const STEPS = [
-  { title: 'Welcome to Gdex', text: 'The booking deck for producers and bands: shows, studio sessions and rehearsals, your acts and people, backline, venues, songs and setlists, settlements and invoices, and the tools you need on the night. This takes about a minute. Tap Skip any time.' },
-  profileStep,
-  { go: 'bookings', target: ['.deck'], title: 'Your sections are tracks',
-    get text() { let tape = false; try { tape = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu === 'tape'; } catch { /* the record */ }
-      return tape ? 'Swipe the cassette or tap ⏪ ⏩ to change section; tap Tracks (or the cassette) to see them all. Prefer a record player? Aa → Section menu.'
-        : 'Swipe the record or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve. Prefer a tape deck? Aa → Section menu.'; } },
-  { go: 'bookings', target: ['.page-head'], title: 'Bookings', text: 'Shows, studio sessions and rehearsals on one calendar. Open one for its times, deal, setlist, guest list, day sheet, settlement and invoice.' },
-  { go: 'acts', target: ['.page-head'], title: 'Acts', text: 'The bands and artists you play in, manage or produce: members, links, press kit and tech rider with the input list.' },
-  { go: 'songs', target: ['.page-head'], title: 'Songs & setlists', text: 'Keys, tempos and lengths for every song, split sheets for the writers, and setlists that add up to the slot.' },
-  { go: 'tools', target: ['.page-head'], title: 'Tools', text: 'A tuner, a metronome with tap tempo, delay times for any tempo, a sound level meter and a set timer.' },
-  { go: 'settings', target: ['.page-head'], title: 'Settings', text: 'Your details, quotes and invoices, backups, display and this tour again. Everything stays on this device unless you save a backup.' },
-];
+// What each section is, for a role that does not say it its own way.
+export const STOP_TEXT = {
+  bookings: 'Shows, studio sessions and rehearsals on one calendar. Open one for its times, deal, setlist, guest list, day sheet, settlement and invoice.',
+  acts: 'The bands and artists you play in, manage, produce or follow: times seen with your scores, members, links, press kit and tech rider.',
+  people: 'Everyone you work with: players, crew, engineers, promoters and agents, with their contact details and what they are booked on.',
+  songs: 'Keys, tempos and lengths for every song, split sheets for the writers, and setlists that add up to the slot.',
+  sessions: 'The studio log: each session’s takes, keepers and notes, song by song.',
+  backline: 'Your gear: what you own, what goes to each booking, and what is out on loan.',
+  venues: 'Every room, studio and festival you play or visit: the stage, the PA, load-in, curfew and the contact.',
+  money: 'What you are owed and what you have been paid: settlements, invoices and the year’s totals.',
+  tools: 'A tuner, a metronome with tap tempo, delay times for any tempo, a sound level meter and a set timer.',
+  insurance: 'Your policies and what they cover, next to the backline they insure.',
+};
+const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs & setlists', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance' };
+const MAX_STOPS = 5; // the tour stays about a minute: the first sections on the menu
+export function welcomeSteps() {
+  const r = role(), menu = menuSections(r).filter(id => id !== 'settings');
+  const own = new Map((r.tour || []).filter(s => menu.includes(s.id)).map(s => [s.id, s.text]));
+  const stops = (own.size ? [...own.keys()] : menu).slice(0, MAX_STOPS);
+  return [
+    { title: 'Welcome to Gdex', text: r.welcome || 'The booking deck for producers and bands: shows, studio sessions and rehearsals, your acts and people, backline, venues, songs and setlists, settlements and invoices, and the tools you need on the night. This takes about a minute. Tap Skip any time.' },
+    profileStep,
+    { go: menu[0], target: ['.deck'], title: 'Your sections are tracks',
+      get text() { let tape = false; try { tape = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu === 'tape'; } catch { /* the record */ }
+        return tape ? 'Swipe the cassette or tap ⏪ ⏩ to change section; tap Tracks (or the cassette) to see them all, with the bonus tracks your role does not use. Prefer a record player? Aa → Section menu.'
+          : 'Swipe the record or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve, with the bonus tracks your role does not use. Prefer a tape deck? Aa → Section menu.'; } },
+    ...stops.map(id => ({ go: id, target: ['.page-head'], title: sectionName(id, NAMES[id]), text: own.get(id) || STOP_TEXT[id] })),
+    { go: 'settings', target: ['.page-head'], title: 'Settings', text: `Your role (${roleChosen() ? r.label : 'not chosen yet'}), your details, quotes and invoices, backups, display and this tour again. Change your role there any time: the menu follows, and nothing is removed. Everything stays on this device unless you save a backup.` },
+  ];
+}
 const RESUME = 'gdex-tour-at'; // the step to resume at when a step leaves the page (a calendar sign-in that redirects)
 const done = () => { try { localStorage.setItem('gdex-tour', 'done'); } catch { /* ignore */ } };
 export const tourSeen = () => { try { return !!localStorage.getItem('gdex-tour'); } catch { return true; } };
@@ -42,7 +64,7 @@ let active = null;
 export const tourActive = () => !!active;
 export function startTour(from = 0) {
   let at = from; try { const saved = Number(localStorage.getItem(RESUME)); if (!from && saved) at = saved; localStorage.removeItem(RESUME); } catch { /* ignore */ }
-  return runTour(STEPS, { remember: true, from: at });
+  return runTour(welcomeSteps(), { remember: true, from: at });
 }
 // Runs any list of steps: { title, text, target: [selectors], go?: tabId, before?: fn, body?: ctx => node, onNext?: fn }.
 // Steps whose target is not on screen are skipped. A body is a form inside the card (saved by onNext, which may return

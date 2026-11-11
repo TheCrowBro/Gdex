@@ -95,7 +95,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.focus('[data-pref="menu:tape"]'); await page.keyboard.press('Enter'); await sleep(300);
   ok('choosing Tape deck by keyboard keeps the focus on that choice', await page.evaluate(() => document.activeElement && document.activeElement.dataset.pref === 'menu:tape'));
   await page.keyboard.press('Escape'); await sleep(300);
-  ok('the welcome tour describes the tape deck when that is the menu', await page.evaluate(() => import('./js/tour.js').then(m => /cassette/.test(m.STEPS.find(s => s.title === 'Your sections are tracks').text))));
+  ok('the welcome tour describes the tape deck when that is the menu', await page.evaluate(() => import('./js/tour.js').then(m => /cassette/.test(m.welcomeSteps().find(s => s.title === 'Your sections are tracks').text))));
   // Narrow phones with extra-large text and buttons: nothing runs off the screen, in either menu.
   for (const menu of ['record', 'tape']) {
     await page.setViewportSize({ width: 320, height: 700 });

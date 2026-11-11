@@ -54,8 +54,8 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   let { browser, page, errors } = await open({ tab: 'settings', init: () => { window.showSaveFilePicker = undefined; } });
   await page.waitForSelector('#se-profile');
   const ids = await page.$$eval('#page details.se-sec', ds => ds.map(d => d.id));
-  ok('eight sections, in order', ids.join(',') === 'se-profile,se-billing,se-backups,se-display,se-help,se-sample,se-about,se-erase', ids.join(','));
-  ok('every section has a line saying where it stands', (await page.$$eval('#page .se-sec > summary .se-sub', s => s.filter(x => x.textContent.trim()).length)) === 8);
+  ok('nine sections, in order', ids.join(',') === 'se-role,se-profile,se-billing,se-backups,se-display,se-help,se-sample,se-about,se-erase', ids.join(','));
+  ok('every section has a line saying where it stands', (await page.$$eval('#page .se-sec > summary .se-sub', s => s.filter(x => x.textContent.trim()).length)) === 9);
   ok('your details say they are not set yet', /Not set yet/.test(await text(page, '#se-profile .se-sub')));
 
   // Your details

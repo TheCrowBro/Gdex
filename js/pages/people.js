@@ -10,6 +10,7 @@ import { openForm } from '../form.js';
 import { qrSvg, loadQR } from '../qr.js';
 import { saveFile, fileName } from '../print.js';
 import { sheetTutorial } from '../tour.js';
+import { sectionName } from '../roles.js';
 
 /* ------------------------------- small helpers ------------------------------- */
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -432,7 +433,7 @@ function draw(root) {
   } else list = h('div', { class: 'list' }, shown.map(card));
 
   root.replaceChildren(h('div', { class: 'pp-page' },
-    h('div', { class: 'page-head' }, h('h1', null, 'People'), h('button', { class: 'btn primary', type: 'button', id: 'pp-add', 'aria-label': 'Add a person', onclick: add }, '+ Add')),
+    h('div', { class: 'page-head' }, h('h1', null, sectionName('people', 'People')), h('button', { class: 'btn primary', type: 'button', id: 'pp-add', 'aria-label': 'Add a person', onclick: add }, '+ Add')),
     (all.length > 3 || S.q) && h('input', { class: 'search', id: 'pp-search', type: 'search', placeholder: 'Search name, role, instrument, act…', value: S.q, 'aria-label': 'Search people', autocomplete: 'off',
       oninput: e => { S.q = e.target.value; again(); } }),
     all.length > 0 && h('div', { class: 'chips pp-groups', role: 'group', 'aria-label': 'Show a group' },

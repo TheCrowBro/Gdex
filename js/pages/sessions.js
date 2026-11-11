@@ -15,6 +15,7 @@ import { csv, saveFile, fileName } from '../print.js';
 import { sheetTutorial } from '../tour.js';
 import { haptic } from '../a11y.js';
 import { fmtClock, clockTime } from '../clock.js';
+import { sectionName } from '../roles.js';
 
 const H = 36e5;
 const KEY = 'gdex-studio-log'; // the open log, so a reload comes back to it
@@ -251,7 +252,7 @@ function listView() {
   };
   fill();
   return h('div', { class: 'sd-page sd-list-view' },
-    h('div', { class: 'page-head' }, h('h1', null, 'Studio log'), h('button', { type: 'button', class: 'btn primary', id: 'sd-new', onclick: () => newLogForm() }, '+ New log')),
+    h('div', { class: 'page-head' }, h('h1', null, sectionName('sessions', 'Studio log')), h('button', { type: 'button', class: 'btn primary', id: 'sd-new', onclick: () => newLogForm() }, '+ New log')),
     todays.length > 0 && h('div', { class: 'card hero sd-today' },
       h('strong', null, todays.length === 1 ? 'In the studio today' : 'Studio sessions today'),
       todays.map(b => {

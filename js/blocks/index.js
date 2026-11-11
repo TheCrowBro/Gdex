@@ -1,5 +1,6 @@
 // Every block a booking page can show, in one list (docs/developers.md → Booking blocks). js/pages/bookings.js draws the
-// ones whose kinds include the booking's kind, sorted by order.
+// ones whose kinds include the booking's kind, sorted by order, leaving out any the role hides.
+import { blockShown } from '../roles.js';
 import lineup from './lineup.js';
 import advance from './advance.js';
 import notes from './notes.js';
@@ -17,4 +18,5 @@ import worksongs from './worksongs.js';
 import deliverables from './deliverables.js';
 
 export const BLOCKS = [lineup, advance, notes, deal, running, guests, settlement, daysheet, setlist, money, budget, clock, takes, worksongs, deliverables].sort((a, b) => a.order - b.order);
-export const blocksFor = kind => BLOCKS.filter(x => (x.kinds || []).includes(kind));
+// The boxes for a kind of booking, without the ones the role does not use (js/roles.js: hide). Their data stays.
+export const blocksFor = kind => BLOCKS.filter(x => (x.kinds || []).includes(kind) && blockShown(x.id));

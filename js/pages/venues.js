@@ -7,6 +7,7 @@ import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMi
 import { openForm } from '../form.js';
 import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
+import { sectionName } from '../roles.js';
 
 // What the page is showing. Kept here so it survives the redraw after every change.
 const S = { kind: '', q: '' };
@@ -115,7 +116,7 @@ function listView(draw) {
   const chip = (key, label, n) => h('button', { type: 'button', id: 'vn-kind-' + (key || 'all'), class: 'chip' + (S.kind === key ? ' on' : ''), 'aria-pressed': String(S.kind === key),
     onclick: () => { S.kind = key; draw(); } }, label, h('span', { class: 'vn-n' }, ' ' + n));
   return [
-    h('div', { class: 'page-head vn-head' }, h('h1', null, 'Venues'),
+    h('div', { class: 'page-head vn-head' }, h('h1', null, sectionName('venues', 'Venues')),
       h('button', { type: 'button', class: 'btn primary', id: 'vn-add', onclick: () => editVenue({ kind: S.kind || 'venue' }) }, '+ Add')),
     counts.size > 1 && h('div', { class: 'chips vn-kinds', role: 'group', 'aria-label': 'Kind of place' },
       chip('', 'All', all.length), VENUE_KINDS.filter(([k]) => counts.has(k)).map(([k, l]) => chip(k, `${ICON[k]} ${l}`, counts.get(k)))),

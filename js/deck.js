@@ -1,8 +1,11 @@
 // The section menu: a record player or a tape deck (Aa → Section menu). Each section is a track, the first half on
 // Side A and the rest on Side B. Swipe the record or the cassette, tap ⏮ ⏭, use the arrow keys or scroll on it to
 // change section; tap the record (or the cassette) to see every section at once and jump straight to one.
-// createDeck(root, tabs, { start, onSelect(i, dir) }) → { go(i), index } — the same shape the Rolodex had.
-// tabs: [{ id, label, count?() → { n, one, many } }].
+// Which sections are tracks depends on the role (js/roles.js); the rest are bonus tracks, listed on the sleeve under the
+// two sides. One that is open sits on the record as a bonus track (★) until you move on.
+// createDeck(root, tabs, { start, onSelect(i, dir), extras?() → [{ id, label, icon, count? }], onExtra?(id) })
+//   → { go(i), index, refresh(), setTabs(tabs, index) }.
+// tabs: [{ id, label, bonus?, count?() → { n, one, many } }]; bonus tabs come last.
 import { h, sheet, announce } from './util.js';
 import { haptic, menuStyle } from './a11y.js';
 
@@ -24,10 +27,15 @@ const armAngle = r => {
   return toC - Math.acos(c) * 180 / Math.PI;
 };
 
-export function createDeck(root, tabs, { onSelect, start = 0 }) {
-  const n = tabs.length, sideA = Math.ceil(n / 2);
-  const idOf = i => (i < sideA ? 'A' + (i + 1) : 'B' + (i - sideA + 1));
-  const sideOf = i => (i < sideA ? 'A' : 'B');
+export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [], onExtra = null }) {
+  let n = 0, sideA = 0, tracks = 0; // tracks: the role's own sections; any after them are bonus tracks
+  const sizes = () => { n = tabs.length; tracks = tabs.filter(t => !t.bonus).length || n; sideA = Math.ceil(tracks / 2); };
+  sizes();
+  const isBonus = i => i >= tracks;
+  const idOf = i => (isBonus(i) ? '★' : i < sideA ? 'A' + (i + 1) : 'B' + (i - sideA + 1));
+  const sideOf = i => (isBonus(i) ? 'Bonus' : i < sideA ? 'A' : 'B');
+  const sideText = i => (isBonus(i) ? 'Bonus track' : 'Side ' + sideOf(i));
+  const spoken = i => (isBonus(i) ? 'a bonus track' : idOf(i)); // what a screen reader says for the track's id
   const radius = k => 63 - k * (26 / Math.max(1, n - 1));
   const countOf = i => { try { const c = tabs[i].count && tabs[i].count(); return c && Number.isFinite(c.n) ? c : null; } catch { return null; } };
   const lengthText = i => { const c = countOf(i); return c ? `${c.n} ${c.n === 1 ? c.one : c.many}` : ''; };
@@ -87,16 +95,16 @@ export function createDeck(root, tabs, { onSelect, start = 0 }) {
       parts.disc.style.transform = `rotate(${turns * 120}deg)`; // a third of a turn per section; the label's words never turn
       parts.arm.style.transform = `rotate(${armAngle(radius(index)).toFixed(2)}deg)`;
       parts.band.setAttribute('r', radius(index).toFixed(1));
-      parts.labelId.textContent = id; parts.labelSide.textContent = 'SIDE ' + sideOf(index);
-      parts.name.textContent = t.label; parts.meta.textContent = [id, 'Side ' + sideOf(index), len].filter(Boolean).join(' · ');
-      parts.record.setAttribute('aria-label', `Now playing ${id}, ${t.label}. Open the sleeve to pick any section`);
+      parts.labelId.textContent = id; parts.labelSide.textContent = sideText(index).replace(' track', '').toUpperCase();
+      parts.name.textContent = t.label; parts.meta.textContent = [!isBonus(index) && id, sideText(index), len].filter(Boolean).join(' · ');
+      parts.record.setAttribute('aria-label', `Now playing ${spoken(index)}, ${t.label}. Open the sleeve to pick any section`);
     } else {
       parts.reels.forEach(r => { r.style.transform = `rotate(${turns * 300}deg)`; });
       const size = k => 24 + k * (22 / Math.max(1, n - 1)); // tape winds from the left spool to the right as you go
       [size(n - 1 - index), size(index)].forEach((s, k) => { parts.packs[k].style.width = parts.packs[k].style.height = s + 'px'; parts.packs[k].style.marginLeft = parts.packs[k].style.marginTop = -s / 2 + 'px'; });
-      parts.labelId.textContent = id; parts.labelName.textContent = t.label; parts.labelSide.textContent = 'SIDE ' + sideOf(index);
+      parts.labelId.textContent = id; parts.labelName.textContent = t.label; parts.labelSide.textContent = sideText(index).replace(' track', '').toUpperCase();
       parts.counter.textContent = String(index * 47).padStart(3, '0'); parts.counterOf.textContent = id;
-      parts.cassette.setAttribute('aria-label', `Now on ${id}, ${t.label}. Open the track list to pick any section`);
+      parts.cassette.setAttribute('aria-label', `Now on ${spoken(index)}, ${t.label}. Open the track list to pick any section`);
     }
   }
   function draw() {
@@ -114,7 +122,7 @@ export function createDeck(root, tabs, { onSelect, start = 0 }) {
     const d = dir || (to > index ? 1 : to < index ? -1 : 0);
     index = to; turns += d;
     paint();
-    if (!silent) { haptic(); announce(`${tabs[index].label}, ${idOf(index)}`); onSelect(index, d); }
+    if (!silent) { haptic(); announce(`${tabs[index].label}, ${spoken(index)}`); onSelect(index, d); }
   }
   const step = d => go(index + d, false, d);
 
@@ -124,13 +132,20 @@ export function createDeck(root, tabs, { onSelect, start = 0 }) {
     const col = (from, to, side) => h('div', { class: 'dk-side' }, h('span', { class: 'dk-side-head' }, 'Side ' + side),
       ...tabs.slice(from, to).map((t, j) => {
         const k = from + j, c = countOf(k);
-        return h('button', { type: 'button', class: 'dk-track' + (k === index ? ' on' : ''), 'aria-current': k === index ? 'true' : null, onclick: () => { close(); go(k); } },
+        return h('button', { type: 'button', class: 'dk-track' + (k === index ? ' on' : ''), 'aria-current': k === index ? 'true' : null, 'data-section': t.id, onclick: () => { close(); go(k); } },
           h('span', { class: 'dk-track-id' }, idOf(k)), h('span', { class: 'dk-track-name' }, t.label), h('span', { class: 'dk-track-n' }, c ? String(c.n) : ''));
       }));
+    // Every section not on this role's menu, so nothing is ever out of reach.
+    let more = []; try { more = extras() || []; } catch { more = []; }
+    const cur = tabs[index] && tabs[index].id;
+    const bonus = more.length > 0 && h('div', { class: 'dk-side dk-bonus' }, h('span', { class: 'dk-side-head' }, 'Bonus tracks'), h('div', { class: 'dk-bonus-list' },
+      ...more.map(x => { let c = null; try { c = x.count && x.count(); } catch { c = null; } const on = x.id === cur;
+        return h('button', { type: 'button', class: 'dk-track' + (on ? ' on' : ''), 'aria-current': on ? 'true' : null, 'data-section': x.id, onclick: () => { close(); if (on) return; if (onExtra) onExtra(x.id); } },
+          h('span', { class: 'dk-track-id', 'aria-hidden': 'true' }, '★'), h('span', { class: 'dk-track-name' }, x.label), h('span', { class: 'dk-track-n' }, c && Number.isFinite(c.n) ? String(c.n) : '')); })));
     const tape = style === 'tape';
     const head = tape ? h('p', { class: 'dk-jcard-title' }, 'Gdex, the booking deck')
-      : h('div', { class: 'dk-sleeve-head' }, h('span', { class: 'dk-cover', 'aria-hidden': 'true' }, 'GDEX'), h('div', null, h('strong', null, 'Gdex'), h('div', { class: 'muted small' }, `The booking deck · ${n} tracks`)));
-    ({ close } = sheet(tape ? 'Track list' : 'The sleeve', h('div', { class: 'dk-sheet ' + (tape ? 'dk-jcard' : 'dk-sleeve') }, head, h('div', { class: 'dk-sides' }, col(0, sideA, 'A'), col(sideA, n, 'B')))));
+      : h('div', { class: 'dk-sleeve-head' }, h('span', { class: 'dk-cover', 'aria-hidden': 'true' }, 'GDEX'), h('div', null, h('strong', null, 'Gdex'), h('div', { class: 'muted small' }, `The booking deck · ${tracks} tracks` + (more.length ? ` · ${more.length} bonus` : ''))));
+    ({ close } = sheet(tape ? 'Track list' : 'The sleeve', h('div', { class: 'dk-sheet ' + (tape ? 'dk-jcard' : 'dk-sleeve') }, head, h('div', { class: 'dk-sides' }, col(0, sideA, 'A'), col(sideA, tracks, 'B')), bonus)));
     setTimeout(() => document.querySelector('.dk-sheet .dk-track.on')?.focus(), 60);
   }
 
@@ -181,6 +196,13 @@ export function createDeck(root, tabs, { onSelect, start = 0 }) {
   // Switching between the record player and the tape deck (Aa → Section menu) redraws in place.
   window.addEventListener('gdex-prefs', () => { if ((menuStyle() === 'tape' ? 'tape' : 'record') !== style) draw(); });
 
+  // A new list of tracks (another role, or a bonus track coming or going): redrawn in place, on track `at`, silently.
+  function setTabs(list, at = 0) {
+    tabs = list; sizes();
+    index = Math.min(n - 1, Math.max(0, at));
+    draw();
+  }
+
   draw();
-  return { go, get index() { return index; }, refresh: paint };
+  return { go, get index() { return index; }, refresh: paint, setTabs };
 }

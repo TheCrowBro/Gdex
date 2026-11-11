@@ -1,5 +1,5 @@
 // Settings: everything that isn't a record, in twirl-down sections that each say where they stand on their closed
-// line: your details (and your contact card as a QR code and a .vcf file), quotes & invoices, backups, display &
+// line: your role (which sets the section menu), your details (and your contact card as a QR code and a .vcf file), quotes & invoices, backups, display &
 // accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here.
 import { h, toast, announce, safeUrl, telUrl } from '../util.js';
 import * as store from '../store.js';
@@ -14,6 +14,8 @@ import { VERSION, BUILD, BUILT } from '../version.js';
 import { updatePanel } from '../update.js';
 import { installState, openInstallHelp } from '../install.js';
 import { backupPanel, health, fileState, onBackupChange, unlinkFile } from '../backup.js';
+import { role, roleChosen, menuSections } from '../roles.js';
+import { rolePanel } from '../role-pick.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -220,6 +222,7 @@ function backupSummary() {
 }
 
 /* ------------------------------- the sample ------------------------------- */
+const roleSummary = () => { const r = role(); return roleChosen() ? `${r.label} · ${plural(menuSections(r).length, 'section')} on the menu` : 'Not chosen: every section is on the menu'; };
 const sampleCount = () => store.COLLECTIONS.reduce((n, c) => n + db[c].filter(r => r && r.sample).length, 0);
 function loadSample() {
   const before = sampleCount();
@@ -310,6 +313,7 @@ function eraseBody() {
 
 /* ------------------------------- the page ------------------------------- */
 const SECTIONS = [
+  ['role', 'Your role', 'Producer, manager, band, solo artist, scout or audiophile: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed.'],
   ['profile', 'Your details', 'Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, your contact card as a QR code to scan and a file to send.'],
   ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
   ['backups', 'Backups', 'Save a backup file, bring one back, or keep a copy in a file in a synced folder. Everything else lives on this device only.'],
@@ -330,6 +334,7 @@ export const settings = {
     done.push(() => display.destroy && display.destroy(), () => up.destroy && up.destroy());
 
     const sec = {
+      role: section('role', '🎭', 'Your role', roleSummary(), rolePanel()),
       profile: section('profile', '🪪', 'Your details', profileSummary(), profile.body, profile.paint),
       billing: section('billing', '🧾', 'Quotes & invoices', billingSummary(), billingBody()),
       backups: section('backups', '☁️', 'Backups', backupSummary(), backupPanel()),

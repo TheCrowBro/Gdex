@@ -7,6 +7,7 @@ import { GEAR_CATS, PEOPLE_GROUPS, fmtMoney, currency, bookingTitle, kindIcon, s
 import { openForm } from '../form.js';
 import { printElement, docPage, saveFile, fileName, csv } from '../print.js';
 import { sheetTutorial } from '../tour.js';
+import { sectionName } from '../roles.js';
 
 // What the page is showing. Kept here so it survives the redraw after every change.
 const S = { view: 'items', q: '', owner: '' }; // owner: '' everyone, 'band' (nobody's own), or a person's id
@@ -82,7 +83,7 @@ function head(draw) {
   const tab = (id, label) => h('button', { type: 'button', role: 'tab', id: 'bl-tab-' + id, class: S.view === id ? 'on' : '', 'aria-selected': String(S.view === id),
     onclick: () => { if (S.view !== id) { S.view = id; draw(); } } }, label);
   return [
-    h('div', { class: 'page-head bl-head' }, h('h1', null, 'Backline'),
+    h('div', { class: 'page-head bl-head' }, h('h1', null, sectionName('backline', 'Backline')),
       h('button', { type: 'button', class: 'btn primary', id: 'bl-add', onclick: () => (packs ? editKit({}) : editGear({})) }, packs ? '+ New pack' : '+ Add')),
     h('div', { class: 'seg bl-seg', role: 'tablist', 'aria-label': 'Items or stage packs' }, tab('items', `Items (${units})`), tab('packs', `Stage packs (${db.kits.length})`)),
   ];

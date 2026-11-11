@@ -13,6 +13,7 @@ import { blocksFor } from '../blocks/index.js';
 import { bookingIcs, allIcs, runOfDay } from '../ics.js';
 import { openAct } from './acts.js';
 import { venueChecks, openVenue } from './venues.js';
+import { newKind, kindHelp } from '../roles.js';
 
 /* ------------------------------- words ------------------------------- */
 const NOUN = { show: 'show', session: 'studio session', rehearsal: 'rehearsal', other: 'diary entry' };
@@ -136,11 +137,14 @@ function blank(kind, p = {}) {
   };
 }
 
+// The role's usual kind comes first (a producer's studio session, a scout's show), with its own words.
 function chooseKind(preset = {}) {
+  const first = newKind(), kinds = [...model.KINDS].sort((x, y) => Number(y[0] === first) - Number(x[0] === first));
   const { close } = sheet('What are you booking?', h('div', { class: 'bk-kinds' },
-    model.KINDS.map(([id, label, icon]) => h('button', { type: 'button', class: 'card tap bk-kind', 'data-kind': id, onclick: () => { close(); editBooking(blank(id, preset)); } },
+    kinds.map(([id, label, icon]) => h('button', { type: 'button', class: 'card tap bk-kind', 'data-kind': id, onclick: () => { close(); editBooking(blank(id, preset)); } },
       h('span', { class: 'bk-kind-ico', 'aria-hidden': 'true' }, icon),
-      h('span', { class: 'bk-kind-text' }, h('strong', null, label), h('span', { class: 'muted small' }, KIND_HELP[id]))))));
+      h('span', { class: 'bk-kind-text' }, h('strong', null, label), h('span', { class: 'muted small' }, kindHelp(id) || KIND_HELP[id]))))));
+  setTimeout(() => document.querySelector('.bk-kinds .bk-kind')?.focus(), 60);
 }
 
 const sortByName = list => [...list].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));

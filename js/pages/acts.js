@@ -13,6 +13,7 @@ import { openBooking, newBooking } from './bookings.js';
 import { parseLinks, ACT_COLORS, colorOf, stripeStyle, roleOf, membersOf, initials, plural, qrTarget, fillQr, epkDoc, printEpk, saveEpk,
   inputTable, inputRows, dupChannels, saveInputCsv, plotOf, saveRider, printRider as printRiderDoc } from '../acts-docs.js';
 import { openInputList, openRiders, stagePlot } from '../acts-rider.js';
+import { sectionName } from '../roles.js';
 
 // View state survives the redraw after every change: which act is open, which part of it, the search.
 const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set() }; // open: the act cards dropped open on the list
@@ -201,7 +202,7 @@ function listView() {
   };
   if (all.length) fill();
   return h('div', { class: 'ac-page' },
-    h('div', { class: 'page-head' }, h('h1', null, 'Acts'), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, '+ New act')),
+    h('div', { class: 'page-head' }, h('h1', null, sectionName('acts', 'Acts')), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, '+ New act')),
     all.length > 5 && h('input', { class: 'search', id: 'ac-search', type: 'search', placeholder: 'Search acts, genres, members…', 'aria-label': 'Search acts', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; fill(); } }),
     all.length ? listBox : empty('An act is a band or artist you play in, manage or produce. Its card counts the times you have seen them play, with your scores out of 100 and its dates coming up; it also keeps its members, links, press kit and tech rider.',
       h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, '+ New act')));
