@@ -78,6 +78,13 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
   means nothing is restricted; anything restricted, or any rule you wrote yourself, is amber; no phones, or no
   cameras of any kind, is red. You can set the colour by hand too.
 
+## Search
+
+Tap the magnifying glass at the top of any page (or press **/** on a keyboard) and type a band, a place, a support act
+or a word from your notes. Every show, studio session and rehearsal it finds comes up as a card, newest first, with
+today marked between what is still to come and what is over, and so do the times you logged seeing a band that were
+never on the calendar. Tap a place to see only what was there, or a card to open it; nothing you type is kept.
+
 ## Your first show
 
 1. **Bookings → + New → Show.** Pick the act and the venue, the date, and the times: load-in, soundcheck, doors, on

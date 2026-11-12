@@ -52,6 +52,24 @@ export function openAct(id) {
   Object.assign(S, { view: 'act', id, tab: 'about', allBk: false });
   return Promise.resolve(window.logiGo ? window.logiGo('acts') : null).then(() => { redraw(); toTop(); focusSoon('.ac-view .back-btn'); });
 }
+// Go to Acts and show one time seen in the act's log: the list, with the act's card dropped open, that entry in view
+// and the focus on its Edit button (the search opens a logged time this way). Resolves once it is drawn, with the
+// entry's row, or null when the act or the entry is not there any more.
+export function openSeen(actId, seenId) {
+  if (!byId('acts', actId)) { toast(`That act is no longer in ${secName()}.`); return Promise.resolve(null); }
+  Object.assign(S, { view: 'list', id: null, q: '' }); // the list unfiltered, so the act's card is on it
+  S.open.add(actId);
+  return Promise.resolve(window.logiGo ? window.logiGo('acts') : null).then(() => new Promise(done => {
+    redraw();
+    setTimeout(() => { // after the draw that follows
+      const at = seenOf(byId('acts', actId)).findIndex(s => s.id === seenId);
+      const row = at < 0 ? null : document.querySelectorAll(`.ac-card[data-id="${CSS.escape(actId)}"] .ac-seen`)[at] || null;
+      const btn = row ? row.querySelector('button') : document.getElementById('ac-head-' + actId);
+      if (btn) { btn.focus({ preventScroll: true }); (row || btn).scrollIntoView({ block: 'center' }); }
+      done(row);
+    }, 0);
+  }));
+}
 
 // The act's form. A new act gets the next colour no other act uses. onSaved(record) after a save.
 const FORM_KEYS = ['name', 'genre', 'color', 'bio', 'links', 'email', 'phone', 'notes'];
