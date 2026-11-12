@@ -9,11 +9,13 @@ const put = (page, list, rec) => page.evaluate(([l, r]) => import('./js/store.js
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // The ids of the bookings on a day, in the order the calendar draws them. This helper alone knows how the calendar
-// shows a day: it opens the day from its square in the month and comes back to the month.
+// shows a day: it reads the day's rows in the Week view (stepping on a week at a time until the day is there), then
+// opens that day by its name, so the month it comes back to is the day's own, as the checks after it expect.
 async function dayIds(page, iso) {
-  if (!(await page.locator(`.bk-day[data-date="${iso}"]`).count())) { await page.click('[aria-label="Next month"]'); await sleep(200); }
-  await page.locator(`.bk-day[data-date="${iso}"]`).click(); await page.waitForSelector('.bk-dayview');
-  const ids = await page.locator('.bk-dayview .bk-ev').evaluateAll(els => els.map(e => e.dataset.id));
+  await page.click('#bk-view-week'); await page.waitForSelector('.bk-week');
+  for (let i = 0; i < 12 && !(await page.locator(`#bk-wd-${iso}`).count()); i++) { await page.click('[aria-label="Next week"]'); await sleep(200); }
+  const ids = await page.locator(`.bk-wday:has(#bk-wd-${iso}) .bk-ev`).evaluateAll(els => els.map(e => e.dataset.id));
+  await page.click(`#bk-wd-${iso}`); await page.waitForSelector('.bk-dayview');
   await toMonth(page); await page.waitForSelector('.bk-monthview');
   return ids;
 }

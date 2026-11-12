@@ -1,26 +1,39 @@
 /* bookings: the calendar (js/bookings-cal.js, with js/bookings-kit.js for the lines a card adds), a booking's page and
    its boxes (js/pages/bookings.js, js/blocks/advance.js, lineup.js, notes.js). Theme tokens only; an act's own colour
-   arrives as --act on the element that shows it. .bk-calview is the calendar's frame in every view; .bk-monthview is
-   on it only in the month, .bk-dayview only on one day. */
+   arrives as --act on the element that shows it. .bk-calview is the calendar's frame in every view (.bk-mode-month,
+   -two, -week, -three, -day); .bk-monthview is on it only in the month, .bk-dayview only on one day. */
 
-/* ------------------------------ month ------------------------------ */
+/* ------------------------------ the calendar's frame, in every view ------------------------------ */
 .bk-head-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .page-head .bk-head-actions .btn { min-width: 0; }
-.bk-monthview > .page-head h1, .bk-calview > .page-head h1, .bk-dayview .cal-title, .bk-title { outline: none; }
+.bk-calview > .page-head h1, .bk-dayview .cal-title, .bk-title { outline: none; }
 .bk-filters { display: grid; gap: 2px; margin: -2px 0 10px; }
 .bk-filters .chips { margin-bottom: 0; }
 .bk-filters .chip { display: inline-flex; align-items: center; gap: 6px; }
 .bk-swatch { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--act, var(--muted)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 30%, transparent); }
 
-.bk-cal { touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+/* The row of view buttons: Month, 2 weeks, Week, 3 days, Day. On a narrow phone it scrolls sideways inside itself,
+   so the page never does. */
+.bk-cal-panel { min-width: 0; }
+.bk-views { display: flex; gap: 3px; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 3px; margin-bottom: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+.bk-views::-webkit-scrollbar { display: none; }
+.bk-view { flex: 1 0 auto; min-height: var(--hit); padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: .88rem; white-space: nowrap; cursor: pointer; }
+.bk-view:hover { background: var(--bg2); }
+.bk-view.on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.bk-view:focus-visible { outline-offset: -3px; } /* inside the button: the row would clip a ring around it */
+/* What a view draws: a swipe across it steps on or back, a scroll up or down is the page's. */
+.bk-body { min-width: 0; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+.bk-day-add { display: flex; margin-top: 10px; }
+
+/* ------------------------------ month and two weeks: day squares ------------------------------ */
 .bk-day { min-width: 0; }
 .bk-day .more { line-height: 1.2; }
-/* status tones for the calendar's lines and dots */
-.bk-dot, .bk-mini { --tone: var(--muted); }
-.bk-dot.st-offer, .bk-mini.st-offer { --tone: var(--accent); }
-.bk-dot.st-confirmed, .bk-mini.st-confirmed, .bk-dot.st-settled, .bk-mini.st-settled { --tone: var(--ok); }
-.bk-dot.st-advanced, .bk-mini.st-advanced { --tone: var(--blue); }
-.bk-dot.st-cancelled, .bk-mini.st-cancelled { --tone: var(--danger); }
+/* status tones for the calendar's lines and dots, and for a row, block or pill with no act's colour */
+.bk-dot, .bk-mini, .bk-ev { --tone: var(--muted); }
+.bk-dot.st-offer, .bk-mini.st-offer, .bk-ev.st-offer { --tone: var(--accent); }
+.bk-dot.st-confirmed, .bk-mini.st-confirmed, .bk-ev.st-confirmed, .bk-dot.st-settled, .bk-mini.st-settled, .bk-ev.st-settled { --tone: var(--ok); }
+.bk-dot.st-advanced, .bk-mini.st-advanced, .bk-ev.st-advanced { --tone: var(--blue); }
+.bk-dot.st-cancelled, .bk-mini.st-cancelled, .bk-ev.st-cancelled { --tone: var(--danger); }
 /* phones: a dot per booking (hollow while on hold or an offer), a bar for a booking over several days */
 .bk-minis { display: none; }
 .bk-dots { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-top: auto; }
@@ -47,8 +60,29 @@
 .bk-mini.bk-seg-end { margin-left: -5px; border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0; padding-left: 7px; }
 .bk-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .75rem; margin-top: 8px; padding: 0 2px; }
 .bk-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+/* two weeks: taller squares with each booking's time and name on every screen. A square is a container: in a narrow
+   one (a phone's) the text shrinks with it, never under half the text size, so the time shows whole wherever it can;
+   the name after it is cut short, and left out where not even a letter of it would fit. The first square and a 1st say
+   the month in small letters, over the number where they do not fit side by side. */
+.bk-day-tall { min-height: 78px; container: bk-square / inline-size; }
+.bk-cal-two .bk-minis { display: grid; gap: 2px; min-width: 0; }
+.bk-cal-two .bk-mini { display: flex; gap: .35em; font-size: clamp(.5rem, 26cqi, .7rem); font-variant-numeric: tabular-nums; }
+.bk-mini-time { flex: none; } /* where even the time does not fit, it is cut at the edge: "19:0" still says the hour, "1…" would not */
+.bk-mini-name { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bk-mon { font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.bk-day.today .bk-mon { color: inherit; }
+@container bk-square (max-width: 3rem) {
+  .bk-mini-time + .bk-mini-name, .bk-more-word { display: none; }
+  .bk-day-tall .num { font-size: clamp(.6rem, 44cqi, .8rem); }
+  .bk-day-tall.today .num { padding: 0 4px; }
+  .bk-mon { display: block; font-size: clamp(.45rem, 26cqi, .62rem); letter-spacing: 0; }
+}
+@media (max-width: 559px) { .bk-cal-two .bk-mini { padding: 0 2px; } .bk-cal-two .bk-mini:not(.bk-seg-mid, .bk-seg-end) { border-left-width: 2px; } }
+/* Extra-large text on a very narrow phone: the weekdays over the squares stay apart. */
+@media (max-width: 359px) { html[data-text=xlarge] .bk-cal .wd { font-size: .58rem; letter-spacing: 0; } }
+@media (min-width: 560px) { .bk-day-tall { min-height: 132px; } }
 
-/* the agenda under the calendar, and the cards on a day */
+/* Coming up, under every view */
 .bk-agenda-head { margin-top: 4px; }
 .bk-agenda > .actions { margin-top: 0; }
 .bk-card { display: flex; align-items: center; gap: 12px; border-left: 4px solid var(--act, var(--line)); }
@@ -65,10 +99,97 @@
 .bk-went { justify-self: start; }
 .bk-none { margin: 4px 2px 0; }
 
-/* ------------------------------ a day ------------------------------ */
-.bk-dayview .cal-nav { margin-bottom: 12px; }
-.bk-dayview .cal-title { font-size: 1.05rem; }
-.page-head .bk-new-day { min-width: 0; }
+/* ------------------------------ week: a list for each day ------------------------------ */
+.bk-week { display: grid; gap: 4px; }
+.bk-wday { display: grid; gap: 4px; min-width: 0; }
+.bk-wday-h { margin: 0; }
+.bk-wday-head { display: inline-flex; align-items: center; gap: .4em; max-width: 100%; min-height: var(--hit); margin: 0 -6px; padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: left; cursor: pointer; }
+.bk-wday-head:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.bk-wday.today .bk-wday-head { color: var(--text); }
+/* today's number sits in a pill, as on the month's squares (a shape, not only a colour) */
+.bk-wday.today .bk-daynum, .bk-grid-head.today .bk-daynum { padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+/* an empty day is one line: its name, then "Nothing on" (under the name when both do not fit) */
+.bk-wday-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; }
+.bk-wday-empty .bk-none { margin: 0; font-size: .85rem; }
+.bk-wrows { display: grid; gap: 4px; }
+/* The time's column is sized in rem, so it grows with the text and the words beside it wrap. */
+.bk-wrow { display: grid; grid-template-columns: 3.1rem minmax(0, 1fr); gap: 8px; align-items: baseline; width: 100%; min-width: 0; min-height: var(--hit); padding: 7px 9px; text-align: left; font: inherit; color: var(--text); cursor: pointer; touch-action: pan-y;
+  background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--act, var(--tone)); border-radius: 9px; transition: border-color .15s ease; }
+.bk-wrow:hover { border-color: var(--accent); border-left-color: var(--act, var(--tone)); }
+.bk-wrow-time { font-size: .9rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bk-wrow-main { display: grid; gap: 3px; min-width: 0; }
+.bk-wrow-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 4px 8px; }
+.bk-wrow-title { flex: 1 1 7rem; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+.bk-wrow-top .pill { flex: none; margin-top: 1px; }
+.bk-wrow-sub { display: block; overflow-wrap: anywhere; }
+.bk-wrow.st-cancelled .bk-wrow-title { text-decoration: line-through; }
+
+/* ------------------------------ three days and one day: the time grid ------------------------------ */
+/* --n: the days side by side (1 or 3); --hh: the height of an hour. The hours' gutter is sized in rem. */
+.bk-grid { --gut: 2.9rem; display: grid; min-width: 0; }
+.bk-grid-heads, .bk-grid-body { display: grid; grid-template-columns: var(--gut) repeat(var(--n), minmax(0, 1fr)); }
+.bk-grid-head { display: grid; justify-items: center; align-content: center; gap: 2px; min-width: 0; min-height: var(--hit); padding: 2px 2px 5px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: .72rem; line-height: 1.2; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+.bk-grid-head:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.bk-grid-head .bk-daynum { font-size: 1rem; letter-spacing: 0; color: var(--text); }
+.bk-grid-head.today .bk-daynum { color: var(--accent-ink); }
+/* the "any time" row: no time yet, or a booking over several days (one pill across its days) */
+.bk-any { display: grid; grid-template-columns: var(--gut) minmax(0, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.bk-any-label { align-self: center; padding-right: 4px; font-size: .64rem; line-height: 1.15; color: var(--muted); }
+.bk-any-pills { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); grid-auto-flow: row dense; gap: 2px 0; min-width: 0; padding: 3px 0;
+  background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / var(--n)) 100%; }
+.bk-ev-any, .bk-block { box-sizing: border-box; display: block; min-width: 0; margin: 0; overflow: hidden; text-align: left; font: inherit; color: var(--text); cursor: pointer; touch-action: pan-y;
+  background: color-mix(in srgb, var(--act, var(--tone)) 24%, var(--card)); background-clip: padding-box; border: 1px solid transparent; border-left: 3px solid var(--act, var(--tone)); border-radius: 6px; }
+.bk-ev-any { min-height: calc(var(--hit) * .64); margin: 0 1px 0 2px; padding: 2px 6px; font-size: .72rem; line-height: 1.3; container: bk-entry / inline-size; }
+.bk-any-text { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.bk-ev-any.bk-any-from { margin-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }  /* it began before the first day shown */
+.bk-ev-any.bk-any-on { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; } /* it runs on after the last */
+/* the hours: a line an hour, each booking a block at the time the band plays */
+.bk-grid-body { position: relative; box-sizing: content-box; margin-top: .75rem; border-bottom: 1px solid var(--line); } /* its height is the hours' exactly; the last line is under them */
+.bk-hours { position: relative; min-width: 0; }
+.bk-hour { position: absolute; right: 5px; transform: translateY(-50%); font-size: .66rem; line-height: 1; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bk-hour .bk-next { margin-left: 1px; font-size: .52rem; }
+.bk-col { position: relative; min-width: 0; border-left: 1px solid var(--line); background-image: linear-gradient(var(--line) 1px, transparent 1px); background-size: 100% var(--hh); }
+.bk-col.today { background-color: color-mix(in srgb, var(--accent) 7%, transparent); }
+/* A block is a container, so a short one (less than two lines of its own text high, whatever the text size) puts its
+   name and its time on one line. */
+.bk-block { position: absolute; padding: 2px 4px; font-size: .7rem; line-height: 1.25; container: bk-entry / size; }
+.bk-col .bk-ev.holding { position: absolute; } /* the press-and-hold fill makes a card relative: a block stays where it is */
+.bk-block:focus-visible { z-index: 1; }
+.bk-block-in { display: block; min-width: 0; height: 100%; } /* as tall as the block, so the name is at its top, where the set starts (a button would centre it) */
+.bk-block-title, .bk-block-sub { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bk-block-sub { color: var(--muted); font-variant-numeric: tabular-nums; }
+.bk-block-went { font-weight: 600; }
+@container bk-entry (max-height: 2.45em) {
+  .bk-block-in { display: flex; align-items: baseline; gap: .5em; height: auto; } /* the one line sits in the middle of a short block */
+  .bk-block-title { flex: 1 1 auto; min-width: 0; }
+  .bk-block-sub { flex: none; max-width: 60%; }
+  .bk-block-where { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } /* out of sight, still read out */
+}
+/* a narrow block or pill (three days on a phone, sets side by side): the name and the time, without the kind's icon
+   and the word before the time (out of sight, still read out), and cut clean where an ellipsis would take a letter's
+   room */
+@container bk-entry (max-width: 6em) {
+  .bk-ico { display: none; }
+  .bk-block-by { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .bk-block-title, .bk-block-sub { text-overflow: clip; }
+}
+.bk-mode-day .bk-block { padding: 2px 8px; font-size: .82rem; } /* an hour (52px) holds two lines of this text at every text size */
+@media (min-width: 560px) { .bk-mode-three .bk-block { padding: 2px 6px; font-size: .78rem; } .bk-ev-any { font-size: .78rem; } }
+/* one of many sets side by side: no padding, so the block can be as narrow as its lane */
+.bk-grid .bk-col .bk-block-slim { padding-left: 1px; padding-right: 0; }
+/* a hold or an offer is dashed, as its line in the month is; a cancelled booking is struck through and faded */
+.bk-block.st-hold, .bk-block.st-offer, .bk-ev-any.st-hold, .bk-ev-any.st-offer { background-color: var(--card); border-style: dashed; border-color: var(--act, var(--tone)); border-left-style: solid; }
+.bk-block.st-cancelled, .bk-ev-any.st-cancelled { opacity: .6; }
+.bk-block.st-cancelled .bk-block-title, .bk-ev-any.st-cancelled .bk-any-text { text-decoration: line-through; }
+.bk-grid-note { margin: 8px 2px 0; }
+/* High contrast and forced colours: the buttons, rows, blocks and pills keep an edge. */
+html[data-contrast=high] .bk-views, html[data-contrast=high] .bk-wrow { border-width: 2px; }
+html[data-contrast=high] .bk-wrow { border-left-width: 5px; }
+html[data-contrast=high] .bk-block, html[data-contrast=high] .bk-ev-any { border-color: var(--line); border-left-color: var(--act, var(--tone)); }
+@media (forced-colors: active) {
+  .bk-views, .bk-wrow, .bk-block, .bk-ev-any { border: 1px solid CanvasText; }
+  .bk-view.on, .bk-wday.today .bk-daynum, .bk-grid-head.today .bk-daynum { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+}
 
 /* ------------------------------ the booking ------------------------------ */
 .bk-hero { border-left-color: var(--act, var(--accent)); gap: 10px; }
@@ -216,6 +337,7 @@
   .bk-calview > .bk-agenda, .bk-calview > .empty { grid-column: 2; grid-row: 4; }
   .bk-calview .bk-agenda .list { grid-template-columns: 1fr; }
   .bk-calview .bk-day { min-height: 104px; }
+  .bk-calview .bk-day-tall { min-height: 160px; }
   .bk-actions { max-width: 620px; }
   .bk-blocks, .bk-more-blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bk-blocks > .blk[open], .bk-more-blocks > .blk[open] { grid-column: 1 / -1; } /* closed boxes two by two; an open one takes the whole width, never leaving a gap beside it */
@@ -223,8 +345,11 @@
 
 /* The legend shows the dot shapes (filled, hollow, faded); a day's dots take the act's colour, so the legend's are neutral. */
 .bk-legend .bk-dot { --act: var(--text); }
-/* Extra-large text on a small phone: the month title gives way so the › button stays on screen. */
+/* Extra-large text on a small phone: the title gives way so the › button stays on screen. */
 .bk-calview .cal-title { min-width: 0; }
-/* Extra-large text: the month gets a row of its own above ‹ Today ›, so a long month name never runs into them. */
-html[data-text=xlarge] .bk-calview .cal-nav { flex-wrap: wrap; }
+/* The title gets a row of its own above ‹ Today › where it would be squeezed between them: with extra-large text, on
+   a very narrow phone, and for a day's long name on any phone. */
+html[data-text=xlarge] .bk-calview .cal-nav { flex-wrap: wrap; justify-content: space-between; }
 html[data-text=xlarge] .bk-calview .cal-title { order: -1; flex-basis: 100%; }
+@media (max-width: 359px) { .bk-calview .cal-nav { flex-wrap: wrap; justify-content: space-between; } .bk-calview .cal-title { order: -1; flex-basis: 100%; } }
+@media (max-width: 479px) { .bk-dayview .cal-nav { flex-wrap: wrap; justify-content: space-between; } .bk-dayview .cal-title { order: -1; flex-basis: 100%; } }
