@@ -23,7 +23,8 @@ Gdex is a sibling of Vdex, the app for videographers, and shares its look and th
 ## Set up for the way you work
 
 The first time Gdex opens it asks who's using it: **producer, manager, band, solo artist, scout or audiophile** (or
-everything). Each gets its own menu and pages:
+everything). Each gets its own menu and pages. Whoever you are, Gdex opens on the calendar every time, and the calendar
+is the first track on every menu:
 
 | Role | Menu (Side A, then Side B) | What changes |
 |---|---|---|
@@ -31,8 +32,8 @@ everything). Each gets its own menu and pages:
 | 💼 Manager | Bookings · Roster · Money · People · Venues · Insurance | A show opens with the deal and the advance checklist; new people start as industry contacts. |
 | 🥁 Band | Bookings · Songs · Backline · Tools · Bands · Money · People · Venues | A show opens with the running order and setlist; Songs opens on your setlists. |
 | 🎤 Solo artist | Bookings · Songs · Money · My act · Venues · People · Tools | A show opens with the deal and setlist; private gigs (weddings, parties) are shows too. |
-| 🔭 Scout | Acts · Shows · People · Venues | Acts sorted by your latest score; Score this show on the night; no fees or settlements. |
-| 🎧 Audiophile | Bands · Gigs · Venues · Tools | Bands you've seen, most recent first; Score this show; Tools opens on the sound meter; no fees. |
+| 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Gdex asks if you saw them and takes your score; no fees or settlements. |
+| 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Gdex asks if you saw them and takes your score; Tools opens on the sound meter; no fees. |
 
 Nothing is ever deleted or out of reach: the sections a role doesn't use are **bonus tracks** on the sleeve (tap the
 record), and the booking boxes it doesn't use are under **More boxes**. Change role any time in **Settings → Your
@@ -41,22 +42,36 @@ role**.
 ## What the cards are
 
 The record player at the top is how you move around: every card is a track, Side A and Side B. Swipe the record or tap
-⏮ ⏭ to change card, or tap the record to see them all on the sleeve and jump straight to one. Prefer a tape deck? Tap
-**Aa** at the top, then **Section menu → Tape deck**.
+⏮ ⏭ to change card, or tap the record to see them all on the sleeve and jump straight to one. Prefer a tape deck, or a
+slim digital player with every section one tap away in a row under it? Tap **Aa** at the top, then **Section menu**.
 
 | Card | What it's for |
 |---|---|
-| 📅 **Bookings** | Shows, studio sessions and rehearsals on one calendar. Open one for everything about it. |
+| 📅 **Bookings** | Shows, studio sessions and rehearsals on one calendar, by month, two weeks, week, three days or day. Open one for everything about it. |
 | 🎸 **Acts** | The bands and artists you work with, as drop-down cards: how many times you have seen each one play, your scores out of 100 (average and latest), and their dates coming up on the calendar. Open a card for the log of each time seen. Each act keeps its members, links, press kit and tech rider with the input list and stage plot. |
 | 👥 **People** | Band members, session players, crew, promoters and agents, and how to reach them. |
 | 🎼 **Songs** | Keys, tempos and lengths; split sheets for the writers; setlists that add up to your slot. |
 | 🎙️ **Studio log** | A take log for recording: tap + Take, mark the keepers, note what to fix. |
 | 🎛️ **Backline** | Instruments, amps, mics and cables with serial numbers and values; stage packs for the gigs you do often. |
-| 📍 **Venues** | Venues, studios, rehearsal rooms and festivals: capacity, stage, PA, curfew, noise limit, load-in, map. |
+| 📍 **Venues** | Venues, studios, rehearsal rooms and festivals: capacity, stage, PA, curfew, noise limit, load-in, map, and the house rules (cameras, age limit, bags…) that show on every show there. |
 | 💰 **Money** | What you've earned, what's unpaid, deposits due, settlements and each person's share. |
 | 🎚️ **Tools** | A tuner, a metronome, tap tempo with delay times, a sound level meter and a set timer. |
 | 🛡️ **Insurance** | Your policies and renewals, and whether your cover matches your backline. |
 | ⚙️ **Settings** | Your details, quotes and invoices, backups, display, and the tour again. |
+
+## The calendar
+
+- **Five views:** Month, 2 weeks, Week, 3 days and Day, from the row of buttons above the calendar. Month and 2 weeks
+  are day squares; Week lists each day; 3 days and Day put each booking on an hour grid. Gdex opens on the view you
+  picked last, on today. **Coming up** is under every view.
+- **In the order the bands play:** bookings on the same day run by the time on stage (doors, soundcheck or load-in
+  when there is no set time yet; a session by its start), a set after midnight at the end of the night, and anything
+  with no time last. Two shows whose sets overlap say so: "Overlaps with Sable, 21:30".
+- **"Did you see them?"** After a show is over, Gdex asks when it next opens. **Yes** takes your score out of 100 for
+  the act's card; **No** marks the show "Didn't go" and never asks again. It asks producers, managers, scouts and
+  audiophiles (and Everything); turn it on or off for anyone under **Settings → Your role**.
+- **House rules:** what a venue allows in (cameras, phones, the age limit, bags, anything unusual) is noted once on the
+  venue and shows on every show there as a green, amber or red line, with the full rules on the show's page.
 
 ## Your first show
 
