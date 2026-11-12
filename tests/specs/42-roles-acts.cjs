@@ -1,8 +1,10 @@
 // The Acts page for each role: its name (Artists, Roster, Bands, My act) on the page, the back button and the tour; the
 // list's order (A to Z, latest score for the scout, last seen for the audiophile) and how it re-sorts after a score;
 // the times seen kept back until something is logged for a role that doesn't score its own acts; the empty list's
-// words; an act's page kept to its Overview, led by the times seen, for the scout; + Book follows the role's usual kind;
-// and scoring the same night: today's show is offered, and a time logged from the card takes that show's id.
+// words; an act's page kept to its Overview, led by the times seen, for the scout; + Book follows the role's usual kind
+// (+ Add a show without money); scoring the same night: today's show is offered, and a time logged from the card takes
+// that show's id; the link follows the entry's date on every save; two shows on one day; one score a night (asks
+// first); the latest of a day is the last saved; and Coming up rows on a narrow phone with extra-large text.
 const { open, ok, sleep, topSheet } = require('../helpers.cjs');
 
 const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -13,6 +15,13 @@ const put = (page, list, rec) => page.evaluate(([l, r]) => import('./js/store.js
 const act = (page, id) => page.evaluate(i => import('./js/pages/acts.js').then(m => m.openAct(i)), id).then(() => page.waitForSelector('.ac-view .ac-title'));
 const steps = page => page.evaluate(() => import('./js/pages/acts.js').then(m => m.acts.tutorial().map(s => s.title)));
 const opt = (page, key) => page.evaluate(k => import('./js/roles.js').then(m => m.pageOpt('acts', k, null)), key);
+const booking = (page, id) => page.evaluate(i => import('./js/pages/bookings.js').then(m => m.openBooking(i)), id).then(() => page.waitForSelector('.bk-page')).then(() => sleep(350));
+const lastToast = page => page.locator('.toast').last().textContent();
+// Answers the next confirm() with OK or Cancel and keeps its question (the helpers accept every dialog otherwise).
+async function answerNext(page, yes) {
+  page.removeAllListeners('dialog');
+  return new Promise(resolve => page.once('dialog', d => { const m = d.message(); (yes ? d.accept() : d.dismiss()).then(() => { page.on('dialog', x => x.accept()); resolve(m); }); }));
+}
 // Logs a time seen from the card's + Log button, with this score.
 async function logFromCard(page, id, score) {
   await page.click(`#ac-log-${id}`);
@@ -55,7 +64,7 @@ async function logFromCard(page, id, score) {
     ok('scout: the times seen lead the Overview', await page.evaluate(() => { const first = document.querySelector('.ac-about').firstElementChild; return first && first.id === 'ac-seen'; }));
     ok('scout: …with its heading, the log and + Log, and no Open the act', (await page.textContent('#ac-seen h3')) === 'Times seen' && (await page.locator('#ac-seen .ac-seen').count()) === 4 && (await page.locator('#ac-log-s-owls').count()) === 1 && (await page.locator('#ac-open-s-owls').count()) === 0);
     ok('scout: the back button says All acts (the scout keeps the name Acts)', /All acts/.test(await page.textContent('.ac-view .back-btn')));
-    ok('scout: + Book follows the scout’s usual kind', (await page.textContent('#ac-book')) === '+ Book a show');
+    ok('scout: the act’s page offers + Add a show (the scout goes to shows, it doesn’t book them)', (await page.textContent('#ac-book')) === '+ Add a show');
     let titles = await steps(page);
     ok('scout: the act’s tour leaves out the tabs, press kit and rider, and shows the times seen', titles.includes('Times seen') && !titles.includes('Three parts') && !titles.includes('Press kit') && !titles.includes('Input list'), titles.join(' › '));
     await page.click('#ac-log-s-owls');
@@ -116,6 +125,7 @@ async function logFromCard(page, id, score) {
     await act(page, 's-sablea');
     ok('audiophile: an act’s page is the Overview, led by the times seen', (await page.locator('.ac-tabs').count()) === 0 && (await page.locator('#ac-seen').count()) === 1);
     ok('audiophile: the back button says Bands', (await page.textContent('.ac-view .back-btn')).trim() === '‹ Bands', await page.textContent('.ac-view .back-btn'));
+    ok('audiophile: + Add a show, not + Book a show', (await page.textContent('#ac-book')) === '+ Add a show');
     ok('no errors in the console (audiophile)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
@@ -155,6 +165,12 @@ async function logFromCard(page, id, score) {
     await page.evaluate(() => import('./js/pages/acts.js').then(m => m.openAct('t-gone')));
     await page.waitForSelector('.toast');
     ok('band: an act that has gone says it is no longer in Bands', (await page.locator('.toast').last().textContent()) === 'That act is no longer in Bands.', await page.locator('.toast').last().textContent());
+    for (const [file, fn, what] of [['acts-docs', 'printRider', 'printing its rider'], ['acts-docs', 'saveEpk', 'saving its press kit'], ['acts-rider', 'openRiders', 'its riders'], ['acts-rider', 'openInputList', 'its input list']]) {
+      await page.evaluate(() => document.querySelectorAll('.toast').forEach(t => t.remove()));
+      await page.evaluate(([f, n]) => import(`./js/${f}.js`).then(m => m[n]('t-gone')), [file, fn]);
+      await page.waitForSelector('.toast');
+      ok(`band: ${what}, for an act that has gone, says Bands too`, (await lastToast(page)) === 'That act is no longer in Bands.', await lastToast(page));
+    }
     ok('no errors in the console (band)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
@@ -164,13 +180,15 @@ async function logFromCard(page, id, score) {
     const { browser, page, errors } = await open({ sample: true, tab: 'acts' });
     await page.waitForSelector('.ac-card');
     const want = { producer: 'Artists', manager: 'Roster', band: 'Bands', solo: 'My act', scout: 'Acts', audiophile: 'Bands', all: 'Acts' };
+    const cards = { producer: 'Your artists', manager: 'Your roster', band: 'Your bands', solo: 'Your act', scout: 'Your acts', audiophile: 'Your bands', all: 'Your acts' };
     for (const [id, name] of Object.entries(want)) {
       await role(page, id);
       await page.evaluate(() => window.logiGo('acts'));
       await sleep(200);
       if (await page.locator('.ac-view').count()) { await page.click('.ac-view .back-btn'); await page.waitForSelector('.ac-page'); }
       const head = await page.textContent('#page .page-head h1');
-      const first = (await steps(page))[0];
+      const [first, , third] = await steps(page);
+      ok(`${id}: the list tour’s card step is called ${cards[id]}`, third === cards[id], third);
       await act(page, 's-owls');
       const back = (await page.textContent('.ac-view .back-btn')).trim();
       ok(`${id}: the list is called ${name}, in its heading, the tour and the back button`, head === name && first === name && back === (name === 'Acts' ? '‹ All acts' : '‹ ' + name), `${head} / ${first} / ${back}`);
@@ -242,7 +260,34 @@ async function logFromCard(page, id, score) {
     await logFromCard(page, 's-sablea', 77);
     added = (await seen(page, 's-sablea')).find(s => s.rating === 77);
     ok('scout: with two shows that day, the entry takes neither', !!added && added.bookingId === '', JSON.stringify(added));
-    ok('scout: …and both count as logged (same date, no booking)', (await page.locator('#ac-past-s-sablea').count()) === 0);
+    await page.click('#ac-past-s-sablea');
+    await page.waitForSelector('.sheet[aria-label="From a past show"]');
+    picks = await page.locator('.ac-pick').allInnerTexts();
+    ok('scout: …and neither counts as logged: From a past show still offers both', picks.length === 2 && picks.some(p => /Lantern Rooms/.test(p)) && picks.some(p => /Harbour Hall/.test(p)), picks.join(' | '));
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    for (const id of ['t-m1', 't-m2']) {
+      await booking(page, id);
+      ok(`scout: ${id}’s page still offers ★ Score Sable`, (await page.locator('#bk-score').count()) === 1 && (await page.locator('.bk-scored').count()) === 0, (await page.locator('.bk-score').innerText()).replace(/\n/g, ' '));
+    }
+    // picking the venue of one of them tells them apart: that show is scored, the other is still offered
+    await page.evaluate(() => window.logiGo('acts'));
+    await page.waitForSelector('#ac-log-s-sablea');
+    await page.click('#ac-log-s-sablea');
+    await page.waitForSelector('.sheet[aria-label="Log a time seen"]');
+    await topSheet(page).locator('select[data-key=venueId]').selectOption('s-harbour');
+    await topSheet(page).locator('input[data-key=rating]').fill('91');
+    await topSheet(page).locator('button[type=submit]').click();
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await sleep(300);
+    added = (await seen(page, 's-sablea')).find(s => s.rating === 91);
+    ok('scout: a time logged at the venue of one of the day’s two shows takes that show', !!added && added.bookingId === 't-m2', JSON.stringify(added));
+    await booking(page, 't-m2');
+    ok('scout: …which reads Scored 91/100', /Scored 91\/100/.test(await page.locator('.bk-score').innerText()));
+    await booking(page, 't-m1');
+    ok('scout: …and the other show still offers ★ Score Sable', (await page.locator('#bk-score').count()) === 1);
+    await page.evaluate(() => window.logiGo('acts'));
+    await page.waitForSelector('.ac-card');
 
     // Everything (money on): today's confirmed show is offered, a hold today is not
     await role(page, 'all');
@@ -266,7 +311,7 @@ async function logFromCard(page, id, score) {
     ok('Everything: the entry keeps that booking', !!added && added.bookingId === 't-c', JSON.stringify(added));
     ok('Everything: the focus lands on + Log when From a past show has gone', await page.evaluate(() => document.activeElement && document.activeElement.id === 'ac-log-t-tonite'));
 
-    // editing an old entry never takes a booking
+    // every save links the entry again: an old entry without a booking, on the day of the act's only show, takes it
     await put(page, 'bookings', { id: 't-old', kind: 'show', status: 'done', actId: 't-tonite', date: dayIso(-30), venueId: 's-harbour' });
     await page.evaluate(([d]) => import('./js/store.js').then(s => s.update(db => { const a = db.acts.find(x => x.id === 't-tonite'); a.seen = [...(a.seen || []), { id: 'z9', date: d, rating: 40, bookingId: '' }]; a.updatedAt = Date.now(); })), [dayIso(-30)]);
     await sleep(300);
@@ -277,9 +322,160 @@ async function logFromCard(page, id, score) {
     await page.waitForSelector('.sheet', { state: 'detached' });
     await sleep(300);
     added = (await seen(page, 't-tonite')).find(s => s.id === 'z9');
-    ok('an edit leaves the entry’s booking as it was', !!added && added.rating === 45 && added.bookingId === '', JSON.stringify(added));
+    ok('an edit links the entry to the act’s only show that day', !!added && added.rating === 45 && added.bookingId === 't-old', JSON.stringify(added));
+    // …and an edit that moves it to a day with no show of the act drops the link
+    await page.locator('.ac-card[data-id="t-tonite"] .ac-seen').filter({ hasText: '45' }).locator('button').click();
+    await page.waitForSelector('.sheet[aria-label="Edit a time seen"]');
+    await topSheet(page).locator('input[data-key=date]').fill(dayIso(-31));
+    await topSheet(page).locator('button[type=submit]').click();
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await sleep(300);
+    added = (await seen(page, 't-tonite')).find(s => s.id === 'z9');
+    ok('an edit to a day without a show drops the link', !!added && added.date === dayIso(-31) && added.bookingId === '', JSON.stringify(added));
+    ok('…so that show is offered again under From a past show', (await page.locator('#ac-past-t-tonite').count()) === 1);
 
     ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
+  /* ---------------- a time seen follows its date; one score a night; the latest is the last saved ---------------- */
+  {
+    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','scout')" });
+    await page.waitForSelector('.ac-card');
+    const card = page.locator('.ac-card[data-id="s-owls"]');
+    const openCard = async id => { if ((await page.getAttribute(`#ac-head-${id}`, 'aria-expanded')) !== 'true') await page.click(`#ac-head-${id}`); await page.waitForSelector(`#ac-pnl-${id}`); };
+    const toActs = () => page.evaluate(() => window.logiGo('acts')).then(() => page.waitForSelector('.ac-card'));
+    // Sable plays tonight at the Lantern Rooms (X) and played Harbour Hall a week ago (Y)
+    await put(page, 'bookings', { id: 't-x', kind: 'show', status: 'confirmed', actId: 's-sablea', date: dayIso(0), venueId: 's-lantern' });
+    await put(page, 'bookings', { id: 't-y', kind: 'show', status: 'confirmed', actId: 's-sablea', date: dayIso(-7), venueId: 's-harbour' });
+    await booking(page, 't-x');
+    await page.click('#bk-score');
+    await page.waitForSelector('.sheet[aria-label="Log a time seen"]');
+    await topSheet(page).locator('input[data-key=date]').fill(dayIso(-7));
+    await topSheet(page).locator('select[data-key=venueId]').selectOption('s-harbour');
+    await topSheet(page).locator('input[data-key=rating]').fill('66');
+    await topSheet(page).locator('button[type=submit]').click();
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await sleep(400);
+    let entry = (await seen(page, 's-sablea')).find(s => s.rating === 66);
+    ok('scored from tonight’s show but dated last week, the entry takes last week’s show', !!entry && entry.date === dayIso(-7) && entry.bookingId === 't-y', JSON.stringify(entry));
+    ok('…so tonight’s show still offers ★ Score Sable', (await page.locator('#bk-score').count()) === 1);
+    await booking(page, 't-y');
+    ok('…and last week’s reads Scored 66/100', /Scored 66\/100/.test(await page.locator('.bk-score').innerText()));
+
+    // edited on the card back to tonight: it moves to X, and Y is offered again
+    await toActs();
+    await openCard('s-sablea');
+    await page.locator('#ac-pnl-s-sablea .ac-seen').filter({ hasText: '66' }).locator('button').click();
+    await page.waitForSelector('.sheet[aria-label="Edit a time seen"]');
+    await topSheet(page).locator('input[data-key=date]').fill(dayIso(0));
+    await topSheet(page).locator('select[data-key=venueId]').selectOption('s-lantern');
+    await topSheet(page).locator('button[type=submit]').click();
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await sleep(300);
+    entry = (await seen(page, 's-sablea')).find(s => s.rating === 66);
+    ok('an edit that moves the entry to tonight links it to tonight’s show', !!entry && entry.date === dayIso(0) && entry.bookingId === 't-x', JSON.stringify(entry));
+    await page.click('#ac-past-s-sablea');
+    await page.waitForSelector('.sheet[aria-label="From a past show"]');
+    const picks = await page.locator('.ac-pick').allInnerTexts();
+    ok('…From a past show offers last week’s show again, not tonight’s', picks.length === 1 && /Harbour Hall/.test(picks[0]), picks.join(' | '));
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await booking(page, 't-x');
+    ok('…tonight’s show reads Scored 66/100', /Scored 66\/100/.test(await page.locator('.bk-score').innerText()));
+    await booking(page, 't-y');
+    ok('…and last week’s offers ★ Score Sable again', (await page.locator('#bk-score').count()) === 1);
+
+    // one score a night: + Log on the card, on a night already scored from the booking, asks first
+    await put(page, 'bookings', { id: 't-o', kind: 'show', status: 'confirmed', actId: 's-owls', date: dayIso(0), venueId: 's-lantern' });
+    await booking(page, 't-o');
+    await page.click('#bk-score');
+    await page.waitForSelector('.sheet[aria-label="Log a time seen"]');
+    await topSheet(page).locator('input[data-key=rating]').fill('88');
+    await topSheet(page).locator('textarea[data-key=notes]').fill('Big room, big sound.');
+    await topSheet(page).locator('button[type=submit]').click();
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await sleep(300);
+    await toActs();
+    await openCard('s-owls');
+    const before = (await seen(page, 's-owls')).length;
+    let asked = answerNext(page, true);
+    await logFromCard(page, 's-owls', 60);
+    let question = await asked;
+    ok('+ Log on a night already scored asks first', question === 'You already scored The Night Owls that night (88/100). Update that score instead?', question);
+    let log = await seen(page, 's-owls');
+    let night = log.filter(s => s.date === dayIso(0));
+    ok('OK updates that score and adds nothing; the show, the place and the notes stay', log.length === before && night.length === 1 && night[0].rating === 60 && night[0].bookingId === 't-o' && night[0].venueId === 's-lantern' && night[0].notes === 'Big room, big sound.', JSON.stringify(night));
+    ok('…with a toast that says so', (await lastToast(page)) === 'Updated: 60/100', await lastToast(page));
+    ok('…and the card counts the night once, latest 60', /Seen 4 times · average 74\/100 · latest 60/.test(await card.locator('.ac-seen-line').innerText()), await card.locator('.ac-seen-line').innerText());
+    ok('the focus comes back to + Log', await page.evaluate(() => document.activeElement && document.activeElement.id === 'ac-log-s-owls'));
+    asked = answerNext(page, false);
+    await logFromCard(page, 's-owls', 55);
+    question = await asked;
+    log = await seen(page, 's-owls');
+    night = log.filter(s => s.date === dayIso(0));
+    ok('Cancel logs it as another time seen that night', /already scored The Night Owls that night \(60\/100\)/.test(question) && log.length === before + 1 && night.length === 2 && night.some(s => s.rating === 55 && s.bookingId === ''), JSON.stringify(night));
+    ok('…and the latest is the one saved last, though both are tonight', /Seen 5 times · average 70\/100 · latest 55/.test(await card.locator('.ac-seen-line').innerText()), await card.locator('.ac-seen-line').innerText());
+    ok('…heading the log', /55/.test(await card.locator('.ac-seen').first().innerText()) && /60/.test(await card.locator('.ac-seen').nth(1).innerText()));
+    await booking(page, 't-o');
+    ok('…while the show keeps its own score', /Scored 60\/100/.test(await page.locator('.bk-score').innerText()));
+
+    // entries saved before save times were kept: on the same day, the later one in the log is the latest
+    const latest = seenList => page.evaluate(l => import('./js/model.js').then(m => m.seenStats({ seen: l }).latest), seenList);
+    ok('two entries on one day, no save times: the later in the log is the latest', (await latest([{ id: 'q1', date: dayIso(-3), rating: 50 }, { id: 'q2', date: dayIso(-3), rating: 70 }])) === 70);
+    ok('…with save times, the one saved last', (await latest([{ id: 'q1', date: dayIso(-3), rating: 50, savedAt: 2000 }, { id: 'q2', date: dayIso(-3), rating: 70, savedAt: 1000 }])) === 50);
+    ok('…and an older day never comes first', (await latest([{ id: 'q1', date: dayIso(-3), rating: 50, savedAt: 1 }, { id: 'q2', date: dayIso(-9), rating: 70, savedAt: 9e12 }])) === 50);
+
+    // the act's page speaks to someone who goes to shows
+    await put(page, 'acts', { id: 't-quiet', name: 'Quiet Act', members: [] });
+    await act(page, 't-quiet');
+    ok('scout: an act with nothing coming up says so in a fan’s words', (await page.textContent('#ac-coming .ac-none')) === 'No shows of theirs on your calendar yet.', await page.textContent('#ac-coming .ac-none'));
+    ok('scout: …and offers + Add a show', (await page.textContent('#ac-book')) === '+ Add a show');
+    ok('scout: …and its tour says so', (await page.evaluate(() => import('./js/pages/acts.js').then(m => m.acts.tutorial().find(s => s.title === 'Coming up').text))) === 'Their shows on your calendar from today on. Tap one to open it, or add a show of theirs you’re going to.');
+    await page.click('#ac-book');
+    await page.waitForSelector('.sheet[aria-label="New show"]');
+    ok('scout: + Add a show starts a show for that act', (await topSheet(page).locator('select[data-key=actId]').inputValue()) === 't-quiet');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await role(page, 'all');
+    ok('Everything: the act’s page reads as before', (await page.textContent('#ac-coming .ac-none')) === 'Nothing booked for this act yet.' && (await page.textContent('#ac-book')) === '+ Book a show');
+    ok('Everything: …and so does its tour', (await page.evaluate(() => import('./js/pages/acts.js').then(m => m.acts.tutorial().find(s => s.title === 'Coming up').text))) === 'This act’s bookings from today on. Tap one to open it, or book a new show for the act.');
+
+    ok('no errors in the console (one score a night)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
+  /* ---------------- Coming up rows on a narrow phone with extra-large text ---------------- */
+  {
+    const { browser, page, errors } = await open({ sample: true, tab: 'acts', viewport: { width: 320, height: 700 },
+      init: "localStorage.setItem('gdex-role','scout'); if (!localStorage.getItem('gdex-prefs')) localStorage.setItem('gdex-prefs', JSON.stringify({ text: 'xlarge', targets: 'large' }))" });
+    await page.waitForSelector('.ac-page');
+    await put(page, 'acts', { id: 't-fest', name: 'Festival Act', members: [] });
+    await put(page, 'bookings', { id: 't-g', kind: 'show', status: 'confirmed', actId: 't-fest', date: dayIso(0), venueId: 's-greenfield' });
+    const measure = () => page.evaluate(() => {
+      const row = document.querySelector('#ac-coming .ac-bk'), main = row.querySelector('.ac-bk-main'), pill = row.querySelector('.pill'), t = main.querySelector('strong').firstChild;
+      const rg = document.createRange(), starts = []; let top = null;
+      for (let i = 0; i < t.length; i++) { rg.setStart(t, i); rg.setEnd(t, i + 1); const c = rg.getClientRects()[0]; if (!c) continue; if (top === null || c.top - top > 2) { starts.push(i); top = c.top; } }
+      const p = pill.getBoundingClientRect(), m = main.getBoundingClientRect(), r = row.getBoundingClientRect();
+      return { text: t.data, midWord: starts.some(i => i > 0 && t.data[i - 1] !== ' '), below: p.top >= m.bottom - 1, inside: p.right <= r.right + 0.5 && p.left >= m.left - 0.5, wide: document.documentElement.scrollWidth > innerWidth };
+    });
+    await act(page, 't-fest');
+    let m = await measure();
+    ok('320px, extra-large text: the venue name breaks between words, never inside one', m.text === 'Greenfield Festival' && !m.midWord, JSON.stringify(m));
+    ok('…the status pill drops under the text, inside the row', m.below && m.inside, JSON.stringify(m));
+    ok('…and nothing scrolls sideways', !m.wide, JSON.stringify(m));
+    await put(page, 'bookings', { id: 't-long', kind: 'show', status: 'confirmed', actId: 't-fest', date: dayIso(3), title: 'Pneumonoultramicroscopicsilicovolcanoconiosis' });
+    const over = await page.evaluate(() => [...document.querySelectorAll('#ac-coming .ac-bk')].filter(r => r.scrollWidth > r.clientWidth + 1 || r.querySelector('.ac-bk-main').scrollWidth > r.querySelector('.ac-bk-main').clientWidth + 1).length);
+    ok('…a word longer than the row breaks inside the row', (await page.locator('#ac-coming .ac-bk').count()) === 2 && over === 0 && !(await measure()).wide, String(over));
+    await page.screenshot({ path: (process.env.S || '.') + '/42-coming-up-320-xlarge.png' });
+    await page.evaluate(() => localStorage.setItem('gdex-prefs', '{}'));
+    await page.setViewportSize({ width: 420, height: 900 });
+    await page.reload();
+    await page.waitForSelector('#deck .dk-next');
+    await act(page, 't-fest');
+    m = await measure();
+    ok('420px, normal text: the pill stays beside the text, on one line', !m.below && m.inside && !m.midWord, JSON.stringify(m));
+    ok('no errors in the console (narrow rows)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
 })().catch(e => { console.log('FAIL roles-acts spec crashed — ' + e.message); process.exit(1); });

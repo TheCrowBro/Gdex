@@ -5,9 +5,8 @@ import { h, nodes, sheet, toast, announce, uid } from './util.js';
 import { byId, patch, update, redraw } from './store.js';
 import { openForm } from './form.js';
 import { sheetTutorial } from './tour.js';
-import { membersOf, roleOf, plotOf, clamp01, dupChannels } from './acts-docs.js';
+import { membersOf, roleOf, plotOf, clamp01, dupChannels, gone } from './acts-docs.js';
 
-const gone = () => toast('That act is no longer in Acts.');
 const act = id => byId('acts', id);
 
 /* ------------------------------- input list ------------------------------- */

@@ -67,11 +67,16 @@
 @media (min-width: 700px) { .ac-about-seen .ac-pnl-actions .btn { flex: 0 1 auto; } } /* not a bar across a laptop screen */
 
 /* bookings coming up */
-.ac-bk { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.ac-bk { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr); gap: 12px; align-items: center; }
 .ac-bk-date { display: grid; text-align: center; line-height: 1.1; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 5px 2px; }
 .ac-bk-date b { font-size: 1.25rem; }
 .ac-bk-date span { font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.ac-bk-main { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+/* The text keeps at least 7em, and its longest word, beside the status pill; when the row can't give it that (a narrow
+   phone with large text, a long venue name), the pill drops under the text, so names wrap between words rather than
+   inside them. A word wider than the whole row still breaks (break-word, within max-width). */
+.ac-bk-body { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+.ac-bk-main { display: flex; flex-direction: column; gap: 2px; flex: 1 1 7em; max-width: 100%; overflow-wrap: break-word; }
+.ac-bk-body > .pill { flex: none; }
 
 /* members */
 .ac-mlist { display: grid; }

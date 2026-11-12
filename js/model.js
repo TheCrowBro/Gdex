@@ -82,9 +82,11 @@ export function markCheck(bookingId, id, on = true) {
 }
 
 /* ------------------------------- times seen ------------------------------- */
-// An act's sightings: act.seen = [{ id, date, venueId, where, rating (1–100), notes, bookingId }], one per time the
-// person saw them play. Newest first.
-export const seenOf = a => (Array.isArray(a && a.seen) ? a.seen.filter(s => s && s.date) : []).slice().sort((x, y) => String(y.date).localeCompare(String(x.date)));
+// An act's sightings: act.seen = [{ id, date, venueId, where, rating (1–100), notes, bookingId, savedAt }], one per time
+// the person saw them play. Newest first; on the same day, the one saved last first (savedAt, else its place in the list:
+// a save puts the entry at the end), so the latest score is the last one logged.
+export const seenOf = a => (Array.isArray(a && a.seen) ? a.seen.map((s, i) => [s, i]).filter(([s]) => s && s.date) : [])
+  .sort(([x, i], [y, j]) => String(y.date).localeCompare(String(x.date)) || (Number(y.savedAt) || 0) - (Number(x.savedAt) || 0) || j - i).map(([s]) => s);
 export const ratingOf = s => { const r = Math.round(Number(s && s.rating)); return r >= 1 && r <= 100 ? r : null; };
 // { times, avg, latest, best, last }: how many times seen, the average and latest score out of 100 (null when none is
 // scored), the best, and the date last seen.
@@ -100,10 +102,18 @@ export function seenStats(a) {
 }
 // Where a sighting was: the venue's name while it is in Venues, else what was typed.
 export const seenWhere = s => (s && s.venueId && byId('venues', s.venueId) ? byId('venues', s.venueId).name : (s && s.where) || '');
+// The act's shows on a day, not cancelled (a festival weekend covers each of its days).
+export const actShowsOn = (actId, iso) => (actId && iso ? (db.bookings || []).filter(b => b && b.actId === actId && b.kind === 'show' && isLive(b) && coversDay(b, iso)) : []);
+// The act's only show that day, or null when it has none or more than one (then a time seen can't tell which it was).
+export const onlyShowOn = (actId, iso) => { const list = actShowsOn(actId, iso); return list.length === 1 ? list[0] : null; };
+// The act's time seen for a booking: the entry carrying its id, or else one logged without a booking (from the act's card
+// on the night) on a day when this is the act's only show. A booking with one of these is already scored.
+export function seenEntryFor(a, b) {
+  if (!a || !b) return null;
+  const list = seenOf(a);
+  return list.find(s => s.bookingId === b.id) || list.find(s => !s.bookingId && coversDay(b, s.date) && (onlyShowOn(a.id, s.date) || {}).id === b.id) || null;
+}
 // The act's bookings still to come, soonest first (the dates on its card).
-// The act's time seen for a booking: the entry carrying its id, or one on the same date logged without a booking (from
-// the act's card on the night). A booking with one of these is already scored.
-export const seenEntryFor = (a, b) => (a && b ? (Array.isArray(a.seen) ? a.seen : []).find(s => s && (s.bookingId === b.id || (!s.bookingId && s.date && s.date === b.date))) || null : null);
 export const actUpcoming = a => (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && lastDate(b) >= todayIso()).sort((x, y) => (x.date + firstTime(x)).localeCompare(y.date + firstTime(y)));
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 

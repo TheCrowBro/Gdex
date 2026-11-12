@@ -10,7 +10,7 @@
 // those go to other people.
 import { h, empty, backBtn, telUrl, toast, sheet, fmtShort, daysUntil, todayISO, parseISO, uid } from '../util.js';
 import { db, byId, upsert, update, remove, upcoming, redraw } from '../store.js';
-import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, coversDay, seenEntryFor } from '../model.js';
+import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, coversDay, seenEntryFor, actShowsOn, onlyShowOn } from '../model.js';
 import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { openBooking, newBooking } from './bookings.js';
@@ -35,9 +35,11 @@ const hasTab = id => keptTabs().some(([t]) => t === id);
 const seenOnPage = () => Array.isArray(pageOpt('acts', 'tabs', null));
 // A role that doesn't score its own acts (pages.acts.seen 'logged') sees the times seen only once something is logged.
 const seenHidden = a => pageOpt('acts', 'seen', 'always') === 'logged' && !seenOf(a).length;
-// What + Book on an act's page makes: the role's usual kind of booking.
+// What + Book on an act's page makes: the role's usual kind of booking. A role without money goes to the act's shows
+// rather than booking them, so it adds a show of theirs to its calendar.
 const BOOK = { show: ['+ Book a show', 'show'], session: ['+ Book a session', 'session'], rehearsal: ['+ Book a rehearsal', 'rehearsal'], other: ['+ Add a diary entry', 'diary entry'] };
-const book = () => BOOK[newKind()] || BOOK.show;
+const bookKind = () => (moneyShown() && BOOK[newKind()] ? newKind() : 'show');
+const book = () => (moneyShown() ? BOOK[bookKind()] : ['+ Add a show', 'show']);
 // "4 members", or "No members yet" unless the role has no use for members (no money: it follows acts, it doesn't run them).
 const membersText = n => (n ? plural(n, 'member') : moneyShown() ? 'No members yet' : '');
 const GENRES = ['Indie rock', 'Rock', 'Pop', 'Alt R&B', 'R&B / Soul', 'Hip-hop', 'Electronic', 'Dance', 'Jazz', 'Folk', 'Country', 'Americana',
@@ -169,7 +171,8 @@ function seenPanel(a, onPage = false) {
 
 // The act's shows up to today that are not in the log yet: a quick way to log one you were at, tonight's included. A
 // role with money leaves out holds and offers (they never happened); a role without money doesn't track deals, so only
-// a cancelled show is left out. A show is in the log when an entry carries its id, or shares its date without one.
+// a cancelled show is left out. A show is in the log when an entry carries its id, or, on a day it is the act's only show,
+// an entry without one has its date (model.seenEntryFor).
 const pastShows = a => {
   const today = todayISO(), money = moneyShown();
   return (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && b.date <= today && b.kind === 'show' && !(money && ['hold', 'offer'].includes(b.status)) && !seenEntryFor(a, b))
@@ -184,12 +187,29 @@ function fromPastShow(a, past) {
       h('strong', null, b.date === today ? 'Today' : seenDate(b.date)), h('span', { class: 'small muted' }, whereText(b))))))));
 }
 
-// A time seen logged from the card on the night belongs to the act's show that day, when there is exactly one (not
-// cancelled) and no other entry has it: then Score this show and From a past show don't offer it again. '' otherwise.
-function showThatDay(actId, iso) {
-  const x = byId('acts', actId) || {};
-  const shows = (db.bookings || []).filter(b => b.actId === actId && b.kind === 'show' && isLive(b) && b.date && coversDay(b, iso));
-  return shows.length === 1 && !(x.seen || []).some(e => e && e.bookingId === shows[0].id) ? shows[0].id : '';
+// The act's show a time seen on this day was at: its only show that day (not cancelled), or on a day with more than one
+// (a showcase festival), the one at the venue picked. null when it can't tell.
+function showFor(actId, iso, venueId) {
+  const one = onlyShowOn(actId, iso);
+  if (one || !venueId) return one;
+  const at = actShowsOn(actId, iso).filter(b => b.venueId === venueId);
+  return at.length === 1 ? at[0] : null;
+}
+// A time seen belongs to that show when no other entry has it: then Score this show and From a past show don't offer
+// it again. '' otherwise. exceptId is the entry being saved, which may have it already.
+function showThatDay(actId, iso, exceptId = '', venueId = '') {
+  const x = byId('acts', actId) || {}, b = showFor(actId, iso, venueId);
+  return b && !(x.seen || []).some(e => e && e.id !== exceptId && e.bookingId === b.id) ? b.id : '';
+}
+// Every save links the entry again, so the link follows its date: the booking it had (or Score this show gave it) while
+// that is still the act's show, not cancelled, on the entry's day; else the show that day, as above.
+function linkFor(actId, entry, wasId) {
+  const b = wasId ? byId('bookings', wasId) : null;
+  return b && b.actId === actId && isLive(b) && coversDay(b, entry.date) ? b.id : showThatDay(actId, entry.date, entry.id, entry.venueId);
+}
+// Writes one entry (new or changed) to the act's log: it goes at the end, with when it was saved, so it is the latest of its day.
+function putSeen(actId, entry) {
+  update(d => { const x = d.acts.find(r => r.id === actId); if (!x) return; const list = Array.isArray(x.seen) ? x.seen.filter(e => e.id !== entry.id) : []; x.seen = [...list, entry]; x.updatedAt = Date.now(); });
 }
 // After a change to the log the list may re-sort (a role that orders by score or by last seen). The card stays open,
 // and app.js gives the focus back by id to the button used; when that one has gone (the last past show is logged),
@@ -235,10 +255,27 @@ export function logSighting(a, s = {}) { // shared: bookings.js offers it as Sco
     },
     onSave: v => {
       const rating = Math.min(100, Math.max(1, Math.round(Number(v.rating)) || 1));
-      const entry = { id: s.id || uid(), date: v.date || todayISO(), venueId: v.venueId || '', where: v.venueId ? '' : String(v.where || '').trim(), rating, notes: String(v.notes || '').trim(), bookingId: s.bookingId || '' };
-      if (!editing && !entry.bookingId) entry.bookingId = showThatDay(a.id, entry.date);
-      update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; const list = Array.isArray(x.seen) ? x.seen.filter(e => e.id !== entry.id) : []; x.seen = [...list, entry]; x.updatedAt = Date.now(); });
+      const entry = { id: s.id || uid(), date: v.date || todayISO(), venueId: v.venueId || '', where: v.venueId ? '' : String(v.where || '').trim(), rating, notes: String(v.notes || '').trim(), bookingId: '', savedAt: Date.now() };
+      entry.bookingId = linkFor(a.id, entry, s.bookingId);
       S.open.add(a.id);
+      // A new time seen on a night already in the log (the act's show that day has an entry, scored from the booking or
+      // logged before): ask before counting the night twice. OK updates that entry; Cancel logs this one as well.
+      const cur = byId('acts', a.id) || a;
+      const show = !editing && (byId('bookings', entry.bookingId) || showFor(a.id, entry.date, entry.venueId));
+      const had = show ? seenEntryFor(cur, show) : null;
+      if (had && had.id !== entry.id) {
+        const r = ratingOf(had), name = cur.name || 'them';
+        if (confirm(r != null ? `You already scored ${name} that night (${r}/100). Update that score instead?` : `You already logged ${name} that night. Update it with this score instead?`)) {
+          const place = entry.venueId || entry.where ? { venueId: entry.venueId, where: entry.where } : { venueId: had.venueId || '', where: had.venueId ? '' : had.where || '' };
+          const upd = { ...had, ...place, rating, notes: entry.notes || had.notes || '', savedAt: entry.savedAt };
+          upd.bookingId = linkFor(a.id, upd, had.bookingId);
+          putSeen(a.id, upd);
+          toast(`Updated: ${rating}/100`);
+          refocus(a.id);
+          return;
+        }
+      }
+      putSeen(a.id, entry);
       toast(editing ? 'Saved' : `Logged: ${rating}/100`);
       refocus(a.id);
     },
@@ -319,11 +356,13 @@ function bookingRow(b) {
   return h('button', { type: 'button', class: 'card tap ac-bk', onclick: () => openBooking(b.id) },
     h('span', { class: 'ac-bk-date', 'aria-hidden': 'true' },
       h('span', null, d.toLocaleDateString(undefined, { weekday: 'short' })), h('b', null, String(d.getDate())), h('span', null, d.toLocaleDateString(undefined, { month: 'short' }))),
-    h('span', { class: 'ac-bk-main' },
-      h('span', { class: 'sr-only' }, fmtShort(b.date) + (b.endDate && b.endDate > b.date ? ' to ' + fmtShort(b.endDate) : '') + ': '),
-      h('strong', null, main === kind ? `${kindIcon(b.kind)} ${kind}` : main),
-      h('span', { class: 'muted small' }, [main !== kind && `${kindIcon(b.kind)} ${kind}`, b.title && v, !v && 'Venue to be confirmed', t, b.endDate && b.endDate > b.date && 'until ' + fmtShort(b.endDate)].filter(Boolean).join(' · '))),
-    h('span', { class: 'pill ' + statusTone(b.status) }, statusLabel(b.status)));
+    // The text and the status: the pill drops under the text when the row is too narrow for both (css/acts.css).
+    h('span', { class: 'ac-bk-body' },
+      h('span', { class: 'ac-bk-main' },
+        h('span', { class: 'sr-only' }, fmtShort(b.date) + (b.endDate && b.endDate > b.date ? ' to ' + fmtShort(b.endDate) : '') + ': '),
+        h('strong', null, main === kind ? `${kindIcon(b.kind)} ${kind}` : main),
+        h('span', { class: 'muted small' }, [main !== kind && `${kindIcon(b.kind)} ${kind}`, b.title && v, !v && 'Venue to be confirmed', t, b.endDate && b.endDate > b.date && 'until ' + fmtShort(b.endDate)].filter(Boolean).join(' · '))),
+      h('span', { class: 'pill ' + statusTone(b.status) }, statusLabel(b.status))));
 }
 function aboutTab(a) {
   const coming = upcoming().filter(b => b.actId === a.id);
@@ -335,9 +374,9 @@ function aboutTab(a) {
     seenOnPage() && h('section', { class: 'ac-sec ac-about-seen', id: 'ac-seen', 'aria-labelledby': 'ac-h-seen' }, seenPanel(a, true)),
     h('section', { class: 'ac-sec', id: 'ac-coming', 'aria-labelledby': 'ac-h-coming' },
       h('h3', { id: 'ac-h-coming' }, 'Coming up'),
-      coming.length ? h('div', { class: 'list ac-bks' }, shown.map(bookingRow)) : h('p', { class: 'muted ac-none' }, 'Nothing booked for this act yet.'),
+      coming.length ? h('div', { class: 'list ac-bks' }, shown.map(bookingRow)) : h('p', { class: 'muted ac-none' }, moneyShown() ? 'Nothing booked for this act yet.' : 'No shows of theirs on your calendar yet.'),
       h('div', { class: 'actions' },
-        h('button', { type: 'button', class: 'btn primary small', id: 'ac-book', onclick: () => newBooking({ kind: newKind(), actId: a.id }) }, book()[0]),
+        h('button', { type: 'button', class: 'btn primary small', id: 'ac-book', onclick: () => newBooking({ kind: bookKind(), actId: a.id }) }, book()[0]),
         coming.length > 4 && h('button', { type: 'button', class: 'btn ghost small', id: 'ac-allbk', 'aria-expanded': String(S.allBk), onclick: () => { S.allBk = !S.allBk; redraw(); } }, S.allBk ? 'Show fewer' : `Show all ${coming.length}`))),
     h('section', { class: 'ac-sec', id: 'ac-members', 'aria-labelledby': 'ac-h-members' },
       h('h3', { id: 'ac-h-members' }, 'Members'),
@@ -487,13 +526,15 @@ function riderTab(a) {
 // The walkthroughs follow the role: the section's name, the parts of an act it keeps, the list's order, and whether
 // the times seen lead (EVERYTHING reads as it always has).
 const andList = xs => (xs.length > 1 ? xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1] : xs[0] || '');
+// "Your acts" in the section's name for the role: Your artists, Your roster, Your bands; My act reads Your act.
+const yours = () => { const n = secName(); return /^my\s/i.test(n) ? 'Your ' + n.slice(3) : 'Your ' + n.toLowerCase(); };
 const listSteps = () => {
   const follows = seenOnPage(), logged = pageOpt('acts', 'seen', 'always') === 'logged', how = pageOpt('acts', 'order', 'name');
   const parts = andList(keptTabs().map(([id]) => ({ about: follows ? 'bookings and members' : 'members', epk: 'press kit', rider: 'rider' })[id]));
   return [
     { title: secName(), text: follows ? 'The bands and artists you go to see. Each keeps its links, members and notes and the log of each time you saw them; bookings point back to it.' : 'The bands and artists you play in, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
     { title: 'Add an act', text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] },
-    { title: 'Your acts', text: (logged ? 'Each card shows their dates coming up on the calendar and, once you log a time you saw them play, how many times, your average and latest score out of 100.' : 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.')
+    { title: yours(), text: (logged ? 'Each card shows their dates coming up on the calendar and, once you log a time you saw them play, how many times, your average and latest score out of 100.' : 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.')
       + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'] },
     { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. You can log a time you saw them play there too; once you have, the card keeps the log: when, where, the score and your notes.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
     { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
@@ -508,7 +549,7 @@ const actSteps = () => {
     tabs.length > 1 && { title: tabs.length === 3 ? 'Three parts' : 'Two parts', text: tabs.map(([id]) => PART_TEXT[id]).join(', ') + '.', target: ['.ac-tabs'] },
     seenOnPage() && { title: 'Times seen', text: 'Each time you saw them play, newest first: when, where, the score and your notes. Log another, or pick one of their past shows.', target: ['#ac-seen'] },
     ...(has('about') ? [
-      { title: 'Coming up', text: `This act’s bookings from today on. Tap one to open it, or book a new ${book()[1]} for the act.`, target: ['#ac-coming'] },
+      { title: 'Coming up', text: moneyShown() ? `This act’s bookings from today on. Tap one to open it, or book a new ${book()[1]} for the act.` : 'Their shows on your calendar from today on. Tap one to open it, or add a show of theirs you’re going to.', target: ['#ac-coming'] },
       { title: 'Members', text: 'People from the People section. Add someone already there or a new person; ✕ takes them out of the act (they stay in People).', target: ['#ac-members'] },
       { title: 'Songs & setlists', text: 'How many songs and setlists the act has. Tap to open Songs.', target: ['#ac-songs'] },
     ] : []),

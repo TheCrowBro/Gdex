@@ -5,6 +5,10 @@ import { h, safeUrl, telUrl, toast, fmtLong, fmtShort, todayISO, ymd } from './u
 import { db, byId, upcoming } from './store.js';
 import { qrSvg } from './qr.js';
 import { printElement, docPage, saveFile, fileName, csv } from './print.js';
+import { sectionName } from './roles.js';
+
+// The act was deleted meanwhile. The toast names the section as the role does (Roster, Bands…); the documents don't.
+export const gone = () => toast(`That act is no longer in ${sectionName('acts', 'Acts')}.`);
 
 /* ------------------------------- links ------------------------------- */
 // Known services: a label when the line has none, and a small mark on the button.
@@ -139,13 +143,13 @@ async function epkWithQr(a) {
 }
 export async function printEpk(actId) {
   const a = byId('acts', actId);
-  if (!a) { toast('That act is no longer in Acts.'); return false; }
+  if (!a) { gone(); return false; }
   printElement(await epkWithQr(a), DOC_CSS('#print-root '));
   return true;
 }
 export async function saveEpk(actId) {
   const a = byId('acts', actId);
-  if (!a) { toast('That act is no longer in Acts.'); return false; }
+  if (!a) { gone(); return false; }
   const ok = await saveFile(docPage(`Press kit – ${a.name || 'act'}`, await epkWithQr(a), DOC_CSS('')), fileFor('Press kit', a, 'html'), 'text/html');
   if (ok) toast('Press kit saved');
   return ok;
@@ -231,13 +235,13 @@ export function riderDoc(a) {
 // Prints the act's tech rider: input list, stage plot, riders and contact. Returns false when the act is gone.
 export function printRider(actId) {
   const a = byId('acts', actId);
-  if (!a) { toast('That act is no longer in Acts.'); return false; }
+  if (!a) { gone(); return false; }
   printElement(riderDoc(a), DOC_CSS('#print-root '));
   return true;
 }
 export async function saveRider(actId) {
   const a = byId('acts', actId);
-  if (!a) { toast('That act is no longer in Acts.'); return false; }
+  if (!a) { gone(); return false; }
   const ok = await saveFile(docPage(`Tech rider – ${a.name || 'act'}`, riderDoc(a), DOC_CSS('')), fileFor('Tech rider', a, 'html'), 'text/html');
   if (ok) toast('Tech rider saved');
   return ok;
