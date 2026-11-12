@@ -546,7 +546,11 @@ html[data-motion=off] .back-btn::after, html[data-motion=bar] .back-btn::after {
 
 /* the PIN set-up screen (first start, or an existing user's next one), and forms inside a tutorial card */
 
-.tour-card { max-height: calc(100% - 32px); overflow: auto; }
+.tour-card { max-height: calc(100% - 32px); overflow: auto; display: flex; flex-direction: column; }
+/* a card cut short (docked at the screen's edge beside a tall spotlight) scrolls its words; the buttons stay in view */
+.tour-body { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.tour-body.tour-more { -webkit-mask-image: linear-gradient(#000 calc(100% - 2.2em), transparent); mask-image: linear-gradient(#000 calc(100% - 2.2em), transparent); }
+.tour-card > .tour-actions { flex: none; }
 .tour-form { margin: 0 0 12px; }
 .tour-fields { display: grid; gap: 8px; }
 .tour-field { display: grid; gap: 3px; font-size: .85rem; color: var(--muted); }

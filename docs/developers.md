@@ -67,7 +67,10 @@ off the menu as the bonus track.
 The first open asks who is using Gdex: producer, manager, band, solo artist, scout or audiophile, or everything
 (`askRole` in `js/role-pick.js`, then the welcome tour for that role). Settings → Your role swaps it (`rolePanel`). A
 device whose welcome tour was done before roles came gets one card under the menu instead (`nudgeRole`, shown once:
-`gdex-role-nudged`). The role is a device preference in `localStorage` `gdex-role`, never in the database, so a swap
+`gdex-role-nudged`; closing the first-run question without a pick sets it too, so that person never sees the card).
+The question and the tour wait while a sheet (the sleeve, tapped in the first moment) is open. Their words, like the
+sleeve's, follow the section menu: "the sleeve" / "tap the record", or "the track list" / "tap Tracks" on the tape
+deck (`menuStyle()`). The role is a device preference in `localStorage` `gdex-role`, never in the database, so a swap
 writes nothing to `gdex-db` and backups do not carry it; Erase this device clears it. With none saved the role is
 `EVERYTHING`: every section on the menu, every box, no page defaults, as Gdex always was. **Every spec runs as
 Everything** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
@@ -93,6 +96,8 @@ seen last), and "From a past show" offers shows up to today (holds and offers to
 `gdex-tool` only when a tool is picked, and works out the first tool (remembered, else `tools.tool`, else the tuner)
 and Songs its first view each time it is drawn, so a role's default applies until the person chooses. The venue
 checks on a booking speak of "the set" for everyone and mention the deal or settlement only when money is on.
+Settings has no Quotes & invoices section (nor its walkthrough step) while money is off, and Your details is not said
+to go on quotes and invoices; Your role says the section comes back with a role that uses money, or with Everything.
 
 Rules: a page reads the role through these helpers, never `roleId() === 'scout'`; ids stay ids (`sessions` is the
 Studio log, whatever a role calls anything); hiding never deletes or edits data; nothing inside a document that goes

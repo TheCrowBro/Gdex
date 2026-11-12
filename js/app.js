@@ -159,7 +159,7 @@ window.addEventListener('gdex-role', e => {
   if (i < 0) { guest = want; tabs = buildTabs(); i = tabs.length - 1; } // still on screen: kept as the bonus track
   deck.setTabs(tabs, i);
   if (want !== was) show(i, 0);
-  else { current = i; redraw(); } // the same page, perhaps with its role's name and boxes
+  else { current = i; page.firstElementChild?.setAttribute('aria-label', tabs[i].label); redraw(); } // the same page, perhaps with its role's name and boxes
 });
 window.logiPage = () => (tabs[current] ? tabs[current].id : null); // which section is open (the tutorials use it)
 
@@ -168,10 +168,12 @@ document.getElementById('cloudBtn')?.addEventListener('click', () => import('./b
 
 const idle = window.requestIdleCallback ? fn => requestIdleCallback(fn, { timeout: 2500 }) : fn => setTimeout(fn, 1200);
 idle(() => import('./backup.js').then(m => m.nudgeIfStale && m.nudgeIfStale()).catch(() => {}));
-// First launch: who are you (the role sets the menu), then the welcome walkthrough for that role.
+// First launch: who are you (the role sets the menu), then the welcome walkthrough for that role. Neither opens over a
+// sheet someone already opened (the sleeve, tapped in the first moment): they wait until it is closed.
+const whenNoSheet = fn => { const tryNow = () => (document.querySelector('.sheet-back') ? setTimeout(tryNow, 300) : fn()); tryNow(); };
 if (!tourSeen()) {
-  if (roleChosen()) setTimeout(() => startTour(), 700);
-  else setTimeout(() => import('./role-pick.js').then(m => m.askRole({ then: () => startTour() })).catch(e => { console.error(e); startTour(); }), 500);
+  if (roleChosen()) setTimeout(() => whenNoSheet(() => startTour()), 700);
+  else setTimeout(() => import('./role-pick.js').then(m => whenNoSheet(() => m.askRole({ then: () => startTour() }))).catch(e => { console.error(e); whenNoSheet(() => startTour()); }), 500);
 } else if (!roleChosen()) {
   // Gdex was in use before roles came: say once, without getting in the way, that it can set itself up for a role.
   idle(() => import('./role-pick.js').then(m => m.nudgeRole(document.getElementById('clockbar'))).catch(e => console.error(e)));
