@@ -1,6 +1,7 @@
 // Roles: the first-run question (producer, manager, band, solo artist, scout, audiophile, or everything), each role's
-// section menu and start page, the welcome tour that follows it, Settings → Your role to swap, bonus tracks for the
-// sections off the menu (on the sleeve, and from any link), the booking boxes a role hides, and that nothing is lost.
+// section menu (the calendar first, and where Gdex opens every time, whatever was open last), the welcome tour that
+// follows it, Settings → Your role to swap, bonus tracks for the sections off the menu (on the sleeve, and from any
+// link), the booking boxes a role hides, and that nothing is lost.
 const { chromium } = require('playwright');
 const { open, ok, sleep, go, topSheet, BASE } = require('../helpers.cjs');
 
@@ -29,7 +30,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.click('.rp-card[data-role="producer"]');
     await page.waitForSelector('.tour-card');
     const prod = R.roles.find(r => r.id === 'producer');
-    ok('picking a role opens its start page', (await page.evaluate(() => window.logiPage())) === prod.start);
+    ok('picking a role opens its start page, the calendar', (await page.evaluate(() => window.logiPage())) === prod.start && prod.start === 'bookings');
     ok('the role is kept on this device', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'producer');
     const titles = [];
     for (let i = 0; i < 14 && await page.locator('.tour-card').count(); i++) { titles.push(await page.textContent('#tour-title')); await page.click('.tour-actions .btn.primary'); await sleep(900); }
@@ -93,7 +94,8 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.click('.tour-actions .btn.ghost');
     await page.click('#deck .dk-record');
     await page.waitForSelector('.dk-sheet');
-    ok('the sleeve then lists the scout’s tracks', JSON.stringify(await menuIds(page)) === JSON.stringify(['acts', 'bookings', 'people', 'venues', 'settings']), (await menuIds(page)).join(','));
+    ok('a scout picked at the first-run question opens on the calendar', (await page.evaluate(() => window.logiPage())) === 'bookings' && (await page.locator('.bk-monthview').count()) === 1);
+    ok('the sleeve then lists the scout’s tracks, the calendar first', JSON.stringify(await menuIds(page)) === JSON.stringify(['bookings', 'acts', 'people', 'venues', 'settings']), (await menuIds(page)).join(','));
     await page.click('.dk-sheet .dk-bonus [data-section="insurance"]');
     await sleep(700);
     ok('…and Insurance on it opens Insurance', (await page.evaluate(() => window.logiPage())) === 'insurance');
@@ -139,9 +141,11 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.waitForSelector('#deck .dk-next');
     await sleep(2800);
     ok('…for good', (await page.locator('.rp-nudge').count()) === 0);
+    // A section saved by the build before this one (gdex-tab) no longer decides where Gdex opens.
     await page.evaluate(() => { localStorage.removeItem('gdex-role-nudged'); localStorage.setItem('gdex-tab', 'acts'); });
     await page.reload();
     await page.waitForSelector('.rp-nudge', { timeout: 8000 });
+    ok('a section saved last time is not honoured: Gdex opens on the calendar, and the old key is gone', (await page.evaluate(() => window.logiPage())) === 'bookings' && (await page.evaluate(() => localStorage.getItem('gdex-tab'))) === null);
     const y0 = await page.evaluate(() => window.scrollY);
     await page.focus('#rp-nudge-go');
     await page.keyboard.press('Enter');
@@ -154,7 +158,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok('…and the answer sets the menu, with no welcome tour again', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile' && (await page.locator('.tour-card').count()) === 0);
     ok('…the page takes the focus, without a jump', await page.evaluate(() => document.activeElement && document.activeElement.id === 'page') && (await page.evaluate(() => window.scrollY)) === y0);
     const region = await page.evaluate(() => ({ label: document.querySelector('#page .page-card').getAttribute('aria-label'), h1: document.querySelector('#page h1').textContent }));
-    ok('the page stays Acts, and its region takes the role’s name for it (Bands)', region.label === 'Bands' && region.h1 === 'Bands', JSON.stringify(region));
+    ok('the calendar stays, and its region takes the role’s name for it (Gigs)', (await page.evaluate(() => window.logiPage())) === 'bookings' && region.label === 'Gigs' && region.h1 === 'Gigs', JSON.stringify(region));
     ok('no errors in the console (the role card)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
@@ -227,6 +231,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok('the scout’s tour opens with its own welcome', /scouting/.test(steps[0].text) && /Fees and settlements stay off/.test(steps[0].text));
     ok('it counts the tracks and the sides', /5 tracks: 3 on Side A, 2 on Side B; the rest are bonus tracks/.test(steps[2].text), steps[2].text);
     ok('its stops use the role’s names', steps.some(s => s.title === 'Shows') && !steps.some(s => s.title === 'Bookings'), steps.map(s => s.title).join(' › '));
+    ok('the calendar is its first stop, and says Gdex asks after a show', steps[3].title === 'Shows' && /by month, week or day/.test(steps[3].text) && /After a show Gdex asks if you saw them/.test(steps[3].text), `${steps[3].title}: ${steps[3].text}`);
     ok('the last card names the bonus tracks and leaves out quotes and invoices', /Not on your menu: Songs, Studio log, Backline, Money, Tools and Insurance/.test(steps[steps.length - 1].text) && !/quotes and invoices/.test(steps[steps.length - 1].text), steps[steps.length - 1].text);
     await page.evaluate(() => import('./js/tour.js').then(m => m.startTour()));
     await page.waitForSelector('.tour-card');
@@ -247,6 +252,34 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     const mgr = await page.evaluate(() => import('./js/tour.js').then(m => m.welcomeSteps().map(s => s.text)));
     ok('a role with money keeps quotes and invoices on the last card', /quotes and invoices/.test(mgr[mgr.length - 1]));
     ok('no errors in the console (tour)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
+  /* ---------------- every role opens on the calendar, its first track, whatever was open last ---------------- */
+  {
+    const { browser, page, errors } = await open({ sample: true });
+    const starts = await page.evaluate(() => import('./js/roles.js').then(m => [...m.ROLES, m.EVERYTHING].map(r => [r.id, m.startSection(r), m.menuSections(r)[0]])));
+    ok('every role, and Everything, starts on the calendar and has it as the first track', starts.length === 7 && starts.every(x => x[1] === 'bookings' && x[2] === 'bookings'), JSON.stringify(starts));
+    for (const id of ['all', 'producer', 'manager', 'band', 'solo', 'scout', 'audiophile']) {
+      // A new visit as this role, with a section saved by an older build as the one open last.
+      await page.evaluate(x => { if (x === 'all') localStorage.removeItem('gdex-role'); else localStorage.setItem('gdex-role', x); localStorage.setItem('gdex-tab', 'venues'); }, id);
+      await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
+      const at = await page.evaluate(() => ({ page: window.logiPage(), month: document.querySelectorAll('.bk-monthview').length, today: document.querySelectorAll('.bk-day.today').length, tab: localStorage.getItem('gdex-tab'), sheets: document.querySelectorAll('.sheet, .tour-card').length }));
+      const first = (await sleeve(page)).ids[0];
+      ok(`${id}: a fresh open is the calendar, on this month with today marked, and the calendar is the first track`, at.page === 'bookings' && at.month === 1 && at.today === 1 && first === 'bookings' && at.sheets === 0, JSON.stringify({ ...at, first }));
+      ok(`${id}: the section saved by an older build is forgotten`, at.tab === null);
+    }
+    await page.evaluate(() => window.logiGo('venues')); await sleep(400);
+    ok('(Venues is open)', (await page.evaluate(() => window.logiPage())) === 'venues');
+    await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
+    ok('leaving on Venues and opening Gdex again: the calendar, and nothing is saved about the section', (await page.evaluate(() => window.logiPage())) === 'bookings' && (await page.evaluate(() => localStorage.getItem('gdex-tab'))) === null);
+    // Within a visit, leaving Bookings and coming back keeps the day that was open.
+    const far = await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 's-reh').date)); // the sample's rehearsal, three days on
+    if (!(await page.locator(`.bk-day[data-date="${far}"]`).count())) { await page.click('[aria-label="Next month"]'); await sleep(200); }
+    await page.locator(`.bk-day[data-date="${far}"]`).click(); await page.waitForSelector('.bk-dayview');
+    await go(page, 'venues'); await go(page, 'bookings');
+    ok('within a visit, coming back to the calendar keeps the day that was open', (await page.locator('.bk-dayview').count()) === 1 && (await page.locator('.bk-dayview [data-id="s-reh"]').count()) === 1);
+    ok('no errors in the console (the calendar as the landing page)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
 

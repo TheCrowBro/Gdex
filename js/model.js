@@ -2,8 +2,8 @@
 // keys, and the pure sums every page agrees on (set lengths, deal and settlement maths, a booking's income). Nothing
 // here touches the page or the store's storage; pass records in, get values out. Pages import from here instead of
 // keeping their own lists, so a show reads the same on the calendar, the day sheet and the money page.
-import { db, byId, update } from './store.js';
-import { pad } from './util.js';
+import { db, byId, update, overlaps, nightMin, playField, playKey, byPlay, byDayPlay, byDayPlayDesc } from './store.js';
+import { pad, ymd, parseISO } from './util.js';
 
 /* ------------------------------- bookings ------------------------------- */
 // [id, label, icon]. A show is a gig (load-in, soundcheck, doors, set, curfew, a deal); a session is studio time
@@ -27,10 +27,92 @@ export const isLive = b => b && b.status !== 'cancelled'; // counts on the calen
 export const SHOW_TIMES = [['loadIn', 'Load-in'], ['soundcheck', 'Soundcheck'], ['doors', 'Doors'], ['setTime', 'On stage'], ['curfew', 'Curfew']];
 export const SESSION_TIMES = [['start', 'Start'], ['end', 'Finish']];
 export const timesFor = kind => (kind === 'show' ? SHOW_TIMES : SESSION_TIMES);
-// The first time on the day (for sorting a day's bookings and for the calendar line).
+// The first time on the day (what a card and a calendar file start with: load-in for a show). The order of a day is
+// not this: it is the time the band plays (below).
 export const firstTime = b => (b ? (b.kind === 'show' ? [b.loadIn, b.soundcheck, b.doors, b.setTime] : [b.start]).find(Boolean) || '' : '');
 export const lastDate = b => (b.endDate && b.endDate > b.date ? b.endDate : b.date);
 export const coversDay = (b, iso) => !!b.date && b.date <= iso && iso <= lastDate(b);
+
+/* ------------------------------- the order of a day ------------------------------- */
+// Same-day bookings run in the order the bands play (js/store.js): a show by its on-stage time, else doors, soundcheck
+// or load-in; anything else by its start; on the night clock, where a time before 06:00 is after midnight; a booking
+// with no time last. nightMin, playField, playTime, playKey and the comparators byPlay, byDayPlay and byDayPlayDesc
+// are the store's, passed on here so pages take them from the model.
+export { nightMin, playField, playTime, playKey, byPlay, byDayPlay, byDayPlayDesc } from './store.js';
+// Night minutes back to a clock time (1470 → '00:30').
+export const nightClock = min => { const t = ((Math.round(Number(min) || 0) % 1440) + 1440) % 1440; return `${pad(Math.floor(t / 60))}:${pad(t % 60)}`; };
+const PLAY_LABELS = { setTime: 'On stage', doors: 'Doors', soundcheck: 'Soundcheck', loadIn: 'Load-in', start: 'Start' };
+// The name of the time a booking sorts by ('' when it has none).
+export const playLabel = b => PLAY_LABELS[playField(b)] || '';
+export const isAfterMidnight = b => (playKey(b) ?? 0) >= 1440;
+// A show's set as night minutes { start, end }: a live show (holds and offers count, cancelled does not) with an
+// on-stage time; it lasts its set length, else an hour. null for anything else. The end is the real one, past 06:00 too.
+export const setWindow = b => {
+  if (!b || b.kind !== 'show' || !isLive(b)) return null;
+  const start = nightMin(b.setTime);
+  return start == null ? null : { start, end: start + (Number(b.setLength) > 0 ? Number(b.setLength) : 60) };
+};
+// Two shows whose sets run at the same time on a day they share. Sets that only touch (one ends as the next starts)
+// do not overlap.
+export const setsOverlap = (a, b) => { const x = setWindow(a), y = setWindow(b); return !!x && !!y && overlaps(a, b) && x.start < y.end && y.start < x.end; };
+// The other shows whose sets overlap this one's, in the order they play; [] for a booking with no set.
+export const overlapsOf = (b, list = db.bookings) => (setWindow(b) ? (list || []).filter(o => o && o !== b && o.id !== b.id && setsOverlap(b, o)).sort(byPlay) : []);
+// The note on a card: "Overlaps with Chelsea Wolfe, 21:00", "… and Sable, 21:30", "… and 2 more"; '' when nothing
+// overlaps. The other show goes by its act (else its client, else its title); by its title when it is the same act.
+export const overlapText = (b, list = db.bookings) => {
+  const others = overlapsOf(b, list);
+  if (!others.length) return '';
+  const name = o => `${(o.actId && o.actId === b.actId ? '' : actName(o.actId) || o.client) || bookingTitle(o)}, ${nightClock(nightMin(o.setTime))}`;
+  return 'Overlaps with ' + (others.length === 1 ? name(others[0]) : others.length === 2 ? `${name(others[0])} and ${name(others[1])}` : `${name(others[0])} and ${others.length - 1} more`);
+};
+
+/* ------------------------------- when a show is over ------------------------------- */
+// "Did you see them?" is asked once a show is over (js/acts-ask.js), for ASK_DAYS days after it.
+export const ASK_DAYS = 14;
+const isIso = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+// When a show is over, on its last day, with times on the night clock: after the set (on-stage time plus set
+// length); with no length, at the curfew (the booking's own, else its saved venue's; one that is before the set is
+// skipped); with an on-stage time and neither, two hours after it; with no times, or only doors, soundcheck or
+// load-in, at 06:00 the morning after. null for anything that is not a show with a date.
+export function showEnd(b) {
+  if (!b || b.kind !== 'show' || !isIso(b.date)) return null;
+  const last = isIso(b.endDate) && b.endDate > b.date ? b.endDate : b.date;
+  const set = nightMin(b.setTime), length = Number(b.setLength) > 0 ? Number(b.setLength) : 0;
+  const venue = b.venueId ? byId('venues', b.venueId) : null;
+  const curfew = nightMin(b.curfew) ?? nightMin(venue && venue.curfew);
+  const min = set != null && length ? set + length
+    : curfew != null && (set == null || curfew >= set) ? curfew
+      : set != null ? set + 120
+        : 1440 + 360;
+  const d = parseISO(last);
+  d.setHours(0, min, 0, 0); // minutes may pass midnight: the date moves on with them
+  return d;
+}
+export const showOver = (b, now = new Date()) => { const end = showEnd(b); return !!end && now >= end; };
+// What the person said about a show: 'seen' when the act's log has it (a score always wins), 'no' when it is marked
+// "Didn’t go" (booking.went === 'no'), else ''.
+export const seenAnswer = b => {
+  if (!b) return '';
+  const a = b.actId ? byId('acts', b.actId) : null;
+  return a && seenEntryFor(a, b) ? 'seen' : b.went === 'no' ? 'no' : '';
+};
+// The shows waiting for "Did you see them?": over, not cancelled, with an act that is in Acts, at most ASK_DAYS days
+// after their last day, and with no answer yet. Newest first. holds: false leaves out holds and offers (a role with
+// money: they never happened); a role without money passes holds: true.
+export function waitingShows(now = new Date(), { holds = false } = {}) {
+  const today = parseISO(ymd(now));
+  return (db.bookings || []).filter(b => b && b.kind === 'show' && isLive(b) && isIso(b.date) && b.actId && byId('acts', b.actId)
+    && (holds || !['hold', 'offer'].includes(b.status)) && showOver(b, now)
+    && Math.round((today - parseISO(isIso(b.endDate) && b.endDate > b.date ? b.endDate : b.date)) / 864e5) <= ASK_DAYS
+    && seenAnswer(b) === '').sort(byDayPlayDesc);
+}
+// Mark a show "Didn’t go" (no = true), or take the answer back (no = false). Quiet: no toast. Nothing is written when
+// nothing would change.
+export function markWent(bookingId, no = true) {
+  const b = byId('bookings', bookingId);
+  if (!b || (b.went === 'no') === !!no) return;
+  update(d => { const x = d.bookings.find(r => r.id === bookingId); if (!x) return; if (no) x.went = 'no'; else delete x.went; x.updatedAt = Date.now(); });
+}
 
 // "Act @ Venue" when no title was typed.
 export function bookingTitle(b) {
@@ -113,8 +195,8 @@ export function seenEntryFor(a, b) {
   const list = seenOf(a);
   return list.find(s => s.bookingId === b.id) || list.find(s => !s.bookingId && coversDay(b, s.date) && (onlyShowOn(a.id, s.date) || {}).id === b.id) || null;
 }
-// The act's bookings still to come, soonest first (the dates on its card).
-export const actUpcoming = a => (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && lastDate(b) >= todayIso()).sort((x, y) => (x.date + firstTime(x)).localeCompare(y.date + firstTime(y)));
+// The act's bookings still to come, soonest first and, on a day, in the order they play (the dates on its card).
+export const actUpcoming = a => (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && lastDate(b) >= todayIso()).sort(byDayPlay);
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
 /* ------------------------------- people & gear ------------------------------- */
@@ -130,6 +212,106 @@ export const venueKindLabel = k => (VENUE_KINDS.find(x => x[0] === k) || VENUE_K
 export const RATE_UNITS = [['hour', 'per hour'], ['day', 'per day'], ['song', 'per song'], ['flat', 'flat fee']];
 export const PERSON_RATE_UNITS = [['day', 'per day'], ['hour', 'per hour'], ['show', 'per show'], ['song', 'per song']];
 export const rateUnitLabel = u => (RATE_UNITS.find(x => x[0] === u) || ['', ''])[1];
+
+/* ------------------------------- house rules ------------------------------- */
+// What a venue allows in: common rules as answers, plus free text. They belong to the venue and apply to every show
+// there, whoever plays. On the venue: rules { ruleId: answer } (only what is known; a missing key is "Don’t know"),
+// rulesNote (free text) and rulesTone ('' automatic | 'relaxed' | 'some' | 'strict': the colour set by hand).
+// Nothing about house rules goes into a day sheet, an invoice or a calendar file.
+export const RULE_GROUPS = [['cameras', 'Cameras and recording'], ['entry', 'Getting in'], ['inside', 'Inside the venue'], ['crowd', 'Crowd rules']];
+// kind 'allow': Allowed ('yes') / Not allowed ('no').  kind 'fact': Yes / No, with its own words.  kind 'pick': a short list.
+// bad: the answers that count as a restriction ('allow' rules: ['no'] when not given).
+export const HOUSE_RULES = [
+  { id: 'proCameras', group: 'cameras', kind: 'allow', label: 'Pro cameras', icon: '📷' },
+  { id: 'compacts', group: 'cameras', kind: 'allow', label: 'Point-and-shoots', icon: '📷' },
+  { id: 'phones', group: 'cameras', kind: 'allow', label: 'Phones', icon: '📱' },
+  { id: 'video', group: 'cameras', kind: 'allow', label: 'Video', icon: '🎥' },
+  { id: 'audio', group: 'cameras', kind: 'allow', label: 'Audio recording', icon: '🎙️' },
+  { id: 'flash', group: 'cameras', kind: 'allow', label: 'Flash', icon: '⚡' },
+  { id: 'age', group: 'entry', kind: 'pick', label: 'Age limit', icon: '🔞', options: [['all', 'All ages'], ['18', '18+'], ['21', '21+']], bad: ['18', '21'] },
+  { id: 'idNeeded', group: 'entry', kind: 'fact', label: 'ID needed', icon: '🆔', yes: 'ID needed', no: 'No ID needed', bad: ['yes'] },
+  { id: 'reentry', group: 'entry', kind: 'allow', label: 'Re-entry', icon: '🚪' },
+  { id: 'bags', group: 'entry', kind: 'allow', label: 'Bags', icon: '🎒' },
+  { id: 'cashOnly', group: 'inside', kind: 'fact', label: 'Cash only', icon: '💵', yes: 'Cash only', no: 'Cards taken', bad: ['yes'] },
+  { id: 'outsideFood', group: 'inside', kind: 'allow', label: 'Outside food or drink', icon: '🥤' },
+  { id: 'smoking', group: 'inside', kind: 'allow', label: 'Smoking or vaping', icon: '🚬' },
+  { id: 'floor', group: 'inside', kind: 'pick', label: 'Seated or standing', icon: '💺', options: [['seated', 'Seated'], ['standing', 'Standing'], ['both', 'Seated and standing']], bad: [] },
+  { id: 'moshing', group: 'crowd', kind: 'allow', label: 'Moshing and crowd-surfing', icon: '🤘' },
+  { id: 'earplugs', group: 'crowd', kind: 'fact', label: 'Earplugs advised', icon: '🎧', yes: 'Earplugs advised', no: 'Earplugs not needed', bad: [] },
+  { id: 'strobes', group: 'crowd', kind: 'fact', label: 'Strobe lighting', icon: '🔦', yes: 'Strobe lighting', no: 'No strobe lighting', bad: ['yes'] },
+];
+export const RULE_TONES = [['', 'Automatic'], ['relaxed', 'Relaxed'], ['some', 'Some rules'], ['strict', 'Strict']];
+const ruleAnswers = r => (r.kind === 'pick' ? r.options.map(o => o[0]) : ['yes', 'no']);
+const ruleBad = r => r.bad || ['no'];
+// A venue's rules, cleaned: { values (only known answers to known rules), note (trimmed), tone, known (how many
+// answers), restricted (the HOUSE_RULES entries whose answer is a restriction, in list order) }. A rules that is not a
+// plain object, an unknown rule and an unknown answer are ignored.
+export function rulesOf(v) {
+  const raw = v && v.rules && typeof v.rules === 'object' && !Array.isArray(v.rules) ? v.rules : {};
+  const values = {};
+  for (const r of HOUSE_RULES) if (ruleAnswers(r).includes(raw[r.id])) values[r.id] = raw[r.id];
+  const tone = v && RULE_TONES.some(t => t[0] && t[0] === v.rulesTone) ? v.rulesTone : '';
+  return { values, note: v && typeof v.rulesNote === 'string' ? v.rulesNote.trim() : '', tone, known: Object.keys(values).length, restricted: HOUSE_RULES.filter(r => r.id in values && ruleBad(r).includes(values[r.id])) };
+}
+// The colour of a venue's rules: '' (nothing to show), 'ok' (green), 'some' (amber) or 'strict' (red). A tone set by
+// hand wins. Automatic: strict when phones are not allowed, or neither pro cameras nor point-and-shoots are; some
+// when anything else is restricted; ok when at least one answer is known and nothing is restricted (free text beside
+// fine answers stays green: the chip says the note is there); some for free text alone.
+export function rulesLevel(v) {
+  const r = rulesOf(v), x = r.values;
+  if (r.tone) return { relaxed: 'ok', some: 'some', strict: 'strict' }[r.tone];
+  if (!r.known && !r.note) return '';
+  if (x.phones === 'no' || (x.proCameras === 'no' && x.compacts === 'no')) return 'strict';
+  return r.restricted.length ? 'some' : r.known ? 'ok' : 'some';
+}
+// The start of a note for the chip: its first line that is not blank, runs of spaces made one, cut at a word before
+// the 28th character (at the 28th when it is one long word) with an ellipsis.
+const noteStart = note => {
+  const line = (String(note).split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).find(Boolean)) || '';
+  const chars = [...line];
+  if (chars.length <= 28) return line;
+  const head = chars.slice(0, 28).join(''), at = head.lastIndexOf(' ');
+  return (at > 0 ? head.slice(0, at) : head) + '…';
+};
+// The chip on a show's card: null when the venue has no level, else { level, label (what it shows, with its emoji),
+// spoken ("House rules: …", for a screen reader: capitalised, no emoji) }. The words name the main rule; a tone set by
+// hand changes only the colour. label and spoken are text: put them in with textContent, never as markup.
+export function rulesChipText(v) {
+  const level = rulesLevel(v);
+  if (!level) return null;
+  const r = rulesOf(v), x = r.values, no = id => x[id] === 'no';
+  let label = '', words = '', covered = [];
+  if (no('phones') && no('proCameras') && no('compacts')) { label = '📵 No phones or cameras'; words = 'No phones or cameras'; covered = ['phones', 'proCameras', 'compacts']; }
+  else if (no('proCameras') && no('compacts')) { label = '📷 No cameras'; words = 'No cameras'; covered = ['proCameras', 'compacts']; }
+  else if (r.restricted.length) {
+    const first = (no('phones') && r.restricted.find(q => q.id === 'phones')) || r.restricted[0];
+    covered = [first.id];
+    if (first.kind === 'allow') { label = `${first.icon} ${first.label} ✗`; words = `${first.label} not allowed`; }
+    else if (first.kind === 'fact') { const said = first[x[first.id]] || first.label; label = `${first.icon} ${said}`; words = said; }
+    else { const opt = (first.options.find(o => o[0] === x[first.id]) || [])[1] || ''; label = `${first.icon} ${opt}`; words = `${first.label} ${opt}`; }
+  }
+  if (label) {
+    const more = r.restricted.filter(q => !covered.includes(q.id)).length + (r.note ? 1 : 0);
+    if (more) { label += ` · ${more} more`; words += `, and ${more} more`; }
+  } else if (r.note && !r.known) { const start = noteStart(r.note); label = `📝 ${start}`; words = `Note: ${start}`; }
+  else if (r.note) { label = 'No restrictions · 1 note'; words = 'No restrictions, and a note'; }
+  else label = words = { ok: 'No restrictions', some: 'Some rules', strict: 'Strict' }[level];
+  return { level, label, spoken: `House rules: ${words}` };
+}
+// The full rules as lists of words, each in list order: no (permissions answered Not allowed), yes (permissions
+// answered Allowed), know (each answered fact in its own words and each pick-list's choice), and the note.
+export function rulesList(v) {
+  const r = rulesOf(v), answered = HOUSE_RULES.filter(q => q.id in r.values);
+  return {
+    no: answered.filter(q => q.kind === 'allow' && r.values[q.id] === 'no').map(q => q.label),
+    yes: answered.filter(q => q.kind === 'allow' && r.values[q.id] === 'yes').map(q => q.label),
+    know: answered.filter(q => q.kind !== 'allow').map(q => (q.kind === 'fact' ? q[r.values[q.id]] : (q.options.find(o => o[0] === r.values[q.id]) || [])[1])).filter(Boolean),
+    note: r.note,
+  };
+}
+// Whose rules a booking carries: the saved venue of a show that is not cancelled; null for anything else (a session,
+// a rehearsal, a cancelled show, a typed venue).
+export const showRulesVenue = b => (b && b.kind === 'show' && isLive(b) && b.venueId ? byId('venues', b.venueId) : null);
 
 /* ------------------------------- songs ------------------------------- */
 export const SONG_STATUS = [['idea', 'Idea'], ['writing', 'Writing'], ['demo', 'Demo'], ['recording', 'Recording'], ['mixing', 'Mixing'], ['mastered', 'Mastered'], ['released', 'Released']];

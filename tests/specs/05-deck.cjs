@@ -62,7 +62,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.locator('.dk-jcard .dk-track', { hasText: 'Venues' }).click(); await sleep(500);
   ok('picking Venues goes to Side B', (await page$(page)) === 'venues' && (await page.textContent('#deck .dk-tape-side')) === 'SIDE B');
   await page.reload(); await page.waitForSelector('#deck .dk-next');
-  ok('after a reload the tape deck is still the menu, on the section last open', (await page.locator('#deck .dk-cassette').count()) === 1 && (await page$(page)) === 'venues');
+  ok('after a reload the tape deck is still the menu, and Gdex opens on the calendar', (await page.locator('#deck .dk-cassette').count()) === 1 && (await page$(page)) === 'bookings');
 
   /* ---------------- motion ---------------- */
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await page.waitForSelector('#deck .dk-next');

@@ -137,14 +137,40 @@ export const lastDay = b => (b.endDate && b.endDate > b.date ? b.endDate : b.dat
 export const covers = (b, date) => !!b.date && b.date <= date && date <= lastDay(b);
 export const overlaps = (a, b) => !!a.date && !!b.date && a.date <= lastDay(b) && b.date <= lastDay(a);
 export const activeBookings = () => db.bookings.filter(b => b.status !== 'cancelled');
-const firstOf = b => (b.kind === 'show' ? b.loadIn || b.soundcheck || b.doors || b.setTime : b.start) || '';
-// The bookings on a day, earliest first.
-export const bookingsOn = date => db.bookings.filter(b => covers(b, date)).sort((a, b) => firstOf(a).localeCompare(firstOf(b)));
+// The order of a day: by the time the band plays. A show's playing time is its on-stage time; with none, doors, then
+// soundcheck, then load-in (so a show with any time still sorts by it); a session, rehearsal or diary entry sorts by
+// its start. Times run on the night clock: minutes after midnight, and a time before 06:00 belongs to the night
+// before (+1440), so a 00:30 set comes after the evening's shows. A booking with no time goes last in its day.
+// 'HH:MM' or 'H:MM' → minutes on the night clock; null when it is not a time of day.
+export const nightMin = t => {
+  const m = typeof t === 'string' ? /^(\d{1,2}):(\d{2})$/.exec(t) : null;
+  if (!m) return null;
+  const hh = Number(m[1]), mm = Number(m[2]);
+  if (hh > 23 || mm > 59) return null;
+  const min = hh * 60 + mm;
+  return min < 360 ? min + 1440 : min;
+};
+const PLAY_FIELDS = ['setTime', 'doors', 'soundcheck', 'loadIn'];
+// Which of its times a booking sorts by ('' when it has none).
+export const playField = b => (!b ? '' : b.kind === 'show' ? PLAY_FIELDS.find(k => nightMin(b[k]) != null) || '' : nightMin(b.start) != null ? 'start' : '');
+// That time as stored, or ''.
+export const playTime = b => { const k = playField(b); return k ? b[k] : ''; };
+export const playKey = b => nightMin(playTime(b));
+const NO_TIME = 1e9; // after every time of the night
+const dateOf = b => (b && typeof b.date === 'string' ? b.date : '');
+// Within a day: the order the bands play, a booking with no time last. Each comparator gives exactly 0 for a tie, so
+// the stored order stands.
+export const byPlay = (a, b) => (playKey(a) ?? NO_TIME) - (playKey(b) ?? NO_TIME);
+// Soonest day first (no date first of all), and inside a day the order the bands play.
+export const byDayPlay = (a, b) => dateOf(a).localeCompare(dateOf(b)) || byPlay(a, b);
+// Newest day first, and inside a day still the order the bands play.
+export const byDayPlayDesc = (a, b) => dateOf(b).localeCompare(dateOf(a)) || byPlay(a, b);
+// The bookings on a day, in the order the bands play.
+export const bookingsOn = date => db.bookings.filter(b => covers(b, date)).sort(byPlay);
 // Upcoming (today on), soonest first.
-export const upcoming = (from = ymd(new Date())) => activeBookings().filter(b => b.date && lastDay(b) >= from).sort((a, b) => (a.date + firstOf(a)).localeCompare(b.date + firstOf(b)));
-const byDate = (a, b) => String(a.date || '').localeCompare(String(b.date || ''));
-export const personBookings = id => activeBookings().filter(b => (b.people || []).includes(id)).sort(byDate);
-export const gearBookings = id => activeBookings().filter(b => (b.gear || []).includes(id)).sort(byDate);
+export const upcoming = (from = ymd(new Date())) => activeBookings().filter(b => b.date && lastDay(b) >= from).sort(byDayPlay);
+export const personBookings = id => activeBookings().filter(b => (b.people || []).includes(id)).sort(byDayPlay);
+export const gearBookings = id => activeBookings().filter(b => (b.gear || []).includes(id)).sort(byDayPlay);
 // Other live bookings on overlapping days that need the same person.
 // A cancelled booking clashes with nothing.
 export const personClash = (booking, personId) => (booking.status === 'cancelled' ? [] : activeBookings().filter(b => b.id !== booking.id && overlaps(b, booking) && (b.people || []).includes(personId)));
@@ -200,7 +226,7 @@ export function eraseAll() {
   db = blank(); db.updatedAt = Date.now();
   sealed = false; dirty = false;
   flush(); emit();
-  const KEEP = new Set(['gdex-prefs', 'gdex-tab']);
+  const KEEP = new Set(['gdex-prefs', 'gdex-cal-view']); // display preferences: the theme and the calendar's view
   try { const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); keys.filter(k => k && k.startsWith('gdex-') && k !== KEY && !KEEP.has(k)).forEach(k => localStorage.removeItem(k)); } catch { /* blocked storage */ }
 }
 
@@ -208,7 +234,8 @@ export function eraseAll() {
 // The stand-in profile the sample fills in when there is none (Settings → Remove the sample clears it again).
 export const SAMPLE_PROFILE = { name: 'Sample Producer', business: 'Sample Sound', role: 'Producer' };
 // A small band and a producer's week, dated around today, so every page has something to show (and the tests have
-// fixed ids to reach for). Records already present are left alone.
+// fixed ids to reach for). Records already present are left alone. On the day it is loaded no sample show is waiting
+// for "Did you see them?": the past show is in the act's log and the others are still to come.
 export function loadSample() {
   const day = n => ymd(new Date(Date.now() + n * 864e5));
   const at = (n, hh, mm = 0) => { const d = new Date(Date.now() + n * 864e5); d.setHours(hh, mm, 0, 0); return d.getTime(); };
@@ -246,8 +273,10 @@ export function loadSample() {
         seen: [{ id: 'sn4', date: day(-24), where: 'Open mic, The Bell', rating: 90, notes: 'Signed her for the EP the week after.' }] },
     ],
     venues: [
-      { id: 's-lantern', kind: 'venue', name: 'The Lantern Rooms', address: '12 Quay Street, Harbourtown', geo: { lat: 51.5072, lon: -0.1276 }, capacity: 350, stage: '6m × 4m', pa: 'd&b, Midas M32 at FOH', backline: 'Drum kit shell pack, bass cab', loadIn: 'Rear door on Ship Lane, 2 steps', parking: '2 spaces behind the venue', curfew: '23:00', noiseLimit: 98, contact: 'Rosa Lind', phone: '+1 555 0170', email: 'rosa@example.com', notes: 'Sample venue.' },
-      { id: 's-harbour', kind: 'venue', name: 'Harbour Hall', address: '1 Pier Road, Harbourtown', capacity: 900, curfew: '23:30', noiseLimit: 102, stage: '10m × 7m' },
+      { id: 's-lantern', kind: 'venue', name: 'The Lantern Rooms', address: '12 Quay Street, Harbourtown', geo: { lat: 51.5072, lon: -0.1276 }, capacity: 350, stage: '6m × 4m', pa: 'd&b, Midas M32 at FOH', backline: 'Drum kit shell pack, bass cab', loadIn: 'Rear door on Ship Lane, 2 steps', parking: '2 spaces behind the venue', curfew: '23:00', noiseLimit: 98, contact: 'Rosa Lind', phone: '+1 555 0170', email: 'rosa@example.com', notes: 'Sample venue.',
+        rules: { proCameras: 'no', compacts: 'yes', phones: 'yes', flash: 'no', earplugs: 'yes' } }, // house rules: amber on its shows, "Pro cameras ✗ · 1 more"
+      { id: 's-harbour', kind: 'venue', name: 'Harbour Hall', address: '1 Pier Road, Harbourtown', capacity: 900, curfew: '23:30', noiseLimit: 102, stage: '10m × 7m',
+        rules: { proCameras: 'yes', compacts: 'yes', phones: 'yes', age: 'all', reentry: 'yes' } }, // green: "No restrictions"
       { id: 's-greenfield', kind: 'festival', name: 'Greenfield Festival', address: 'Greenfield Park', capacity: 5000, curfew: '22:30', noiseLimit: 95, notes: 'Outdoor. Changeovers are 15 minutes, strict.' },
       { id: 's-echo', kind: 'studio', name: 'Echo Chamber Studios', address: '4 Mill Yard, Harbourtown', rate: 45, rateUnit: 'hour', backline: 'Rhodes, upright piano, drum kit, amps', notes: 'Live room fits a five-piece.' },
       { id: 's-basement', kind: 'rehearsal', name: 'Basement Rehearsal Rooms', address: '88 Canal Street', rate: 15, rateUnit: 'hour' },
@@ -317,6 +346,12 @@ export function loadSample() {
   };
   update(d => {
     for (const [list, recs] of Object.entries(S)) for (const r of recs) if (!d[list].some(x => x.id === r.id)) d[list].push({ ...r, sample: true, createdAt: now, updatedAt: now });
+    // House rules came to the sample later. A sample venue already on the device gets them when it never had the
+    // fields (the venue form always stores all three, so a venue whose rules were cleared by hand is left alone).
+    for (const r of S.venues) {
+      const x = r.rules && d.venues.find(v => v.id === r.id);
+      if (x && x.sample && x.rules === undefined && x.rulesNote === undefined && x.rulesTone === undefined) { x.rules = { ...r.rules }; x.updatedAt = now; }
+    }
     if (!d.profile.name) d.profile = { ...d.profile, ...SAMPLE_PROFILE }; // its time is left as it was, so it never wins a merge with a real profile
   });
 }

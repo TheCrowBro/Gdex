@@ -7,7 +7,7 @@
 // words for someone going to shows. The score row keeps the focus, and says what to do when the show has no act yet.
 // The act filter chip, the solo artist's hint, the Studio log's focus after Start a take log, and the booking page at
 // 320px with extra-large text.
-const { open, ok, sleep, go } = require('../helpers.cjs');
+const { open, ok, sleep, go, toMonth } = require('../helpers.cjs');
 
 const setRole = async (page, id) => { await page.evaluate(x => import('./js/roles.js').then(m => m.setRole(x)), id); await sleep(400); };
 const openB = async (page, id) => { await page.evaluate(x => import('./js/pages/bookings.js').then(m => m.openBooking(x)), id); await page.waitForSelector('.bk-page'); await sleep(350); };
@@ -328,8 +328,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await page.keyboard.press('Escape'); await sleep(150);
   for (const [r, export_] of [['scout', 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar.'], ['all', 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar, or to send to the band. No fees or deals go in it.']]) {
     await setRole(page, r);
-    await page.evaluate(() => { const b = document.querySelector('.bk-page .back-btn'); if (b) b.click(); }); await sleep(200);
-    await page.evaluate(() => { const b = document.querySelector('.bk-dayview .back-btn'); if (b) b.click(); }); await sleep(250);
+    await toMonth(page);
     ok(`${r}: the month walkthrough’s Export calendar step`, (await stepText(page, 'Export calendar')) === export_, await stepText(page, 'Export calendar'));
   }
   await setRole(page, 'scout');
@@ -338,8 +337,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   /* ---------------- the act filter chip in the role's words ---------------- */
   for (const [r, chip] of [['all', 'All acts'], ['producer', 'All artists'], ['manager', 'Whole roster'], ['band', 'All bands'], ['solo', 'All acts'], ['scout', 'All acts'], ['audiophile', 'All bands']]) {
     await setRole(page, r);
-    await page.evaluate(() => { const b = document.querySelector('.bk-page .back-btn'); if (b) b.click(); }); await sleep(200);
-    await page.evaluate(() => { const b = document.querySelector('.bk-dayview .back-btn'); if (b) b.click(); }); await sleep(250);
+    await toMonth(page);
     const first = await page.locator('.bk-filters .chips').nth(1).locator('.chip').first().innerText();
     ok(`${r}: the act filter starts “${chip}”`, first === chip, first);
   }
@@ -387,8 +385,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   for (const [r, name] of [['scout', 'Shows'], ['audiophile', 'Gigs'], ['producer', 'Bookings'], ['all', 'Bookings']]) {
     await setRole(page, r);
     await go(page, 'acts'); await go(page, 'bookings');
-    await page.evaluate(() => { const b = document.querySelector('.bk-page .back-btn'); if (b) b.click(); }); await sleep(200);
-    await page.evaluate(() => { const b = document.querySelector('.bk-dayview .back-btn'); if (b) b.click(); }); await sleep(250);
+    await toMonth(page);
     ok(`${r}: the month view is headed ${name}`, (await page.locator('.bk-monthview .page-head h1').innerText()) === name);
   }
   await setRole(page, 'scout');
@@ -451,7 +448,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     text = await page.locator('.sheet').last().innerText();
     ok('once something is typed, the words stay and the buttons go', (await page.locator('.bk-bonus').count()) === 0 && /Venues is a bonus track on the sleeve/.test(text));
     await page.keyboard.press('Escape'); await sleep(150);
-    await page.evaluate(() => import('./js/roles.js').then(m => { m.ROLES.find(r => r.id === 'scout').sections = ['acts', 'bookings', 'people', 'venues']; m.setRole('solo'); })); await sleep(400);
+    await page.evaluate(() => import('./js/roles.js').then(m => { m.ROLES.find(r => r.id === 'scout').sections = ['bookings', 'acts', 'people', 'venues']; m.setRole('solo'); })); await sleep(400);
     await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.newBooking({ kind: 'show' })));
     await sheetNamed(page, 'New show').waitFor();
     text = await page.locator('.sheet select[id$="-actId"]').locator('xpath=..').innerText();

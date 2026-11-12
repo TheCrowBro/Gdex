@@ -8,8 +8,10 @@ import { initClockBar } from './clock.js';
 import { initUpdates } from './update.js';
 import { bookings } from './pages/bookings.js';
 import { roleChosen, menuSections, offMenu, startSection, sectionName } from './roles.js';
+import { waitingShows } from './model.js';
 
 applyPrefs();
+try { localStorage.removeItem('gdex-tab'); } catch { /* blocked storage */ } // the section open last no longer decides where Gdex opens
 const help = () => import('./tutorials.js').then(m => m.openTutorial()); // the tutorials load on first use
 document.getElementById('helpBtn')?.addEventListener('click', help);
 window.logiHelp = help; // sheets show a ? too
@@ -17,7 +19,7 @@ document.getElementById('displayBtn')?.addEventListener('click', openDisplaySett
 initInstall(document.getElementById('installBtn'));
 initClockBar(document.getElementById('clockbar'));
 
-// The Bookings card is the usual start, so it loads with the app. Every other section is fetched and parsed the first
+// Gdex always opens on Bookings (the calendar), so it loads with the app. Every other section is fetched and parsed the first
 // time it is opened (the service worker keeps them all offline regardless), which keeps the start-up parse small.
 // Sections are known by their id everywhere (window.logiGo('venues')), never by position: which ones are tracks on the
 // section menu, and in what order, depends on the role (js/roles.js). A section off the role's menu opens all the same
@@ -63,7 +65,6 @@ let showing = Promise.resolve(), showToken = 0;
 function show(i, dir = 0) {
   const token = ++showToken;
   current = i;
-  try { localStorage.setItem('gdex-tab', tabs[i].id); } catch { /* private mode */ }
   showing = pageOf(tabs[i]).then(p => {
     if (token !== showToken) return; // the drum moved on while this section was loading
     cleanup && cleanup();
@@ -106,9 +107,8 @@ for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () 
 let deck = null; // the section menu, made below once the start section is known
 store.subscribe(() => { deck && deck.refresh(); if (redrawQueued) return; redrawQueued = true; if (!pressed) setTimeout(redraw, 0); });
 
-// Where to start: the section open last time if it is on the menu, else the role's first section.
-let start = Math.max(0, tabs.findIndex(t => t.id === startSection()));
-try { const saved = localStorage.getItem('gdex-tab'); const i = tabs.findIndex(t => t.id === saved); if (i >= 0) start = i; } catch { /* ignore */ }
+// Where to start: always the role's start section, the calendar (js/roles.js).
+const start = Math.max(0, tabs.findIndex(t => t.id === startSection()));
 const nav = document.getElementById('deck');
 // Moving to any other track puts the bonus track back on the sleeve.
 function select(i, dir) {
@@ -150,7 +150,7 @@ window.logiGo = id => {
   return showing;
 };
 // A new role (Settings → Your role, or the first-run question): the menu changes in place. From Settings you stay on
-// Settings; a role chosen at the first-run question opens on its start section.
+// Settings; a role chosen at the first-run question opens on its start section, the calendar.
 window.addEventListener('gdex-role', e => {
   const was = tabs[current] ? tabs[current].id : null;
   guest = null; tabs = buildTabs();
@@ -168,14 +168,20 @@ document.getElementById('cloudBtn')?.addEventListener('click', () => import('./b
 
 const idle = window.requestIdleCallback ? fn => requestIdleCallback(fn, { timeout: 2500 }) : fn => setTimeout(fn, 1200);
 idle(() => import('./backup.js').then(m => m.nudgeIfStale && m.nudgeIfStale()).catch(() => {}));
-// First launch: who are you (the role sets the menu), then the welcome walkthrough for that role. Neither opens over a
-// sheet someone already opened (the sleeve, tapped in the first moment): they wait until it is closed.
-const whenNoSheet = fn => { const tryNow = () => (document.querySelector('.sheet-back') ? setTimeout(tryNow, 300) : fn()); tryNow(); };
+// First launch: who are you (the role sets the menu), then the welcome walkthrough for that role. After them, or on any
+// later open: "Did you see them?" about the shows that are over (js/acts-ask.js).
+// Shows that were over, with no answer, as Gdex opened. Holds are counted here and sifted by role when the sheet opens.
+const dueAtOpen = (() => { try { return waitingShows(new Date(), { holds: true }).map(b => b.id); } catch { return []; } })();
+// Nothing opens over a sheet or the welcome tour (the sleeve, tapped in the first moment): it waits until they are gone.
+const whenClear = fn => { const t = () => (document.querySelector('.sheet-back, .tour') ? setTimeout(t, 300) : fn()); t(); };
+const askSeenAtOpen = () => { if (!dueAtOpen.length) return; import('./acts-ask.js').then(m => whenClear(() => m.askAtOpen(dueAtOpen))).catch(e => console.error(e)); };
+const tourThenAsk = () => { startTour(); askSeenAtOpen(); }; // the tour is on screen at once, so the question waits for it to end
 if (!tourSeen()) {
-  if (roleChosen()) setTimeout(() => whenNoSheet(() => startTour()), 700);
-  else setTimeout(() => import('./role-pick.js').then(m => whenNoSheet(() => m.askRole({ then: () => startTour() }))).catch(e => { console.error(e); whenNoSheet(() => startTour()); }), 500);
-} else if (!roleChosen()) {
+  if (roleChosen()) setTimeout(() => whenClear(tourThenAsk), 700);
+  else setTimeout(() => import('./role-pick.js').then(m => whenClear(() => m.askRole({ then: tourThenAsk }))).catch(e => { console.error(e); whenClear(tourThenAsk); }), 500);
+} else {
   // Gdex was in use before roles came: say once, without getting in the way, that it can set itself up for a role.
-  idle(() => import('./role-pick.js').then(m => m.nudgeRole(document.getElementById('clockbar'))).catch(e => console.error(e)));
+  if (!roleChosen()) idle(() => import('./role-pick.js').then(m => m.nudgeRole(document.getElementById('clockbar'))).catch(e => console.error(e)));
+  setTimeout(askSeenAtOpen, 900);
 }
 initUpdates(); // service worker, offline copy, and the "new version" bar

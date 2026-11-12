@@ -18,6 +18,7 @@ import { installState, openInstallHelp } from '../install.js';
 import { backupPanel, health, fileState, onBackupChange, unlinkFile } from '../backup.js';
 import { role, roleChosen, menuSections, sectionName, moneyShown } from '../roles.js';
 import { rolePanel } from '../role-pick.js';
+import { askPref } from '../acts-ask.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -316,11 +317,11 @@ function eraseBody() {
 /* ------------------------------- the page ------------------------------- */
 // The walkthrough's words for each section; billing is left out, with the section, while money is off.
 const SECTIONS = [
-  ['role', 'Your role', 'Producer, manager, band, solo artist, scout or audiophile: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed.'],
+  ['role', 'Your role', 'Producer, manager, band, solo artist, scout or audiophile: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
   ['profile', 'Your details', () => (moneyShown() ? 'Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, your contact card as a QR code to scan and a file to send.' : 'Your name and contact details: they go on day sheets. Under them, your contact card as a QR code to scan and a file to send.')],
   ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
   ['backups', 'Backups', 'Save a backup file, bring one back, or keep a copy in a file in a synced folder. Everything else lives on this device only.'],
-  ['display', 'Display & accessibility', 'Colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
+  ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
   ['help', 'Help', 'A walkthrough for any page, and the welcome tour.'],
   ['sample', 'Sample data', 'Load a sample band and a few weeks of bookings to try things out, and remove it again in one go.'],
   ['about', 'About', 'The version and updates, privacy, and where your data is kept.'],
@@ -337,7 +338,7 @@ export const settings = {
     done.push(() => display.destroy && display.destroy(), () => up.destroy && up.destroy());
 
     const sec = {
-      role: section('role', '🎭', 'Your role', roleSummary(), rolePanel()),
+      role: section('role', '🎭', 'Your role', roleSummary(), [rolePanel(), askPref()]), // askPref: the “Did you see them?” question, on or off
       profile: section('profile', '🪪', 'Your details', profileSummary(), profile.body, profile.paint),
       billing: moneyShown() ? section('billing', '🧾', 'Quotes & invoices', billingSummary(), billingBody()) : null,
       backups: section('backups', '☁️', 'Backups', backupSummary(), backupPanel()),

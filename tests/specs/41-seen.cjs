@@ -1,7 +1,7 @@
 // Acts as a drop-down list: each card counts the times you saw the act play, with the average and latest score out of
 // 100 and its dates coming up on the calendar; opening it shows the log (date, where, score, notes), where you log
 // another time (typed, or from a past show), edit one, or delete one. Venues and bookings deleted later leave the log.
-const { open, ok, sleep, topSheet } = require('../helpers.cjs');
+const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
 
 const seen = (page, id) => page.evaluate(i => import('./js/store.js').then(s => JSON.parse(JSON.stringify((s.byId('acts', i) || {}).seen || []))), id);
 const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -160,6 +160,8 @@ const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `
   /* dark, wide text */
   await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ scheme: 'dark', text: 'xlarge' })); });
   await page.reload();
+  await page.waitForSelector('#deck .dk-next');
+  await go(page, 'acts'); // a reload opens the calendar
   await page.waitForSelector('.ac-card[data-id="s-owls"]');
   await page.click('#ac-head-s-owls');
   await page.waitForSelector('#ac-pnl-s-owls');

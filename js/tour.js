@@ -37,7 +37,8 @@ export const STOP_TEXT = {
 };
 export const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', settings: 'Settings' };
 const MAX_STOPS = 5; // the tour stays about a minute: the first sections on the menu
-const tapeMenu = () => { try { return JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu === 'tape'; } catch { return false; } };
+// Which section menu is in use (Aa → Section menu). Read from storage, not js/a11y.js, which imports this module.
+const menuKind = () => { try { const m = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu; return m === 'tape' || m === 'digital' ? m : 'record'; } catch { return 'record'; } };
 const listWords = list => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`);
 export function welcomeSteps() {
   const r = role(), menu = menuSections(r), stopsOn = menu.filter(id => id !== 'settings');
@@ -50,15 +51,18 @@ export function welcomeSteps() {
     profileStep,
     { go: stopsOn[0] || 'settings', target: ['.deck'], title: 'Your sections are tracks',
       get text() {
-        const count = `${menu.length} tracks: ${sideA} on Side A, ${menu.length - sideA} on Side B${bonus.length ? '; the rest are bonus tracks' : ''}.`;
-        return tapeMenu() ? `${count} Swipe the cassette or tap ⏪ ⏩ to change section; tap Tracks (or the cassette) to see them all${bonus.length ? ', bonus tracks too' : ''}. Prefer a record player? Aa → Section menu.`
-          : `${count} Swipe the record or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve${bonus.length ? ', bonus tracks too' : ''}. Prefer a tape deck? Aa → Section menu.`;
+        const kind = menuKind(), rest = bonus.length ? '; the rest are bonus tracks' : '', too = bonus.length ? ', bonus tracks too' : '';
+        // The record and the cassette have two sides; the digital player has one list.
+        const count = kind === 'digital' ? `${menu.length} tracks${rest}.` : `${menu.length} tracks: ${sideA} on Side A, ${menu.length - sideA} on Side B${rest}.`;
+        return kind === 'tape' ? `${count} Swipe the cassette or tap ⏪ ⏩ to change section; tap Tracks (or the cassette) to see them all${too}. Prefer a record player or a digital player? Aa → Section menu.`
+          : kind === 'digital' ? `${count} Swipe the bar or tap ⏮ ⏭ to change section; the row under it has every track one tap away, and ☰ opens the track list${too}. Prefer a record player or a tape deck? Aa → Section menu.`
+            : `${count} Swipe the record or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve${too}. Prefer a tape deck or a digital player? Aa → Section menu.`;
       } },
     ...stops.map(id => ({ go: id, target: ['.page-head'], title: sectionName(id, NAMES[id]), text: own.get(id) || STOP_TEXT[id] })),
     { go: 'settings', target: ['.page-head'], title: 'Settings',
       get text() {
         const what = moneyShown() ? 'your details, quotes and invoices, backups, display and this tour again' : 'your details, backups, display and this tour again';
-        const more = bonus.length ? ` Not on your menu: ${listWords(bonus)}. ${tapeMenu() ? 'Tap Tracks' : 'Tap the record'} to open any of them.` : '';
+        const more = bonus.length ? ` Not on your menu: ${listWords(bonus)}. ${{ tape: 'Tap Tracks', digital: 'Tap ☰', record: 'Tap the record' }[menuKind()]} to open any of them.` : '';
         return `Your role (${roleChosen() ? r.label : 'not chosen yet'}), ${what}. Change your role there any time: the menu follows, and nothing is deleted.${more} Everything stays on this device unless you save a backup.`;
       } },
   ];

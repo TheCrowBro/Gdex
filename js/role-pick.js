@@ -2,7 +2,7 @@
 // menu it gives; choosing changes the menu at once (js/roles.js, js/app.js) and nothing in the data.
 import { h, sheet, toast, announce } from './util.js';
 import { ROLES, EVERYTHING, roleId, roleChosen, roleOf, setRole, menuSections, offMenu, sectionName } from './roles.js';
-import { haptic, menuStyle } from './a11y.js';
+import { haptic, menuWords } from './a11y.js';
 
 const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', settings: 'Settings' };
 const nameIn = (r, id) => (r.names && r.names[id]) || NAMES[id] || id;
@@ -24,12 +24,10 @@ function card(r, { on = false, radio = false, onPick }) {
 const NUDGED = 'gdex-role-nudged';
 const nudged = () => { try { localStorage.setItem(NUDGED, '1'); } catch { /* private mode */ } };
 const settled = r => `Set up for ${r.label}: ${menuSections(r).length} sections on your menu`;
-// The section menu in its own words (Aa → Section menu): the record player's sleeve, or the tape deck's track list.
-const tape = () => menuStyle() === 'tape';
-const listName = () => (tape() ? 'the track list' : 'the sleeve');
-const listTap = () => (tape() ? 'tap Tracks' : 'tap the record');
-const aboutText = () => `Your role sets the section menu: which sections are tracks, in what order, which one opens first, and the boxes on a booking. Nothing is removed: sections not on the menu are bonus tracks on ${listName()} (${listTap()}), and links to them still open them.`;
-const nudgeWords = () => [h('strong', null, 'New: a menu for the way you work. '), `Producer, manager, band, solo artist, scout or audiophile: Gdex puts the sections you use on the menu, and every other one stays on ${listName()}.`];
+// The section menu in its own words (Aa → Section menu, js/a11y.js menuWords): the record player's sleeve, or the
+// track list of the tape deck and the digital player.
+const aboutText = () => `Your role sets the section menu: which sections are tracks and in what order, and the boxes on a booking. Gdex always opens on the calendar. Nothing is removed: sections not on the menu are bonus tracks on ${menuWords().list} (${menuWords().tap}), and links to them still open them.`;
+const nudgeWords = () => [h('strong', null, 'New: a menu for the way you work. '), `Producer, manager, band, solo artist, scout or audiophile: Gdex puts the sections you use on the menu, and every other one stays on ${menuWords().list}.`];
 // Switching the section menu (Aa) with the role card or Settings → Your role on screen changes their words at once.
 window.addEventListener('gdex-prefs', () => {
   document.querySelectorAll('.rp-about').forEach(p => { p.textContent = aboutText(); });
@@ -38,7 +36,7 @@ window.addEventListener('gdex-prefs', () => {
 // Once the role card has gone, the page takes the focus (#page), so the next Tab carries on from there.
 const focusPage = () => document.getElementById('page')?.focus({ preventScroll: true });
 
-// The first open: six roles, or everything. Picking one opens its start section; then(…) runs the welcome tour.
+// The first open: six roles, or everything. Picking one opens its start section (the calendar); then(…) runs the welcome tour.
 // Closing it without a pick is an answer too: Everything stays, and the role card is never offered (gdex-role-nudged).
 export function askRole({ then = () => {}, title = 'Who’s using Gdex?' } = {}) {
   let picked = false, close = () => {};
@@ -49,7 +47,7 @@ export function askRole({ then = () => {}, title = 'Who’s using Gdex?' } = {})
     then();
   };
   const body = h('div', { class: 'stack rp-ask' },
-    h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Gdex puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${listName()}.`),
+    h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Gdex puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.`),
     h('div', { class: 'list rp-list', role: 'group', 'aria-label': 'Roles' }, ROLES.map(r => card(r, { onPick: pick }))),
     h('button', { type: 'button', class: 'btn ghost rp-all', 'data-role': 'all', onclick: () => pick('all') }, `${EVERYTHING.icon} Not sure? Show me everything`));
   ({ close } = sheet(title, body, { dismissOnBackdrop: false, onClose: () => { if (!picked) { nudged(); then(); } } }));
@@ -77,7 +75,7 @@ export function nudgeRole(anchor) {
 
 // Settings → Your role: the six roles and Everything as one choice; what is on the menu, and the bonus tracks. A choice
 // redraws the page (the app does, on gdex-role), and the redrawn card keeps the focus. Its words follow the section
-// menu (record or tape deck).
+// menu (record player, tape deck or digital player).
 export function rolePanel() {
   const el = h('div', { class: 'stack rp-panel' });
   const draw = () => {

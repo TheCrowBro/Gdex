@@ -8,9 +8,16 @@ const DEFAULTS = { text: 'normal', contrast: 'normal', motion: 'soft', haptics: 
 let prefs = { ...DEFAULTS };
 try { prefs = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY)) }; } catch { /* defaults */ }
 if (!['soft', 'bar', 'off'].includes(prefs.motion)) prefs.motion = 'soft'; // older saved values map to the default
-if (!['record', 'tape'].includes(prefs.menu)) prefs.menu = 'record';
-// The section menu at the top: a record player or a tape deck (js/deck.js).
+if (!['record', 'tape', 'digital'].includes(prefs.menu)) prefs.menu = 'record';
+// The section menu at the top: a record player, a tape deck or a digital player (js/deck.js).
 export const menuStyle = () => prefs.menu;
+// The section menu in its own words, for sentences elsewhere: where every section is listed, and how to get there.
+const MENU_WORDS = {
+  record: { list: 'the sleeve', tap: 'tap the record', Tap: 'Tap the record' },
+  tape: { list: 'the track list', tap: 'tap Tracks', Tap: 'Tap Tracks' },
+  digital: { list: 'the track list', tap: 'tap ☰', Tap: 'Tap ☰' },
+};
+export const menuWords = () => ({ ...(MENU_WORDS[prefs.menu] || MENU_WORDS.record) });
 
 const LIGHT = matchMedia('(prefers-color-scheme: light)');
 export const resolvedScheme = () => (prefs.scheme === 'light' || prefs.scheme === 'dark' ? prefs.scheme : LIGHT.matches ? 'light' : 'dark');
@@ -23,7 +30,7 @@ export function applyPrefs() {
   if (meta) { const p = PALETTES.find(x => x.id === r.dataset.palette); meta.content = p[r.dataset.scheme].bg; }
   r.dataset.text = prefs.text;
   r.dataset.contrast = prefs.contrast;
-  // The section menu's record or tape turns and page content fades softly; nothing else moves. All off when the device asks
+  // The section menu (its record or tape turning, the digital player's line sliding) and page content fading softly; nothing else moves. All off when the device asks
   // for reduced motion.
   r.dataset.motion = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : prefs.motion;
   r.dataset.targets = prefs.targets;
