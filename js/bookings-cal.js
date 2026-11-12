@@ -432,10 +432,11 @@ export function calendarSteps(ctx) {
     { title: 'Export calendar', text: moneyShown() ? 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar, or to send to the band. No fees or deals go in it.' : 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar.', target: ['.bk-export'] },
     { title: 'Filters', text: 'Show one act, or one kind of booking, on the calendar and in the list.', target: ['.bk-filters'] },
     { title: 'Views', text: 'Month, 2 weeks, Week, 3 days or Day. Gdex opens on the one you picked here last.', target: ['.bk-views'] },
-    { title: 'The calendar', text: VIEW_HELP[mode] || VIEW_HELP.three, target: ['.bk-cal-panel'] },
+    // A day with nothing on has no grid: no hours to speak of, and nothing to tap, so those two steps are skipped there.
+    { title: 'The calendar', text: VIEW_HELP[mode] || VIEW_HELP.three, target: [mode === 'day' ? '.bk-dayview .bk-grid' : '.bk-cal-panel'] },
     ...(mode === 'day' ? [
       { title: 'Add to this day', text: 'A new booking with this date already filled in.', target: ['.bk-new-day'] },
-      { title: pageName(), text: 'Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-dayview .bk-grid', '.bk-dayview .bk-none'] },
+      { title: pageName(), text: 'Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-dayview .bk-grid'] },
     ] : []),
     { title: 'Coming up', text: 'Your next bookings, soonest first; on the same day, in the order the bands play. Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-agenda', '.bk-calview > .empty'] },
   ];

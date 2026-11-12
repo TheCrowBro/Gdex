@@ -39,6 +39,14 @@ async function toWeek(page, iso, back = false) {
   await page.click('[aria-label="This week"]'); await sleep(150);
   return reach(page, `#bk-wd-${iso}`, back ? 'Previous week' : 'Next week');
 }
+// The titles of the cards the page's ? walkthrough shows, Next pressed to the end: a step with nothing on screen to
+// point at is skipped.
+async function tourTitles(page) {
+  await page.click('#helpBtn'); await page.waitForSelector('.tour-card');
+  const out = [];
+  for (let i = 0; i < 20 && await page.locator('.tour-card').count(); i++) { out.push(await page.textContent('#tour-title')); await page.click('.tour-actions .btn.primary'); await sleep(450); }
+  return out;
+}
 async function toDay(page, iso, back = false) { await toWeek(page, iso, back); await page.click(`#bk-wd-${iso}`); await page.waitForSelector('.bk-dayview'); await sleep(200); }
 // What a block or pill must tell a screen reader, from the model: the status, the overlap note, the venue's house
 // rules as spoken (the sample's venues have some) and, when asked for, “Didn’t go”; each with a full stop.
@@ -349,6 +357,8 @@ async function press(page, loc, ms) {
   await page.locator('.bk-actions .bk-delete').click(); await sheetNamed(page, 'Delete this booking?').waitFor();
   await page.locator('.sheet button', { hasText: 'Delete booking' }).click(); await sleep(400);
   ok('Delete on a booking’s page lands in the Day view on its day', (await page.locator('.bk-dayview').count()) === 1 && (await page.locator(`.bk-col[data-day="${T}"]`).count()) === 1 && (await page.locator(`#bk-ev-c-Z-${T}`).count()) === 0 && (await page.locator(`#bk-ev-c-P-${T}`).count()) === 1);
+  let walk = await tourTitles(page);
+  ok('a day with bookings: its walkthrough shows The calendar and the step for its bookings', same(walk, ['New booking', 'Export calendar', 'Filters', 'Views', 'The calendar', 'Add to this day', 'Bookings', 'Coming up']), walk.join(', '));
 
   // the hours fit what is on
   await page.click('[aria-label="Next day"]'); await sleep(250);
@@ -363,7 +373,8 @@ async function press(page, loc, ms) {
   ok('a session from 22:00 to 08:00 ends at the bottom of the grid (06:00), not below it', g.cols[0].day === T2 && blk('c-N').top === line('22:00') && Math.abs(blk('c-N').top + blk('c-N').h - g.bodyH) < 0.6 && g.hours[g.hours.length - 1][0] === '05:00+1' && g.bodyH === 12 * g.hh, JSON.stringify([blk('c-N'), g.bodyH]));
   await page.click('[aria-label="Next day"]'); await sleep(250);
   ok('a day with nothing on draws no grid', (await title(page)) === (await wantTitle(page, 'day', T3, T3)) && (await page.locator('.bk-grid').count()) === 0 && (await page.locator('.bk-dayview .bk-none').textContent()) === 'Nothing booked on this day.' && (await page.locator('.bk-new-day').count()) === 1);
-  ok('…and the walkthrough points at that line', same((await steps(page)).find(s => s[0] === 'Bookings')[2], ['.bk-dayview .bk-grid', '.bk-dayview .bk-none']));
+  walk = await tourTitles(page);
+  ok('…and its walkthrough leaves out The calendar’s hours and the bookings to tap, which are not there', same(walk, ['New booking', 'Export calendar', 'Filters', 'Views', 'Add to this day', 'Coming up']), walk.join(', '));
   // only "any time": no empty hours
   await put(page, 'bookings', { id: 'c-U', kind: 'other', status: 'hold', title: 'Untimed', date: T3 }); await sleep(300);
   ok('a day with nothing timed shows the “any time” row and “No times set yet.”, without empty hours', (await page.locator('.bk-any #bk-ev-c-U-any').count()) === 1 && (await page.locator('.bk-grid-body').count()) === 0 && (await page.locator('.bk-grid-note').textContent()) === 'No times set yet.' && (await page.locator('.bk-cal-panel .bk-none').count()) === 0);

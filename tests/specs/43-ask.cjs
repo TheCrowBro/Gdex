@@ -240,12 +240,17 @@ async function theSheet() {
   await openB(page, 'q-c');
   ok('the show’s page reads Didn’t go, with Change', (await page.locator('.bk-score.bk-score-went .bk-score-text').innerText()) === 'Didn’t go' && (await page.locator('#bk-score-change').innerText()) === 'Change'
     && (await page.getAttribute('#bk-score-change', 'aria-label')) === 'Change your answer for The Night Owls' && (await page.locator('#bk-score, #bk-score-no').count()) === 0);
+  // The walkthrough's step about the row follows the row: someone who is asked gets the same Didn’t go step as anyone.
+  let step = (await bkSteps(page)).find(x => x[0] === 'Didn’t go');
+  ok('…and its walkthrough step speaks of Change, not of a score to give', !!step && step[1] === 'You said you missed this show, so it is not counted as seen. Change takes that answer back.' && !(await bkSteps(page)).some(x => x[0] === 'Score this show'), (await bkSteps(page)).map(x => x.join(': ')).join(' | '));
   await openB(page, 'q-a');
   ok('a scored show reads its score, with ✎ Edit and nothing else', /Scored 82\/100/.test(await page.locator('.bk-score').innerText()) && same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score-edit']));
+  step = (await bkSteps(page)).find(x => x[0] === 'Score this show');
+  ok('…and its walkthrough step speaks of the score and Edit, and of no Didn’t go button (there is none)', !!step && step[1].endsWith('Edit changes it.') && !/Didn’t go/.test(step[1]), step && step[1]);
   await openB(page, 'q-b');
   ok('Everything, asked: a show that is over has ★ Score, then Didn’t go', same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score', 'bk-score-no']) && (await page.textContent('#bk-score')).trim() === '★ Score Sable'
     && (await page.textContent('#bk-score-no')) === 'Didn’t go' && (await page.getAttribute('#bk-score-no', 'aria-label')) === 'I didn’t go to see Sable', (await page.locator('.bk-score').innerText()).replace(/\s+/g, ' '));
-  let step = (await bkSteps(page)).find(x => x[0] === 'Score this show');
+  step = (await bkSteps(page)).find(x => x[0] === 'Score this show');
   ok('…and its walkthrough step says what Didn’t go does', !!step && step[1].endsWith('If you missed it, Didn’t go says so and Gdex stops asking.'), step && step[1]);
   await page.click('#bk-score-no'); await sleep(500);
   ok('Didn’t go on the page: the booking is marked, the row reads Didn’t go, the focus on Change', (await rec(page, 'bookings', 'q-b')).went === 'no' && (await page.locator('.bk-score-went .bk-score-text').innerText()) === 'Didn’t go' && (await focusId(page)) === 'bk-score-change', await focusId(page));
@@ -256,6 +261,8 @@ async function theSheet() {
   await put(page, [{ id: 'q-t', kind: 'show', status: 'confirmed', actId: 's-sablea', date: dayIso(0), venueName: 'A Late Room', setTime: '23:59' }]);
   await openB(page, 'q-t');
   ok('a show that is not over yet has ★ Score alone', same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score']));
+  step = (await bkSteps(page)).find(x => x[0] === 'Score this show');
+  ok('…and its walkthrough step says nothing of a Didn’t go button that is not there yet', !!step && step[1].endsWith('Edit changes it.') && !/Didn’t go/.test(step[1]), step && step[1]);
   const over = await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/model.js'), import('./js/util.js')]).then(([s, m, u]) => {
     const b = s.byId('bookings', 'q-t'), at = (h, min) => { const d = u.parseISO(b.date); d.setHours(h, min, 0, 0); return d; };
     return [m.showOver(b, at(23, 59)), m.showOver(b, at(25, 58)), m.showOver(b, at(25, 59))];

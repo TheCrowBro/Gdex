@@ -633,13 +633,16 @@ function blockBox(b, blk, ctx) {
 
 /* ------------------------------- walkthroughs ------------------------------- */
 function bookingSteps(b) {
+  // The step about the score row says what that row holds: 'seen' (the score, Edit), 'no' (Didn’t go, Change) or ''
+  // (★ Score, and Didn’t go beside it once the show is over), as scoreRow draws it.
+  const said = scoreOn(b) ? model.seenAnswer(b) : null;
   const base = [
     { title: 'The booking', text: 'The date, the times in the order the day runs, the venue with directions, the act and the contact. Press and hold this card for three seconds to delete the booking.', target: ['.bk-hero'] },
     { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records but leaves clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records but leaves clashes.', target: ['.bk-status'] },
     { title: 'Times', text: 'Off stage is worked out from the set time and length. A time marked +1 is after midnight.', target: ['.bk-times'] },
     { title: 'House rules', text: 'What this venue allows and what it does not. The rules belong to the venue and apply to every show there; change them by editing the venue.', target: ['.bk-hero .vn-rules'] },
-    scoreOn(b) && asksOrScores() && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it. If you missed it, Didn’t go says so and Gdex stops asking.', target: ['.bk-score'] },
-    scoreOn(b) && !asksOrScores() && { title: 'Didn’t go', text: 'You said you missed this show, so it is not counted as seen. Change takes that answer back.', target: ['.bk-score'] },
+    said != null && said !== 'no' && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.' + (said === '' && model.showOver(b) ? ' If you missed it, Didn’t go says so and Gdex stops asking.' : ''), target: ['.bk-score'] },
+    said === 'no' && { title: 'Didn’t go', text: 'You said you missed this show, so it is not counted as seen. Change takes that answer back.', target: ['.bk-score'] },
     scoreable(b) && !actOf(b) && scoresShows() && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },
