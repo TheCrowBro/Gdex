@@ -20,6 +20,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
 
   /* ---------------- when a show is over ---------------- */
   const D = '2031-05-17', D1 = '2031-05-18'; // every date here is counted from a fixed day, never from today
+  await store(page, s => s.upsert('venues', { id: 'g-dawn', kind: 'venue', name: 'Dawn Club', curfew: '06:00' })); // an all-nighter's club, taken out again below
   const end = await page.evaluate(([D, D1]) => import('./js/model.js').then(m => {
     const at = d => (d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : null);
     const e = x => at(m.showEnd({ kind: 'show', status: 'confirmed', date: D, ...x }));
@@ -33,6 +34,8 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       curfewAfterMidnight: e({ setTime: '23:30', curfew: '00:30' }),
       doorsAndCurfew: e({ doors: '19:00', curfew: '23:00' }),
       curfewAlone: e({ curfew: '22:00' }),
+      allNighter: e({ doors: '22:00', curfew: '06:00' }), allNighter7: e({ loadIn: '20:00', curfew: '07:00' }), dawnAlone: e({ curfew: '06:00' }),
+      venueDawn: e({ doors: '23:00', venueId: 'g-dawn' }),
       setOnly: e({ setTime: '21:00', venueName: 'A typed place' }),
       zeroLength: e({ setTime: '21:00', setLength: 0 }),
       junkTimes: e({ setTime: 'late', curfew: '23:00' }),
@@ -49,10 +52,12 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       askDays: m.ASK_DAYS,
     };
   }), [D, D1]);
+  await store(page, s => s.remove('venues', 'g-dawn'));
   ok('a show is over when its set ends (on stage plus set length)', end.setLength === `${D} 21:45` && end.setBefore === false && end.setAfter === true, end.setLength);
   ok('with no set length: at the curfew, the booking’s own before its venue’s', end.curfew === `${D} 23:00` && end.venueCurfew === `${D} 23:00` && end.ownCurfewFirst === `${D} 22:30`, [end.curfew, end.venueCurfew, end.ownCurfewFirst].join(' | '));
   ok('a curfew before the set is skipped (two hours after the set); one after midnight is the next morning', end.curfewBeforeSet === `${D1} 01:30` && end.curfewAfterMidnight === `${D1} 00:30`, [end.curfewBeforeSet, end.curfewAfterMidnight].join(' | '));
   ok('doors and a curfew with no on-stage time: the curfew; a curfew alone counts too', end.doorsAndCurfew === `${D} 23:00` && end.curfewAlone === `${D} 22:00` && end.junkTimes === `${D} 23:00`, [end.doorsAndCurfew, end.curfewAlone, end.junkTimes].join(' | '));
+  ok('an all-nighter with no on-stage time (doors 22:00, curfew 06:00 or 07:00; the venue’s 06:00) is over the next morning, and so is a curfew of 06:00 alone', end.allNighter === `${D1} 06:00` && end.allNighter7 === `${D1} 07:00` && end.venueDawn === `${D1} 06:00` && end.dawnAlone === `${D1} 06:00`, [end.allNighter, end.allNighter7, end.venueDawn, end.dawnAlone].join(' | '));
   ok('an on-stage time and nothing else: two hours after it (a length of 0 is no length)', end.setOnly === `${D} 23:00` && end.zeroLength === `${D} 23:00`, [end.setOnly, end.zeroLength].join(' | '));
   ok('no times, or only doors and load-in: 06:00 the morning after (not over at 05:59, over at 06:00)', end.noTimes === `${D1} 06:00` && end.doorsOnly === `${D1} 06:00` && end.at0559 === false && end.at0600 === true, [end.noTimes, end.doorsOnly, end.at0559, end.at0600].join(' | '));
   ok('a 00:30 set belongs to the night before; a two-day show ends on its last day', end.afterMidnight === `${D1} 01:00` && end.twoDays === `${D1} 17:00`, [end.afterMidnight, end.twoDays].join(' | '));

@@ -72,14 +72,18 @@ export const ASK_DAYS = 14;
 const isIso = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 // When a show is over, on its last day, with times on the night clock: after the set (on-stage time plus set
 // length); with no length, at the curfew (the booking's own, else its saved venue's; one that is before the set is
-// skipped); with an on-stage time and neither, two hours after it; with no times, or only doors, soundcheck or
-// load-in, at 06:00 the morning after. null for anything that is not a show with a date.
+// skipped; with no set, one before the time the show is sorted by, or alone and before noon, is the next morning's:
+// an all-nighter, doors 22:00 and curfew 06:00); with an on-stage time and neither, two hours after it; with no
+// times, or only doors, soundcheck or load-in, at 06:00 the morning after. null for anything that is not a show with
+// a date.
 export function showEnd(b) {
   if (!b || b.kind !== 'show' || !isIso(b.date)) return null;
   const last = isIso(b.endDate) && b.endDate > b.date ? b.endDate : b.date;
   const set = nightMin(b.setTime), length = Number(b.setLength) > 0 ? Number(b.setLength) : 0;
   const venue = b.venueId ? byId('venues', b.venueId) : null;
-  const curfew = nightMin(b.curfew) ?? nightMin(venue && venue.curfew);
+  let curfew = nightMin(b.curfew) ?? nightMin(venue && venue.curfew);
+  const from = playKey(b);
+  if (set == null && curfew != null && (from != null ? curfew < from : curfew < 720)) curfew += 1440;
   const min = set != null && length ? set + length
     : curfew != null && (set == null || curfew >= set) ? curfew
       : set != null ? set + 120

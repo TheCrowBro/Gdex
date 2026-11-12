@@ -302,8 +302,9 @@ act). The note ignores the filter chips and is the same for every role.
 When a show is over: `showEnd(b)` (a `Date`, or `null` for anything that is not a show with a date) and
 `showOver(b, now?)`. On the show's last day, on the night clock: the set's end (on-stage time plus set length); with no
 length, the curfew (the booking's own, else its saved venue's; with an on-stage time, only when it is not before the
-set); with an on-stage time and neither, two hours after it; with no times, or only doors, soundcheck or load-in,
-06:00 the next morning. `ASK_DAYS` (14); `seenAnswer(b)` (`'seen'` when the act's log has the show, else `'no'` when
+set; with none, a curfew before the doors, soundcheck or load-in the show is sorted by, or one alone and before noon,
+is the next morning's: an all-nighter, doors 22:00 and curfew 06:00); with an on-stage time and neither, two hours
+after it; with no times, or only doors, soundcheck or load-in, 06:00 the next morning. `ASK_DAYS` (14); `seenAnswer(b)` (`'seen'` when the act's log has the show, else `'no'` when
 `b.went === 'no'`, else `''`); `waitingShows(now?, { holds })` (shows that are over, not cancelled, with an act that
 is in Acts, at most `ASK_DAYS` days after their last day, with no answer; newest first; `holds: false` leaves out
 holds and offers, which a role with money is not asked about); `markWent(bookingId, no?)` (quiet).

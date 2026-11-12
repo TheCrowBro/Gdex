@@ -593,11 +593,14 @@ async function comingBack() {
     s.upsert('acts', { id: 'k-act', name: 'Clockwork' });
     s.upsert('bookings', { ...d.show, id: 'k-old', date: d.old });
     s.upsert('bookings', { ...d.show, id: 'k-late', date: d.today, setTime: '12:00', setLength: 60 });
+    s.upsert('bookings', { ...d.show, id: 'k-night', date: d.today, doors: '22:00', curfew: '06:00' }); // an all-nighter tonight: over at 06:00 tomorrow
+    s.upsert('bookings', { ...d.show, id: 'k-dawn', date: d.today, curfew: '06:00' }); // a curfew of 06:00 and nothing else: the same
   }, { show: show(), old: day(-2), today: day(0) });
   await sleep(200);
   await setClock(BASE);
   let sheets = await loadAsked(page);
   ok('the real sheet, 08:00: it asks about the show that is over', same(sheets, [QUESTION]) && same(await rowIds(page), ['k-old']), (await rowIds(page)).join(','));
+  ok('…and not about tonight’s all-nighter (doors 22:00, curfew 06:00) nor a show with only a curfew of 06:00: they end tomorrow morning', !(await rowIds(page)).some(id => ['k-night', 'k-dawn'].includes(id)), (await rowIds(page)).join(','));
   await away(240);
   ok('back after 4 h with the question still on screen: still one sheet, as it was', same(await sheetsOf(page), [QUESTION]) && same(await rowIds(page), ['k-old']), (await sheetsOf(page)).join(' | '));
   await esc(page); await sleep(800);
