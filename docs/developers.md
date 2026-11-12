@@ -478,8 +478,9 @@ buttons, ‹ title Today ›, the view's body, the legend under squares) and Com
   large text) the name is on a line of its own under the time, cut with an ellipsis, and the text shrinks with the
   square (to .7rem at most) so the time always shows whole; on a phone of 360 px or more the squares are 124 px tall
   at least, for three such lines. Under 32 px inside (seven squares across 320 px) the name is left out and the time
-  is alone, in squares no taller than the lines need (78 px at least). A line that runs on from the day before
-  (several days) is blank, as high as the line it runs on from. A square's spoken name lists its bookings in order,
+  is alone, in squares no taller than the lines need (78 px at least). A booking over several days is named on its
+  first day and on each Monday; the month also names it on a 1st (the days before are on another page), the two weeks
+  do not. A line that runs on from the day before is blank, as high as the line it runs on from. A square's spoken name lists its bookings in order,
   each with its status, and ", didn’t go" for a show answered so (there is no room to write it in a square).
   Arrow keys move between squares; past the edge of two weeks they step as ‹ › do.
 * **Week** is `section.bk-wday` per day: `h3.bk-wday-h > button.bk-wday-head` (the day's name; a tap opens the day),

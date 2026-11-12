@@ -479,6 +479,19 @@ async function press(page, loc, ms) {
   const mh = await page.evaluate(() => [...document.querySelectorAll('.bk-monthview .bk-day')].map(e => e.offsetHeight));
   ok('the two weeks’ squares are taller than the month’s', Math.min(...tall.heights) >= 78 && Math.min(...mh) < Math.min(...tall.heights), `${Math.min(...mh)} vs ${Math.min(...tall.heights)}`);
   ok('the month keeps its dots on a phone, with the lines in the page for wider screens', (await page.locator('.bk-monthview .bk-dots').count()) >= 1 && (await page.locator('.bk-monthview .bk-minis').count()) >= 1 && (await page.locator('.bk-monthview .bk-day-tall').count()) === 0);
+  // A booking over several days is named once in a row of the two weeks: on its first day (or on a Monday, where a row
+  // starts), not again on a 1st it runs over in the middle of the row. The month names it on the 1st: the days before
+  // are on another page there. The next 1st of a month that is not a Monday, and the day before it.
+  const first1 = await page.evaluate(() => import('./js/util.js').then(u => { const d = new Date(); d.setDate(1); do d.setMonth(d.getMonth() + 1); while (d.getDay() === 1); return u.ymd(d); }));
+  const eve = await plus(page, first1, -1);
+  await put(page, 'bookings', { id: 'c-R', kind: 'show', status: 'confirmed', title: 'Marrow', date: eve, endDate: first1, venueName: 'Field', setTime: '23:30' }); await sleep(300);
+  await toDay(page, first1); await view(page, 'two');
+  const bar = iso => page.evaluate(iso => [...document.querySelectorAll(`.bk-day[data-date="${iso}"] .bk-mini`)].map(m => m.textContent.trim()), iso);
+  const [onEve, onFirst] = [await bar(eve), await bar(first1)];
+  await view(page, 'month');
+  const inMonth = await page.evaluate(iso => [...document.querySelectorAll(`.bk-day[data-date="${iso}"] .bk-mini`)].map(m => m.textContent.trim()), first1);
+  ok('two weeks: a booking over a 1st is named on its first day and its bar runs on through the 1st without the name again; the month names it on the 1st', onEve[0] === '23:30 Marrow' && onFirst[0] === '' && /Marrow/.test(inMonth[0] || ''), JSON.stringify([onEve, onFirst, inMonth]));
+  await page.evaluate(() => import('./js/store.js').then(s => s.remove('bookings', 'c-R'))); await sleep(300);
 
   /* ---------------- Coming up: a card says the time it is sorted by ---------------- */
   if (await page.locator('#bk-agenda-more').count()) { await page.click('#bk-agenda-more'); await sleep(250); }

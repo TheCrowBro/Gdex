@@ -246,7 +246,7 @@ function dayCell(iso, all, today, tall = false, named = false) {
   // A booking over several days shows on each: its line runs on from the day before, and the name shows on the first
   // day and at the start of each week row.
   const seg = b => (!multi(b) ? '' : iso === b.date ? ' bk-seg-start' : iso === lastDay(b) ? ' bk-seg-end' : ' bk-seg-mid');
-  const titled = b => !multi(b) || iso === b.date || dow === 0 || iso.endsWith('-01'); // and on the 1st, for one that began last month
+  const titled = b => !multi(b) || iso === b.date || dow === 0 || (!tall && iso.endsWith('-01')); // and in the month on the 1st, for one that began last month (the two weeks run on across a 1st)
   // The month's line leads with where (the act is its colour): a typed title, else the venue, else the act or client.
   const short = b => `${model.kindIcon(b.kind)} ${b.title || model.venueOf(b).name || model.bookingTitle(b)}`;
   // Two weeks: the time the band plays, then who: a typed title, else the act, the client, the venue, the kind. The
