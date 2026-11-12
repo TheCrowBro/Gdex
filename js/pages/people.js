@@ -6,6 +6,7 @@
 import { h, nodes, empty, toast, sheet, telUrl, fmtShort, parseISO, todayISO } from '../util.js';
 import { db, upsert, update, remove, byId, subscribe, personBookings, personClash, activeBookings, lastDay, upcoming, totalValue } from '../store.js';
 import { PEOPLE_GROUPS, ROLES, PERSON_RATE_UNITS, kindIcon, bookingTitle, actName, venueOf, statusLabel, statusTone, fmtMoney, fmtMin, byDayPlay, byDayPlayDesc } from '../model.js';
+import { earlierNames } from '../model.js'; // an act's earlier names: the search finds its people by them too
 import { openForm } from '../form.js';
 import { qrSvg, loadQR } from '../qr.js';
 import { saveFile, fileName } from '../print.js';
@@ -403,7 +404,7 @@ function card(p) {
 
 function matches(p, words) {
   if (!words.length) return true;
-  const hay = [p.name, p.role, p.instrument, p.company, p.notes, p.phone, p.email, groupLabel(groupOf(p)), ...actsOf(p.id).map(a => a.name)].join(' ').toLowerCase();
+  const hay = [p.name, p.role, p.instrument, p.company, p.notes, p.phone, p.email, groupLabel(groupOf(p)), ...actsOf(p.id).map(a => a.name), ...actsOf(p.id).flatMap(a => earlierNames(a).map(n => n.name))].join(' ').toLowerCase();
   return words.every(w => hay.includes(w));
 }
 

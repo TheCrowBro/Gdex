@@ -4,6 +4,7 @@
 import { h, toast, empty, safeUrl, fmtShort, fmtLong, todayISO, uid, sheet } from '../util.js';
 import { db, byId, upsert, remove, update } from '../store.js';
 import { SONG_STATUS, songStatusLabel, KEYS, SPLIT_ROLES, fmtDur, parseDur, actName, setlistLength, venueOf, bookingTitle, kindIcon, byDayPlay } from '../model.js';
+import { earlierNames } from '../model.js'; // an act's earlier names: the search finds its songs by them too
 import { openForm } from '../form.js';
 import { printElement } from '../print.js';
 import { sheetTutorial } from '../tour.js';
@@ -113,7 +114,7 @@ function view(draw) {
 function songsList(draw) {
   if (!db.songs.length) return [empty('Add your songs with their key, tempo and length, so setlists add up to the slot and the split sheet is ready before release.', h('button', { class: 'btn primary', type: 'button', onclick: () => editSong({}) }, '+ Add a song'))];
   const q = S.q.trim().toLowerCase();
-  const match = s => !q || [s.title, s.key, shortKey(s.key), s.tuning, s.isrc, s.notes, actName(s.actId), songStatusLabel(s.status), ...(s.splits || []).map(p => p && p.name)].filter(Boolean).join(' ').toLowerCase().includes(q);
+  const match = s => !q || [s.title, s.key, shortKey(s.key), s.tuning, s.isrc, s.notes, actName(s.actId), ...earlierNames(byId('acts', s.actId)).map(n => n.name), songStatusLabel(s.status), ...(s.splits || []).map(p => p && p.name)].filter(Boolean).join(' ').toLowerCase().includes(q);
   const shown = groupsOf(db.songs.filter(s => (!S.act || actOf(s) === S.act) && match(s)));
   if (!shown.length) {
     return [empty(q ? `No songs match “${S.q.trim()}”.` : S.act === NO_ACT ? 'Every song belongs to an act.' : `No songs for ${actName(S.act) || 'this act'} yet.`,

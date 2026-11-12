@@ -15,6 +15,7 @@ import * as model from './model.js';
 import { moneyShown, sectionName, actWord } from './roles.js';
 import { runOfDay } from './ics.js';
 import { isoOk, monthStart, addDays, safeColor, actStyle, tone, pill, multi, dateRange, sortByName, capital, KIND_CHIP, cardExtras, CAL_MODES, saveCalMode } from './bookings-kit.js';
+import { formerlyLine } from './bookings-kit.js'; // "formerly The Night Owls" under the name of a booking from before its act changed its name
 
 let X = null; // the page's side (ctx), the same object on every draw
 
@@ -52,6 +53,8 @@ function said(b, days = '') {
   let rules = '';
   try { rules = (model.rulesChipText(model.showRulesVenue(b)) || {}).spoken || ''; } catch { /* a fault in the rules must not break a block */ }
   const parts = [days, model.statusLabel(b.status), model.overlapText(b), rules, didntGo(b) && 'Didn’t go'].filter(Boolean);
+  const was = model.formerlyNote(b); // the name the act had that night comes first, straight after the name on the block
+  if (was) parts.unshift(capital(was));
   return h('span', { class: 'sr-only' }, ' ' + parts.map(p => `${p}.`).join(' '));
 }
 
@@ -188,6 +191,7 @@ function agendaCard(b) {
     h('span', { class: 'sr-only' }, dateRange(b, fmtLong) + '. '),
     h('span', { class: 'bk-card-main' },
       h('span', { class: 'bk-card-top' }, h('strong', { class: 'bk-card-title' }, h('span', { 'aria-hidden': 'true' }, model.kindIcon(b.kind) + ' '), model.bookingTitle(b)), pill(b.status)),
+      formerlyLine(b),
       h('span', { class: 'bk-card-sub muted small' }, [when, multi(b) && `to ${fmtShort(lastDay(b))}`, timeLine(b), venueLine(b) && `📍 ${venueLine(b)}`].filter(Boolean).join(' · ')),
       ...cardExtras(b)));
   return X.holdToDelete(card, b);
@@ -256,7 +260,8 @@ function dayCell(iso, all, today, tall = false, named = false) {
   const mini = b => h('span', { class: `bk-mini ${tone(b.status)}${seg(b)}`, style: actStyle(b) }, !titled(b) ? '\u00a0' : tall ? timed(b) : short(b));
   const dot = b => h('i', { class: `bk-dot ${tone(b.status)}${multi(b) ? ' bk-bar' + seg(b) : ''}`, style: actStyle(b) });
   // A square has no room to write "Didn’t go" (a phone shows a dot, or a time): its spoken name says it, after the status.
-  const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(b => `${tall && playClock(b) ? playClock(b) + ' ' : ''}${model.bookingTitle(b)} (${model.statusLabel(b.status)}${didntGo(b) ? ', didn’t go' : ''})`).join(', ') : 'nothing booked'}`;
+  // Nor for "formerly The Night Owls" (a booking from before its act changed its name): that follows the booking's name.
+  const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(b => `${tall && playClock(b) ? playClock(b) + ' ' : ''}${model.bookingTitle(b)}${model.formerlyNote(b) ? ', ' + model.formerlyNote(b) : ''} (${model.statusLabel(b.status)}${didntGo(b) ? ', didn’t go' : ''})`).join(', ') : 'nothing booked'}`;
   return h('button', {
     type: 'button', class: 'day bk-day' + (tall ? ' bk-day-tall' : '') + (iso === today ? ' today' : '') + (list.length ? ' has' : ''), 'data-date': iso, 'aria-label': label,
     'aria-current': iso === today ? 'date' : null, onclick: () => X.go({ mode: 'day', day: iso }),
@@ -304,6 +309,7 @@ function weekRow(b, iso) {
     h('span', { class: 'bk-wrow-time' }, time ? time + ' ' : h('span', { 'aria-hidden': 'true' }, '—')), // "no time yet" is in the line under the name
     h('span', { class: 'bk-wrow-main' },
       h('span', { class: 'bk-wrow-top' }, h('strong', { class: 'bk-wrow-title' }, h('span', { 'aria-hidden': 'true' }, model.kindIcon(b.kind) + ' '), model.bookingTitle(b)), pill(b.status)),
+      formerlyLine(b),
       sub && h('span', { class: 'bk-wrow-sub muted small' }, sub),
       ...cardExtras(b)));
   return X.holdToDelete(row, b);

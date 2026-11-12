@@ -199,6 +199,63 @@ export function seenEntryFor(a, b) {
 export const actUpcoming = a => (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && lastDate(b) >= todayIso()).sort(byDayPlay);
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
+/* ------------------------------- earlier names ------------------------------- */
+// An act that changed its name keeps the old ones: act.formerNames = [{ name, until }]. until is the day that name
+// stopped being used ('YYYY-MM-DD'): the day the next name began, so a show on that day already has the new name. It
+// is '' when the day is not known (a name added by hand): such a name shows on the act's card and page and is found
+// by search, but no booking or score is dated by it. An act without formerNames reads as it always did.
+// Earlier names stay inside Gdex: nothing printed, sent or exported for another program carries them (they all go
+// through actName and bookingTitle, the name now); a backup file does. Every page reads them through these helpers.
+const realDay = s => isIso(s) && ymd(parseISO(s)) === s; // a day that exists (not 30 February)
+// A name without its capitals, spaces and punctuation: two names with the same key are one name, spelt two ways (a
+// name made only of punctuation is compared as it is written).
+const nameKey = n => { const s = (typeof n === 'string' ? n : '').normalize('NFKC').toLowerCase().trim(); return s.replace(/[^\p{L}\p{N}]+/gu, '') || s; };
+export const sameName = (a, b) => nameKey(a) === nameKey(b);
+// A stored list of earlier names, cleaned for an act now called `current`: [{ name, until }], the names whose day is
+// not known first (in the order stored), then the dated ones, oldest first. Whatever is not a name is left out (a
+// list that is no list, an entry of the wrong type, an empty name); a day that is no date reads as not known; the
+// same name twice running is one name, and its later day stands; a name that ends where the same name begins (the
+// last one, when it is the current name) was no change, and is left out. Never throws.
+export function cleanFormer(list, current = '') {
+  const rows = (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object' && typeof x.name === 'string' && x.name.trim())
+    .map(x => ({ name: x.name.trim(), until: realDay(x.until) ? x.until : '' }));
+  const dated = [];
+  for (const r of rows.filter(x => x.until).sort((p, q) => p.until.localeCompare(q.until))) {
+    if (dated.length && sameName(dated[dated.length - 1].name, r.name)) dated[dated.length - 1] = r; else dated.push(r);
+  }
+  while (dated.length && sameName(dated[dated.length - 1].name, current)) dated.pop();
+  const loose = [];
+  for (const r of rows.filter(x => !x.until)) if (!sameName(r.name, current) && ![...loose, ...dated].some(x => sameName(x.name, r.name))) loose.push(r);
+  return [...loose, ...dated];
+}
+const nameNow = a => (a && typeof a.name === 'string' ? a.name : '');
+// An act's earlier names, cleaned (above): oldest first, the latest last.
+export const earlierNames = a => cleanFormer(a && a.formerNames, nameNow(a));
+// The same with the day each name began, where that is known: [{ name, from, until }], from '' for the first dated
+// name and for every name whose day is not known.
+export const earlierSpans = a => { let from = ''; return earlierNames(a).map(n => { const row = { ...n, from: n.until ? from : '' }; from = n.until || from; return row; }); };
+// The latest earlier name ("formerly The Night Owls" under the name on the act's card and page), or ''.
+export const formerName = a => { const list = earlierNames(a); return list.length ? list[list.length - 1].name : ''; };
+// The day the act's current name began (the day its latest dated earlier name stopped), or ''.
+export const nameSince = a => { const dated = earlierNames(a).filter(n => n.until); return dated.length ? dated[dated.length - 1].until : ''; };
+// The name the act had on a day: the earlier name still in use then, else the name it has now.
+export const nameOn = (a, iso) => { const was = realDay(iso) ? earlierNames(a).find(n => n.until && n.until > iso) : null; return was ? was.name : nameNow(a); };
+// What to say beside a record of that day ("formerly …", "as …"): the name the act had then, or '' when that is the
+// name it has now (also for a band that went back to an old name, or one spelt another way).
+export const formerlyOn = (a, iso) => { const was = a ? nameOn(a, iso) : ''; return was && !sameName(was, nameNow(a)) ? was : ''; };
+// The same for a booking of any kind, by its last day: a festival weekend or a block of studio days that reaches the
+// day of the change already has the new name. '' with no act in Acts, or no date.
+export const formerlyOf = b => { const a = b && b.actId ? byId('acts', b.actId) : null; return a && isIso(b.date) ? formerlyOn(a, lastDate(b)) : ''; };
+// The words by a booking's name wherever a row names the act through bookingTitle(b): "formerly The Night Owls". A
+// booking with a title of its own that does not hold the act's name says whose it was first: "Owl Parliament,
+// formerly The Night Owls". '' when there is nothing to say. Text: put it in with textContent.
+export const formerlyNote = b => {
+  const was = formerlyOf(b);
+  if (!was) return '';
+  const now = actName(b.actId), own = typeof b.title === 'string' ? b.title.trim() : '';
+  return own && now && !own.toLowerCase().includes(now.toLowerCase()) ? `${now}, formerly ${was}` : `formerly ${was}`;
+};
+
 /* ------------------------------- people & gear ------------------------------- */
 export const PEOPLE_GROUPS = [['band', 'Band members'], ['session', 'Session players'], ['crew', 'Crew'], ['contact', 'Industry contacts']];
 export const ROLES = ['Vocals', 'Guitar', 'Bass', 'Drums', 'Keys', 'Producer', 'Engineer', 'Mix engineer', 'Mastering engineer', 'Session musician',

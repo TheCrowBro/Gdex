@@ -59,6 +59,11 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 | 🛡️ **Insurance** | Your policies and renewals, and whether your cover matches your backline. |
 | ⚙️ **Settings** | Your details, quotes and invoices, backups, display, and the tour again. |
 
+**A band that changes its name keeps the old one.** Change an act's name and Gdex asks whether it is a new name or a
+spelling fix, and since when. A new name leaves the old one in small type under it, "formerly The Night Owls", on the
+act's card and page, and shows and scores from before the change say the name the band had that night; search finds
+the band by any of its names. Press kits, riders, day sheets, invoices and calendar files carry the current name only.
+
 ## The calendar
 
 - **Five views:** Month, 2 weeks, Week, 3 days and Day, from the row of buttons above the calendar. Month and 2 weeks

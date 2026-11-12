@@ -19,6 +19,7 @@ import { kindHelp, kindOrder, moneyShown, blockShown, pageOpt, sectionName, actW
 import { isoOk, addDays, daysBetween, actOf, actStyle, tone, multi, dateRange, plural, sortByName, capital, KIND_CHIP, calMode } from '../bookings-kit.js';
 import { calendarView, calendarSteps } from '../bookings-cal.js';
 import { rulesFull } from '../venues-rules.js';
+import { formerlyLine } from '../bookings-kit.js'; // "formerly The Night Owls" under the name of a booking from before its act changed its name
 
 /* ------------------------------- words ------------------------------- */
 const NOUN = { show: 'show', session: 'studio session', rehearsal: 'rehearsal', other: 'diary entry' };
@@ -175,7 +176,7 @@ function fieldsFor(kind, cur = '') {
   const joins = kind !== 'other' && blockShown('lineup') ? 'Its members are added to the line-up when the line-up is empty.' : '';
   // A role that scores the shows it goes to scores the act picked here (Score this show on the booking).
   const scores = kind === 'show' && pageOpt('bookings', 'score', false) ? `The ${word} you’re going to see. On the night or after, Score this show logs your score on their card.` : '';
-  const act = (label = capital(word)) => ({ key: 'actId', label, type: 'select', options: [['', `Not in my ${word}s`], ...acts.map(a => [a.id, a.name || 'Unnamed act'])], hint: noActs || scores || joins });
+  const act = (label = capital(word)) => ({ key: 'actId', label, type: 'select', options: [['', `Not in my ${word}s`], ...acts.map(a => [a.id, (a.name || 'Unnamed act') + (model.formerName(a) ? ` (formerly ${model.formerName(a)})` : '')])], hint: noActs || scores || joins }); // an act that changed its name can be picked by the old one too
   const status = { key: 'status', label: 'Status', type: 'select', options: statusChoices(kind, cur).map(([id, label]) => [id, label]) };
   const date = { key: 'date', label: 'Date', type: 'date', required: true };
   const endDate = { key: 'endDate', label: 'Last day (more than one day)', type: 'date', hint: 'Leave blank for a single day.' };
@@ -561,6 +562,7 @@ function hero(b) {
       h('h2', { class: 'bk-title', tabindex: '-1', 'data-view-head': '' }, h('span', { class: 'bk-title-ico', 'aria-hidden': 'true' }, model.kindIcon(b.kind)), ' ', model.bookingTitle(b)),
       h('button', { type: 'button', id: 'bk-status', class: 'bk-status', 'aria-label': `Status: ${model.statusLabel(b.status)}. Change it`, 'aria-haspopup': 'dialog', onclick: () => statusPicker(b) },
         h('span', { class: 'pill ' + tone(b.status) }, model.statusLabel(b.status), h('span', { 'aria-hidden': 'true' }, ' ▾')))),
+    formerlyLine(b),
     h('div', { class: 'muted bk-when' }, `${model.kindLabel(b.kind)} · ${dateRange(b, fmtLong)}` + (multi(b) ? ` · ${daysBetween(b.date, lastDay(b)) + 1} days` : '')),
     timesStrip(b),
     (where.name || where.address) ? h('div', { class: 'bk-venue' },
