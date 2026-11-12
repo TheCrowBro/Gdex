@@ -1,7 +1,7 @@
 // Roles: the first-run question (producer, manager, band, solo artist, scout, audiophile, or everything), each role's
 // section menu (the calendar first, and where Gdex opens every time, whatever was open last), the welcome tour that
-// follows it, Settings → Your role to swap, bonus tracks for the sections off the menu (on the sleeve, and from any
-// link), the booking boxes a role hides, and that nothing is lost.
+// follows it, Settings → Your role to swap, bonus tracks for the sections off the menu (on the sleeve or the track list,
+// as a tab on the digital player, and from any link), the booking boxes a role hides, and that nothing is lost.
 const { chromium } = require('playwright');
 const { open, ok, sleep, go, topSheet, BASE } = require('../helpers.cjs');
 
@@ -192,8 +192,101 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await browser.close();
   }
 
+  /* ---------------- …and a digital player has a track list and ☰, and a tab for the open bonus track ---------------- */
+  {
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+    await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); if (!localStorage.getItem('gdex-prefs')) localStorage.setItem('gdex-prefs', '{"menu":"digital"}'); } catch (e) { /* ignore */ } });
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    await page.goto(BASE);
+    await page.waitForSelector('.rp-nudge', { timeout: 8000 });
+    const R = await roles(page);
+    ok('digital player: the role card says the track list', /every other one stays on the track list\./.test(await page.textContent('.rp-nudge-text')) && !/sleeve/.test(await page.textContent('.rp-nudge-text')));
+    await page.click('#rp-nudge-go');
+    await page.waitForSelector('.rp-ask');
+    ok('digital player: so does the question', /one tap away on the track list\./.test(await page.textContent('.rp-intro')) && !/sleeve/.test(await page.textContent('.rp-intro')));
+    await page.keyboard.press('Escape');
+    await go(page, 'settings');
+    await page.evaluate(() => { document.getElementById('se-role').open = true; });
+    await page.waitForSelector('#se-role .rp-about');
+    const about = await page.textContent('#se-role .rp-about');
+    ok('digital player: Settings → Your role says bonus tracks on the track list (tap ☰)', /bonus tracks on the track list \(tap ☰\)/.test(about) && !/record|sleeve|Tracks\)/.test(about), about);
+    await page.evaluate(() => { document.getElementById('se-display').open = true; });
+    await page.click('#se-display [data-pref="menu:record"]');
+    await sleep(300);
+    ok('switching to the record player there changes those words at once', /bonus tracks on the sleeve \(tap the record\)/.test(await page.textContent('#se-role .rp-about')) && (await page.locator('#deck .dk-record').count()) === 1);
+    await page.click('#se-display [data-pref="menu:digital"]');
+    await sleep(300);
+    ok('…and back to the digital player, back again', /bonus tracks on the track list \(tap ☰\)/.test(await page.textContent('#se-role .rp-about')) && (await page.locator('#deck .dk-player').count()) === 1);
+
+    // A scout: four tracks and Settings as tabs; a bonus track that is open is one more tab, last, until they move on.
+    const tabs = () => page.$$eval('#deck .dk-tab', bs => bs.map(b => b.dataset.section));
+    const marked = () => page.$$eval('#deck .dk-tab[aria-current]', bs => bs.map(b => `${b.dataset.section}:${b.getAttribute('aria-current')}`).join());
+    const keyOn = cls => page.evaluate(c => !!document.activeElement && document.activeElement.classList.contains(c) && !!document.activeElement.closest('#deck'), cls);
+    const tabFocus = () => page.evaluate(() => { const a = document.activeElement; return a && a.closest('#deck') && a.classList.contains('dk-tab') ? a.dataset.section : ''; });
+    const at = () => page.evaluate(() => window.logiPage());
+    const bonusByKeyboard = async id => { await page.focus('#deck .dk-list'); await page.keyboard.press('Enter'); await page.waitForSelector('.dk-sheet'); await sleep(100); await page.focus(`.dk-sheet .dk-bonus [data-section="${id}"]`); await page.keyboard.press('Enter'); await sleep(600); };
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('scout')));
+    await sleep(500);
+    ok('a scout has five tabs, the calendar first, in the role’s words', JSON.stringify(await tabs()) === JSON.stringify(R.menus.scout) && R.menus.scout.length === 5 && (await page.textContent('#deck .dk-tab')) === '📅Shows', (await tabs()).join(','));
+    ok('…and stays on Settings, the fifth of five tracks', (await at()) === 'settings' && (await page.textContent('#deck .dk-meta')) === 'Track 5 of 5' && (await marked()) === 'settings:page', `${await page.textContent('#deck .dk-meta')} · ${await marked()}`);
+    await page.click('#deck .dk-list');
+    await page.waitForSelector('.dk-sheet');
+    ok('the track list’s tracks are the role’s menu, numbered 1 to 5, with the rest under Bonus tracks', JSON.stringify(await menuIds(page)) === JSON.stringify(R.menus.scout) && (await page.$$eval('.dk-queue .dk-sides .dk-track-id', xs => xs.map(x => x.textContent).join())) === '1,2,3,4,5' && (await page.locator('.dk-queue .dk-bonus .dk-track').count()) === 6 && (await page.textContent('.dk-queue .muted')) === '5 tracks · 6 bonus', await page.textContent('.dk-queue .muted'));
+    ok('…the bonus tracks after the list, not inside it', await page.evaluate(() => { const s = document.querySelector('.dk-queue .dk-sides'), b = document.querySelector('.dk-queue .dk-bonus'); return !s.contains(b) && !!(s.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); }));
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.dk-sheet', { state: 'detached' });
+    await bonusByKeyboard('insurance');
+    const six = await tabs();
+    ok('opening Insurance from the track list adds a sixth tab, last and marked current', (await at()) === 'insurance' && six.length === 6 && six[5] === 'insurance' && (await marked()) === 'insurance:page' && JSON.stringify(six.slice(0, 5)) === JSON.stringify(R.menus.scout), six.join(','));
+    ok('…with its ★, and called a bonus track for a screen reader', (await page.textContent('#deck .dk-tab[data-section="insurance"]')) === '🛡️★ Insurance' && (await page.getAttribute('#deck .dk-tab[data-section="insurance"]', 'aria-label')) === 'Insurance, bonus track', await page.textContent('#deck .dk-tab[data-section="insurance"]'));
+    ok('…the bar says Bonus track, with the line full', /^Bonus track/.test(await page.textContent('#deck .dk-meta')) && (await page.$eval('#deck .dk-fill', el => el.style.width)) === '100%' && (await page.getAttribute('#deck .dk-now', 'aria-label')) === 'Now playing a bonus track, Insurance. Open the track list to pick any section', await page.textContent('#deck .dk-meta'));
+    ok('…its tab is in view, and the move was announced', await page.evaluate(() => { const row = document.querySelector('#deck .dk-tabs').getBoundingClientRect(), t = document.querySelector('#deck .dk-tab.on').getBoundingClientRect(); return t.left >= row.left - 1 && t.right <= row.right + 1; }) && (await page.evaluate(() => document.getElementById('sr-live').textContent)) === 'Insurance, a bonus track');
+    ok('keyboard: a bonus track picked from the track list leaves the focus on ☰', await keyOn('dk-list'));
+    await page.click('#deck .dk-list');
+    await page.waitForSelector('.dk-sheet');
+    ok('the track list marks it as the bonus track playing, and still lists the role’s five tracks', (await page.getAttribute('.dk-bonus .dk-track.on', 'data-section')) === 'insurance' && JSON.stringify(await menuIds(page)) === JSON.stringify(R.menus.scout) && (await page.locator('.dk-queue .dk-sides .dk-track.on').count()) === 0);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.dk-sheet', { state: 'detached' });
+    await page.focus('#deck .dk-next'); await page.keyboard.press('Enter'); await sleep(600);
+    ok('⏭ from it moves on to the first track and drops the tab', (await at()) === R.menus.scout[0] && (await tabs()).length === 5 && (await marked()) === `${R.menus.scout[0]}:page` && /^Track 1 of 5/.test(await page.textContent('#deck .dk-meta')), (await tabs()).join(','));
+    ok('keyboard: …and the focus is still on ⏭', await keyOn('dk-next'));
+    await bonusByKeyboard('money');
+    await page.focus('#deck .dk-prev'); await page.keyboard.press('Enter'); await sleep(600);
+    ok('keyboard: ⏮ off a bonus track goes to the last track and keeps the focus on ⏮', (await at()) === 'settings' && (await tabs()).length === 5 && await keyOn('dk-prev'));
+    // From a tab: the focus stays with the section that was picked, or goes to the current tab when its own tab has gone.
+    await bonusByKeyboard('songs');
+    await page.focus('#deck .dk-tab[data-section="venues"]'); await page.keyboard.press('Enter'); await sleep(600);
+    ok('keyboard: a tab picked while a bonus track is open opens it, drops the bonus tab and keeps the focus on that tab', (await at()) === 'venues' && (await tabs()).length === 5 && (await tabFocus()) === 'venues' && (await marked()) === 'venues:page', `${await at()} · ${await tabFocus()}`);
+    await bonusByKeyboard('songs');
+    await page.focus('#deck .dk-tab[data-section="songs"]'); await page.keyboard.press('ArrowRight'); await sleep(600);
+    ok('keyboard: an arrow key on the bonus tab moves on, and the focus goes to the tab that is now current', (await at()) === R.menus.scout[0] && (await tabs()).length === 5 && (await tabFocus()) === R.menus.scout[0], `${await at()} · ${await tabFocus()}`);
+    await bonusByKeyboard('songs');
+    await page.focus('#deck .dk-now'); await page.keyboard.press('ArrowLeft'); await sleep(600);
+    ok('keyboard: an arrow key on the bar off a bonus track keeps the focus on the bar', (await at()) === 'settings' && await keyOn('dk-now'));
+    await go(page, 'tools');
+    await go(page, 'backline');
+    ok('one bonus track gives way to another: still six tabs, the new one last', (await at()) === 'backline' && JSON.stringify(await tabs()) === JSON.stringify([...R.menus.scout, 'backline']) && (await marked()) === 'backline:page');
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('producer')));
+    await sleep(500);
+    ok('a new role redraws the tabs: the producer’s menu, with Backline still open as its bonus tab', JSON.stringify(await tabs()) === JSON.stringify([...R.menus.producer, 'backline']) && !R.menus.producer.includes('backline') && (await at()) === 'backline' && (await marked()) === 'backline:page' && /^Bonus track/.test(await page.textContent('#deck .dk-meta')), (await tabs()).join(','));
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('band')));
+    await sleep(500);
+    ok('…and for a role that has Backline on its menu, it is one of the tracks, with no bonus tab', R.menus.band.includes('backline') && JSON.stringify(await tabs()) === JSON.stringify(R.menus.band) && (await at()) === 'backline' && (await marked()) === 'backline:page' && (await page.textContent('#deck .dk-meta')).startsWith(`Track ${R.menus.band.indexOf('backline') + 1} of ${R.menus.band.length}`), `${(await tabs()).join(',')} · ${await page.textContent('#deck .dk-meta')}`);
+    await page.evaluate(() => { localStorage.removeItem('gdex-role'); });
+    await page.reload();
+    await page.waitForSelector('#deck .dk-next');
+    await sleep(600);
+    ok('with no role (Everything) there are eleven tabs and no bonus tracks on the track list', (await tabs()).length === 11 && (await page.textContent('#deck .dk-meta')).startsWith('Track 1 of 11') && (await sleeve(page)).bonus.length === 0);
+    ok('no errors in the console (the digital player and roles)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
   /* ---------------- the welcome tour on a small screen: the card never hides what it points at ---------------- */
-  for (const [label, prefs] of [['standard text', null], ['extra large text', '{"text":"xlarge"}']]) {
+  for (const [label, prefs] of [['standard text', null], ['extra large text', '{"text":"xlarge"}'], ['the digital player, extra large text', '{"menu":"digital","text":"xlarge"}']]) {
     const browser = await chromium.launch();
     const ctx = await browser.newContext({ viewport: { width: 320, height: 640 }, serviceWorkers: 'block' });
     if (prefs) await ctx.addInitScript(p => { try { localStorage.setItem('gdex-prefs', p); } catch (e) { /* ignore */ } }, prefs);

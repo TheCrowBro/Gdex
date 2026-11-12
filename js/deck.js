@@ -1,11 +1,14 @@
-// The section menu: a record player or a tape deck (Aa → Section menu). Each section is a track, the first half on
-// Side A and the rest on Side B. Swipe the record or the cassette, tap ⏮ ⏭, use the arrow keys or scroll on it to
-// change section; tap the record (or the cassette) to see every section at once and jump straight to one.
-// Which sections are tracks depends on the role (js/roles.js); the rest are bonus tracks, listed on the sleeve under the
-// two sides. One that is open sits on the record as a bonus track (★) until you move on.
+// The section menu: a record player, a tape deck or a digital player (Aa → Section menu). Each section is a track: on
+// the record and the cassette the first half is Side A and the rest Side B; the digital player numbers them in one
+// list. Swipe the record, the cassette or the player's bar, tap ⏮ ⏭, use the arrow keys or scroll on it to change
+// section; tap it to see every section at once and jump straight to one. The digital player also has a row of tabs
+// under its bar, every track one tap away.
+// Which sections are tracks depends on the role (js/roles.js); the rest are bonus tracks, listed on the sleeve (or the
+// track list) under the tracks. One that is open sits on the menu as a bonus track (★) until you move on.
 // createDeck(root, tabs, { start, onSelect(i, dir), extras?() → [{ id, label, icon, count? }], onExtra?(id) })
 //   → { go(i), index, refresh(), setTabs(tabs, index) }.
-// tabs: [{ id, label, bonus?, count?() → { n, one, many } }]; bonus tabs come last.
+// tabs: [{ id, label, icon?, bonus?, count?() → { n, one, many } }]; bonus tabs come last. The icon is the digital
+// player's cover art and the picture on its tab.
 import { h, sheet, announce } from './util.js';
 import { haptic, menuStyle } from './a11y.js';
 
@@ -35,7 +38,8 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
   const idOf = i => (isBonus(i) ? '★' : i < sideA ? 'A' + (i + 1) : 'B' + (i - sideA + 1));
   const sideOf = i => (isBonus(i) ? 'Bonus' : i < sideA ? 'A' : 'B');
   const sideText = i => (isBonus(i) ? 'Bonus track' : 'Side ' + sideOf(i));
-  const spoken = i => (isBonus(i) ? 'a bonus track' : idOf(i)); // what a screen reader says for the track's id
+  // What a screen reader says for the track: its id on the record and the cassette (A2), its place on the digital player.
+  const spoken = i => (isBonus(i) ? 'a bonus track' : style === 'digital' ? `track ${i + 1} of ${tracks}` : idOf(i));
   const radius = k => 63 - k * (26 / Math.max(1, n - 1));
   const countOf = i => { try { const c = tabs[i].count && tabs[i].count(); return c && Number.isFinite(c.n) ? c : null; } catch { return null; } };
   const lengthText = i => { const c = countOf(i); return c ? `${c.n} ${c.n === 1 ? c.one : c.many}` : ''; };
@@ -86,6 +90,39 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
     return { cassette, reels, packs, labelId, labelName, labelSide, counter, counterOf, prev, next, swipe: cassette };
   }
 
+  /* ------------------------------- the digital player ------------------------------- */
+  // A slim bar (cover art, Now playing, ⏮ ☰ ⏭, and a line along the bottom showing how far through the menu you are)
+  // and under it a row of tabs that scrolls sideways. The row is built once per draw: paint() only marks the current
+  // tab, because it runs on every change to the data and the row must not move under a finger.
+  function buildDigital() {
+    const art = h('span', { class: 'dk-art', 'aria-hidden': 'true' });
+    const name = h('strong', { class: 'dk-name' }), at = h('span', { class: 'dk-meta-at' }), count = h('span', { class: 'dk-meta-n' });
+    const meta = h('span', { class: 'dk-meta' }, at, count);
+    const now = h('button', { type: 'button', class: 'dk-now dk-swipe', onclick: () => tapped() },
+      art, h('span', { class: 'dk-now-text' }, h('span', { class: 'dk-eyebrow' }, 'Now playing'), name, meta));
+    const prev = h('button', { type: 'button', class: 'dk-btn dk-prev', onclick: () => step(-1) }, icon(ICONS.prev));
+    const list = h('button', { type: 'button', class: 'dk-btn dk-list', 'aria-label': 'Track list: every section', 'aria-haspopup': 'dialog', onclick: openList }, icon(ICONS.list));
+    const next = h('button', { type: 'button', class: 'dk-btn dk-next', onclick: () => step(1) }, icon(ICONS.next));
+    const fill = h('i', { class: 'dk-fill' });
+    // A tab opens its section by id, like an entry on the track list. The open bonus track is the last tab, with its ★.
+    // The name is also in data-name: the stylesheet keeps room for it in bold, so the row does not shift as the current tab changes.
+    const tabEls = tabs.map((t, k) => { const name = isBonus(k) ? '★ ' + t.label : t.label;
+      return h('button', { type: 'button', class: 'dk-tab', 'data-section': t.id, 'aria-label': isBonus(k) ? `${t.label}, bonus track` : null, onclick: () => pickSection(t.id) },
+        h('span', { class: 'dk-tab-ico', 'aria-hidden': 'true' }, t.icon || '♪'), h('span', { class: 'dk-tab-name', 'data-name': name }, name)); });
+    const row = h('div', { class: 'dk-tabs', role: 'group', 'aria-label': 'Go to a section' }, tabEls);
+    holder.replaceChildren(h('div', { class: 'dk-player' }, now, h('div', { class: 'dk-keys' }, prev, list, next), h('span', { class: 'dk-progress', 'aria-hidden': 'true' }, fill)), row);
+    return { now, art, name, at, count, meta, fill, row, tabEls, prev, next, swipe: now };
+  }
+  // The current tab, brought into view in its row with a little of its neighbour showing. Set outright: nothing slides.
+  function reveal() {
+    const row = parts.row, tab = parts.tabEls && parts.tabEls[index];
+    if (!row || !tab) return;
+    const box = row.getBoundingClientRect(), t = tab.getBoundingClientRect(), peek = 28;
+    const left = t.left - box.left + row.scrollLeft, right = left + t.width;
+    if (left - peek < row.scrollLeft) row.scrollLeft = Math.max(0, left - peek);
+    else if (right + peek > row.scrollLeft + row.clientWidth) row.scrollLeft = right + peek - row.clientWidth;
+  }
+
   /* ------------------------------- drawing ------------------------------- */
   function paint() {
     const t = tabs[index], id = idOf(index), len = lengthText(index);
@@ -98,6 +135,14 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
       parts.labelId.textContent = id; parts.labelSide.textContent = sideText(index).replace(' track', '').toUpperCase();
       parts.name.textContent = t.label; parts.meta.textContent = [!isBonus(index) && id, sideText(index), len].filter(Boolean).join(' · ');
       parts.record.setAttribute('aria-label', `Now playing ${spoken(index)}, ${t.label}. Open the sleeve to pick any section`);
+    } else if (style === 'digital') {
+      parts.art.textContent = t.icon || '♪'; parts.name.textContent = t.label;
+      // "Track 2 of 8 · 2 acts": a bonus track is not one of the role's tracks, so it has no number and the line is full.
+      parts.at.textContent = isBonus(index) ? 'Bonus track' : `Track ${index + 1} of ${tracks}`; parts.count.textContent = len ? ' · ' + len : '';
+      parts.fill.style.width = (isBonus(index) ? 100 : (index + 1) / tracks * 100) + '%';
+      parts.now.setAttribute('aria-label', `Now playing ${spoken(index)}, ${t.label}. Open the track list to pick any section`);
+      parts.tabEls.forEach((b, k) => { b.classList.toggle('on', k === index); if (k === index) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+      if (parts.shown !== index) { parts.shown = index; reveal(); } // only when the section changed, or the menu was drawn afresh
     } else {
       parts.reels.forEach(r => { r.style.transform = `rotate(${turns * 300}deg)`; });
       const size = k => 24 + k * (22 / Math.max(1, n - 1)); // tape winds from the left spool to the right as you go
@@ -107,17 +152,22 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
       parts.cassette.setAttribute('aria-label', `Now on ${spoken(index)}, ${t.label}. Open the track list to pick any section`);
     }
   }
-  // Drawn afresh, the controls are new elements: the one that had the focus (the record or cassette, ⏮, the list
-  // button, ⏭) hands it to its twin, so a keyboard keeps its place when a bonus track comes or goes.
+  // Drawn afresh, the controls are new elements: the one that had the focus (the record, cassette or bar, ⏮, the list
+  // button, ⏭) hands it to its twin, so a keyboard keeps its place when a bonus track comes or goes. A tab on the
+  // digital player hands it to the tab of the same section, or to the current tab when that section's tab has gone.
   const CONTROLS = ['dk-swipe', 'dk-prev', 'dk-list', 'dk-next'];
+  const want = () => { const m = menuStyle(); return m === 'tape' || m === 'digital' ? m : 'record'; };
+  const onTab = () => { const a = document.activeElement; return !!a && holder.contains(a) && a.classList.contains('dk-tab'); };
   function draw() {
     const a = document.activeElement, had = a && holder.contains(a) ? CONTROLS.find(c => a.classList.contains(c)) : null;
-    style = menuStyle() === 'tape' ? 'tape' : 'record';
+    const hadTab = onTab() ? a.dataset.section : null;
+    style = want();
     holder.dataset.style = style;
-    parts = style === 'tape' ? buildTape() : buildRecord();
+    parts = style === 'tape' ? buildTape() : style === 'digital' ? buildDigital() : buildRecord();
     wireSwipe(parts.swipe);
     holder.classList.add('dk-still'); paint(); void holder.offsetWidth; holder.classList.remove('dk-still'); // no animation when drawn fresh
     if (had) holder.querySelector('.' + had)?.focus({ preventScroll: true });
+    else if (hadTab != null) ((parts.tabEls && (parts.tabEls.find(b => b.dataset.section === hadTab) || parts.tabEls[index])) || parts.swipe).focus({ preventScroll: true });
   }
 
   /* ------------------------------- moving ------------------------------- */
@@ -131,8 +181,8 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
   }
   const step = d => go(index + d, false, d);
 
-  // The whole list at once: the sleeve (record) or the cassette's track list. Each entry opens its section by id when
-  // tapped, wherever that section is on the menu by then; a new list of tracks closes the sleeve (setTabs).
+  // The whole list at once: the sleeve (record), the cassette's track list or the digital player's. Each entry opens
+  // its section by id when tapped, wherever that section is on the menu by then; a new list of tracks closes it (setTabs).
   let closeList = () => {};
   const pickSection = id => {
     const at = tabs.findIndex(t => t.id === id);
@@ -141,11 +191,11 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
   };
   function openList() {
     let close = () => {};
-    const col = (from, to, side) => h('div', { class: 'dk-side' }, h('span', { class: 'dk-side-head' }, 'Side ' + side),
+    const col = (from, to, head, num = idOf) => h('div', { class: 'dk-side' }, h('span', { class: 'dk-side-head' }, head),
       ...tabs.slice(from, to).map((t, j) => {
         const k = from + j, c = countOf(k);
         return h('button', { type: 'button', class: 'dk-track' + (k === index ? ' on' : ''), 'aria-current': k === index ? 'true' : null, 'data-section': t.id, onclick: () => { close(); pickSection(t.id); } },
-          h('span', { class: 'dk-track-id' }, idOf(k)), h('span', { class: 'dk-track-name' }, t.label), h('span', { class: 'dk-track-n' }, c ? String(c.n) : ''));
+          h('span', { class: 'dk-track-id' }, num(k)), h('span', { class: 'dk-track-name' }, t.label), h('span', { class: 'dk-track-n' }, c ? String(c.n) : ''));
       }));
     // Every section not on this role's menu, so nothing is ever out of reach.
     let more = []; try { more = extras() || []; } catch { more = []; }
@@ -154,18 +204,22 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
       ...more.map(x => { let c = null; try { c = x.count && x.count(); } catch { c = null; } const on = x.id === cur;
         return h('button', { type: 'button', class: 'dk-track' + (on ? ' on' : ''), 'aria-current': on ? 'true' : null, 'data-section': x.id, onclick: () => { close(); pickSection(x.id); } },
           h('span', { class: 'dk-track-id', 'aria-hidden': 'true' }, '★'), h('span', { class: 'dk-track-name' }, x.label), h('span', { class: 'dk-track-n' }, c && Number.isFinite(c.n) ? String(c.n) : '')); })));
-    const tape = style === 'tape';
+    const tape = style === 'tape', digital = style === 'digital';
+    const howMany = (tracks === 1 ? '1 track' : `${tracks} tracks`) + (more.length ? ` · ${more.length} bonus` : '');
     const head = tape ? h('p', { class: 'dk-jcard-title' }, 'Gdex, the booking deck')
-      : h('div', { class: 'dk-sleeve-head' }, h('span', { class: 'dk-cover', 'aria-hidden': 'true' }, 'GDEX'), h('div', null, h('strong', null, 'Gdex'), h('div', { class: 'muted small' }, `The booking deck · ${tracks} tracks` + (more.length ? ` · ${more.length} bonus` : ''))));
-    const s = sheet(tape ? 'Track list' : 'The sleeve', h('div', { class: 'dk-sheet ' + (tape ? 'dk-jcard' : 'dk-sleeve') }, head, h('div', { class: 'dk-sides' }, col(0, sideA, 'A'), col(sideA, tracks, 'B')), bonus),
+      : digital ? h('div', null, h('p', { class: 'dk-jcard-title' }, 'Gdex, the booking deck'), h('div', { class: 'muted small' }, howMany))
+        : h('div', { class: 'dk-sleeve-head' }, h('span', { class: 'dk-cover', 'aria-hidden': 'true' }, 'GDEX'), h('div', null, h('strong', null, 'Gdex'), h('div', { class: 'muted small' }, `The booking deck · ${tracks} tracks` + (more.length ? ` · ${more.length} bonus` : ''))));
+    // Two sides on the sleeve and the cassette's card; the digital player has one list, numbered from 1.
+    const sides = digital ? col(0, tracks, 'Tracks', k => String(k + 1)) : [col(0, sideA, 'Side A'), col(sideA, tracks, 'Side B')];
+    const s = sheet(tape || digital ? 'Track list' : 'The sleeve', h('div', { class: 'dk-sheet ' + (tape ? 'dk-jcard' : digital ? 'dk-queue' : 'dk-sleeve') }, head, h('div', { class: 'dk-sides' }, sides), bonus),
       { onClose: () => { if (closeList === s.close) closeList = () => {}; } });
     close = closeList = s.close;
     setTimeout(() => document.querySelector('.dk-sheet .dk-track.on')?.focus(), 60);
   }
 
-  // A swipe across the record or the cassette changes section; a tap opens the list. One finger (or the mouse button)
-  // only: the pointer is captured so a release elsewhere still ends the gesture, a second finger (a pinch) cancels it,
-  // and a plain mouse hover never counts.
+  // A swipe across the record, the cassette or the player's bar changes section; a tap opens the list. One finger (or
+  // the mouse button) only: the pointer is captured so a release elsewhere still ends the gesture, a second finger (a
+  // pinch) cancels it, and a plain mouse hover never counts.
   let moved = false, dragged = false;
   function wireSwipe(el) {
     let sx = null, sy = null, pid = null;
@@ -185,9 +239,9 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
   }
   function tapped() { if (moved || dragged) { moved = dragged = false; return; } openList(); }
 
-  // Scrolling on the record or the cassette changes section once per wheel gesture (a trackpad flick is one gesture: it
-  // ends when the wheel has been still for about a third of a second). Not while zooming (ctrl), and not in the moment after the
-  // menu slides back in under the pointer, when the wheel was scrolling the page.
+  // Scrolling on the record, the cassette or the player's bar changes section once per wheel gesture (a trackpad flick
+  // is one gesture: it ends when the wheel has been still for about a third of a second). Not while zooming (ctrl), and
+  // not in the moment after the menu slides back in under the pointer, when the wheel was scrolling the page.
   let wheelBusy = false, wheelIdle = 0, shownAt = 0;
   new MutationObserver(() => { if (!root.classList.contains('tucked')) shownAt = Date.now(); }).observe(root, { attributes: true, attributeFilter: ['class'] });
   holder.addEventListener('wheel', e => {
@@ -204,11 +258,21 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
     const t = e.target;
     if (/input|textarea|select/i.test(t.tagName) || t.isContentEditable || (t.closest && t.closest(OWN_ARROWS))) return; // they use the arrows themselves
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || document.querySelector('.sheet-back, .tour') || document.getElementById('app')?.inert) return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') step(1);
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') step(-1);
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!d) return;
+    // On a tab of the digital player the focus follows the section, so the arrows walk along the row; ← → there are
+    // the menu's, not the row's own sideways scroll. From any other control the focus stays where it is.
+    const tab = onTab();
+    if (tab && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) e.preventDefault();
+    step(d);
+    if (tab && parts.tabEls && parts.tabEls[index]) parts.tabEls[index].focus({ preventScroll: true });
   });
-  // Switching between the record player and the tape deck (Aa → Section menu) redraws in place.
-  window.addEventListener('gdex-prefs', () => { if ((menuStyle() === 'tape' ? 'tape' : 'record') !== style) draw(); });
+  // Choosing another menu (Aa → Section menu) redraws in place. Any other display choice (a text size, say) can move
+  // the digital player's tabs, so the current one is brought back into view.
+  window.addEventListener('gdex-prefs', () => { if (want() !== style) draw(); else reveal(); });
+  // …and so can a narrower window (a phone turned upright). Not a change of height: a phone's address bar comes and goes.
+  let wide = window.innerWidth;
+  window.addEventListener('resize', () => { if (window.innerWidth === wide) return; wide = window.innerWidth; reveal(); });
 
   // A new list of tracks (another role, or a bonus track coming or going): redrawn in place, on track `at`, silently.
   // A sleeve still open lists the old tracks, so it closes first (the focus goes back to the deck, then to the twin).
