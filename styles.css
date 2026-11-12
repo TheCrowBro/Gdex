@@ -130,6 +130,7 @@ a { color: var(--accent); }
 .dk-art { flex: none; width: var(--art); height: var(--art); border-radius: 10px; display: grid; place-items: center; font-size: 1.5rem; line-height: 1; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 35%, var(--card))); }
 .dk-now-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .deck[data-style=digital] .dk-eyebrow { font-size: .64rem; letter-spacing: .12em; line-height: 1.3; }
+.deck[data-style=digital] .dk-eyebrow, .deck[data-style=digital] .dk-meta { color: color-mix(in srgb, var(--muted) 70%, var(--text)); } /* the two small lines: a little stronger than --muted, which on the deck's --bg2 is under 4.5:1 in the light Stage theme */
 .deck[data-style=digital] .dk-name { font-size: 1.1rem; line-height: 1.15; white-space: normal; overflow-wrap: anywhere; }
 /* one line, always: the count ("2 acts") shows after the track when there is room for it and is left out whole when there is not, so no word is cut and the bar keeps its height */
 .deck[data-style=digital] .dk-meta { display: flex; flex-wrap: wrap; column-gap: .35em; height: 1.4em; overflow: hidden; font: inherit; font-size: .78rem; line-height: 1.4; }
@@ -141,7 +142,7 @@ a { color: var(--accent); }
 .dk-tabs { display: flex; gap: 6px; min-width: 0; margin: -5px -8px; padding: 5px 8px; overflow-x: auto; scroll-padding-inline: 28px; scrollbar-width: none; overscroll-behavior-inline: contain; } /* as wide as the deck, with room inside the scrolling row for a tab's focus ring */
 .dk-tabs::-webkit-scrollbar { display: none; }
 .dk-tab { flex: none; min-height: var(--hit); display: inline-flex; align-items: center; gap: 6px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); font: inherit; font-size: .84rem; white-space: nowrap; cursor: pointer; }
-.dk-tab:hover { border-color: var(--accent); }
+@media (hover: hover) { .dk-tab:hover { border-color: var(--accent); } } /* not on a touch screen, where the edge would stay on the tab last tapped */
 .dk-tab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .dk-tab-name { display: inline-flex; flex-direction: column; } .dk-tab-name::after { content: attr(data-name); height: 0; overflow: hidden; visibility: hidden; font-weight: 700; } /* every tab keeps the width of its bold name, so the row does not shift when the current tab changes */
 .dk-queue .dk-jcard-title { font-family: inherit; font-size: 1.25rem; }

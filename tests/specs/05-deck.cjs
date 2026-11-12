@@ -286,8 +286,21 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital', palette: 'mono', contrast: 'high' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
   const plain = await page.evaluate(() => { const css = s => getComputedStyle(document.querySelector(s)); return { art: css('#deck .dk-art').filter, ico: css('#deck .dk-tab-ico').filter, edge: css('#deck .dk-tab').borderTopWidth, tall: document.querySelector('#deck .dk-player').getBoundingClientRect().height }; });
   ok('Mono: the cover art and the tabs’ icons are grey; high contrast: the tabs have a 2 px edge, and the bar is still slim', plain.art === 'grayscale(1)' && plain.ico === 'grayscale(1)' && plain.edge === '2px' && plain.tall <= 72, JSON.stringify(plain));
+  // The two small lines of the bar read at 4.5:1 or better against the deck, in the light and the dark of the first theme.
+  const smallText = {};
+  for (const scheme of ['light', 'dark']) {
+    await page.evaluate(sc => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital', scheme: sc })); }, scheme); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+    smallText[scheme] = await page.evaluate(() => {
+      const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
+      const lum = colour => { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1, 1); ctx.fillStyle = colour; ctx.fillRect(0, 0, 1, 1); const [r, g, b] = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const back = lum(getComputedStyle(document.querySelector('#deck .deck')).backgroundColor);
+      const ratio = sel => { const a = lum(getComputedStyle(document.querySelector(sel)).color); return Math.round((Math.max(a, back) + 0.05) / (Math.min(a, back) + 0.05) * 100) / 100; };
+      return { eyebrow: ratio('#deck .dk-eyebrow'), meta: ratio('#deck .dk-meta'), name: ratio('#deck .dk-name'), art: getComputedStyle(document.querySelector('#deck .dk-art')).filter };
+    });
+  }
+  ok('“Now playing” and the track line read at 4.5:1 or better against the deck, light and dark', ['light', 'dark'].every(sc => smallText[sc].eyebrow >= 4.5 && smallText[sc].meta >= 4.5 && smallText[sc].name > smallText[sc].meta), JSON.stringify(smallText));
+  ok('…and in colour the art is not greyed', smallText.light.art === 'none' && smallText.dark.art === 'none');
   await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
-  ok('…and in colour the art is not greyed', (await page.$eval('#deck .dk-art', el => getComputedStyle(el).filter)) === 'none');
 
   // A menu of one track (no role has one, but a menu can be Settings alone): Track 1 of 1, the line full, one tab, and
   // ⏮ ⏭ go nowhere. Drawn beside the real menu, last in this spec because a deck listens to the whole page.
