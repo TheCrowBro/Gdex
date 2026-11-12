@@ -85,3 +85,72 @@
 .vn-contact-name { margin: 0 0 8px; font-weight: 600; overflow-wrap: anywhere; }
 .vn-notes { margin: 0; overflow-wrap: anywhere; }
 @media (min-width: 560px) { .vn-sheet .actions .btn, .bl-sheet .actions .btn, .bl-inv-sheet .actions .btn { flex: 0 0 auto; } }
+
+/* ---------- venues: house rules (js/venues-rules.js) ---------- */
+/* The chip: on a show's card, on the venue's card and at the head of the full rules. --r is its colour (green, amber
+   or red); a dot of it sits before the words, and the words say the same (never colour alone). It is a span inside
+   cards that are buttons. It wraps on a narrow card and never makes the card wider. */
+.vn-chip { --r: var(--ok); display: inline-block; justify-self: start; align-self: flex-start; max-width: 100%; overflow-wrap: anywhere; text-wrap: balance; padding: 2px 9px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--r) 55%, transparent); background: color-mix(in srgb, var(--r) 16%, var(--card)); color: var(--text);
+  font-size: .76rem; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-align: left; text-transform: none; }
+.vn-chip::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--r); margin-right: 6px; }
+.vn-chip-some { --r: var(--amber); }
+.vn-chip-strict { --r: var(--danger); }
+html[data-contrast=high] .vn-chip { border-width: 2px; border-color: var(--r); }
+
+/* The full rules: a head line (the words "House rules" and the chip) and what is not allowed, allowed, good to know
+   and written by hand. On a show's page they sit in a box of their own in the booking's header. Sizes are in rem, so
+   the words follow the Text size setting; the list goes to one column where the box is under about 20 letters wide
+   (a narrow phone, or large text), and under 360px for a browser without container queries. */
+.vn-rules { display: grid; gap: 6px; min-width: 0; font-size: 1rem; container: vn-rules / inline-size; }
+.vn-rules-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.vn-rules-name { min-width: 0; overflow-wrap: anywhere; text-wrap: balance; }
+.vn-rules-sec .vn-rules-name { display: none; } /* on the venue's sheet the section's heading already says "House rules" */
+.vn-rules-sec > p { margin: 0; }
+.vn-rules-list { display: grid; grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr); gap: 4px 12px; margin: 0; align-items: baseline; }
+.vn-rules-list dt { color: var(--muted); font-size: .85rem; }
+.vn-rules-list dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 360px) { .vn-rules-list { grid-template-columns: minmax(0, 1fr); gap: 1px; } .vn-rules-list dd { margin-bottom: 5px; } .vn-rules-list dd:last-child { margin-bottom: 0; } }
+@container vn-rules (max-width: 20em) { .vn-rules-list { grid-template-columns: minmax(0, 1fr); gap: 1px; } .vn-rules-list dd { margin-bottom: 5px; } .vn-rules-list dd:last-child { margin-bottom: 0; } }
+.vn-rules-show { padding: 9px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg2); }
+html[data-contrast=high] .vn-rules-show { border-width: 2px; }
+
+/* The House rules part of the venue form: a row per rule with two press-buttons (or a short list). On a phone the
+   rule's name has a line of its own and the two buttons share the line under it; where the block is wide (about 30
+   letters and up: a tablet, a laptop) they sit beside the name. Sizes are in rem here too. */
+.vn-rules-edit { gap: 6px; font-size: 1rem; container: vn-rules-edit / inline-size; }
+.vn-rules-title { font-weight: 700; }
+.vn-rules-group { min-width: 0; margin-top: 4px; }
+.vn-rule { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 6px; padding: 7px 0; border-top: 1px solid var(--line); }
+.vn-rule-allow { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } /* "Not allowed" is the longer word */
+.vn-rule-name { grid-column: 1 / -1; align-self: center; display: flex; align-items: baseline; gap: .3em; min-width: 0; overflow-wrap: break-word; } /* a long name wraps beside its picture, not under it */
+.vn-rule-ico { flex: none; width: 1.3em; text-align: center; }
+.vn-rule-pick select { grid-column: 1 / -1; }
+.vn-rule-btn { display: inline-flex; align-items: center; justify-content: center; gap: .4em; min-width: 0; min-height: var(--hit); padding: 6px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg2); color: var(--text); font: inherit; font-size: .85rem; font-weight: 600; line-height: 1.2; cursor: pointer; }
+.vn-rule-says { min-width: 0; }
+@media (hover: hover) { .vn-rule-btn:hover { border-color: var(--accent); } } /* not on a touch screen, where a hover would stay on a button just cleared */
+/* The tick-box in each button: empty until the button is pressed, and always there, so a press changes no size. */
+.vn-rule-mark { flex: none; display: inline-grid; place-items: center; width: 1.2em; height: 1.2em; border: 1.5px solid var(--muted); border-radius: 4px; background: var(--card); font-size: .95em; line-height: 1; }
+.vn-rule-mark > span { visibility: hidden; }
+.vn-rule-btn[aria-pressed=true] .vn-rule-mark > span { visibility: visible; }
+/* Pressed: the tick or the cross, a thicker edge and a colour. Allowed is tinted green and Not allowed red; a fact's
+   Yes and No are answers, not good and bad, so both take the app's own pressed look (the accent). */
+.vn-rule-btn[aria-pressed=true] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent); color: var(--accent-ink); }
+.vn-rule-btn[aria-pressed=true] .vn-rule-mark { border-color: var(--accent-ink); background: var(--accent-ink); color: var(--accent); }
+.vn-rule-allow .vn-rule-btn[aria-pressed=true] { border-color: var(--r); box-shadow: inset 0 0 0 1px var(--r); background: color-mix(in srgb, var(--r) 20%, var(--card)); color: var(--text); }
+.vn-rule-allow .vn-rule-btn[aria-pressed=true] .vn-rule-mark { border-color: var(--r); background: var(--r); color: var(--card); }
+.vn-rule-allow .vn-rule-yes { --r: var(--ok); }
+.vn-rule-allow .vn-rule-no { --r: var(--danger); }
+html[data-contrast=high] .vn-rule-btn { border-width: 2px; }
+html[data-contrast=high] .vn-rule-mark { border-width: 2px; border-color: var(--text); }
+@container vn-rules-edit (min-width: 30em) {
+  .vn-rule { grid-template-columns: minmax(0, 1fr) 6.5rem 8.4rem; column-gap: 6px; }
+  .vn-rule-fact { grid-template-columns: minmax(0, 1fr) 7.45rem 7.45rem; }
+  .vn-rule-name { grid-column: auto; padding-right: 4px; }
+  .vn-rule-pick select { grid-column: 2 / -1; }
+}
+@media (forced-colors: active) {
+  .vn-chip { border: 1px solid CanvasText; }
+  .vn-rule-btn[aria-pressed=true] { border: 3px solid Highlight; }
+}

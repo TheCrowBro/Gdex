@@ -1,13 +1,16 @@
 // Venues: clubs, halls, studios, rehearsal rooms and festivals, with what a band needs to know before the day:
 // capacity, stage, PA, backline provided, load-in, parking, curfew and noise limit, a map, and the bookings there.
 // venueWarnings(b) checks a booking against its venue for the booking page (set past curfew, deal above capacity…).
+// A venue's house rules (what it allows in) are drawn by js/venues-rules.js: the chip on its card, the full rules on
+// its sheet, and their part of the form.
 import { h, nodes, empty, sheet, toast, fmtShort, todayISO, telUrl, safeUrl } from '../util.js';
 import { db, byId, upsert, remove, subscribe, lastDay } from '../store.js';
-import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMin, addMinutes, minutesBetween, actName, kindLabel, kindIcon, statusLabel, statusTone, byPlay, byDayPlayDesc } from '../model.js';
+import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMin, addMinutes, minutesBetween, actName, kindLabel, kindIcon, statusLabel, statusTone, byPlay, byDayPlayDesc, RULE_TONES, rulesOf } from '../model.js';
 import { openForm } from '../form.js';
 import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
 import { sectionName, moneyShown } from '../roles.js';
+import { venueChip, rulesFull, rulesEditor } from '../venues-rules.js';
 
 // What the page is showing. Kept here so it survives the redraw after every change.
 const S = { kind: '', q: '' };
@@ -32,7 +35,7 @@ const byDate = (a, b) => String(a.date || '9999').localeCompare(String(b.date ||
 const bookingsAt = id => db.bookings.filter(b => b.venueId === id);
 const nextAt = id => { const t = todayISO(); return bookingsAt(id).filter(b => b.status !== 'cancelled' && b.date && isAhead(b, t)).sort(byDate)[0] || null; };
 const goBooking = id => import('./bookings.js').then(m => m.openBooking(id)).catch(e => { console.error(e); toast('That booking could not be opened.'); });
-const searchText = v => [v.name, v.address, v.contact, v.stage, v.pa, v.backline, v.notes, venueKindLabel(kindOf(v))].map(x => String(x || '')).join(' ').toLowerCase();
+const searchText = v => [v.name, v.address, v.contact, v.stage, v.pa, v.backline, v.notes, v.rulesNote, venueKindLabel(kindOf(v))].map(x => String(x || '')).join(' ').toLowerCase();
 
 // The hire rate of a studio or a room, as "$45 per hour". '' when none is set, and for a role without money (a scout, a
 // gig-goer), whose pages keep fees off (the form keeps the field).
@@ -144,6 +147,7 @@ function venueCard(v) {
     h('span', { class: 'vn-card-top' }, h('strong', { class: 'vn-card-name' }, venueName(v)), h('span', { class: 'pill vn-kind' }, kindText(v))),
     addr && h('span', { class: 'vn-addr muted small' }, addr),
     f.length > 0 && h('span', { class: 'vn-facts small' }, f.map(x => h('span', { class: 'vn-fact' }, x))),
+    venueChip(v), // its house rules in a few words, on a line of their own (green, amber or red)
     next && h('span', { class: 'vn-next small' }, `Next: ${dateText(next)} · ${kindIcon(next.kind)} ${who(next)}`));
 }
 
@@ -207,6 +211,9 @@ export function openVenue(id) {
       h('section', { class: 'vn-details' }, h('h3', null, 'Details'),
         details.length ? h('dl', { class: 'vn-kv' }, details.map(([k, x]) => [h('dt', null, k), h('dd', null, x)]))
           : h('p', { class: 'muted small' }, 'Nothing noted yet. Edit adds the capacity, stage, PA, curfew, load-in and parking.')),
+      // What the place allows in. They are the venue's: every show here carries them, whoever plays.
+      h('section', { class: 'vn-rules-sec' }, h('h3', null, 'House rules'),
+        rulesFull(v) || h('p', { class: 'muted small' }, 'No house rules noted yet. Edit adds what is allowed in, what is not, and anything unusual.')),
       v.notes && h('section', null, h('h3', null, 'Notes'), h('p', { class: 'prewrap vn-notes' }, v.notes)),
       h('section', { class: 'vn-bookings' },
         h('h3', null, `Coming up here (${next.length})`),
@@ -230,10 +237,12 @@ const numOrBlank = (x, whole = false) => (x === '' || x == null || !Number.isFin
 // Add or edit a venue, studio, rehearsal room or festival. onSaved(record) after it is stored.
 export function editVenue(v = {}, onSaved) {
   const cur = (v && v.id && byId('venues', v.id)) || v || {};
+  const had = rulesOf(cur);         // the rules as stored, cleaned: junk reads as nothing
+  const editor = rulesEditor(cur);  // the House rules part: it keeps its own answers until Save reads them
   openForm({
     title: cur.id ? 'Edit venue' : 'Add venue',
     saveLabel: cur.id ? 'Save' : 'Add venue',
-    values: { rateUnit: 'hour', ...cur, kind: kindOf(cur) },
+    values: { rateUnit: 'hour', ...cur, kind: kindOf(cur), rulesNote: had.note, rulesTone: had.tone }, // a tone that is not one of RULE_TONES shows as Automatic
     fields: [
       { key: 'name', label: 'Name', required: true, placeholder: 'e.g. The Lantern Rooms' },
       { key: 'kind', label: 'Kind of place', type: 'select', options: VENUE_KINDS },
@@ -242,6 +251,9 @@ export function editVenue(v = {}, onSaved) {
       { key: 'capacity', label: 'Capacity', type: 'number', min: 0, placeholder: 'People' },
       { key: 'curfew', label: 'Curfew', type: 'time', hint: 'When the music has to stop. Shows here warn you if the set runs past it.' },
       { key: 'noiseLimit', label: 'Noise limit (dB)', type: 'number', min: 0, step: 'any', placeholder: 'e.g. 98' },
+      // House rules: the answers (editor.node, put in by onReady just above this box), anything else in words, and the colour.
+      { key: 'rulesNote', label: 'Other house rules', type: 'textarea', rows: 2, placeholder: 'e.g. No re-entry after 11pm. Coats in the cloakroom.', hint: 'Anything the rules above don’t cover. It shows on every show here.' },
+      { key: 'rulesTone', label: 'How strict', type: 'select', options: RULE_TONES, hint: 'The colour of the house rules on this venue’s shows: green, amber or red. Automatic works it out from the answers above.' },
       { key: 'stage', label: 'Stage', placeholder: 'e.g. 6m × 4m, drum riser' },
       { key: 'pa', label: 'PA & desk', placeholder: 'e.g. d&b, Midas M32 at FOH, 4 wedges' },
       { key: 'backline', label: 'Backline provided', type: 'textarea', rows: 2, placeholder: 'e.g. Drum kit shell pack, bass cab' },
@@ -256,11 +268,15 @@ export function editVenue(v = {}, onSaved) {
       { key: 'website', label: 'Website', type: 'url', placeholder: 'example.com' },
       { key: 'notes', label: 'Notes', type: 'textarea' },
     ],
+    onReady: form => { const note = form.querySelector('[data-key=rulesNote]'); if (note && editor.node) note.closest('.field').before(editor.node); },
     onSave: val => {
       const nm = String(val.name || '').trim();
       if (!nm) return toast('Give the place a name first.');
+      // All three house-rules fields are always stored (rules as an object, {} when nothing is known), so a venue saved
+      // here is told apart from one that never had them (the sample adds its rules only to the latter).
       const stored = upsert('venues', { ...val, name: nm, capacity: numOrBlank(val.capacity, true), noiseLimit: numOrBlank(val.noiseLimit), rate: numOrBlank(val.rate),
-        website: String(val.website || '').trim(), email: String(val.email || '').trim(), phone: String(val.phone || '').trim() });
+        website: String(val.website || '').trim(), email: String(val.email || '').trim(), phone: String(val.phone || '').trim(),
+        rules: editor.read(), rulesNote: String(val.rulesNote || '').trim(), rulesTone: RULE_TONES.some(t => t[0] === val.rulesTone) ? val.rulesTone : '' });
       toast(cur.id ? 'Saved' : `${nm} added`);
       onSaved && onSaved(stored);
     },
@@ -276,13 +292,14 @@ const PAGE_STEPS = () => [
     : { title: 'The rooms you go to', text: 'Clubs, halls and festivals. + Add saves one with its capacity, the PA, the noise limit, the contact and a map.', target: ['.vn-head'] },
   { title: 'Kinds of place', text: 'Show only venues, studios, rehearsal rooms or festivals.', target: ['.vn-kinds'] },
   { title: 'Find a place', text: 'Search by name, address, contact or what the stage and PA are.', target: ['#vn-search'] },
-  { title: 'A place', text: 'How many it holds, the curfew and noise limit, and your next booking there. Tap it for the map, details and every booking there.', target: ['.vn-card'] },
+  { title: 'A place', text: 'How many it holds, the curfew and noise limit, its house rules and your next booking there. Tap it for the map, details and every booking there.', target: ['.vn-card'] },
 ];
 const SHEET_STEPS = () => [
   moneyShown() ? { title: 'Book here', text: 'Starts a booking at this place: a show at a venue or festival, a session at a studio, a rehearsal at a room. Edit changes the details or deletes it.', target: ['.vn-sheet-actions'] }
     : { title: 'Add one here', text: 'Puts a date at this place on your calendar: a show at a venue or festival, a studio session at a studio, a rehearsal at a room. Edit changes the details or deletes it.', target: ['.vn-sheet-actions'] },
   { title: 'Getting there', text: 'The map, and directions in your maps app.', target: ['.vn-map'] },
   { title: 'What to know', text: 'Capacity, stage, PA, backline provided, load-in, parking, curfew and noise limit: the things to check before the day.', target: ['.vn-details'] },
+  { title: 'House rules', text: 'What this place allows and what it does not: cameras, the age limit, bags and anything unusual you noted. They show on every show here.', target: ['.vn-rules-sec'] },
   { title: `${sectionName('bookings', 'Bookings')} here`, text: moneyShown() ? 'What is coming up and what you played before. A warning shows when a set would run past the curfew. Tap one to open it.' : 'What is coming up here and what you went to before. Tap one to open it.', target: ['.vn-bookings'] },
 ];
 // Read when the walkthrough runs (sheetTutorial takes a function), so its words follow the role.
@@ -290,6 +307,7 @@ const FORM_STEPS = () => [
   { title: 'The place', text: 'Its name, what kind of place it is, and the address.', target: ['[data-key=name]'] },
   { title: 'On the map', text: 'Find it from the address, paste a map link, or use where you are now. The map and directions use it.', target: ['.place'] },
   { title: 'Curfew and limits', text: moneyShown() ? 'Shows here warn you when the set would run past the curfew or the deal counts on more people than it holds.' : 'Shows here warn you when the set would run past the curfew. The noise limit is there for the sound meter.', target: ['[data-key=curfew]', '[data-key=capacity]'] },
+  { title: 'House rules', text: 'Tap what you know about each rule and type anything unusual. Every show here then carries them in green, amber or red; How strict sets the colour by hand.', target: ['.vn-rules-edit'] },
 ];
 sheetTutorial('Add venue', FORM_STEPS);
 sheetTutorial('Edit venue', FORM_STEPS);
