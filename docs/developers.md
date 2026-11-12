@@ -380,7 +380,7 @@ may call it.
 | `js/bookings-cal.js` `calendarView(ctx)` / `calendarSteps(ctx)` | calendar | The page while no booking is open (every view, with Coming up under it) / its walkthrough as drawn now. `ctx` is built once in `pages/bookings.js`: `{ S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }`. The calendar never imports the page. |
 | `js/bookings-kit.js` `cardExtras(b)` / `overlapNote(b)` / `wentMark(b)` | core | What a Coming up card and a Week row add under their own lines, in order: the overlap note (`span.bk-overlap`), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. |
 | `js/bookings-kit.js` `calMode()` / `saveCalMode(mode)` / `CAL_MODES`; `isoOk`, `monthStart`, `addDays`, `daysBetween`, `multi`, `dateRange`, `safeColor`, `actOf`, `actStyle`, `tone`, `pill`, `plural`, `sortByName`, `capital`, `KIND_CHIP` | core | The calendar's view kept on the device; the small helpers the booking page and the calendar share. |
-| `js/acts-ask.js` `askAtOpen(ids)` / `askPref()` | acts | The "Did you see them?" sheet for the shows still waiting among `ids` (nothing when the person is not asked or none is left) / the control for Settings → Your role. |
+| `js/acts-ask.js` `askAtOpen(ids)` / `askPref()` | acts | The "Did you see them?" sheet for the shows still waiting among `ids` (nothing when the person is not asked or none is left); `app.js` calls it at open and again after hours in the background / the control for Settings → Your role. |
 | `js/venues-rules.js` `rulesChip(b)` / `venueChip(v)` / `rulesFull(v, { where })` / `rulesEditor(v)` | venues | A show's house-rules chip, or `null` / the same for a venue / the full rules (`where: 'venue' \| 'show'`), or `null` / the House rules part of the venue form: `{ node, read() }`. |
 | `pages/bookings.js` `newBooking(preset)` | bookings | Open the new-booking form, prefilled (`{ kind, actId, venueId, date, setlistId }`). |
 | `pages/acts.js` `openAct(id)` / `editAct(a, onSaved)` / `printRider(actId)` | acts | View sheet / edit form / print the tech rider. |
@@ -427,7 +427,15 @@ it only in the month), `.bk-dayview` (only in the Day view), `.bk-day[data-date]
 `js/app.js` works out, as it boots, the shows that were waiting for "Did you see them?" (`waitingShows(now, { holds:
 true })`, from the database as loaded), and after the role question and the welcome tour, once no sheet or tour is on
 screen, calls `askAtOpen(ids)` once. With nothing waiting, `js/acts-ask.js` is never fetched. Data added after boot
-never opens the sheet in that visit; `askAtOpen` decides whether the person is asked.
+is not asked about at that open; `askAtOpen` decides whether the person is asked.
+
+Coming back counts as opening, for the question only (an installed app is seldom loaded afresh). After three hours or
+more out of sight (the document hidden, or the page restored from the back/forward cache; the moment it left is kept
+in memory only, by `Date.now()`), `app.js` works the list out again (`askSeen()`, then `waitingShows(now, { holds:
+!moneyShown() })`) and calls `askAtOpen(ids)` once the screen is clear, on whatever section the person was on: only a
+fresh load opens on the calendar. It asks nothing while the question's own sheet is still up, which it takes to be the
+sheet on screen straight after `askAtOpen` returns: so `askAtOpen` opens its sheet before it returns, and can be called
+more than once in a visit.
 
 ## Shared modules (core)
 

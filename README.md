@@ -67,9 +67,10 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 - **In the order the bands play:** bookings on the same day run by the time on stage (doors, soundcheck or load-in
   when there is no set time yet; a session by its start), a set after midnight at the end of the night, and anything
   with no time last. Two shows whose sets overlap say so: "Overlaps with Sable, 21:30".
-- **"Did you see them?"** After a show is over, Gdex asks when it next opens. **Yes** takes your score out of 100 for
-  the act's card; **No** marks the show "Didn't go" and never asks again. It asks producers, managers, scouts and
-  audiophiles (and Everything); turn it on or off for anyone under **Settings → Your role**.
+- **"Did you see them?"** After a show is over, Gdex asks when it next opens, or when you come back to it after three
+  hours or more away (it stays on the page you left). **Yes** takes your score out of 100 for the act's card; **No**
+  marks the show "Didn't go" and never asks again. It asks producers, managers, scouts and audiophiles (and
+  Everything); turn it on or off for anyone under **Settings → Your role**.
 - **House rules:** what a venue allows in (cameras, phones, the age limit, bags, anything unusual) is noted once on the
   venue and shows on every show there as a green, amber or red line, with the full rules on the show's page.
 

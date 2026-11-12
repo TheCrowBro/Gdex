@@ -7,7 +7,7 @@ import { startTour, tourSeen } from './tour.js';
 import { initClockBar } from './clock.js';
 import { initUpdates } from './update.js';
 import { bookings } from './pages/bookings.js';
-import { roleChosen, menuSections, offMenu, startSection, sectionName } from './roles.js';
+import { roleChosen, menuSections, offMenu, startSection, sectionName, askSeen, moneyShown } from './roles.js';
 import { waitingShows } from './model.js';
 
 applyPrefs();
@@ -170,12 +170,41 @@ const idle = window.requestIdleCallback ? fn => requestIdleCallback(fn, { timeou
 idle(() => import('./backup.js').then(m => m.nudgeIfStale && m.nudgeIfStale()).catch(() => {}));
 // First launch: who are you (the role sets the menu), then the welcome walkthrough for that role. After them, or on any
 // later open: "Did you see them?" about the shows that are over (js/acts-ask.js).
+const waitingIds = holds => { try { return waitingShows(new Date(), { holds }).map(b => b.id); } catch { return []; } };
 // Shows that were over, with no answer, as Gdex opened. Holds are counted here and sifted by role when the sheet opens.
-const dueAtOpen = (() => { try { return waitingShows(new Date(), { holds: true }).map(b => b.id); } catch { return []; } })();
+let due = waitingIds(true);
 // Nothing opens over a sheet or the welcome tour (the sleeve, tapped in the first moment): it waits until they are gone.
 const whenClear = fn => { const t = () => (document.querySelector('.sheet-back, .tour') ? setTimeout(t, 300) : fn()); t(); };
-const askSeenAtOpen = () => { if (!dueAtOpen.length) return; import('./acts-ask.js').then(m => whenClear(() => m.askAtOpen(dueAtOpen))).catch(e => console.error(e)); };
+// One question at a time: `asking` while a call waits for a clear screen (it asks about the list as it is by then), and
+// `askSheet` is the question's own sheet while it is up (the sheet on screen straight after askAtOpen has run).
+let asking = false, askSheet = null, askedAtOpen = false;
+const askSeenNow = () => {
+  if (asking || !due.length) return;
+  asking = true;
+  import('./acts-ask.js').then(m => whenClear(() => { asking = false; if (!due.length) return; m.askAtOpen(due); askSheet = document.querySelector('.sheet-back'); })).catch(e => { asking = false; console.error(e); });
+};
+const askSeenAtOpen = () => { askedAtOpen = true; askSeenNow(); };
 const tourThenAsk = () => { startTour(); askSeenAtOpen(); }; // the tour is on screen at once, so the question waits for it to end
+// Coming back counts as opening, for the question only. An installed app is seldom loaded afresh: it is brought back from
+// the background, sometimes days later, and someone who went to a show last night would never be asked. So after three
+// hours or more out of sight (the screen hidden, or the page kept by the browser and restored), the waiting shows are
+// worked out again and asked about as at open: after any sheet or tour, and never while the question is already up.
+// A shorter absence does nothing, and the section stays the one the person was on (only a fresh load opens on the
+// calendar). The moment Gdex went out of sight is kept in memory only.
+const AWAY_MS = 3 * 60 * 60 * 1000;
+let hiddenAt = document.visibilityState === 'hidden' ? Date.now() : null;
+const cameBack = () => {
+  if (hiddenAt === null || document.visibilityState === 'hidden') return;
+  const away = Date.now() - hiddenAt; hiddenAt = null;
+  if (away < AWAY_MS || (askSheet && askSheet.isConnected)) return;
+  if (!askedAtOpen) { due = waitingIds(true); return; } // the first-run question is still up: the question at open has yet to have its turn, and takes the list as it is now
+  if (!askSeen()) return;
+  due = waitingIds(!moneyShown());
+  askSeenNow();
+};
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') hiddenAt = Date.now(); else cameBack(); });
+window.addEventListener('pagehide', () => { if (hiddenAt === null) hiddenAt = Date.now(); }); // for a browser that keeps the page without calling it hidden
+window.addEventListener('pageshow', e => { if (e.persisted) cameBack(); });
 if (!tourSeen()) {
   if (roleChosen()) setTimeout(() => whenClear(tourThenAsk), 700);
   else setTimeout(() => import('./role-pick.js').then(m => whenClear(() => m.askRole({ then: tourThenAsk }))).catch(e => { console.error(e); whenClear(tourThenAsk); }), 500);
