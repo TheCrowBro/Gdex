@@ -42,7 +42,7 @@ npm run serve                   # http://localhost:8124/
 | `js/blocks/*.js` | Boxes on a booking's page (deal, setlist, guest list…), listed in `js/blocks/index.js`. |
 | `js/*.js` | Shared modules (see below). |
 | `tests/` | `run.mjs`, `lib.mjs`, `helpers.cjs`, `specs/NN-name.cjs`. |
-| `tools/` | `stamp-build.mjs`, `site-files.mjs`. |
+| `tools/` | `stamp-build.mjs`, `site-files.mjs`, `prune-css.mjs` (reports the rules of `styles.css` nothing uses). |
 
 ## The sections (tracks on the section menu)
 
@@ -73,8 +73,9 @@ device whose welcome tour was done before roles came gets one card under the men
 The question and the tour wait while a sheet (the sleeve, tapped in the first moment) is open. Their words, like the
 sleeve's, follow the section menu (`menuWords()` in `js/a11y.js` gives `{ list, tap, Tap }`): "the sleeve" / "tap the
 record", "the track list" / "tap Tracks" on the tape deck, "the track list" / "tap ☰" on the digital player. Never
-compare `menuStyle()` to build such a sentence. (`js/tour.js` reads the style from storage, `menuKind()`, because
-`a11y.js` imports it.) The role is a device preference in `localStorage` `gdex-role`, never in the database, so a swap
+compare `menuStyle()` to build such a sentence. (`js/tour.js` cannot import `a11y.js`, which imports it: its
+`menuKind()` reads `data-menu` on the `html` element, which `applyPrefs()` sets to the menu in use, so it is right even
+when storage could not keep the choice; storage is only the fall-back.) The role is a device preference in `localStorage` `gdex-role`, never in the database, so a swap
 writes nothing to `gdex-db` and backups do not carry it; Erase this device clears it. With none saved the role is
 `EVERYTHING`: every section on the menu, every box, no page defaults, as Gdex always was. **Every spec runs as
 Everything** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
@@ -101,7 +102,8 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `gdex-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Everything, is asked). |
 
 Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
-seen last), and "From a past show" offers shows up to today (holds and offers too when money is off). Tools writes
+seen last), and "From a past show" offers shows up to today (holds and offers too when money is off), leaving out
+any show marked "Didn’t go". Tools writes
 `gdex-tool-pick` only when a tool is picked (the `gdex-tool` the build before roles wrote on every draw is never read),
 and works out the first tool (picked, else `tools.tool`, else the tuner) and Songs its first view each time it is
 drawn, so a role's default applies until the person chooses. `songs.view: 'setlists'` applies only when there are songs
@@ -120,7 +122,8 @@ to other people (press kit, rider, day sheet, invoice, settlement) follows the r
 off the role's menu are listed on the sleeve (or the track list) under Bonus tracks; one that is open sits on the
 record as the bonus track (★) until you move on, and joins the digital player's row of tabs meanwhile
 (`createDeck(…, { extras, onExtra })`, `deck.setTabs(tabs, index)`). The three menus (`gdex-prefs` `menu`: `record`,
-`tape`, `digital`) do the same things: ⏮ ⏭, a swipe, the arrow keys, and a list of every section.
+`tape`, `digital`) do the same things: ⏮ ⏭, a swipe, the arrow keys, and a list of every section. The digital
+player is described under "The section menu" below.
 
 ### Device preferences
 
@@ -134,6 +137,10 @@ Kept in `localStorage` on the device, never in the database, so backups do not c
 | `gdex-ask-seen` | "Did you see them?" on or off (`setAskSetting`). | cleared |
 
 `gdex-tour`, `gdex-role-nudged`, `gdex-settings-open`, `gdex-tool-pick` and the like are cleared too.
+
+A choice that storage cannot keep (private mode, or storage full) still holds for the visit: the display
+preferences and the calendar's view live in memory while the page is open, and `askSetting()` reads storage every
+time except straight after a write that failed, when its copy in memory answers until a write works again.
 
 ## Page contract
 
@@ -177,6 +184,12 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   tie and never throw on a missing date. `bookingsOn`, `upcoming`, `personBookings` and `gearBookings` use them; so
   must any new list of bookings. `model.firstTime(b)` (load-in first) is what a card and a calendar file *start* with,
   not an order.
+* **A row prints the time it is sorted by**, so a day never reads out of order. A Week row and a grid block print the
+  playing time (`Doors 20:00` when that stands in for the on-stage time). A Coming up card keeps its first time and
+  adds the on-stage time (`Load-in 16:00 · On 21:00`) or, for a show with none yet, the time it is sorted by
+  (`Load-in 15:00 · Doors 19:30`). A row on an act's own page prints `playLabel(b)` and `playTime(b)` for a show
+  (`On stage 21:00`, `Doors 19:30`) and the start for anything else. An act's card, a person's sheet and a venue's
+  rows print no time or both.
 * Helpers: `bookingsOn(date)`, `upcoming()`, `activeBookings()`, `covers(b, date)`, `overlaps(a, b)`, `lastDay(b)`,
   `personBookings(id)`, `gearBookings(id)`, `personClash(b, personId)`, `gearClash(b, gearId)` (other overlapping bookings
   when together they need more than are owned), `gearShort(b, gearId)` (this booking alone needs more than are owned), `qtyOf(g)`,
@@ -305,7 +318,9 @@ count) or when there is free text (a written rule is a rule, with answers beside
 at least one answer is known, nothing is restricted and there is no free text; nothing when the venue has no answer,
 no note and no tone. The chip names the main rule (`📷 Pro cameras ✗ · 1 more`, `📵 No phones or cameras`, `🔞 21+`,
 `💵 Cash only`; free text counts as one more), reads `No restrictions`, or shows the start of the note when nothing
-ticked is restricted; a tone set by hand changes only the colour. `spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both
+ticked is restricted (`📝 Shoes off in the live room…`: its first line, cut at a word before the 28th character, with no
+comma or full stop left hanging before the …); a tone set by hand changes only the colour, so the words and the spoken
+text do not say that a venue was marked Strict or Relaxed by hand. `spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both
 are text: set them with `textContent`.
 
 Use these instead of re-implementing them, so a show's numbers agree on every page. If one is wrong or missing, say
@@ -324,11 +339,17 @@ duplicated bookings start Confirmed and an act's members are not copied into the
 `pages.bookings.score`, and for anyone who is asked "Did you see them?" (`askSeen()`), a show with an act, dated today
 or earlier and not yet scored (`model.seenEntryFor`) has "★ Score <act>" in its header (`acts.js` `logSighting`), then
 "★ Scored 86/100" with Edit; once the show is over (`model.showOver`) a "Didn’t go" button sits beside Score, and a
-show answered so reads "Didn’t go" with Change (`model.markWent`). The focus moves to the new button after a save, a
-delete or an answer. Such a show with no act says "Pick the act you saw to score this show." with a button that opens
+show answered so reads "Didn’t go" with Change (`model.markWent`); pressing Didn’t go is announced. The focus moves
+to the new button after a save, a delete or an answer. A double press and a held Enter key each act once there (and in
+the question's sheet): the second would land on the button the first one put in its place. A show answered No keeps
+its "Didn’t go · Change" row for anyone, asked or not (someone who has since turned the question off, or become a
+band): the calendar still says "Didn’t go", and the row is where that is taken back. When such a person presses
+Change the row goes, and the focus moves to the act's chip above it. Such a show with no act says "Pick the act you saw to score this show." with a button that opens
 its form on the act, but only for a role with `pages.bookings.score`: anyone who has the row only because they are
 asked gets no row on a show with no act. A show at a saved venue with house rules shows them in full under the venue
-checks (`rulesFull(venue, { where: 'show' })`). With money off (`moneyShown()` false), the status choices leave out Paid / settled
+checks (`rulesFull(venue, { where: 'show' })`). The header's left edge is the act's colour (`.card.bk-hero`), its
+status drops under the name where the name would be squeezed, and its Details button carries `data-fk`, so it gets
+the focus back when the venue's sheet closes over a page that was drawn again. With money off (`moneyShown()` false), the status choices leave out Paid / settled
 unless the booking already has it, a status change never writes or clears a settlement, the advance checklist leaves out
 the money lines (`model.MONEY_CHECKS`), the session clock shows no fee, the advance email asks nothing about pay or
 settling, and the Notes box, Delete sheet and walkthroughs speak of the person's own notes (the Notes words follow
@@ -378,10 +399,11 @@ may call it.
 |---|---|---|
 | `pages/bookings.js` `openBooking(id)` | bookings | Go to Bookings and show that booking's page. Returns a promise. |
 | `js/bookings-cal.js` `calendarView(ctx)` / `calendarSteps(ctx)` | calendar | The page while no booking is open (every view, with Coming up under it) / its walkthrough as drawn now. `ctx` is built once in `pages/bookings.js`: `{ S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }`. The calendar never imports the page. |
-| `js/bookings-kit.js` `cardExtras(b)` / `overlapNote(b)` / `wentMark(b)` | core | What a Coming up card and a Week row add under their own lines, in order: the overlap note (`span.bk-overlap`), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. |
+| `js/bookings-kit.js` `cardExtras(b)` / `overlapNote(b)` / `wentMark(b)` | core | What a Coming up card and a Week row add under their own lines, in order: the overlap note (`span.bk-overlap`), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. They are direct children of `.bk-card-main` / `.bk-wrow-main`. |
+| `js/deck.js` `createDeck(root, tabs, { start, onSelect, extras, onExtra })` | core | The section menu. `tabs`: `[{ id, label, icon?, bonus?, count?() }]`; the icon is the digital player's cover art and the picture on its tab. Returns `{ go(i), index, refresh(), setTabs(tabs, index) }`. |
 | `js/bookings-kit.js` `calMode()` / `saveCalMode(mode)` / `CAL_MODES`; `isoOk`, `monthStart`, `addDays`, `daysBetween`, `multi`, `dateRange`, `safeColor`, `actOf`, `actStyle`, `tone`, `pill`, `plural`, `sortByName`, `capital`, `KIND_CHIP` | core | The calendar's view kept on the device; the small helpers the booking page and the calendar share. |
-| `js/acts-ask.js` `askAtOpen(ids)` / `askPref()` | acts | The "Did you see them?" sheet for the shows still waiting among `ids` (nothing when the person is not asked or none is left); `app.js` calls it at open and again after hours in the background / the control for Settings → Your role. |
-| `js/venues-rules.js` `rulesChip(b)` / `venueChip(v)` / `rulesFull(v, { where })` / `rulesEditor(v)` | venues | A show's house-rules chip, or `null` / the same for a venue / the full rules (`where: 'venue' \| 'show'`), or `null` / the House rules part of the venue form: `{ node, read() }`. |
+| `js/acts-ask.js` `askAtOpen(ids)` / `askPref()` | acts | The "Did you see them?" sheet for the shows still waiting among `ids` (nothing when the person is not asked, none is left, or its sheet is already up: there are never two); it opens its sheet before it returns. `app.js` calls it at open and again after hours in the background / the control for Settings → Your role. It imports `pages/acts.js` (`logSighting`) and `acts-docs.js`, so Settings loads the acts page's code with it; `pages/acts.js` must not import it. |
+| `js/venues-rules.js` `rulesChip(b)` / `venueChip(v)` / `rulesFull(v, { where })` / `rulesEditor(v)` | venues | A show's house-rules chip, or `null` / the same for a venue / the full rules (`where: 'venue' \| 'show'`), or `null` / the House rules part of the venue form: `{ node, read() }`. It draws what `model.js` returns and imports `util.js` and `model.js` only. |
 | `pages/bookings.js` `newBooking(preset)` | bookings | Open the new-booking form, prefilled (`{ kind, actId, venueId, date, setlistId }`). |
 | `pages/acts.js` `openAct(id)` / `editAct(a, onSaved)` / `printRider(actId)` | acts | View sheet / edit form / print the tech rider. |
 | `pages/acts.js` `logSighting(a, entry)` | acts | Add (no `entry.id`) or edit a time seen, prefilled (`{ date, venueId, where, bookingId }`): Score this show uses it. Every save links the entry to the act's show on its date (the one it came from while that still fits, else the act's only show that day, or the one at the venue picked); a new entry on a night whose show is already in the log asks first, and OK updates that entry instead. |
@@ -416,11 +438,57 @@ booking can lack a date, so `openBooking` and `showBooking` keep the day they ha
 so Back returns there); Back from a booking, and a booking deleted while open, land on the Day view of its day
 (`go({ view: 'cal', mode: 'day', day })`), which does not change the saved view.
 
-Hooks the specs and walkthroughs rely on, whatever the view: `.bk-calview` (the calendar's frame), `.bk-monthview` (on
-it only in the month), `.bk-dayview` (only in the Day view), `.bk-day[data-date]` (a day square; today is
-`.today[aria-current="date"]`), `.bk-ev[data-id]` (an entry in the view's own body, never a Coming up card),
-`.bk-agenda .bk-card[data-id]`, `#bk-agenda-more`, `.bk-agenda-head`, `.bk-filters .chips`, `.bk-export`, `.bk-new`,
-`.bk-new-day`, `.bk-none` (the "nothing on" line), `.bk-cal-panel .cal-title`, `#bk-view-<mode>` (the view buttons).
+Hooks the specs and walkthroughs rely on, whatever the view: `.bk-calview` (the calendar's frame, also
+`.bk-mode-<mode>`), `.bk-monthview` (on it only in the month), `.bk-dayview` (only in the Day view),
+`.bk-day[data-date]` (a day square; today is `.today[aria-current="date"]`; `.bk-day-tall` in two weeks),
+`.bk-ev[data-id]` (an entry in the view's own body, never a Coming up card), `.bk-agenda .bk-card[data-id]`,
+`#bk-agenda-more`, `.bk-agenda-head`, `.bk-filters .chips`, `.bk-export`, `.bk-new`, `.bk-new-day`, `.bk-none` (the
+"nothing on" line), `.bk-cal-panel .cal-title`, `#bk-view-<mode>` (the view buttons, in `.bk-views`), `.bk-body` (the
+view's body, which takes the swipe). Ids, because the page is rebuilt after every change and the focus is given back
+by id: `#bk-wd-<iso>` (a Week day's name), `#bk-gh-<iso>` (a day's name over its grid column),
+`#bk-ev-<bookingId>-<iso>` (a Week row, `.bk-wrow`, or a grid block, `.bk-block`), `#bk-ev-<bookingId>-any` (a pill in
+the grid's "any time" row, `.bk-ev-any`), `.bk-col[data-day]` (a grid column).
+**Under `.bk-dayview` a bare `[data-id]` also matches the Coming up card of the same booking: use `.bk-ev[data-id]`.**
+
+### The calendar's five views (`js/bookings-cal.js`)
+
+One frame around every view: the head, the filter chips (they apply in every view), the panel (the row of view
+buttons, ‹ title Today ›, the view's body, the legend under squares) and Coming up. Only a view button saves the view
+(`saveCalMode`); a day opened from a square, a day's name or Back from a booking is the Day view for this visit.
+
+* **‹ › and Today** step by the length of the view. The title is not a live region (the page is drawn again at every
+  step, and a live region that arrives with its words in it is not read out): each step says the new title through
+  `announce()`. In the Day view the title is the view's heading (`h2.cal-title[tabindex=-1][data-view-head]`); it
+  takes a row of its own above the arrows under 480 px (every view's does under 360 px, and with extra-large text).
+  A range's title comes from `Intl.DateTimeFormat(…).formatRange`, with the year whenever the range is not wholly in
+  this year.
+* **Month and 2 weeks** are day squares. A tall square (two weeks) holds up to three lines, the time
+  (`span.bk-mini-time`) and the name (`span.bk-mini-name`) apart: in a square narrower than 3rem (a phone) the name is
+  left out and only the time shows; from about 500 px wide both do. A square's spoken name lists its bookings in
+  order, each with its status, and ", didn’t go" for a show answered so (there is no room to write it in a square).
+  Arrow keys move between squares; past the edge of two weeks they step as ‹ › do.
+* **Week** is `section.bk-wday` per day: `h3.bk-wday-h > button.bk-wday-head` (the day's name; a tap opens the day),
+  then its rows in playing order, each with `cardExtras(b)` as direct children of `span.bk-wrow-main`. An empty day
+  reads "Nothing on" on the same line as its name. A row with no time has a dash (`aria-hidden`) and says "no time
+  yet" once, in its muted line.
+* **3 days and Day** are a time grid (`.bk-grid`, `--n` columns, `--hh` px an hour: 44, or 52 in the Day view). Only
+  bookings that are on one of its days are drawn (a date that is no day, a 30 February from an old backup, is on
+  none). Blocks are placed by the night clock; lanes follow where the blocks are drawn, so a set too short for its
+  26 px minimum pushes the next one beside it rather than under it, and two that only touch share a lane. Past four
+  lanes in three days, or eight in one, a block gives up its side padding (`bk-block-slim`). Bookings with no time,
+  and every booking over several days, are pills in the "any time" row; "No times set yet." shows only when no pill
+  has a time. Three days with nothing on keep their three day names above "Nothing on these three days."; a Day with
+  nothing on draws no grid. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
+  shorter than two lines puts its name and time on one line, and a narrow one drops the kind's icon and the word
+  before the time ("Doors"), which a screen reader still gets.
+* **What a block says.** A block or pill is too small for the overlap note and the house-rules chip: a hidden span
+  carries, in order, its days (a pill), the status, `model.overlapText(b)`, the house rules as spoken (from
+  `model.rulesChipText`, never read out of the chip's nodes) and "Didn’t go", each with a full stop. In the Day view a
+  block's second line also shows where it is, or " · Didn’t go" in its place (`span.bk-block-went[aria-hidden]`, so a
+  screen reader hears it once). In three days there is no room for it: the hidden words have it.
+* **Press and hold** a row, a block, a pill or a Coming up card for three seconds to delete it (`holdToDelete`). What
+  was pressed goes with the booking, so the draw that follows puts the focus on the view's heading
+  (`[data-view-head]`).
 
 ### When Gdex opens
 
@@ -436,6 +504,73 @@ in memory only, by `Date.now()`), `app.js` works the list out again (`askSeen()`
 fresh load opens on the calendar. It asks nothing while the question's own sheet is still up, which it takes to be the
 sheet on screen straight after `askAtOpen` returns: so `askAtOpen` opens its sheet before it returns, and can be called
 more than once in a visit.
+
+### The section menu (`js/deck.js`)
+
+Three menus, one module: `buildRecord()`, `buildTape()`, `buildDigital()`; `paint()` fills whichever is drawn. Classes
+every menu has, which specs and the app wait for: `#deck .dk-next`, `.dk-prev`, `.dk-list`, `.dk-swipe`, `.dk-name`,
+`.dk-meta`; in the list sheet `.dk-sheet`, `.dk-sides`, `.dk-track[data-section]` (the current one `.on`,
+`aria-current="true"`), `.dk-bonus`.
+
+The digital player: `div.dk-player` (the bar: `button.dk-now.dk-swipe` with `span.dk-art`, "Now playing",
+`strong.dk-name`, `span.dk-meta`; `div.dk-keys`; the line `span.dk-progress > i.dk-fill`) and under it
+`div.dk-tabs[role=group]` of `button.dk-tab[data-section]` (the current one `.on` and `aria-current="page"`; a tab is
+`span.dk-tab-ico` and `span.dk-tab-name[data-name]`; the open bonus track is the last tab, "★ Name", with
+`aria-label="<name>, bonus track"`). Its list sheet is `div.dk-sheet.dk-queue`, one list numbered from 1 ("1 track"
+for a menu of one).
+
+* `.dk-meta` holds two spans: `.dk-meta-at` ("Track 2 of 11", or "Bonus track") and `.dk-meta-n` (" · 2 acts"). The
+  line is one line high: the count shows when it fits and is left out whole when it does not (on a touch phone under
+  about 412 px wide it never fits). **A spec reads `.dk-meta`'s `textContent`, which is always complete.**
+* The bar is at most 72 px tall at standard sizes from 345 px wide; narrower, or with larger text or buttons, the keys
+  take a line of their own. With the row of tabs the whole menu is about 150 px against the record's 197; with
+  extra-large text *and* buttons at about 412 to 430 px wide it is taller than the record (239 px against 208).
+* The row of tabs scrolls inside itself and brings the current tab into view (28 px of its neighbour showing) on a
+  section change, a fresh draw, a display-preference change and a change of width; a tab that takes the keyboard's
+  focus is brought wholly into view too, never one that is tapped. ← → on a focused tab move the section and the
+  focus with it.
+* The line slides to its new place and nothing else moves; it follows the animation setting. With Contrast set to
+  High the line is the text colour on a quiet track. The cover art and the current tab have a soft light of `--paper`
+  behind the icon, and "Now playing" and the track line are a little stronger than `--muted` (4.28:1 on the deck in
+  the light Stage theme).
+
+### "Did you see them?" (`js/acts-ask.js`)
+
+The sheet's body is `div.ac-ask`: a line of help, `div.list.ac-ask-list` with one `div.card.ac-ask-row[data-id]` per
+show (newest first; `span.ac-ask-main`, then `span.ac-ask-answer` holding the row's buttons), and Done
+(`#ac-ask-close`). Buttons: `#ac-ask-yes-<id>`, `#ac-ask-no-<id>`, `#ac-ask-edit-<id>`, `#ac-ask-change-<id>`. The
+sheet remembers nothing: a row's state is `model.seenAnswer(b)` read from the store, and every answer is saved as it
+is given. A row goes when its booking is deleted or stops being a live show with an act; with no row left the sheet
+closes. On close the page (`#page`) takes the focus only when the focus is nowhere.
+
+The Settings control (`askPref()`, under the role cards) is `div.pref.ac-ask-pref[role=group]` with `div.seg.wide` of
+`#ac-ask-auto`, `#ac-ask-on`, `#ac-ask-off`, laid out by `css/acts.css` as a wrapping row (each button has a
+`data-label`, so the row does not shift when the bold moves). Its note follows the role: a role that scores shows on
+their own pages (`pages.bookings.score`) is told it can still score "from its own page or the act’s card" after Never
+ask; anyone else, "from the act’s card", because their ★ Score row is there only while they are asked.
+
+The "Log a time seen" form opens with a date and a score of 75 in it, so a single Enter saves it; a held Enter (the
+press that opened it, still down) does not.
+
+### House rules, drawn (`js/venues-rules.js`, `js/pages/venues.js`)
+
+* The chip: `span.vn-chip.vn-chip-<ok|some|strict>` with the visible words in `> [aria-hidden=true]` and the spoken
+  ones in `> .sr-only` (the chip's whole `textContent` runs both together). On Coming up cards and Week rows through
+  `cardExtras`, on the venue's card, and at the head of the full rules.
+* The full rules: `div.vn-rules` (`.vn-rules-show` on a show's page, in a box of its own) with a head line and
+  `dl.vn-rules-list` (Not allowed, Allowed, Good to know, Other rules). On the venue's sheet they sit in
+  `section.vn-rules-sec`, where the head line's "House rules" is hidden under the section's own heading.
+* The form's part: `div.vn-rules-edit`, a `fieldset.vn-rules-group` per group, one `div.vn-rule[data-rule]` per rule
+  with `#vn-rule-<id>-yes` and `#vn-rule-<id>-no` (`aria-pressed`), or `select#vn-rule-<id>` for a pick-list. Each
+  button holds a tick-box (`span.vn-rule-mark`) that is always there and is filled on press, so a press changes no
+  size. Rows and the rules list change layout by their own box's width (container queries): on a phone a rule's name
+  has a line of its own with its two buttons under it.
+* The rules' words are sized in rem, so they follow the Text size setting (plain page text is a fixed 16 px).
+* The form's walkthrough points at one rule (`.vn-rules-edit .vn-rule`), not the whole block, which is taller than a
+  phone. The venue's sheet keeps the focus across its own redraw, and venue cards carry `data-fk="vn-<id>"`, so the
+  focus comes back to the card when the sheet closes after an edit.
+* Venue search reads the written rules through `rulesOf(v).note`. A venue's "Before" list marks a show answered No
+  with "Didn’t go" (`span.vn-row-went`).
 
 ## Shared modules (core)
 
@@ -456,7 +591,8 @@ more than once in a visit.
 * `print.js`: see above. Documents use the classes in `doc-css.js` (`.cs-doc`, `.cs-head`, `.cs-brand`, `.cs-kicker`,
   `.cs-when`, `.cs-times`/`.cs-time`, `.cs-sec`, `.cs-kv`, `table`, `.money-parties`, `.money-totals`, `.cs-foot`).
 * `a11y.js`: `haptic()`, `menuStyle()` (`'record'`, `'tape'` or `'digital'`), `menuWords()` (the section menu in its
-  own words: `{ list, tap, Tap }`). `tour.js`: `runTour(steps)`, `sheetTutorial()`.
+  own words: `{ list, tap, Tap }`), `applyPrefs()` (sets `data-palette`, `data-scheme`, `data-text`, `data-contrast`,
+  `data-motion`, `data-targets` and `data-menu` on `html`). `tour.js`: `runTour(steps)`, `sheetTutorial()`.
 
 ## Styles
 
@@ -471,6 +607,12 @@ more than once in a visit.
   (`.bk-`, `.sh-`, `.ds-`, `.mn-`, `.st-` is taken by status pills so studio uses `.sd-`, `.sg-` songs, `.ac-` acts,
   `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance).
 * Phone first (360–430px wide), and it must also look right on a laptop (the page widens past 900px).
+* Forms (`form.js`): the Save bar stays at the foot of the sheet, and `styles.css` gives every sheet with one a
+  `scroll-padding-bottom`, so a control reached with Tab is scrolled clear of it (a tall notes box at least to its
+  first line). At 340 px and narrower Delete, Cancel and Save share the row instead of forcing the form wider.
+* A name beside a status pill (a Coming up card, a Week row, a booking's header) lets the pill drop under it where
+  the name would be squeezed, so no word is broken in two. The display choices (`.pref > .seg.wide`) do the same on a
+  narrow phone with large text: a row that cannot hold every choice puts the last on a line of its own.
 
 ## Share pages
 
@@ -499,6 +641,8 @@ backline, take, comp, stems, split sheet.
   `open({ ask: true })`, which leaves the key alone; it seeds its shows, then reloads.
 * Gdex opens on the calendar on every load: after `page.reload()`, `go(page, id)` to be anywhere else. `toMonth(page)`
   goes from a booking's page or any calendar view to the Month view.
+* The whole suite takes about 25 minutes on one machine (`13-calendar`, `43-ask` and `56-rules` open several
+  browsers each). `43-ask` has `clockKit(page)` for a page whose clock is set by hand (coming back after hours).
 * **Dates.** The test browser is `en-US` (`fmtShort` gives `Thu, Nov 12`). A check never hard-codes a month or weekday
   name or the order of day and month: it compares with the same formatter run in the page, or reads `data-date`.
 * **The hour of the run.** No check may depend on the hour it runs. Seed past shows at least two days back and coming

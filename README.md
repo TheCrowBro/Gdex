@@ -62,17 +62,21 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 ## The calendar
 
 - **Five views:** Month, 2 weeks, Week, 3 days and Day, from the row of buttons above the calendar. Month and 2 weeks
-  are day squares; Week lists each day; 3 days and Day put each booking on an hour grid. Gdex opens on the view you
-  picked last, on today. **Coming up** is under every view.
+  are day squares (on a phone a 2-week square shows each booking's time; on a wider screen its name too); Week lists
+  each day; 3 days and Day put each booking on an hour grid. Tap a day to open it. Gdex opens on the view you picked
+  last, on today. **Coming up** is under every view.
 - **In the order the bands play:** bookings on the same day run by the time on stage (doors, soundcheck or load-in
   when there is no set time yet; a session by its start), a set after midnight at the end of the night, and anything
   with no time last. Two shows whose sets overlap say so: "Overlaps with Sable, 21:30".
 - **"Did you see them?"** After a show is over, Gdex asks when it next opens, or when you come back to it after three
-  hours or more away (it stays on the page you left). **Yes** takes your score out of 100 for the act's card; **No**
-  marks the show "Didn't go" and never asks again. It asks producers, managers, scouts and audiophiles (and
-  Everything); turn it on or off for anyone under **Settings → Your role**.
+  hours or more away (it stays on the page you left). One list holds every show that is waiting. **Yes** takes your
+  score out of 100 for the act's card; **No** marks the show "Didn't go" and never asks again. Change your answer any
+  time on the show's own page. It asks producers, managers, scouts and audiophiles (and Everything); turn it on or
+  off for anyone under **Settings → Your role**.
 - **House rules:** what a venue allows in (cameras, phones, the age limit, bags, anything unusual) is noted once on the
-  venue and shows on every show there as a green, amber or red line, with the full rules on the show's page.
+  venue and shows on every show there as a green, amber or red line, with the full rules on the show's page. Green
+  means nothing is restricted; anything restricted, or any rule you wrote yourself, is amber; no phones, or no
+  cameras of any kind, is red. You can set the colour by hand too.
 
 ## Your first show
 
