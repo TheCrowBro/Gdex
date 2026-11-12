@@ -6,7 +6,7 @@ import { initInstall } from './install.js';
 import { startTour, tourSeen } from './tour.js';
 import { initClockBar } from './clock.js';
 import { initUpdates } from './update.js';
-import { bookings } from './pages/bookings.js';
+import { bookings, dayTurned } from './pages/bookings.js';
 import { roleChosen, menuSections, offMenu, startSection, sectionName, askSeen, moneyShown } from './roles.js';
 import { waitingShows } from './model.js';
 
@@ -202,9 +202,21 @@ const cameBack = () => {
   due = waitingIds(!moneyShown());
   askSeenNow();
 };
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') hiddenAt = Date.now(); else cameBack(); });
+// The day turns while Gdex is open, or while it is out of sight: the calendar moves on to the new today and the page is
+// drawn again (today's mark, Coming up, "Tomorrow" on an act's card, the menu's count). A timer set for just after the
+// next midnight, set afresh at every look (a phone asleep stops the clock timers run by), and a look each time Gdex
+// comes back into sight.
+let midnight = 0;
+const dayCheck = () => {
+  clearTimeout(midnight);
+  const n = new Date();
+  midnight = setTimeout(dayCheck, new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) - n + 1000);
+  if (dayTurned()) store.redraw();
+};
+dayCheck();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') hiddenAt = Date.now(); else { dayCheck(); cameBack(); } });
 window.addEventListener('pagehide', () => { if (hiddenAt === null) hiddenAt = Date.now(); }); // for a browser that keeps the page without calling it hidden
-window.addEventListener('pageshow', e => { if (e.persisted) cameBack(); });
+window.addEventListener('pageshow', e => { dayCheck(); if (e.persisted) cameBack(); });
 if (!tourSeen()) {
   if (roleChosen()) setTimeout(() => whenClear(tourThenAsk), 700);
   else setTimeout(() => import('./role-pick.js').then(m => whenClear(() => m.askRole({ then: tourThenAsk }))).catch(e => { console.error(e); whenClear(tourThenAsk); }), 500);

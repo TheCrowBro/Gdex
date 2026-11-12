@@ -96,6 +96,18 @@ function go(p, { top = true } = {}) {
   draw(top && was !== viewKey());
   if (top) window.scrollTo({ top: 0 });
 }
+// The day the page last knew as today. js/app.js asks dayTurned() at midnight and whenever Gdex comes back into sight
+// (an installed app is seldom loaded afresh): when today has moved on, a calendar that was on today moves on with it (a
+// calendar moved to another day, or a booking's page with its day for Back, stays where it is), and app.js draws the
+// page again.
+let todayWas = todayISO();
+export function dayTurned() {
+  const t = todayISO();
+  if (t === todayWas) return false;
+  if (S.view === 'cal' && S.day === todayWas) S.day = t;
+  todayWas = t;
+  return true;
+}
 // A booking's page. day: the day it was tapped on, so Back returns there (a festival opened from its second day);
 // else the day in view when the booking covers it, else its first day. A booking with no date keeps the day in view.
 const showBooking = (b, day) => go({ view: 'booking', id: b.id, day: day && covers(b, day) ? day : covers(b, S.day) ? S.day : isoOk(b.date) ? b.date : S.day });

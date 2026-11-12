@@ -688,6 +688,69 @@ async function press(page, loc, ms) {
     await a.browser.close();
   }
 
+  /* ------------------------------ the day turns while Gdex is open, or while it is out of sight ------------------------------ */
+  // Decision 1: the calendar opens on today, and an installed app is seldom loaded afresh. The page's clock here is
+  // Playwright's, set to 23:50 on a day of the spec's own (worked out in the page, so in the run's own time zone) and
+  // running on from there: fastForward moves it on and fires the timers that fall due (Gdex's own, at midnight);
+  // setSystemTime moves it and fires none, as for a phone that slept. "Out of sight" is document.visibilityState with a
+  // visibilitychange event, or pagehide and pageshow for a page the browser kept.
+  {
+    const c = await open();
+    const D = '2031-05-20', N = '2031-05-21', N2 = '2031-05-22', N3 = '2031-05-23';
+    const at = (iso, hm) => c.page.evaluate(([iso, hm]) => { const [y, mo, d] = iso.split('-').map(Number), [hh, mm] = hm.split(':').map(Number); return new Date(y, mo - 1, d, hh, mm).getTime(); }, [iso, hm]);
+    await c.ctx.clock.install({ time: await at(D, '23:50') });
+    await c.page.reload(); await c.page.waitForSelector('.bk-monthview');
+    const show = (id, date, setTime) => put(c.page, 'bookings', { id, kind: 'show', status: 'confirmed', title: 'Night ' + id, date, venueName: 'The Crown', setTime });
+    await show('t-D', D, '21:00'); await show('t-N', N, '20:00'); await show('t-N3', N3, '20:00');
+    await sleep(300);
+    const sight = hidden => c.page.evaluate(hidden => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+    const kept = type => c.page.evaluate(type => window.dispatchEvent(new PageTransitionEvent(type, { persisted: true })), type);
+    // What the calendar says is today: the day marked (a square, a day's name or a column), the Day view's title, and
+    // the word on each Coming up card.
+    const now = () => c.page.evaluate(() => ({
+      marked: [...document.querySelectorAll('.bk-cal-panel [aria-current="date"]')].map(e => e.dataset.date || e.dataset.day),
+      title: document.querySelector('.bk-cal-panel .cal-title').textContent,
+      cards: [...document.querySelectorAll('.bk-agenda .bk-card')].map(e => `${e.dataset.id} ${(e.querySelector('.bk-card-sub').textContent.match(/^(Today|Tomorrow|In \d+ days)/) || ['-'])[0]}`),
+    }));
+    const long = iso => c.page.evaluate(iso => import('./js/util.js').then(u => u.fmtLong(iso)), iso);
+    const newDate = async () => {
+      await c.page.click('.bk-new'); await c.page.click('.bk-kind[data-kind="show"]'); await sleep(350);
+      const v = await c.page.evaluate(() => { const s = [...document.querySelectorAll('.sheet')].pop(), i = s && s.querySelector('input[type=date]'); return i ? i.value : null; });
+      await c.page.keyboard.press('Escape'); await sleep(250);
+      return v;
+    };
+    let s = await now();
+    ok('the day turns, 23:50: the month marks today, and Coming up says Today and Tomorrow', same(s.marked, [D]) && same(s.cards, ['t-D Today', 't-N Tomorrow', 't-N3 In 3 days']), JSON.stringify(s));
+    // Left on screen over midnight
+    await c.page.clock.fastForward(40 * 60000); await sleep(400);
+    s = await now();
+    ok('…left on screen until 00:30, the month marks the new day, and Coming up has moved on a day', same(s.marked, [N]) && same(s.cards, ['t-N Today', 't-N3 In 2 days']), JSON.stringify(s));
+    ok('…and + New offers the new day', (await newDate()) === N && (await c.page.locator('.sheet').count()) === 0);
+    // Out of sight until the next morning, in the Day view (the screen hidden; no timer runs while the phone sleeps)
+    await view(c.page, 'day');
+    ok('the Day view opens on the new day, “· today”', (await now()).title === `${await long(N)} · today`, (await now()).title);
+    await sight(true); await c.page.clock.setSystemTime(await at(N2, '09:00')); await sight(false); await sleep(400);
+    s = await now();
+    ok('…hidden overnight and back at 09:00: the Day view is on the new today, and Coming up has moved on', s.title === `${await long(N2)} · today` && same(s.cards, ['t-N3 Tomorrow']), JSON.stringify(s));
+    // A calendar moved to another day stays there; the page the browser kept, brought back the next day
+    await c.page.click('[aria-label="Previous day"]'); await sleep(250);
+    await kept('pagehide'); await c.page.clock.setSystemTime(await at(N3, '08:00')); await kept('pageshow'); await sleep(400);
+    s = await now();
+    ok('…a Day view moved to another day stays on it when the day turns (kept by the browser, brought back): Coming up says Today', s.title === await long(N) && same(s.cards, ['t-N3 Today']), JSON.stringify(s));
+    ok('…and + New there still offers the day in view', (await newDate()) === N);
+    // A booking's page open over midnight: Back still lands on its own day
+    await view(c.page, 'week'); await c.page.click(`#bk-ev-t-N3-${N3}`); await c.page.waitForSelector('.bk-page');
+    await c.page.clock.fastForward(16 * 60 * 60000 + 60000); await sleep(400);
+    await c.page.click('.bk-page .back-btn'); await c.page.waitForSelector('.bk-dayview'); await sleep(200);
+    ok('a booking’s page open over midnight: Back lands on the Day view of its own day', (await now()).title === await long(N3), (await now()).title);
+    ok('no errors in the console (the day turns)', c.errors.length === 0, c.errors.slice(0, 5).join(' | '));
+    await c.browser.close();
+  }
+
   /* ------------------------------ the digital player over the five views, on a narrow phone ------------------------------ */
   for (const scheme of ['light', 'dark']) {
     const d = await open({ sample: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('gdex-prefs', '${JSON.stringify({ scheme, menu: 'digital', text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });

@@ -438,6 +438,15 @@ booking can lack a date, so `openBooking` and `showBooking` keep the day they ha
 so Back returns there); Back from a booking, and a booking deleted while open, land on the Day view of its day
 (`go({ view: 'cal', mode: 'day', day })`), which does not change the saved view.
 
+**When the day turns** with Gdex open (it is left on screen over midnight, or brought back from the background on
+another day), the calendar moves on: `app.js` calls `dayTurned()` (exported by `pages/bookings.js`) from a timer set for
+just after the next local midnight (set afresh at every call), on `visibilitychange` to visible and on every
+`pageshow`. When today is not the day the page last knew, a calendar whose `S.day` was that day moves to the new today
+(one moved to another day, and a booking's page with its day for Back, stay as they are), and `app.js` calls
+`store.redraw()`: today's mark, Coming up, + New's date, the menu's count and every "Today" / "Tomorrow" follow.
+`13-calendar` moves Playwright's page clock over midnight (`fastForward` fires the timer; `setSystemTime` fires none,
+for the checks that come back from out of sight).
+
 Hooks the specs and walkthroughs rely on, whatever the view: `.bk-calview` (the calendar's frame, also
 `.bk-mode-<mode>`), `.bk-monthview` (on it only in the month), `.bk-dayview` (only in the Day view),
 `.bk-day[data-date]` (a day square; today is `.today[aria-current="date"]`; `.bk-day-tall` in two weeks),
