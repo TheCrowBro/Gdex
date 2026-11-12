@@ -11,7 +11,8 @@
 //
 // WHAT it asks (the blocks after it, each in a browser of its own with the real js/acts-ask.js): the sheet with a row
 // per show and its Yes and No, the score form over it, "Didn’t go", who is asked, the show's own page, the acts page,
-// Settings → Your role, the first open, a narrow phone with extra-large text, and the real sheet when Gdex comes back.
+// Settings → Your role, the first open, a narrow phone with extra-large text, the real sheet when Gdex comes back, and
+// slips of the hand (a double click or tap, a held Enter key) with a log that has junk in it.
 // Shows that must be over are dated two days back or more, so no check there depends on the hour of the run; dates on
 // screen are compared with the app's own formatters run in the page.
 const { open, ok, sleep, go, BASE: URL } = require('../helpers.cjs');
@@ -590,6 +591,78 @@ async function comingBack() {
   return errors;
 }
 
+/* ---------------- slips of the hand: a double press, a held Enter key; and a log with junk in it ---------------- */
+// An answer puts another button where the one pressed was (No becomes Change, Change becomes Yes and No), so a second
+// press must not land on it and take the answer straight back, and a held Enter must not go on to press whatever comes
+// next: held on Yes it would save the form as it opens, with a score nobody gave. keyboard.down on a key that is
+// already down is a repeat, as the browser sends them while a key is held.
+async function slips() {
+  const { browser, page, errors } = await open({ ask: true });
+  const show = (id, n, venueName) => ({ id, kind: 'show', status: 'confirmed', actId: 'x-act', date: dayIso(n), venueName });
+  await store(page, s => { s.upsert('acts', { id: 'x-act', name: 'Slow Hands', seen: [null, { id: 'x-empty' }] }); }); // a log from an old backup: an empty entry, and one with no date
+  await put(page, [show('x-a', -2, 'One'), show('x-b', -3, 'Two'), show('x-c', -4, 'Three')]);
+  const sheets = await loadAsked(page);
+  ok('three shows waiting, the act’s log with junk in it: asked', same(sheets, [QUESTION]) && same(await rowIds(page), ['x-a', 'x-b', 'x-c']), (await rowIds(page)).join(','));
+  const went = id => rec(page, 'bookings', id).then(b => b.went || '');
+  const hold = async (n = 4, gap = 60) => { for (let i = 0; i < n; i++) { await page.keyboard.down('Enter'); await sleep(gap); } await page.keyboard.up('Enter'); await sleep(350); };
+
+  /* a double click */
+  await page.dblclick('#ac-ask-no-x-a'); await sleep(450);
+  ok('a double click on No marks the show once: the second click does not land on Change and take the answer back', (await went('x-a')) === 'no' && same(await rowBtns(page, 'x-a'), ['ac-ask-change-x-a']), await rowText(page, 'x-a'));
+  await page.dblclick('#ac-ask-change-x-a'); await sleep(450);
+  ok('a double click on Change takes the answer back once: the second click does not answer again', (await went('x-a')) === '' && same(await rowBtns(page, 'x-a'), ['ac-ask-yes-x-a', 'ac-ask-no-x-a']) && same(await sheetsOf(page), [QUESTION]), await rowText(page, 'x-a'));
+  /* a second press straight after, on a phone that does not count taps (each click says it is the first) */
+  const press = id => page.evaluate(id => { const b = document.getElementById(id); if (b) b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 })); return !!b; }, id);
+  const both = await page.evaluate(() => { const press = id => { const b = document.getElementById(id); if (b) b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 })); return !!b; }; return [press('ac-ask-no-x-b'), press('ac-ask-change-x-b')]; });
+  await sleep(100);
+  ok('a second press straight after No, on the Change that took its place, is ignored', same(both, [true, true]) && (await went('x-b')) === 'no' && same(await rowBtns(page, 'x-b'), ['ac-ask-change-x-b']), `${both} ${await rowText(page, 'x-b')}`);
+  ok('…and though such a press gives the button no focus (the focus was on another row), the focus is on that row’s Change', (await focusId(page)) === 'ac-ask-change-x-b', await focusId(page));
+  await sleep(450);
+  await press('ac-ask-change-x-b'); await sleep(200);
+  ok('…and a moment later Change works as ever', (await went('x-b')) === '' && same(await rowBtns(page, 'x-b'), ['ac-ask-yes-x-b', 'ac-ask-no-x-b']));
+
+  /* a held Enter key */
+  await page.focus('#ac-ask-no-x-b');
+  await hold();
+  ok('Enter held on No answers once: it does not go on to press Change, then Yes', (await went('x-b')) === 'no' && (await focusId(page)) === 'ac-ask-change-x-b' && same(await sheetsOf(page), [QUESTION]), `${await rowText(page, 'x-b')} / ${(await sheetsOf(page)).join(' | ')}`);
+  await hold();
+  ok('Enter held on Change takes the answer back once, the focus on Yes, and no form opens', (await went('x-b')) === '' && (await focusId(page)) === 'ac-ask-yes-x-b' && same(await sheetsOf(page), [QUESTION]), `${await focusId(page)} / ${(await sheetsOf(page)).join(' | ')}`);
+  await page.focus('#ac-ask-yes-x-c');
+  await hold(8);
+  let act = await rec(page, 'acts', 'x-act');
+  ok('Enter held on Yes opens the score form once and does not save it (the form opens with a score in it)', same(await sheetsOf(page), [QUESTION, 'Log a time seen']) && !act.seen.some(e => e && e.bookingId === 'x-c'), `${(await sheetsOf(page)).join(' | ')} ${JSON.stringify(act.seen)}`);
+  await logForm(page).locator('[data-key=notes]').focus();
+  await hold(3, 30);
+  ok('…in the notes a held Enter still starts new lines', (await logForm(page).locator('[data-key=notes]').inputValue()) === '\n\n\n' && same(await sheetsOf(page), [QUESTION, 'Log a time seen']));
+  await logForm(page).locator('[data-key=notes]').fill('');
+  await logForm(page).locator('[data-key=rating]').fill('64');
+  await page.keyboard.press('Enter'); await sleep(400);
+  act = await rec(page, 'acts', 'x-act');
+  ok('…and Enter pressed once saves it, into a log that had an empty entry', act.seen.some(e => e && e.bookingId === 'x-c' && e.rating === 64) && !act.seen.includes(null) && /Scored 64\/100/.test(await rowText(page, 'x-c')) && (await focusId(page)) === 'ac-ask-edit-x-c', JSON.stringify(act.seen));
+  await store(page, s => { s.update(d => { d.acts.find(a => a.id === 'x-act').seen.unshift(null); }); }); await sleep(200); // the empty entry again, for the delete below
+  await hold();
+  ok('Enter held on ✎ Edit opens that time seen once and does not save it again', same(await sheetsOf(page), [QUESTION, 'Edit a time seen']) && (await rec(page, 'acts', 'x-act')).seen.includes(null), (await sheetsOf(page)).join(' | '));
+  await editForm(page).locator('.btn.danger').click(); await sleep(400);
+  act = await rec(page, 'acts', 'x-act');
+  ok('…and deleting it, from a log with an empty entry, leaves the row unanswered', !act.seen.some(e => e && e.bookingId === 'x-c') && same(await rowBtns(page, 'x-c'), ['ac-ask-yes-x-c', 'ac-ask-no-x-c']) && (await focusId(page)) === 'ac-ask-yes-x-c', JSON.stringify(act.seen));
+  await page.click('#ac-ask-close'); await sleep(300);
+
+  /* the show's own page */
+  await openB(page, 'x-a');
+  await page.focus('#bk-score-no');
+  await hold();
+  ok('the show’s page: Enter held on Didn’t go answers once, the focus on Change', (await went('x-a')) === 'no' && (await focusId(page)) === 'bk-score-change' && (await sheetsOf(page)).length === 0, `${await focusId(page)} / ${(await sheetsOf(page)).join(' | ')}`);
+  await hold();
+  ok('…and held on Change takes it back once, the focus on ★ Score, and no form opens', (await went('x-a')) === '' && (await focusId(page)) === 'bk-score' && (await sheetsOf(page)).length === 0, `${await focusId(page)} / ${(await sheetsOf(page)).join(' | ')}`);
+  await page.dblclick('#bk-score-no'); await sleep(600);
+  ok('…a double click on Didn’t go marks the show once', (await went('x-a')) === 'no' && same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score-change']));
+  await page.evaluate(() => { document.getElementById('bk-score-change').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 })); }); await sleep(400);
+  ok('…also when its second click comes after the row was redrawn, and lands on Change', (await went('x-a')) === 'no' && (await page.locator('#bk-score-change').count()) === 1);
+  ok('slips of the hand: no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
+  await browser.close();
+  return errors;
+}
+
 (async () => {
   const { browser, ctx, page, errors } = await open({ ask: true, init });
   let fetched = 0;
@@ -742,6 +815,6 @@ async function comingBack() {
   // The real sheet, each block in a browser of its own. The spec's last line counts every block's errors again.
   const all = [...errors, ...await theSheet()];
   const who = await whoIsAsked();
-  all.push(...who.errors, ...await firstOpen(who.dbJson), ...await narrow(), ...await comingBack());
+  all.push(...who.errors, ...await firstOpen(who.dbJson), ...await narrow(), ...await comingBack(), ...await slips());
   ok('no errors in the console', all.length === 0, all.slice(0, 5).join(' | '));
 })().catch(e => { console.log('FAIL ask spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });

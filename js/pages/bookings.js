@@ -495,7 +495,10 @@ const scoreOn = b => scoreable(b) && !!actOf(b);
 // → Change and back), so the app cannot find the old one after the redraw: the draw after its sheet closes, or after
 // the answer is saved, puts the focus on the row's first button.
 let SCORE_FOCUS = null; // { id: the booking's id, was: the id of the button that opened the sheet }
-const scoreTap = (b, was, fn) => () => { SCORE_FOCUS = { id: b.id, was }; fn(); };
+// The second click of a double click does nothing: it could land on the button the first one put there (Didn’t go →
+// Change). And a held Enter key acts once (scoreKeys, on the row): its repeats would press each new button in turn.
+const scoreTap = (b, was, fn) => e => { if (e && e.detail > 1) return; SCORE_FOCUS = { id: b.id, was }; fn(); };
+const scoreKeys = e => { if (e.repeat && e.key === 'Enter') e.preventDefault(); };
 function scoreRefocus(viewChanged) {
   const sf = SCORE_FOCUS;
   if (!sf) return;
@@ -518,17 +521,17 @@ function scoreRow(b) {
   const name = act.name || 'Unnamed act', entry = model.seenEntryFor(act, b);
   if (entry) {
     const r = model.ratingOf(entry);
-    return h('div', { class: 'bk-score bk-scored' },
+    return h('div', { class: 'bk-score bk-scored', onkeydown: scoreKeys },
       h('span', { class: 'bk-score-text' }, h('span', { 'aria-hidden': 'true' }, '★ '), r != null ? ['Scored ', h('b', null, String(r)), '/100'] : 'Seen, no score yet'),
       h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-edit', 'aria-label': `Edit the time you saw ${name}`, onclick: scoreTap(b, 'bk-score-edit', () => logSighting(byId('acts', act.id) || act, entry)) }, '✎ Edit'));
   }
   if (b.went === 'no') {
-    return h('div', { class: 'bk-score bk-score-went' },
+    return h('div', { class: 'bk-score bk-score-went', onkeydown: scoreKeys },
       h('span', { class: 'bk-score-text' }, 'Didn’t go'),
       h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-change', 'aria-label': `Change your answer for ${name}`, onclick: scoreTap(b, 'bk-score-change', () => model.markWent(b.id, false)) }, 'Change'));
   }
   // ★ Score is first in the row at every hour; Didn’t go joins it once the show is over.
-  return h('div', { class: 'bk-score' },
+  return h('div', { class: 'bk-score', onkeydown: scoreKeys },
     h('button', { type: 'button', class: 'btn primary small', id: 'bk-score',
       onclick: scoreTap(b, 'bk-score', () => logSighting(byId('acts', act.id) || act, { date: b.date, venueId: b.venueId || '', where: b.venueId ? '' : (b.venueName || ''), bookingId: b.id })) },
     h('span', { 'aria-hidden': 'true' }, '★ '), `Score ${name}`),

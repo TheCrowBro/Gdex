@@ -26,6 +26,9 @@ const lastDay = b => (/^\d{4}-\d{2}-\d{2}$/.test(b.endDate || '') && b.endDate >
 const stillHere = b => !!(b && b.kind === 'show' && b.status !== 'cancelled' && actOf(b));
 
 let SHEET = null; // the question's sheet while it is up (its dialog element)
+const SLIP_MS = 300; // how long a row ignores the finger or the mouse after its answer: a double tap is over by then
+// A held Enter key acts once: its repeats would go on to press the button each answer puts in the place of the last.
+const noRepeat = e => { if (e.repeat && e.key === 'Enter') e.preventDefault(); };
 
 // Opens "Did you see them?" for the ids still waiting; nothing when the person is not asked, none is left, or the
 // sheet is already up. A role with money is not asked about a hold or an offer (it never happened).
@@ -36,12 +39,20 @@ export function askAtOpen(ids) {
   const list = waitingShows(new Date(), { holds: !moneyShown() }).filter(b => ids.includes(b.id)).map(b => b.id);
   if (!list.length) return;
 
-  const listBox = h('div', { class: 'list ac-ask-list' });
+  const listBox = h('div', { class: 'list ac-ask-list', onkeydown: noRepeat });
   let el = null, close = () => {}, stop = () => {};
   const firstIn = id => { const row = [...listBox.children].find(r => r.dataset.id === id); return row ? row.querySelector('button') : null; };
   // The button pressed takes the focus (a tap does not give it on every phone), so the form opened from it gives the
   // focus back to this row, and the redraw after an answer finds the row again.
-  const tap = fn => e => { e.currentTarget.focus({ preventScroll: true }); fn(); };
+  // An answer puts another button where the one pressed was (No becomes Change), and a second press would land on it
+  // and take the answer straight back. So a row's buttons ignore the second click of a double click or double tap, and,
+  // for a phone that does not count taps, any press with a finger or the mouse on that row in the moment after its answer.
+  let answered = { id: '', at: 0 };
+  const tap = (id, fn) => e => {
+    if (e.detail > 1 || (e.detail === 1 && answered.id === id && performance.now() - answered.at < SLIP_MS)) return;
+    e.currentTarget.focus({ preventScroll: true }); fn();
+  };
+  const mark = (id, no) => { markWent(id, no); answered = { id, at: performance.now() }; };
 
   function row(b) {
     const act = actOf(b), name = nameOf(act), answer = seenAnswer(b), venue = venueOf(b).name, last = lastDay(b);
@@ -52,24 +63,24 @@ export function askAtOpen(ids) {
       part = [
         h('span', { class: 'ac-ask-done' }, h('span', { 'aria-hidden': 'true' }, '★ '), r != null ? `Scored ${r}/100` : 'Seen, no score yet'),
         h('button', { type: 'button', class: 'btn ghost small', id: 'ac-ask-edit-' + b.id, 'aria-label': `Edit the time you saw ${name}`,
-          onclick: tap(() => { const cur = byId('bookings', b.id), a = actOf(cur), had = a && seenEntryFor(a, cur); if (had) logSighting(a, had); else fill(); }) }, '✎ Edit'),
+          onclick: tap(b.id, () => { const cur = byId('bookings', b.id), a = actOf(cur), had = a && seenEntryFor(a, cur); if (had) logSighting(a, had); else fill(); }) }, '✎ Edit'),
       ];
     } else if (answer === 'no') {
       part = [
         h('span', { class: 'ac-ask-done' }, 'Didn’t go'),
-        h('button', { type: 'button', class: 'btn ghost small', id: 'ac-ask-change-' + b.id, 'aria-label': `Change your answer for ${name}`, onclick: tap(() => markWent(b.id, false)) }, 'Change'),
+        h('button', { type: 'button', class: 'btn ghost small', id: 'ac-ask-change-' + b.id, 'aria-label': `Change your answer for ${name}`, onclick: tap(b.id, () => mark(b.id, false)) }, 'Change'),
       ];
     } else {
       const day = fmtLong(b.date);
       part = [
         h('button', { type: 'button', class: 'btn primary small', id: 'ac-ask-yes-' + b.id, 'aria-label': `Yes, I saw ${name} on ${day}`,
-          onclick: tap(() => {
+          onclick: tap(b.id, () => {
             const cur = byId('bookings', b.id), a = actOf(cur); // read at the tap: the act as it is now
             if (!stillHere(cur)) return fill();
             logSighting(a, { date: cur.date, venueId: cur.venueId || '', where: cur.venueId ? '' : (cur.venueName || ''), bookingId: cur.id });
           }) }, 'Yes'),
         h('button', { type: 'button', class: 'btn ghost small', id: 'ac-ask-no-' + b.id, 'aria-label': `No, I didn’t see ${name} on ${day}`,
-          onclick: tap(() => { markWent(b.id, true); haptic(); announce(`${name}: marked Didn’t go`); }) }, 'No'),
+          onclick: tap(b.id, () => { mark(b.id, true); haptic(); announce(`${name}: marked Didn’t go`); }) }, 'No'),
       ];
     }
     return h('div', { class: 'card ac-ask-row', 'data-id': b.id, style: stripeStyle(act) },

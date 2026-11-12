@@ -213,7 +213,7 @@ function linkFor(actId, entry, wasId) {
 function putSeen(actId, entry) {
   update(d => {
     const x = d.acts.find(r => r.id === actId); if (!x) return;
-    const list = Array.isArray(x.seen) ? x.seen.filter(e => e.id !== entry.id) : []; x.seen = [...list, entry]; x.updatedAt = Date.now();
+    const list = Array.isArray(x.seen) ? x.seen.filter(e => e && e.id !== entry.id) : []; x.seen = [...list, entry]; x.updatedAt = Date.now(); // e &&: a log from an old backup can hold an empty entry
     const b = entry.bookingId ? d.bookings.find(r => r.id === entry.bookingId) : null;
     if (b && 'went' in b) { delete b.went; b.updatedAt = Date.now(); }
   });
@@ -259,6 +259,9 @@ export function logSighting(a, s = {}) { // shared: bookings.js offers it as Sco
       const sync = () => { const f = where && where.closest('.field'); if (f) f.hidden = !!(venue && venue.value); };
       if (venue) venue.addEventListener('change', sync);
       sync();
+      // The form opens with a date and a score in it, so Enter saves it as it stands. A held Enter (the press that
+      // opened the form, still down) must not: nobody gave that score. In the notes it still starts new lines.
+      form.addEventListener('keydown', e => { if (e.repeat && e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); });
     },
     onSave: v => {
       const rating = Math.min(100, Math.max(1, Math.round(Number(v.rating)) || 1));
@@ -286,7 +289,7 @@ export function logSighting(a, s = {}) { // shared: bookings.js offers it as Sco
       toast(editing ? 'Saved' : `Logged: ${rating}/100`);
       refocus(a.id);
     },
-    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (x.seen || []).filter(e => e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
+    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (Array.isArray(x.seen) ? x.seen : []).filter(e => e && e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
     confirmDelete: `Remove the time you saw ${a.name || 'them'} on ${s.date ? seenDate(s.date) : 'this date'}?`,
   });
 }
