@@ -60,26 +60,36 @@
 .bk-mini.bk-seg-end { margin-left: -5px; border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0; padding-left: 7px; }
 .bk-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .75rem; margin-top: 8px; padding: 0 2px; }
 .bk-legend > span { display: inline-flex; align-items: center; gap: 5px; }
-/* two weeks: taller squares with each booking's time and name on every screen. A square is a container: in a narrow
-   one (a phone's) the text shrinks with it, never under half the text size, so the time shows whole wherever it can;
-   the name after it is cut short, and left out where not even a letter of it would fit. The first square and a 1st say
-   the month in small letters, over the number where they do not fit side by side. */
+/* two weeks: taller squares with each booking's time and name on every screen. A square is a container. Where the
+   time and the name do not both fit on one line (a phone, or large text), the name goes on a line of its own under the
+   time, cut short with an ellipsis, and the text shrinks with the square (to .7rem at most) so the time always shows
+   whole. Where a name would be too small to read (seven squares across 320 px), the time is alone. The first square and
+   a 1st say the month in small letters, over the number where they do not fit side by side. */
 .bk-day-tall { min-height: 78px; container: bk-square / inline-size; }
 .bk-cal-two .bk-minis { display: grid; gap: 2px; min-width: 0; }
 .bk-cal-two .bk-mini { display: flex; gap: .35em; font-size: clamp(.5rem, 26cqi, .7rem); font-variant-numeric: tabular-nums; }
-.bk-mini-time { flex: none; } /* where even the time does not fit, it is cut at the edge: "19:0" still says the hour, "1…" would not */
+.bk-mini-time { flex: none; }
 .bk-mini-name { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .bk-mon { font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .bk-day.today .bk-mon { color: inherit; }
+/* the time over the name, unless a square has room for both and ten letters of the name ("21:15" is about three
+   times as wide as its text size, and a line's edges take 4px) */
+@container bk-square (max-width: 6.5rem) {
+  .bk-cal-two .bk-mini { flex-direction: column; gap: 0; line-height: 1.25; font-size: min(.7rem, calc((100cqi - 4px) / 3.1)); }
+  .bk-cal-two .bk-mini-name { flex: none; }
+}
+@container bk-square (max-width: 32px) { .bk-mini-time + .bk-mini-name { display: none; } }
 @container bk-square (max-width: 3rem) {
-  .bk-mini-time + .bk-mini-name, .bk-more-word { display: none; }
+  .bk-more-word { display: none; }
   .bk-day-tall .num { font-size: clamp(.6rem, 44cqi, .8rem); }
   .bk-day-tall.today .num { padding: 0 4px; }
   .bk-mon { display: block; font-size: clamp(.45rem, 26cqi, .62rem); letter-spacing: 0; }
 }
-@media (max-width: 559px) { .bk-cal-two .bk-mini { padding: 0 2px; } .bk-cal-two .bk-mini:not(.bk-seg-mid, .bk-seg-end) { border-left-width: 2px; } }
-/* Extra-large text on a very narrow phone: the weekdays over the squares stay apart. */
-@media (max-width: 359px) { html[data-text=xlarge] .bk-cal .wd { font-size: .58rem; letter-spacing: 0; } }
+/* a phone: taller squares, for three bookings with a time and a name each; the room inside goes to the lines */
+@media (max-width: 559px) { .bk-day-tall { min-height: 124px; padding-inline: 2px; } .bk-cal-two .bk-mini { padding: 0 1px; } .bk-cal-two .bk-mini:not(.bk-seg-mid, .bk-seg-end) { border-left-width: 2px; } }
+/* Extra-large text on a very narrow phone: the weekdays over the squares stay apart. There a square of the two weeks
+   has room for the time alone, and is no taller than its lines need. */
+@media (max-width: 359px) { html[data-text=xlarge] .bk-cal .wd { font-size: .58rem; letter-spacing: 0; } .bk-day-tall { min-height: 78px; } }
 @media (min-width: 560px) { .bk-day-tall { min-height: 132px; } }
 
 /* Coming up, under every view */

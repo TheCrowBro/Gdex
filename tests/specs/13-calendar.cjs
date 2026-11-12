@@ -55,6 +55,25 @@ const wantSaid = (page, id, { lead = '', went = false } = {}) => page.evaluate((
   return [lead, m.statusLabel(b.status), m.overlapText(b), (m.rulesChipText(m.showRulesVenue(b)) || {}).spoken, went && 'Didn’t go'].filter(Boolean).map(x => x + '.').join(' ');
 }), [id, lead, went]);
 const weekIds = (page, iso) => page.locator(`.bk-wday:has(#bk-wd-${iso}) .bk-ev`).evaluateAll(els => els.map(e => e.dataset.id));
+// A square of the two weeks as it is drawn. For each line: its time, and whether the time is whole inside the line (by
+// where its letters are drawn); where the name is ('under' or 'beside' the time, 'alone' on a line with no time, or
+// 'none' when it is left out); that a name shown is one line, cut with an ellipsis; that the line is inside the square
+// from top to bottom (a bar over several days runs on through its side). And the "+N" under the lines, when it is
+// inside the square.
+const squareLines = (page, iso) => page.evaluate(iso => {
+  const sq = document.querySelector(`.bk-day[data-date="${iso}"]`), s = sq.getBoundingClientRect(), more = sq.querySelector('.more');
+  const inSq = r => r.top >= s.top - 0.5 && r.bottom <= s.bottom + 0.5 && r.left >= s.left - 0.5 && r.right <= s.right + 0.5;
+  return { h: Math.round(s.height), more: more && inSq(more.getBoundingClientRect()) ? more.textContent : null, lines: [...sq.querySelectorAll('.bk-mini')].map(m => {
+    const r = m.getBoundingClientRect(), t = m.querySelector('.bk-mini-time'), n = m.querySelector('.bk-mini-name'), cs = n && getComputedStyle(n);
+    let tr = null;
+    if (t) { const range = document.createRange(); range.selectNodeContents(t); tr = range.getBoundingClientRect(); }
+    const nr = n && n.getBoundingClientRect(), shown = !!n && cs.display !== 'none' && nr.width >= 8;
+    return { time: t ? t.textContent : '', timeWhole: !t || (tr.width > 8 && tr.left >= r.left - 0.5 && tr.right <= r.right + 0.5 && tr.bottom <= r.bottom + 0.5),
+      name: !shown ? 'none' : !t ? 'alone' : nr.top >= tr.bottom - 1 ? 'under' : nr.left >= tr.right - 0.5 ? 'beside' : 'over',
+      oneLine: !shown || (n.getClientRects().length === 1 && nr.height < 1.8 * parseFloat(cs.fontSize) && cs.whiteSpace === 'nowrap' && cs.textOverflow === 'ellipsis' && nr.right <= r.right + 0.5 && nr.bottom <= r.bottom + 0.5),
+      inside: r.top >= s.top - 0.5 && r.bottom <= s.bottom + 0.5 };
+  }) };
+}, iso);
 const NAV = {
   month: ['Previous month', 'This month', 'Next month'], two: ['Previous two weeks', 'These two weeks', 'Next two weeks'], week: ['Previous week', 'This week', 'Next week'],
   three: ['Previous three days', 'From today', 'Next three days'], day: ['Previous day', 'Today', 'Next day'],
@@ -441,6 +460,15 @@ async function press(page, loc, ms) {
       minisShown: getComputedStyle(sq(T).querySelector('.bk-minis')).display, dots: document.querySelectorAll('.bk-cal-two .bk-dots').length, firstNum: first.querySelector('.num').textContent, firstMon: (first.querySelector('.bk-mon') || {}).textContent, firstDate: first.dataset.date, strike: getComputedStyle(sq(T).querySelectorAll('.bk-mini')[1]).textDecorationLine };
   }, [T, T5]);
   ok('a tall square’s first line reads “21:00 Main Room”, and the time is whole at 420 px wide', same(tall.main, ['21:00 Main Room']) && tall.timeFits, JSON.stringify(tall.main));
+  // Item 4: two rows of taller squares that show each show's time and name. On a phone each line has its time, whole,
+  // and the start of the name on a line of its own (cut with an ellipsis); three lines, then "+6", all in the square.
+  for (const [w, wh] of [[420, 900], [360, 780], [430, 932]]) {
+    if (w !== 420) { await page.setViewportSize({ width: w, height: wh }); await sleep(250); }
+    const sq = await squareLines(page, T);
+    ok(`${w} px, two weeks: each line of the busy night’s square has its time whole and the start of its name under it, on one line; three lines, then “+6”, inside the square`,
+      sq.lines.length === 3 && sq.lines.every(l => l.timeWhole && l.oneLine && l.inside && l.name === (l.time ? 'under' : 'alone')) && /^\+6/.test(sq.more || ''), JSON.stringify(sq));
+  }
+  await page.setViewportSize({ width: 420, height: 900 }); await sleep(250);
   ok('the lines show on a phone too (no dots here): the two-day booking first, then the day in playing order, then “+6 more”', tall.minisShown !== 'none' && tall.dots === 0 && same(tall.busy, ['Weekender', '18:00 The Night Owls', '19:00 First On']) && tall.more === '+6 more' && tall.strike.includes('line-through'), JSON.stringify([tall.busy, tall.more]));
   ok('a square’s spoken name puts each booking’s time before its title, the 00:30 set last among the timed', tall.label.startsWith(`${await fmt(T, 'fmtLong')}: Weekender (Confirmed), 18:00 The Night Owls @ The Old Vic (Cancelled), 19:00 First On (Confirmed), `) && tall.label.endsWith(', 23:00 Late Shift (Confirmed), 00:30 The Night Owls @ Club 9 (Confirmed), Sable @ Somewhere (Confirmed)'), tall.label);
   const monShort = await page.evaluate(iso => import('./js/util.js').then(u => [u.parseISO(iso).toLocaleDateString(undefined, { month: 'short' }), u.parseISO(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })]), tall.firstDate);
@@ -590,6 +618,11 @@ async function press(page, loc, ms) {
       const fit = await n.page.evaluate(() => { const row = document.querySelector('.bk-views'), r = row.getBoundingClientRect(), on = row.querySelector('.on').getBoundingClientRect(), panel = document.querySelector('.bk-cal-panel').getBoundingClientRect();
         return { page: document.documentElement.scrollWidth, row: [row.scrollWidth, row.clientWidth], pressedInSight: on.left >= r.left - 1 && on.right <= r.right + 1, nav: [...document.querySelectorAll('.cal-nav button')].every(b => { const x = b.getBoundingClientRect(); return x.left >= panel.left && x.right <= panel.right; }), entries: document.querySelectorAll('.bk-cal-panel .bk-ev, .bk-cal-panel .bk-day.has').length }; });
       ok(`320 px, ${scheme}, ${v}: the page does not scroll sideways; the row of buttons scrolls inside itself with the pressed one in sight; ‹ Today › stay in the panel`, fit.page <= 320 && fit.row[0] > fit.row[1] && fit.pressedInSight && fit.nav && fit.entries > 0, JSON.stringify(fit));
+      if (v === 'two') { // seven squares across 320 px: room for the time alone, but the whole of it
+        const sq = await squareLines(n.page, D);
+        ok(`320 px, ${scheme}, two weeks: each line of the busy night’s square shows its time whole (the name may be left out), three lines and then “+6”, inside the square`,
+          sq.lines.length === 3 && sq.lines.every(l => l.timeWhole && l.oneLine && l.inside) && /^\+6/.test(sq.more || ''), JSON.stringify(sq));
+      }
     }
     // Coming up, under the view: a card's name is never broken inside a word (the status drops under the name instead).
     const broken = await n.page.$$eval('.bk-agenda .bk-card-title', ts => ts.flatMap(t => { const out = [], walk = document.createTreeWalker(t, NodeFilter.SHOW_TEXT); for (let x; (x = walk.nextNode());) { const re = /\S+/g; for (let m; (m = re.exec(x.textContent));) { const r = document.createRange(); r.setStart(x, m.index); r.setEnd(x, m.index + m[0].length); if (r.getClientRects().length > 1) out.push(m[0]); } } return out; }));

@@ -462,10 +462,14 @@ buttons, ‹ title Today ›, the view's body, the legend under squares) and Com
   takes a row of its own above the arrows under 480 px (every view's does under 360 px, and with extra-large text).
   A range's title comes from `Intl.DateTimeFormat(…).formatRange`, with the year whenever the range is not wholly in
   this year.
-* **Month and 2 weeks** are day squares. A tall square (two weeks) holds up to three lines, the time
-  (`span.bk-mini-time`) and the name (`span.bk-mini-name`) apart: in a square narrower than 3rem (a phone) the name is
-  left out and only the time shows; from about 500 px wide both do. A square's spoken name lists its bookings in
-  order, each with its status, and ", didn’t go" for a show answered so (there is no room to write it in a square).
+* **Month and 2 weeks** are day squares. A tall square (two weeks) holds up to three lines, then "+N", the time
+  (`span.bk-mini-time`) and the name (`span.bk-mini-name`) apart. In a square narrower than 6.5rem (every phone, and
+  large text) the name is on a line of its own under the time, cut with an ellipsis, and the text shrinks with the
+  square (to .7rem at most) so the time always shows whole; on a phone of 360 px or more the squares are 124 px tall
+  at least, for three such lines. Under 32 px inside (seven squares across 320 px) the name is left out and the time
+  is alone, in squares no taller than the lines need (78 px at least). A line that runs on from the day before
+  (several days) is blank, as high as the line it runs on from. A square's spoken name lists its bookings in order,
+  each with its status, and ", didn’t go" for a show answered so (there is no room to write it in a square).
   Arrow keys move between squares; past the edge of two weeks they step as ‹ › do.
 * **Week** is `section.bk-wday` per day: `h3.bk-wday-h > button.bk-wday-head` (the day's name; a tap opens the day),
   then its rows in playing order, each with `cardExtras(b)` as direct children of `span.bk-wrow-main`. An empty day

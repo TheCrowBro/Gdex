@@ -62,9 +62,9 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 ## The calendar
 
 - **Five views:** Month, 2 weeks, Week, 3 days and Day, from the row of buttons above the calendar. Month and 2 weeks
-  are day squares (on a phone a 2-week square shows each booking's time; on a wider screen its name too); Week lists
-  each day; 3 days and Day put each booking on an hour grid. Tap a day to open it. Gdex opens on the view you picked
-  last, on today. **Coming up** is under every view.
+  are day squares (a 2-week square shows each booking's time and the start of its name; on the narrowest phones, the
+  time alone); Week lists each day; 3 days and Day put each booking on an hour grid. Tap a day to open it. Gdex opens
+  on the view you picked last, on today. **Coming up** is under every view.
 - **In the order the bands play:** bookings on the same day run by the time on stage (doors, soundcheck or load-in
   when there is no set time yet; a session by its start), a set after midnight at the end of the night, and anything
   with no time last. Two shows whose sets overlap say so: "Overlaps with Sable, 21:30".

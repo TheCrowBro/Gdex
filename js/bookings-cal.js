@@ -252,8 +252,10 @@ function dayCell(iso, all, today, tall = false, named = false) {
   // Two weeks: the time the band plays, then who: a typed title, else the act, the client, the venue, the kind. The
   // time is a part of its own, so a narrow square cuts the name short and never the time.
   const timed = b => [playClock(b) && [h('span', { class: 'bk-mini-time' }, playClock(b)), ' '], h('span', { class: 'bk-mini-name' }, b.title || model.actName(b.actId) || b.client || model.venueOf(b).name || model.kindLabel(b.kind))];
-  // A line that runs on from the day before carries no name: a no-break space keeps it a line high.
-  const mini = b => h('span', { class: `bk-mini ${tone(b.status)}${seg(b)}`, style: actStyle(b) }, !titled(b) ? '\u00a0' : tall ? timed(b) : short(b));
+  // A line that runs on from the day before carries no name: a no-break space keeps it a line high (in the two weeks, as
+  // high as the line it runs on from, where a phone puts the time over the name).
+  const blank = b => (tall && playClock(b) ? [h('span', { class: 'bk-mini-time' }, '\u00a0'), h('span', { class: 'bk-mini-name' }, '\u00a0')] : '\u00a0');
+  const mini = b => h('span', { class: `bk-mini ${tone(b.status)}${seg(b)}`, style: actStyle(b) }, !titled(b) ? blank(b) : tall ? timed(b) : short(b));
   const dot = b => h('i', { class: `bk-dot ${tone(b.status)}${multi(b) ? ' bk-bar' + seg(b) : ''}`, style: actStyle(b) });
   // A square has no room to write "Didn’t go" (a phone shows a dot, or a time): its spoken name says it, after the status.
   const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(b => `${tall && playClock(b) ? playClock(b) + ' ' : ''}${model.bookingTitle(b)} (${model.statusLabel(b.status)}${didntGo(b) ? ', didn’t go' : ''})`).join(', ') : 'nothing booked'}`;
