@@ -192,3 +192,33 @@
 
 /* The input list editor on a phone: mic/DI and stand share a row, the note gets a full line of its own. */
 @media (max-width: 699.98px) { .ac-in-l2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ac-in-l2 > :last-child { grid-column: 1 / -1; } }
+
+/* "Did you see them?" (js/acts-ask.js): the sheet of shows that are over, one row each with its Yes and No, and the
+   control under Settings → Your role. A row's words keep at least 8em beside its buttons; when the row can't give
+   them that (a narrow phone, large text), the buttons drop under the words. */
+.ac-ask { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.ac-ask > p { margin: 0; }
+.ac-ask .actions { margin-top: 0; justify-content: flex-end; }
+.ac-ask .ac-ask-list { grid-template-columns: minmax(0, 1fr); } /* one show to a line, newest first, on a laptop too */
+.ac-ask-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 1rem; border-left: 6px solid var(--ac-color, var(--accent)); }
+.ac-ask-main { display: grid; gap: 2px; flex: 1 1 8em; min-width: 0; overflow-wrap: anywhere; }
+.ac-ask-answer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 100%; }
+.ac-ask-answer .btn { flex: none; min-width: 4.4em; }
+.ac-ask-done { font-weight: 700; overflow-wrap: anywhere; }
+.ac-ask-pref { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+/* The three choices share one row while it has room for their words, and stack when it has not (a narrow phone, large
+   text): a choice is never broken inside a word, and never wider than its button. In between, the last one drops to a
+   row of its own. Each button keeps room for its words in bold (the hidden copy under them), so nothing shifts when
+   the choice in use changes. */
+.ac-ask-pref .seg.wide { display: flex; flex-wrap: wrap; }
+.ac-ask-pref .seg.wide button { flex: 1 1 calc((23em - 100%) * 999); min-width: auto; white-space: nowrap; overflow-wrap: normal; }
+.ac-ask-pref .seg.wide button::after { content: attr(data-label); display: block; height: 0; overflow: hidden; visibility: hidden; font-weight: 700; }
+.ac-ask-note { margin: 8px 0 0; }
+/* High contrast thickens every card's border to 2px all round: the act's colour keeps its wider edge. With forced
+   colours the choice in use is told by the system's own highlight (its background would be flattened otherwise). */
+html[data-contrast=high] .ac-ask-row { border-left-width: 6px; }
+@media (forced-colors: active) { .ac-ask-pref .seg.wide button.on { background: Highlight; color: HighlightText; forced-color-adjust: none; } }
+/* The show's own page (js/pages/bookings.js scoreRow): the row's words follow the text size, and "Didn’t go" reads as
+   the answer it is. */
+.bk-score .bk-score-text { font-size: 1rem; }
+.bk-score-went .bk-score-text { font-weight: 700; }

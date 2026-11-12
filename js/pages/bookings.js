@@ -480,16 +480,25 @@ function moreBoxes(b, ctx) {
   return fold;
 }
 
-// Score this show, for a role that scores the acts it sees (js/roles.js pages.bookings.score): a show from its day on,
-// not cancelled. With its act, it logs a time seen on the act's card with the date, the venue and the booking filled
-// in; once the act's log has it (from here, or from the act's card on the same day), the score shows instead. With no
-// act yet, it says so and opens the booking's form on the act.
-const scoreable = b => !!(pageOpt('bookings', 'score', false) && b.kind === 'show' && b.status !== 'cancelled' && isoOk(b.date) && b.date <= todayISO());
+// Score this show: a show from its day on, not cancelled, for a role that scores the acts it sees (js/roles.js
+// pages.bookings.score) and for anyone who is asked "Did you see them?" after a show (askSeen: the row is where that
+// question is answered later, or changed). With its act, it logs a time seen on the act's card with the date, the venue
+// and the booking filled in; once the act's log has it (from here, or from the act's card on the same day), the score
+// shows instead, and that wins over any other answer. Once the show is over (model.showOver) a Didn’t go button sits
+// beside Score, and a show answered so reads "Didn’t go" with Change. With no act yet, a role that scores is told so
+// and offered the booking's form on the act; anyone who has the row only because they are asked gets no row (the
+// question is only ever about a show with an act).
+const scoresShows = () => !!pageOpt('bookings', 'score', false);
+const scoreable = b => !!((scoresShows() || askSeen()) && b.kind === 'show' && b.status !== 'cancelled' && isoOk(b.date) && b.date <= todayISO());
 const scoreOn = b => scoreable(b) && !!actOf(b);
-// What the row's button does changes it (★ Score → ✎ Edit, ✎ Edit → Delete → ★ Score, Pick the act → ★ Score), so the
-// app cannot find the old one after the redraw: the draw after its sheet closes puts the focus on the new one.
+// What the row's button does changes it (★ Score → ✎ Edit, ✎ Edit → Delete → ★ Score, Pick the act → ★ Score, Didn’t go
+// → Change and back), so the app cannot find the old one after the redraw: the draw after its sheet closes, or after
+// the answer is saved, puts the focus on the row's first button.
 let SCORE_FOCUS = null; // { id: the booking's id, was: the id of the button that opened the sheet }
-const scoreTap = (b, was, fn) => () => { SCORE_FOCUS = { id: b.id, was }; fn(); };
+// The second click of a double click does nothing: it could land on the button the first one put there (Didn’t go →
+// Change). And a held Enter key acts once (scoreKeys, on the row): its repeats would press each new button in turn.
+const scoreTap = (b, was, fn) => e => { if (e && e.detail > 1) return; SCORE_FOCUS = { id: b.id, was }; fn(); };
+const scoreKeys = e => { if (e.repeat && e.key === 'Enter') e.preventDefault(); };
 function scoreRefocus(viewChanged) {
   const sf = SCORE_FOCUS;
   if (!sf) return;
@@ -500,7 +509,7 @@ function scoreRefocus(viewChanged) {
   if (btn && btn.id !== sf.was && (!now || now === document.body)) btn.focus({ preventScroll: true });
 }
 function scoreRow(b) {
-  if (!scoreable(b)) return null;
+  if (!scoreable(b) || (!actOf(b) && !scoresShows())) return null;
   const act = actOf(b);
   if (!act) {
     const word = actWord();
@@ -510,16 +519,24 @@ function scoreRow(b) {
         h('span', { 'aria-hidden': 'true' }, '✎ '), `Pick the ${word}`));
   }
   const name = act.name || 'Unnamed act', entry = model.seenEntryFor(act, b);
-  if (!entry) {
-    return h('div', { class: 'bk-score' },
-      h('button', { type: 'button', class: 'btn primary small', id: 'bk-score',
-        onclick: scoreTap(b, 'bk-score', () => logSighting(byId('acts', act.id) || act, { date: b.date, venueId: b.venueId || '', where: b.venueId ? '' : (b.venueName || ''), bookingId: b.id })) },
-      h('span', { 'aria-hidden': 'true' }, '★ '), `Score ${name}`));
+  if (entry) {
+    const r = model.ratingOf(entry);
+    return h('div', { class: 'bk-score bk-scored', onkeydown: scoreKeys },
+      h('span', { class: 'bk-score-text' }, h('span', { 'aria-hidden': 'true' }, '★ '), r != null ? ['Scored ', h('b', null, String(r)), '/100'] : 'Seen, no score yet'),
+      h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-edit', 'aria-label': `Edit the time you saw ${name}`, onclick: scoreTap(b, 'bk-score-edit', () => logSighting(byId('acts', act.id) || act, entry)) }, '✎ Edit'));
   }
-  const r = model.ratingOf(entry);
-  return h('div', { class: 'bk-score bk-scored' },
-    h('span', { class: 'bk-score-text' }, h('span', { 'aria-hidden': 'true' }, '★ '), r != null ? ['Scored ', h('b', null, String(r)), '/100'] : 'Seen, no score yet'),
-    h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-edit', 'aria-label': `Edit the time you saw ${name}`, onclick: scoreTap(b, 'bk-score-edit', () => logSighting(byId('acts', act.id) || act, entry)) }, '✎ Edit'));
+  if (b.went === 'no') {
+    return h('div', { class: 'bk-score bk-score-went', onkeydown: scoreKeys },
+      h('span', { class: 'bk-score-text' }, 'Didn’t go'),
+      h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-change', 'aria-label': `Change your answer for ${name}`, onclick: scoreTap(b, 'bk-score-change', () => model.markWent(b.id, false)) }, 'Change'));
+  }
+  // ★ Score is first in the row at every hour; Didn’t go joins it once the show is over.
+  return h('div', { class: 'bk-score', onkeydown: scoreKeys },
+    h('button', { type: 'button', class: 'btn primary small', id: 'bk-score',
+      onclick: scoreTap(b, 'bk-score', () => logSighting(byId('acts', act.id) || act, { date: b.date, venueId: b.venueId || '', where: b.venueId ? '' : (b.venueName || ''), bookingId: b.id })) },
+    h('span', { 'aria-hidden': 'true' }, '★ '), `Score ${name}`),
+    model.showOver(b) && h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-no', 'aria-label': `I didn’t go to see ${name}`,
+      onclick: scoreTap(b, 'bk-score-no', () => { model.markWent(b.id, true); haptic(); announce(`${name}: marked Didn’t go`); }) }, 'Didn’t go'));
 }
 
 function hero(b) {
@@ -611,8 +628,8 @@ function bookingSteps(b) {
     { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records but leaves clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records but leaves clashes.', target: ['.bk-status'] },
     { title: 'Times', text: 'Off stage is worked out from the set time and length. A time marked +1 is after midnight.', target: ['.bk-times'] },
     { title: 'House rules', text: 'What this venue allows and what it does not. The rules belong to the venue and apply to every show there; change them by editing the venue.', target: ['.bk-hero .vn-rules'] },
-    scoreOn(b) && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.', target: ['.bk-score'] },
-    scoreable(b) && !actOf(b) && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
+    scoreOn(b) && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it. If you missed it, Didn’t go says so and Gdex stops asking.', target: ['.bk-score'] },
+    scoreable(b) && !actOf(b) && scoresShows() && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },
     { title: 'The boxes', text: 'Everything else about the booking, one box each: tap a box to open it. Boxes you open stay open.', target: ['.bk-blocks'] },

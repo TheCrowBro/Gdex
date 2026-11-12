@@ -109,7 +109,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await openB(page, 's-past');
   ok('band: no Score this show (the role does not score)', (await page.locator('.bk-score').count()) === 0 && !(await steps(page)).includes('Score this show'));
   await setRole(page, 'all');
-  ok('Everything: no Score this show', (await page.locator('.bk-score').count()) === 0);
+  ok('Everything, with the question turned off: no Score this show', (await page.locator('.bk-score').count()) === 0);
   await setRole(page, 'scout');
   ok('scout: a past show already in the act’s log shows its score', /Scored 86\/100/.test(await page.locator('.bk-hero .bk-score').innerText()) && (await page.locator('#bk-score').count()) === 0, (await page.locator('.bk-hero .bk-score').innerText()).replace(/\n/g, ' '));
   await page.click('#bk-score-edit');
@@ -151,6 +151,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   const typed = await add(page, { kind: 'show', status: 'hold', actId: 's-owls', date: past, venueName: 'The Moth Club', setTime: '21:00' });
   await openB(page, typed);
   ok('a past show (even one on hold) offers Score The Night Owls', (await page.locator('#bk-score').count()) === 1 && /Score The Night Owls/.test(await page.locator('#bk-score').innerText()));
+  ok('…and, being over, Didn’t go beside it, ★ Score still the first button of the row', JSON.stringify(await page.$$eval('.bk-score button[id^="bk-score"]', bs => bs.map(b => b.id))) === JSON.stringify(['bk-score', 'bk-score-no']));
   await page.click('#bk-score');
   await logForm.waitFor();
   ok('a typed venue fills the place box', (await logForm.locator('select[data-key=venueId]').inputValue()) === '' && (await logForm.locator('[data-key=where]').inputValue()) === 'The Moth Club' && (await logForm.locator('[data-key=date]').inputValue()) === past);

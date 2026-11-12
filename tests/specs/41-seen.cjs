@@ -1,6 +1,7 @@
 // Acts as a drop-down list: each card counts the times you saw the act play, with the average and latest score out of
 // 100 and its dates coming up on the calendar; opening it shows the log (date, where, score, notes), where you log
-// another time (typed, or from a past show), edit one, or delete one. Venues and bookings deleted later leave the log.
+// another time (typed, or from a past show; a show marked Didn’t go is not offered), edit one, or delete one. Venues and
+// bookings deleted later leave the log.
 const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
 
 const seen = (page, id) => page.evaluate(i => import('./js/store.js').then(s => JSON.parse(JSON.stringify((s.byId('acts', i) || {}).seen || []))), id);
@@ -103,11 +104,12 @@ const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `
   /* from a past show */
   await page.evaluate(d => import('./js/store.js').then(s => s.upsert('bookings', { id: 't-old', kind: 'show', status: 'done', actId: 's-owls', date: d, venueId: 's-greenfield' })), dayIso(-120));
   await page.evaluate(d => import('./js/store.js').then(s => s.upsert('bookings', { id: 't-hold', kind: 'show', status: 'hold', actId: 's-owls', date: d, venueId: 's-harbour' })), dayIso(-130));
+  await page.evaluate(d => import('./js/store.js').then(s => s.upsert('bookings', { id: 't-missed', kind: 'show', status: 'done', actId: 's-owls', date: d, venueId: 's-lantern', went: 'no' })), dayIso(-125)); // answered No to “Did you see them?”
   await page.waitForSelector('#ac-past-s-owls');
   await page.click('#ac-past-s-owls');
   await page.waitForSelector('.sheet[aria-label="From a past show"]');
-  const picks = await page.locator('.ac-pick').allInnerTexts();
-  ok('past shows not logged yet are offered; holds that never happened are not', picks.length === 1 && /Greenfield/.test(picks[0]), picks.join(' | '));
+  const picks = (await page.locator('.ac-pick').allInnerTexts()).map(t => t.replace(/\s+/g, ' '));
+  ok('past shows not logged yet are offered; holds that never happened are not, nor a show marked Didn’t go', picks.length === 1 && /Greenfield/.test(picks[0]), picks.join(' | '));
   await page.locator('.ac-pick').first().click();
   await page.waitForSelector('.sheet[aria-label="Log a time seen"]');
   f = topSheet(page);

@@ -10,7 +10,7 @@
 // those go to other people.
 import { h, empty, backBtn, telUrl, toast, sheet, fmtShort, daysUntil, todayISO, parseISO, uid } from '../util.js';
 import { db, byId, upsert, update, remove, upcoming, redraw } from '../store.js';
-import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, coversDay, seenEntryFor, actShowsOn, onlyShowOn, byDayPlayDesc } from '../model.js';
+import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, playTime, playLabel, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, coversDay, seenEntryFor, actShowsOn, onlyShowOn, byDayPlayDesc } from '../model.js';
 import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { openBooking, newBooking } from './bookings.js';
@@ -172,10 +172,11 @@ function seenPanel(a, onPage = false) {
 // The act's shows up to today that are not in the log yet: a quick way to log one you were at, tonight's included. A
 // role with money leaves out holds and offers (they never happened); a role without money doesn't track deals, so only
 // a cancelled show is left out. A show is in the log when an entry carries its id, or, on a day it is the act's only show,
-// an entry without one has its date (model.seenEntryFor).
+// an entry without one has its date (model.seenEntryFor). A show marked "Didn’t go" (the No to "Did you see them?",
+// booking.went) is not offered either: the person said they were not there.
 const pastShows = a => {
   const today = todayISO(), money = moneyShown();
-  return (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && b.date <= today && b.kind === 'show' && !(money && ['hold', 'offer'].includes(b.status)) && !seenEntryFor(a, b))
+  return (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && b.date <= today && b.kind === 'show' && !(money && ['hold', 'offer'].includes(b.status)) && b.went !== 'no' && !seenEntryFor(a, b))
     .sort(byDayPlayDesc); // newest day first; on one day, in the order they played
 };
 function fromPastShow(a, past) {
@@ -208,8 +209,14 @@ function linkFor(actId, entry, wasId) {
   return b && b.actId === actId && isLive(b) && coversDay(b, entry.date) ? b.id : showThatDay(actId, entry.date, entry.id, entry.venueId);
 }
 // Writes one entry (new or changed) to the act's log: it goes at the end, with when it was saved, so it is the latest of its day.
+// A score given for a show that was marked "Didn’t go" replaces that answer: the mark comes off the booking in the same write.
 function putSeen(actId, entry) {
-  update(d => { const x = d.acts.find(r => r.id === actId); if (!x) return; const list = Array.isArray(x.seen) ? x.seen.filter(e => e.id !== entry.id) : []; x.seen = [...list, entry]; x.updatedAt = Date.now(); });
+  update(d => {
+    const x = d.acts.find(r => r.id === actId); if (!x) return;
+    const list = Array.isArray(x.seen) ? x.seen.filter(e => e && e.id !== entry.id) : []; x.seen = [...list, entry]; x.updatedAt = Date.now(); // e &&: a log from an old backup can hold an empty entry
+    const b = entry.bookingId ? d.bookings.find(r => r.id === entry.bookingId) : null;
+    if (b && 'went' in b) { delete b.went; b.updatedAt = Date.now(); }
+  });
 }
 // After a change to the log the list may re-sort (a role that orders by score or by last seen). The card stays open,
 // and app.js gives the focus back by id to the button used; when that one has gone (the last past show is logged),
@@ -252,6 +259,9 @@ export function logSighting(a, s = {}) { // shared: bookings.js offers it as Sco
       const sync = () => { const f = where && where.closest('.field'); if (f) f.hidden = !!(venue && venue.value); };
       if (venue) venue.addEventListener('change', sync);
       sync();
+      // The form opens with a date and a score in it, so Enter saves it as it stands. A held Enter (the press that
+      // opened the form, still down) must not: nobody gave that score. In the notes it still starts new lines.
+      form.addEventListener('keydown', e => { if (e.repeat && e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); });
     },
     onSave: v => {
       const rating = Math.min(100, Math.max(1, Math.round(Number(v.rating)) || 1));
@@ -279,7 +289,7 @@ export function logSighting(a, s = {}) { // shared: bookings.js offers it as Sco
       toast(editing ? 'Saved' : `Logged: ${rating}/100`);
       refocus(a.id);
     },
-    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (x.seen || []).filter(e => e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
+    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (Array.isArray(x.seen) ? x.seen : []).filter(e => e && e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
     confirmDelete: `Remove the time you saw ${a.name || 'them'} on ${s.date ? seenDate(s.date) : 'this date'}?`,
   });
 }
@@ -350,8 +360,12 @@ function actView(a) {
 
 /* Overview */
 // On the act's own page the act's name would open every line, so a booking leads with its own title or its venue.
+// The one time a row prints is the time its day is sorted by (js/store.js playField), so two shows on a day read in
+// order: a show says which time that is (On stage 21:00; Doors 19:30 while there is no on-stage time yet), anything
+// else gives its start.
+const playWords = b => { const t = playTime(b); return t && b.kind === 'show' ? `${playLabel(b)} ${t}` : t; };
 function bookingRow(b) {
-  const d = parseISO(b.date), t = firstTime(b), v = venueOf(b).name, kind = kindLabel(b.kind);
+  const d = parseISO(b.date), t = playWords(b), v = venueOf(b).name, kind = kindLabel(b.kind);
   const main = b.title || v || kind;
   return h('button', { type: 'button', class: 'card tap ac-bk', onclick: () => openBooking(b.id) },
     h('span', { class: 'ac-bk-date', 'aria-hidden': 'true' },

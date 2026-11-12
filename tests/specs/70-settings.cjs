@@ -257,6 +257,18 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   for (let i = 0; i < 16 && (await page.locator('.tour-card').count()); i++) { await page.locator('.tour-card .btn.primary').click(); await sleep(450); }
   ok('the walkthrough reaches its end', (await page.locator('.tour').count()) === 0);
 
+  // Your role: the “Did you see them?” control (js/acts-ask.js). The helper turns the question off on every load.
+  await openSec(page, 'role');
+  const askNow = () => run(page, () => ({ key: localStorage.getItem('gdex-ask-seen'), on: [...document.querySelectorAll('#se-role .ac-ask-pref .seg button')].filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.textContent).join(), note: document.querySelector('#se-role .ac-ask-note').textContent }));
+  let asking = await askNow();
+  ok('Your role has the “Did you see them?” control, on Never ask as this spec opens', (await page.locator('#se-role .ac-ask-pref .seg button').count()) === 3 && asking.key === 'off' && asking.on === 'Never ask' && /^Gdex never asks\./.test(asking.note), JSON.stringify(asking));
+  ok('…and the walkthrough’s Your role step says it is there', /The “Did you see them\?” question is turned on or off here too\.$/.test(await run(page, () => import('./js/pages/settings.js').then(m => m.settings.tutorial().find(x => x.title === 'Your role').text))));
+  await tap(page, '#ac-ask-on');
+  asking = await askNow();
+  ok('Always ask is kept on the device, not in the database', asking.key === 'on' && asking.on === 'Always ask' && !/gdex-ask-seen|"ask/.test(JSON.stringify(await data(page))), JSON.stringify(asking));
+  await tap(page, '#ac-ask-off');
+  ok('…and Never ask puts it back; the sections are still nine', (await askNow()).key === 'off' && (await page.locator('#page details.se-sec').count()) === 9);
+
   // About
   await openSec(page, 'about');
   ok('About shows the version and where data is kept', /Gdex \d+\.\d+\.\d+/.test(await text(page, '#se-about')) && /stays in this browser, on this device/.test(await text(page, '#se-about')) && (await page.locator('#se-about a[href="privacy.html"]').count()) === 1);
