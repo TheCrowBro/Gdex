@@ -1,12 +1,21 @@
-// "Did you see them?" when Gdex comes back from the background. An installed app is seldom loaded afresh, so coming
-// back after three hours or more out of sight counts as opening it, for the question only (js/app.js): the waiting
-// shows are worked out again and asked about once the screen is clear, and the section stays where it was.
-// These checks are about WHEN js/app.js asks, so a stand-in is served in place of js/acts-ask.js: it notes every call
-// and puts up a plain sheet to that module's contract (nothing when the person is not asked or no show is left).
-// Nothing here depends on the day, the hour or the time zone of the run: the page's clock is set by hand (a Date of
-// the spec's own, put in before the app loads, that runs on from the time it is given), and "out of sight" is
-// document.visibilityState with a visibilitychange event, or pagehide and pageshow for a page the browser kept.
-const { open, ok, sleep, go } = require('../helpers.cjs');
+// "Did you see them?", in two parts.
+//
+// WHEN Gdex asks (the first block). An installed app is seldom loaded afresh, so coming back after three hours or more
+// out of sight counts as opening it, for the question only (js/app.js): the waiting shows are worked out again and
+// asked about once the screen is clear, and the section stays where it was. Those checks are about js/app.js, so a
+// stand-in is served in place of js/acts-ask.js: it notes every call and puts up a plain sheet to that module's
+// contract (nothing when the person is not asked or no show is left). Nothing there depends on the day, the hour or
+// the time zone of the run: the page's clock is set by hand (a Date of the spec's own, put in before the app loads,
+// that runs on from the time it is given), and "out of sight" is document.visibilityState with a visibilitychange
+// event, or pagehide and pageshow for a page the browser kept.
+//
+// WHAT it asks (the blocks after it, each in a browser of its own with the real js/acts-ask.js): the sheet with a row
+// per show and its Yes and No, the score form over it, "Didn’t go", who is asked, the show's own page, the acts page,
+// Settings → Your role, the first open, a narrow phone with extra-large text, and the real sheet when Gdex comes back.
+// Shows that must be over are dated two days back or more, so no check there depends on the hour of the run; dates on
+// screen are compared with the app's own formatters run in the page.
+const { open, ok, sleep, go, BASE: URL } = require('../helpers.cjs');
+const { chromium } = require('playwright');
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const store = (page, fn, arg) => page.evaluate(`import('./js/store.js').then(s => (${fn.toString()})(s, ${JSON.stringify(arg === undefined ? null : arg)}))`);
@@ -43,15 +52,10 @@ const init = () => {
   } catch (e) { /* ignore */ }
 };
 
-(async () => {
-  const { browser, ctx, page, errors } = await open({ ask: true, init });
-  let fetched = 0;
-  await ctx.route('**/js/acts-ask.js', r => { fetched++; return r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: STAND_IN }); });
-
+// The page's clock and "out of sight", for a page opened with `init`.
+const clockKit = page => {
   let now = BASE; // the time the page's clock was last set to (it runs on from there)
   const setClock = async t => { now = t; await page.evaluate(ms => window.__clock(ms), t.getTime()); };
-  // A fresh load at 08:00, and time for the question at open (0.9 s in) to have had its turn.
-  const load = async () => { await setClock(BASE); fetched = 0; await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(1600); };
   const sight = hidden => page.evaluate(hidden => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
@@ -66,6 +70,534 @@ const init = () => {
     await (how === 'kept' ? kept('pageshow') : sight(false));
     await sleep(800); // longer than two looks for a clear screen (every 300 ms)
   };
+  return { setClock, sight, kept, away };
+};
+
+/* ============================ the real sheet (no stand-in from here on) ============================ */
+const Q = `.sheet[aria-label="${QUESTION}"]`;
+const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }; // by the real clock: two days or more either way wherever "over" matters
+const sheetsOf = page => page.$$eval('.sheet', els => els.map(x => x.getAttribute('aria-label')));
+const tours = page => page.locator('.tour-card').count();
+const rowIds = page => page.$$eval(`${Q} .ac-ask-row`, rs => rs.map(r => r.dataset.id));
+const rowText = (page, id) => page.locator(`${Q} .ac-ask-row[data-id="${id}"]`).innerText().then(t => t.replace(/\s+/g, ' ').trim());
+const rowBtns = (page, id) => page.$$eval(`${Q} .ac-ask-row[data-id="${id}"] button`, bs => bs.map(b => b.id));
+const focusId = page => page.evaluate(() => { const a = document.activeElement; return a && a !== document.body ? a.id || a.getAttribute('aria-label') || a.tagName : 'BODY'; });
+const fresh = async page => { await page.reload(); await page.waitForSelector('#deck .dk-next'); };
+// A fresh load that should ask waits for the sheet; one that should not gives the question (0.9 s in) time for its turn.
+const loadAsked = async page => { await fresh(page); await page.locator(Q).waitFor({ timeout: 8000 }).catch(() => {}); await sleep(250); return sheetsOf(page); };
+const loadQuiet = async page => { await fresh(page); await sleep(2000); return sheetsOf(page); };
+const rec = (page, list, id) => store(page, (s, a) => { const r = s.byId(a[0], a[1]); return r ? JSON.parse(JSON.stringify(r)) : null; }, [list, id]);
+const put = async (page, list) => { await store(page, (s, l) => { l.forEach(b => s.upsert('bookings', b)); }, list); await sleep(200); };
+const waitingIds = (page, holds = false) => page.evaluate(h => import('./js/model.js').then(m => m.waitingShows(new Date(), { holds: h }).map(b => b.id)), holds);
+const setKey = (page, k, v) => page.evaluate(([k, v]) => { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); }, [k, v]);
+const roleNow = async (page, id) => { await page.evaluate(x => import('./js/roles.js').then(m => m.setRole(x)), id); await sleep(400); }; // in this visit: the page redraws
+const openB = async (page, id) => { await page.evaluate(x => import('./js/pages/bookings.js').then(m => m.openBooking(x)), id); await page.waitForSelector('.bk-page'); await sleep(350); };
+const bkSteps = page => page.evaluate(() => import('./js/pages/bookings.js').then(m => m.bookings.tutorial().map(s => [s.title, s.text])));
+const logForm = page => page.locator('.sheet[aria-label="Log a time seen"]');
+const editForm = page => page.locator('.sheet[aria-label="Edit a time seen"]');
+const esc = async page => { await page.keyboard.press('Escape'); await sleep(250); };
+const MONEY = /\$|£|€|\bfee\b|\bdeal\b|guarantee|\b500\b/i;
+
+/* ---------------- the sheet: rows, Yes, No, the keyboard, the show's own page, the acts page ---------------- */
+async function theSheet() {
+  const { browser, page, errors } = await open({ sample: true, ask: true });
+  const fmt = (how, iso) => page.evaluate(([f, i]) => import('./js/util.js').then(u => u[f](i)), [how, iso]);
+  const d2 = dayIso(-2), d3 = dayIso(-3), d4 = dayIso(-4), d5 = dayIso(-5), d6 = dayIso(-6);
+  ok('the helper’s ask: true leaves the setting alone, and the sample alone has no show waiting', (await page.evaluate(() => localStorage.getItem('gdex-ask-seen'))) === null && (await waitingIds(page, true)).length === 0);
+  await put(page, [
+    { id: 'q-a', kind: 'show', status: 'confirmed', actId: 's-owls', date: d2, venueId: 's-lantern', setTime: '21:00', setLength: 45, deal: { type: 'guarantee', fee: 500 } },
+    { id: 'q-b', kind: 'show', status: 'confirmed', actId: 's-sablea', date: d3, venueName: 'The Moth Club' },
+    { id: 'q-c', kind: 'show', status: 'done', actId: 's-owls', date: d6, endDate: d5, venueId: 's-greenfield' }, // a festival weekend
+    { id: 'q-old', kind: 'show', status: 'done', actId: 's-owls', date: dayIso(-20), venueId: 's-harbour' },     // too long ago to be asked about
+  ]);
+  await sleep(1800);
+  ok('shows added after Gdex opened (the sample, three past shows) are not asked about in that visit', (await sheetsOf(page)).length === 0 && same(await waitingIds(page), ['q-a', 'q-b', 'q-c']), (await waitingIds(page)).join(','));
+
+  /* it opens */
+  let sheets = await loadAsked(page);
+  ok('a fresh open: one sheet, “Did you see them?”', same(sheets, [QUESTION]), sheets.join(' | '));
+  ok('…a dialog by that name, with the page under it out of reach', (await page.locator(`${Q}[role=dialog][aria-modal=true]`).count()) === 1 && await page.evaluate(() => document.getElementById('app').inert === true));
+  ok('…one row per show that is over, the newest first; the show from three weeks ago is not asked about', same(await rowIds(page), ['q-a', 'q-b', 'q-c']), (await rowIds(page)).join(','));
+  ok('…with the focus on the first row’s Yes', (await focusId(page)) === 'ac-ask-yes-q-a', await focusId(page));
+  ok('…and no form in it (each answer is saved as it is given)', (await page.locator(`${Q} form`).count()) === 0);
+  const names = await page.$$eval(`${Q} .ac-ask-main strong`, els => els.map(e => e.textContent));
+  const subs = await page.$$eval(`${Q} .ac-ask-main .small`, els => els.map(e => e.textContent));
+  const want = await page.evaluate(ids => Promise.all([import('./js/util.js'), import('./js/store.js'), import('./js/model.js')]).then(([u, s, m]) => ids.map(id => {
+    const b = s.byId('bookings', id), last = b.endDate && b.endDate > b.date ? b.endDate : b.date;
+    return u.fmtShort(b.date) + (last > b.date ? ' – ' + u.fmtShort(last) : '') + ' · ' + m.venueOf(b).name;
+  })), ['q-a', 'q-b', 'q-c']);
+  ok('a row names the act', same(names, ['The Night Owls', 'Sable', 'The Night Owls']), names.join(' | '));
+  ok('…with the date as the app writes dates, the last day of a show over several days, and the venue (saved or typed)', same(subs, want) && / – /.test(subs[2]) && subs[1].endsWith(' · The Moth Club'), subs.join(' | '));
+  const long2 = await fmt('fmtLong', d2);
+  ok('Yes and No say who and when to a screen reader', (await page.getAttribute('#ac-ask-yes-q-a', 'aria-label')) === `Yes, I saw The Night Owls on ${long2}` && (await page.getAttribute('#ac-ask-no-q-a', 'aria-label')) === `No, I didn’t see The Night Owls on ${long2}`
+    && (await page.textContent('#ac-ask-yes-q-a')) === 'Yes' && (await page.textContent('#ac-ask-no-q-a')) === 'No', await page.getAttribute('#ac-ask-no-q-a', 'aria-label'));
+  ok('…a show over several days is named by its first day', (await page.getAttribute('#ac-ask-yes-q-c', 'aria-label')) === `Yes, I saw The Night Owls on ${await fmt('fmtLong', d6)}`);
+  ok('no money shows in the sheet (the first show has a fee)', !MONEY.test(await page.locator(Q).innerText()), (await page.locator(Q).innerText()).replace(/\s+/g, ' '));
+  const hit = await page.evaluate(() => { const need = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')); return [...document.querySelectorAll('.sheet .ac-ask-row .btn, #ac-ask-close')].map(b => Math.round(b.getBoundingClientRect().height)).filter(x => x < need); });
+  ok('every button in it is a full touch target', hit.length === 0, hit.join(','));
+
+  /* its own walkthrough */
+  await page.click(`${Q} .sheet-help`);
+  await page.waitForSelector('.tour-card');
+  const titles = [];
+  for (let i = 0; i < 6 && await tours(page); i++) { titles.push(await page.textContent('#tour-title')); await page.click('.tour-actions .btn.primary'); await sleep(700); }
+  ok('the sheet’s ? runs its own three steps', same(titles, ['Shows that are over', 'Yes or No', 'Later']), titles.join(' › '));
+  ok('…and leaves the sheet as it was', same(await sheetsOf(page), [QUESTION]) && (await rowIds(page)).length === 3);
+
+  /* the keyboard */
+  await page.focus('#ac-ask-yes-q-a');
+  const order = [];
+  for (let i = 0; i < 9; i++) { await page.keyboard.press('Tab'); order.push(await focusId(page)); }
+  ok('Tab runs through each row’s buttons, then Done, and stays inside the sheet', same(order, ['ac-ask-no-q-a', 'ac-ask-yes-q-b', 'ac-ask-no-q-b', 'ac-ask-yes-q-c', 'ac-ask-no-q-c', 'ac-ask-close', 'Tutorial for this', 'Close', 'ac-ask-yes-q-a']), order.join(' › '));
+  await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowDown'); await sleep(400);
+  ok('the section menu’s arrow keys are off while it is open', (await page.evaluate(() => window.logiPage())) === 'bookings');
+
+  /* Yes */
+  await page.click('#ac-ask-yes-q-a');
+  await logForm(page).waitFor();
+  ok('Yes opens Log a time seen over the list, with the show’s date and venue filled in', same(await sheetsOf(page), [QUESTION, 'Log a time seen'])
+    && (await logForm(page).locator('[data-key=date]').inputValue()) === d2 && (await logForm(page).locator('select[data-key=venueId]').inputValue()) === 's-lantern');
+  ok('…and the score is still required', await logForm(page).locator('[data-key=rating]').evaluate(el => el.required));
+  await esc(page);
+  ok('Escape closes only the form: the row is unanswered, the focus back on its Yes', same(await sheetsOf(page), [QUESTION]) && same(await rowBtns(page, 'q-a'), ['ac-ask-yes-q-a', 'ac-ask-no-q-a']) && (await focusId(page)) === 'ac-ask-yes-q-a', await focusId(page));
+  await page.click('#ac-ask-yes-q-a');
+  await logForm(page).waitFor();
+  await logForm(page).locator('.form-actions .btn.ghost').click(); await sleep(250); // Cancel
+  ok('Cancel does the same', same(await sheetsOf(page), [QUESTION]) && (await focusId(page)) === 'ac-ask-yes-q-a' && !(await rec(page, 'acts', 's-owls')).seen.some(e => e.bookingId === 'q-a'));
+  await page.click('#ac-ask-yes-q-a');
+  await logForm(page).waitFor();
+  await logForm(page).locator('[data-key=rating]').fill('82');
+  await logForm(page).locator('button[type=submit]').click(); await sleep(400);
+  let owls = await rec(page, 'acts', 's-owls');
+  ok('saving 82 logs the night on the act, with the booking', owls.seen.some(e => e.bookingId === 'q-a' && e.rating === 82 && e.date === d2 && e.venueId === 's-lantern'), JSON.stringify(owls.seen.slice(-1)));
+  ok('…says so', /Logged: 82\/100/.test(await page.locator('.toast').last().innerText().catch(() => '')));
+  ok('…the row reads Scored 82/100, and the list stays open for the others', /Scored 82\/100/.test(await rowText(page, 'q-a')) && same(await sheetsOf(page), [QUESTION]) && (await rowIds(page)).length === 3, await rowText(page, 'q-a'));
+  ok('…with the focus on that row’s ✎ Edit', (await focusId(page)) === 'ac-ask-edit-q-a' && (await page.getAttribute('#ac-ask-edit-q-a', 'aria-label')) === 'Edit the time you saw The Night Owls', await focusId(page));
+  ok('…and the star kept from a screen reader', (await page.$eval(`${Q} .ac-ask-row[data-id="q-a"] .ac-ask-done span`, el => el.getAttribute('aria-hidden') + el.textContent.trim())) === 'true★');
+
+  /* Edit, and deleting the time seen */
+  await page.keyboard.press('Enter');
+  await editForm(page).waitFor();
+  ok('✎ Edit opens that time seen', (await editForm(page).locator('[data-key=rating]').inputValue()) === '82');
+  await editForm(page).locator('[data-key=rating]').fill('90');
+  await page.keyboard.press('Enter'); await sleep(400);
+  ok('a changed score shows in the row, the focus still on ✎ Edit', /Scored 90\/100/.test(await rowText(page, 'q-a')) && (await focusId(page)) === 'ac-ask-edit-q-a', await rowText(page, 'q-a'));
+  await page.click('#ac-ask-edit-q-a');
+  await editForm(page).waitFor();
+  await editForm(page).locator('.btn.danger').click(); await sleep(400);
+  owls = await rec(page, 'acts', 's-owls');
+  ok('deleting it there makes the row unanswered again, the focus on its Yes', !owls.seen.some(e => e.bookingId === 'q-a') && same(await rowBtns(page, 'q-a'), ['ac-ask-yes-q-a', 'ac-ask-no-q-a']) && (await focusId(page)) === 'ac-ask-yes-q-a', await focusId(page));
+  await page.keyboard.press('Enter');
+  await logForm(page).waitFor();
+  await logForm(page).locator('[data-key=rating]').fill('82');
+  await page.keyboard.press('Enter'); await sleep(400);
+  ok('scored again with the keyboard alone', /Scored 82\/100/.test(await rowText(page, 'q-a')) && (await focusId(page)) === 'ac-ask-edit-q-a');
+
+  /* Yes, then another night typed into the form */
+  await page.click('#ac-ask-yes-q-b');
+  await logForm(page).waitFor();
+  ok('a typed venue fills the place box', (await logForm(page).locator('select[data-key=venueId]').inputValue()) === '' && (await logForm(page).locator('[data-key=where]').inputValue()) === 'The Moth Club' && (await logForm(page).locator('[data-key=date]').inputValue()) === d3);
+  await logForm(page).locator('[data-key=date]').fill(d4);
+  await logForm(page).locator('[data-key=rating]').fill('60');
+  await logForm(page).locator('button[type=submit]').click(); await sleep(400);
+  let sable = await rec(page, 'acts', 's-sablea');
+  const other = sable.seen.find(e => e.date === d4);
+  ok('the date changed to a night that show does not cover: it is logged for that night, without the show', !!other && other.rating === 60 && other.bookingId !== 'q-b' && !sable.seen.some(e => e.bookingId === 'q-b'), JSON.stringify(other));
+  ok('…so the row still asks, with the focus on its Yes', same(await rowBtns(page, 'q-b'), ['ac-ask-yes-q-b', 'ac-ask-no-q-b']) && (await focusId(page)) === 'ac-ask-yes-q-b', await focusId(page));
+
+  /* No */
+  const timesBefore = await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/model.js')]).then(([s, m]) => m.seenStats(s.byId('acts', 's-owls')).times));
+  await page.click('#ac-ask-no-q-c'); await sleep(300);
+  ok('No marks the show: went is "no" on the booking', (await rec(page, 'bookings', 'q-c')).went === 'no');
+  ok('…the row reads Didn’t go, with Change', /^The Night Owls .* Didn’t go Change$/.test(await rowText(page, 'q-c')) && same(await rowBtns(page, 'q-c'), ['ac-ask-change-q-c']), await rowText(page, 'q-c'));
+  ok('…the focus is on Change, which names the act', (await focusId(page)) === 'ac-ask-change-q-c' && (await page.getAttribute('#ac-ask-change-q-c', 'aria-label')) === 'Change your answer for The Night Owls', await focusId(page));
+  ok('…it is announced', (await page.textContent('#sr-live')) === 'The Night Owls: marked Didn’t go', await page.textContent('#sr-live'));
+  ok('…and nothing is counted as seen', (await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/model.js')]).then(([s, m]) => m.seenStats(s.byId('acts', 's-owls')).times))) === timesBefore);
+  await page.click('#ac-ask-change-q-c'); await sleep(300);
+  ok('Change takes the answer back: no went on the booking, Yes and No again, the focus on Yes', !('went' in (await rec(page, 'bookings', 'q-c'))) && same(await rowBtns(page, 'q-c'), ['ac-ask-yes-q-c', 'ac-ask-no-q-c']) && (await focusId(page)) === 'ac-ask-yes-q-c', await focusId(page));
+  await page.focus('#ac-ask-no-q-c'); await page.keyboard.press('Enter'); await sleep(300);
+  ok('No with the keyboard', (await rec(page, 'bookings', 'q-c')).went === 'no' && (await focusId(page)) === 'ac-ask-change-q-c');
+
+  /* closing */
+  await page.click('#ac-ask-close'); await sleep(300);
+  ok('Done closes it, with the focus on the page', (await sheetsOf(page)).length === 0 && (await focusId(page)) === 'page' && await page.evaluate(() => document.getElementById('app').inert === false), await focusId(page));
+  await sleep(1500);
+  ok('…and it does not come back in that visit', (await sheetsOf(page)).length === 0);
+
+  /* the calendar says Didn’t go */
+  await openB(page, 'q-c');
+  await page.click('.bk-page .back-btn'); await page.waitForSelector('.bk-dayview');
+  ok('on the calendar, the show answered No says Didn’t go', /Didn’t go/.test(await page.locator('.bk-dayview .bk-ev[data-id="q-c"]').innerText()), (await page.locator('.bk-dayview .bk-ev[data-id="q-c"]').innerText()).replace(/\s+/g, ' '));
+
+  /* the show's own page, as Everything with the setting unset */
+  await openB(page, 'q-c');
+  ok('the show’s page reads Didn’t go, with Change', (await page.locator('.bk-score.bk-score-went .bk-score-text').innerText()) === 'Didn’t go' && (await page.locator('#bk-score-change').innerText()) === 'Change'
+    && (await page.getAttribute('#bk-score-change', 'aria-label')) === 'Change your answer for The Night Owls' && (await page.locator('#bk-score, #bk-score-no').count()) === 0);
+  await openB(page, 'q-a');
+  ok('a scored show reads its score, with ✎ Edit and nothing else', /Scored 82\/100/.test(await page.locator('.bk-score').innerText()) && same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score-edit']));
+  await openB(page, 'q-b');
+  ok('Everything, asked: a show that is over has ★ Score, then Didn’t go', same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score', 'bk-score-no']) && (await page.textContent('#bk-score')).trim() === '★ Score Sable'
+    && (await page.textContent('#bk-score-no')) === 'Didn’t go' && (await page.getAttribute('#bk-score-no', 'aria-label')) === 'I didn’t go to see Sable', (await page.locator('.bk-score').innerText()).replace(/\s+/g, ' '));
+  let step = (await bkSteps(page)).find(x => x[0] === 'Score this show');
+  ok('…and its walkthrough step says what Didn’t go does', !!step && step[1].endsWith('If you missed it, Didn’t go says so and Gdex stops asking.'), step && step[1]);
+  await page.click('#bk-score-no'); await sleep(500);
+  ok('Didn’t go on the page: the booking is marked, the row reads Didn’t go, the focus on Change', (await rec(page, 'bookings', 'q-b')).went === 'no' && (await page.locator('.bk-score-went .bk-score-text').innerText()) === 'Didn’t go' && (await focusId(page)) === 'bk-score-change', await focusId(page));
+  ok('…and it is announced', (await page.textContent('#sr-live')) === 'Sable: marked Didn’t go');
+  await page.keyboard.press('Enter'); await sleep(500);
+  ok('Change brings ★ Score back, with the focus on it', !('went' in (await rec(page, 'bookings', 'q-b'))) && (await focusId(page)) === 'bk-score' && (await page.locator('#bk-score-no').count()) === 1, await focusId(page));
+  // tonight, on stage at 23:59: over at 01:59 tomorrow, whatever the hour of this run
+  await put(page, [{ id: 'q-t', kind: 'show', status: 'confirmed', actId: 's-sablea', date: dayIso(0), venueName: 'A Late Room', setTime: '23:59' }]);
+  await openB(page, 'q-t');
+  ok('a show that is not over yet has ★ Score alone', same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score']));
+  const over = await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/model.js'), import('./js/util.js')]).then(([s, m, u]) => {
+    const b = s.byId('bookings', 'q-t'), at = (h, min) => { const d = u.parseISO(b.date); d.setHours(h, min, 0, 0); return d; };
+    return [m.showOver(b, at(23, 59)), m.showOver(b, at(25, 58)), m.showOver(b, at(25, 59))];
+  }));
+  ok('…Didn’t go waits for the end of the set (two hours after 23:59, by the model)', same(over, [false, false, true]), over.join(','));
+  await openB(page, 's-show1');
+  ok('a show still to come has no row', (await page.locator('.bk-score').count()) === 0);
+  await put(page, [{ id: 'q-off', kind: 'show', status: 'cancelled', actId: 's-owls', date: d4, venueId: 's-lantern' }, { id: 'q-none', kind: 'show', status: 'confirmed', date: d4, venueName: 'Somewhere' }]);
+  await openB(page, 'q-off');
+  ok('nor has a cancelled one', (await page.locator('.bk-score').count()) === 0);
+  await openB(page, 'q-none');
+  ok('Everything on a past show with no act: no row, and no walkthrough step for one', (await page.locator('.bk-score').count()) === 0 && !(await bkSteps(page)).some(x => x[0] === 'Score this show'));
+  await roleNow(page, 'scout');
+  ok('a scout on the same show is told to pick the act', (await page.locator('.bk-score-noact .bk-score-text').innerText()) === 'Pick the act you saw to score this show.' && (await bkSteps(page)).some(x => x[0] === 'Score this show' && /Pick the act you saw/.test(x[1])));
+  await setKey(page, 'gdex-ask-seen', 'off');
+  await openB(page, 'q-b'); await page.evaluate(() => import('./js/store.js').then(s => s.redraw())); await sleep(300);
+  ok('a scout who turned the question off keeps ★ Score (and Didn’t go)', same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score', 'bk-score-no']));
+  await roleNow(page, 'manager');
+  ok('a manager who turned it off has no row', (await page.locator('.bk-score').count()) === 0);
+  await setKey(page, 'gdex-ask-seen', null);
+  await roleNow(page, 'producer');
+  ok('a producer, asked by default, has the row', (await page.locator('#bk-score').count()) === 1);
+  await roleNow(page, 'band');
+  ok('a band with the setting unset has no row', (await page.locator('.bk-score').count()) === 0 && !(await bkSteps(page)).some(x => x[0] === 'Score this show'));
+  await setKey(page, 'gdex-ask-seen', 'on');
+  await page.evaluate(() => import('./js/store.js').then(s => s.redraw())); await sleep(300);
+  ok('a band that chose to be asked has it', same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score', 'bk-score-no']));
+  await setKey(page, 'gdex-ask-seen', null);
+  await roleNow(page, 'all');
+
+  /* the acts page */
+  await go(page, 'acts');
+  await page.waitForSelector('.ac-card[data-id="s-owls"]');
+  if (!(await page.locator('#ac-pnl-s-owls').count())) { await page.click('#ac-head-s-owls'); await sleep(300); } // scoring left the card open
+  await page.click('#ac-past-s-owls');
+  await page.waitForSelector('.sheet[aria-label="From a past show"]');
+  const picks = (await page.locator('.ac-pick').allInnerTexts()).map(t => t.replace(/\s+/g, ' '));
+  ok('From a past show leaves out the show marked Didn’t go (and offers the one from three weeks ago)', picks.length === 1 && /Harbour Hall/.test(picks[0]), picks.join(' | '));
+  await esc(page);
+  await page.click('#ac-log-s-owls');
+  await logForm(page).waitFor();
+  await logForm(page).locator('[data-key=date]').fill(d6);
+  await logForm(page).locator('[data-key=rating]').fill('70');
+  await logForm(page).locator('button[type=submit]').click(); await sleep(400);
+  owls = await rec(page, 'acts', 's-owls');
+  ok('a score logged from the act’s card for that night replaces Didn’t go', !('went' in (await rec(page, 'bookings', 'q-c'))) && owls.seen.some(e => e.bookingId === 'q-c' && e.rating === 70), JSON.stringify(owls.seen.slice(-1)));
+  await openB(page, 'q-c');
+  ok('…and the show’s page reads the score', /Scored 70\/100/.test(await page.locator('.bk-score').innerText()) && (await page.locator('.bk-score-went').count()) === 0);
+
+  /* the next opens */
+  sheets = await loadAsked(page);
+  ok('the next open lists only the show still unanswered', same(sheets, [QUESTION]) && same(await rowIds(page), ['q-b']), (await rowIds(page)).join(','));
+  await page.click('#ac-ask-no-q-b'); await sleep(300);
+  await esc(page);
+  ok('Escape closes the sheet, the answer kept', (await sheetsOf(page)).length === 0 && (await rec(page, 'bookings', 'q-b')).went === 'no' && (await focusId(page)) === 'page');
+  sheets = await loadQuiet(page);
+  ok('with every show answered, nothing is asked', sheets.length === 0 && (await waitingIds(page, true)).length === 0, sheets.join(' | '));
+
+  ok('the sheet: no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
+  await browser.close();
+  return errors;
+}
+
+/* ---------------- who is asked, and about which shows; askAtOpen called by hand; the three menus ---------------- */
+async function whoIsAsked() {
+  const { browser, page, errors } = await open({ ask: true });
+  const show = (id, extra = {}) => ({ id, kind: 'show', status: 'confirmed', actId: 'w-act', venueName: 'The Hall', ...extra });
+  await store(page, s => { s.upsert('acts', { id: 'w-act', name: 'Wolf Hour' }); });
+  await put(page, [
+    show('w-15', { date: dayIso(-15) }), { ...show('w-ses', { date: dayIso(-2) }), kind: 'session' }, show('w-off', { date: dayIso(-2), status: 'cancelled' }),
+    show('w-none', { date: dayIso(-2), actId: '' }), show('w-gone', { date: dayIso(-2), actId: 'w-deleted' }), show('w-soon', { date: dayIso(2) }),
+  ]);
+  let sheets = await loadQuiet(page);
+  ok('nothing is asked about a show 15 days old, a session, a cancelled show, a show with no act or with an act that was deleted, or a show to come', sheets.length === 0, sheets.join(' | '));
+  // 13 days, not the 14 of the rule's edge: this block runs on the real clock, and a run that crosses midnight must not
+  // change who is asked (the edge itself, day 14 in and day 15 out, is checked with a fixed clock in 07-groundwork).
+  await put(page, [show('w-13', { date: dayIso(-13) }), show('w-2', { date: dayIso(-2) })]);
+  sheets = await loadAsked(page);
+  ok('a show two days old and one 13 days old are asked about, and only those', same(sheets, [QUESTION]) && same(await rowIds(page), ['w-2', 'w-13']), (await rowIds(page)).join(','));
+  const dbJson = await page.evaluate(() => localStorage.getItem('gdex-db-v1')); // for the first open below: these two shows waiting
+
+  /* a row whose show is deleted goes; the last one closes the sheet */
+  await store(page, s => { s.remove('bookings', 'w-15'); }); await sleep(200);
+  ok('a change elsewhere leaves the rows as they are', same(await rowIds(page), ['w-2', 'w-13']) && (await focusId(page)) === 'ac-ask-yes-w-2', await focusId(page));
+  const kept = await rec(page, 'bookings', 'w-2');
+  await store(page, s => { s.remove('bookings', 'w-2'); }); await sleep(200);
+  ok('a row whose show was deleted goes, the focus on the row that is left', same(await rowIds(page), ['w-13']) && (await focusId(page)) === 'ac-ask-yes-w-13', await focusId(page));
+  const kept14 = await rec(page, 'bookings', 'w-13');
+  await store(page, s => { s.remove('bookings', 'w-13'); }); await sleep(250);
+  ok('with no row left the sheet closes', (await sheetsOf(page)).length === 0 && await page.evaluate(() => document.getElementById('app').inert === false));
+  await put(page, [kept, kept14]);
+
+  /* the setting, and each role */
+  await setKey(page, 'gdex-ask-seen', 'off');
+  ok('with the question turned off: no sheet', (await loadQuiet(page)).length === 0);
+  await setKey(page, 'gdex-ask-seen', null);
+  for (const id of ['producer', 'manager', 'scout', 'audiophile']) {
+    await setKey(page, 'gdex-role', id);
+    sheets = await loadAsked(page);
+    ok(`${id}: asked`, same(sheets, [QUESTION]) && same(await rowIds(page), ['w-2', 'w-13']), sheets.join(' | '));
+  }
+  for (const id of ['band', 'solo']) {
+    await setKey(page, 'gdex-role', id);
+    ok(`${id}: not asked`, (await loadQuiet(page)).length === 0);
+  }
+  await setKey(page, 'gdex-ask-seen', 'on');
+  sheets = await loadAsked(page);
+  ok('a band that chose Always ask is asked', same(sheets, [QUESTION]) && (await rowIds(page)).length === 2, sheets.join(' | '));
+  await setKey(page, 'gdex-ask-seen', 'off'); await setKey(page, 'gdex-role', 'scout');
+  ok('a scout who chose Never ask is not', (await loadQuiet(page)).length === 0);
+  await setKey(page, 'gdex-ask-seen', null);
+
+  /* holds and offers: by role */
+  await store(page, s => { s.patch('bookings', 'w-2', { status: 'hold' }); s.patch('bookings', 'w-13', { status: 'offer' }); }); await sleep(200);
+  await setKey(page, 'gdex-role', 'manager');
+  ok('a manager is not asked about a hold or an offer (they never happened)', (await loadQuiet(page)).length === 0);
+  await setKey(page, 'gdex-role', 'scout');
+  sheets = await loadAsked(page);
+  ok('a scout is (no money, so no holds to tell apart)', same(sheets, [QUESTION]) && same(await rowIds(page), ['w-2', 'w-13']), (await rowIds(page)).join(','));
+  await store(page, s => { s.patch('bookings', 'w-13', { status: 'confirmed' }); }); await sleep(200);
+  await setKey(page, 'gdex-role', 'manager');
+  sheets = await loadAsked(page);
+  ok('a manager with one hold and one confirmed show is asked about the confirmed one only', same(sheets, [QUESTION]) && same(await rowIds(page), ['w-13']), (await rowIds(page)).join(','));
+  await page.click(`${Q} [aria-label="Close"]`); await sleep(250);
+  ok('✕ closes it', (await sheetsOf(page)).length === 0);
+  await store(page, s => { s.patch('bookings', 'w-2', { status: 'confirmed' }); }); await sleep(200);
+  await setKey(page, 'gdex-role', null);
+
+  /* askAtOpen by hand: once per call, never two sheets, nothing when there is nothing to ask */
+  await loadAsked(page); await esc(page);
+  const call = async ids => { await page.evaluate(x => import('./js/acts-ask.js').then(m => m.askAtOpen(x)), ids); return sheetsOf(page); };
+  ok('askAtOpen with no ids, ids that are not bookings, or a show that is not waiting: nothing', (await call([])).length === 0 && (await call(['nope'])).length === 0 && (await call(['w-soon', 'w-off', 'w-none'])).length === 0 && (await call(null)).length === 0);
+  await setKey(page, 'gdex-ask-seen', 'off');
+  ok('…nor for someone who is not asked', (await call(['w-2'])).length === 0);
+  await setKey(page, 'gdex-ask-seen', null);
+  ok('askAtOpen opens its sheet before it returns, for the ids it was given and no others', same(await call(['w-2']), [QUESTION]) && same(await rowIds(page), ['w-2']));
+  ok('called again while the sheet is up: nothing happens (never two sheets)', same(await call(['w-2', 'w-13']), [QUESTION]) && same(await rowIds(page), ['w-2']));
+  await esc(page);
+  ok('called again after it was closed: it opens again, the newest show first whatever the order given', same(await call(['w-13', 'w-2']), [QUESTION]) && same(await rowIds(page), ['w-2', 'w-13']));
+  await sleep(150);
+  ok('…with the focus on the first Yes', (await focusId(page)) === 'ac-ask-yes-w-2', await focusId(page));
+  await esc(page);
+
+  /* whichever section menu is in use */
+  for (const menu of ['tape', 'digital', 'record']) {
+    await setKey(page, 'gdex-prefs', JSON.stringify({ menu }));
+    sheets = await loadAsked(page);
+    await page.keyboard.press('ArrowRight'); await sleep(400);
+    const held = (await page.evaluate(() => window.logiPage())) === 'bookings';
+    await esc(page);
+    await page.keyboard.press('ArrowRight'); await sleep(500);
+    ok(`${menu} menu: the sheet opens, the menu’s arrow keys are off under it and back when it closes`, same(sheets, [QUESTION]) && held && (await sheetsOf(page)).length === 0 && (await page.evaluate(() => window.logiPage())) !== 'bookings', `${sheets.join('|')} ${held} ${await page.evaluate(() => window.logiPage())}`);
+  }
+  await setKey(page, 'gdex-prefs', null);
+
+  /* the sleeve opened in the first second: the question waits its turn */
+  await fresh(page);
+  await page.locator('#deck .dk-record').click();
+  await page.waitForSelector('.sheet[aria-label="The sleeve"]');
+  await sleep(1900);
+  ok('the sleeve opened in the first second: nothing opens over it', same(await sheetsOf(page), ['The sleeve']), (await sheetsOf(page)).join(' | '));
+  await esc(page);
+  await page.locator(Q).waitFor({ timeout: 4000 }).catch(() => {});
+  ok('…and the question opens on its own once the sleeve is closed', same(await sheetsOf(page), [QUESTION]) && same(await rowIds(page), ['w-2', 'w-13']), (await sheetsOf(page)).join(' | '));
+  await esc(page);
+
+  /* Settings → Your role */
+  await go(page, 'settings');
+  await page.waitForSelector('#se-role');
+  if (!(await page.$eval('#se-role', d => d.open))) { await page.click('#se-role-sum'); await sleep(200); }
+  const pref = () => page.evaluate(() => ({
+    on: [...document.querySelectorAll('.ac-ask-pref .seg button')].map(b => `${b.id}:${b.getAttribute('aria-pressed')}:${b.classList.contains('on')}`).join(' '),
+    note: document.querySelector('.ac-ask-pref .ac-ask-note').textContent, key: localStorage.getItem('gdex-ask-seen'),
+    focus: document.activeElement && document.activeElement.id,
+  }));
+  ok('Your role has the control, a named group under the role cards', (await page.locator('#se-role .rp-panel + .ac-ask-pref[role=group][aria-label="Ask after a show"]').count()) === 1
+    && (await page.locator('.ac-ask-pref .pref-label').innerText()) === 'After a show, ask “Did you see them?”'
+    && same(await page.$$eval('.ac-ask-pref .seg.wide button', bs => bs.map(b => b.textContent)), ['Follow my role', 'Always ask', 'Never ask']));
+  // Each choice's box, and whether its words fit inside it.
+  const boxes = () => page.$$eval('.ac-ask-pref .seg button', bs => bs.map(b => { const r = b.getBoundingClientRect(), t = document.createRange(); t.selectNodeContents(b); const w = t.getBoundingClientRect(); return { x: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height), fits: w.left >= r.left - 0.5 && w.right <= r.right + 0.5 && b.scrollWidth <= b.clientWidth + 1 }; }));
+  const boxesAuto = await boxes();
+  ok('each choice’s words fit inside its button', boxesAuto.length === 3 && boxesAuto.every(b => b.fits), JSON.stringify(boxesAuto));
+  let P = await pref();
+  ok('unset, it follows the role, and says Everything is asked', P.on === 'ac-ask-auto:true:true ac-ask-on:false:false ac-ask-off:false:false' && P.key === null
+    && P.note === 'Your role is asked: when Gdex opens, it lists the shows that have finished so you can score the ones you saw.', JSON.stringify(P));
+  await page.click('#ac-ask-off'); await sleep(150);
+  P = await pref();
+  ok('Never ask writes off, shows as pressed, keeps the focus and says what still works', P.key === 'off' && P.on === 'ac-ask-auto:false:false ac-ask-on:false:false ac-ask-off:true:true' && P.focus === 'ac-ask-off'
+    && P.note === 'Gdex never asks. You can still score a show from its own page or the act’s card.', JSON.stringify(P));
+  await page.focus('#ac-ask-on'); await page.keyboard.press('Enter'); await sleep(150);
+  P = await pref();
+  ok('Always ask (with the keyboard) writes on', P.key === 'on' && P.on === 'ac-ask-auto:false:false ac-ask-on:true:true ac-ask-off:false:false' && P.focus === 'ac-ask-on'
+    && P.note === 'Gdex asks about every show that has finished, for two weeks after it.', JSON.stringify(P));
+  const boxesOn = await boxes();
+  await page.click('#ac-ask-auto'); await sleep(150);
+  ok('the buttons do not move or change size when the choice changes (the one in use is bold)', same(boxesOn, boxesAuto) && same(await boxes(), boxesAuto), `${JSON.stringify(boxesOn)} / ${JSON.stringify(boxesAuto)}`);
+  P = await pref();
+  ok('Follow my role removes the setting', P.key === null && P.on.startsWith('ac-ask-auto:true:true') && P.focus === 'ac-ask-auto', JSON.stringify(P));
+  await roleNow(page, 'band');
+  P = await pref();
+  ok('for a band the note says the role is not asked, and how to be', P.note === 'Your role is not asked. Choose Always ask to be asked anyway.' && P.on.startsWith('ac-ask-auto:true:true'), JSON.stringify(P));
+  ok('still nine sections, one group of role cards with seven choices, and no radio among the three buttons', (await page.locator('#page details.se-sec').count()) === 9 && (await page.locator('#se-role [role=radiogroup]').count()) === 1
+    && (await page.locator('#se-role [role=radio]').count()) === 7 && (await page.locator('.ac-ask-pref [role=radio]').count()) === 0);
+  await roleNow(page, 'all');
+  await page.click('#ac-ask-off'); await sleep(150);
+  ok('Never ask chosen in Settings: the next open asks nothing', (await loadQuiet(page)).length === 0 && (await waitingIds(page)).length === 2);
+  await setKey(page, 'gdex-ask-seen', null);
+
+  ok('who is asked: no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
+  await browser.close();
+  return { errors, dbJson };
+}
+
+/* ---------------- the first open with shows already there: the role question, the tour, then the question ---------------- */
+// A browser without the helper's presets. The database is put in only while the device has none, so an answer
+// given here is still there after a reload.
+async function firstOpen(dbJson) {
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+  await ctx.addInitScript(data => {
+    try { if (!localStorage.getItem('gdex-db-v1')) localStorage.setItem('gdex-db-v1', data); } catch (e) { /* ignore */ }
+    // the most sheets and tours on screen at one time, in this load
+    window.__most = 0;
+    new MutationObserver(() => { const n = document.querySelectorAll('.sheet-back, .tour').length; if (n > window.__most) window.__most = n; }).observe(document, { childList: true, subtree: true });
+  }, dbJson);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
+  page.on('dialog', d => d.accept());
+  await page.goto(URL);
+  await page.waitForSelector('.rp-ask');
+  await sleep(1800);
+  ok('a first open with two shows waiting: the role question comes first, alone', same(await sheetsOf(page), ['Who’s using Gdex?']) && (await tours(page)) === 0, (await sheetsOf(page)).join(' | '));
+  await page.click('.rp-card[data-role="scout"]');
+  await page.waitForSelector('.tour-card');
+  await sleep(1500);
+  ok('…then the welcome tour, with nothing over it', (await sheetsOf(page)).length === 0 && (await tours(page)) === 1, (await sheetsOf(page)).join(' | '));
+  await page.click('.tour-actions .btn.ghost.small'); // Skip
+  await page.locator(Q).waitFor({ timeout: 4000 }).catch(() => {});
+  await sleep(200);
+  ok('…and only after Skip, “Did you see them?”, with both shows', same(await sheetsOf(page), [QUESTION]) && (await tours(page)) === 0 && same(await rowIds(page), ['w-2', 'w-13']), (await sheetsOf(page)).join(' | '));
+  ok('…never two of them at once', (await page.evaluate(() => window.__most)) === 1, String(await page.evaluate(() => window.__most)));
+  ok('…with the focus on the first Yes', (await focusId(page)) === 'ac-ask-yes-w-2', await focusId(page));
+  await page.click('#ac-ask-no-w-2'); await sleep(300);
+  await page.click('#ac-ask-close'); await sleep(300);
+  const sheets = await loadAsked(page);
+  ok('the next open goes straight to the question, about the show still unanswered', same(sheets, [QUESTION]) && same(await rowIds(page), ['w-13']) && (await page.evaluate(() => window.__most)) === 1, `${sheets.join(' | ')} ${(await rowIds(page)).join(',')}`);
+  ok('the first open: no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
+  await browser.close();
+  return errors;
+}
+
+/* ---------------- a narrow phone with extra-large text and big buttons ---------------- */
+async function narrow() {
+  const { browser, page, errors } = await open({ sample: true, ask: true, viewport: { width: 320, height: 700 } });
+  await setKey(page, 'gdex-prefs', JSON.stringify({ text: 'xlarge', targets: 'large' }));
+  await put(page, [
+    { id: 'n-a', kind: 'show', status: 'confirmed', actId: 's-owls', date: dayIso(-2), venueName: 'The Extraordinarily Long-Named Working Men’s Club and Institute' },
+    { id: 'n-b', kind: 'show', status: 'confirmed', actId: 's-sablea', date: dayIso(-4), endDate: dayIso(-3), venueId: 's-greenfield' },
+    { id: 'n-c', kind: 'show', status: 'confirmed', actId: 's-owls', date: dayIso(-7), venueId: 's-harbour' },
+  ]);
+  const sheets = await loadAsked(page);
+  // What is wider than the screen, or than the sheet's own body.
+  const wide = sel => page.evaluate(sel => {
+    const out = [...document.querySelectorAll(sel)].filter(el => { const r = el.getBoundingClientRect(); return r.right > innerWidth + 1 || r.left < -1; }).map(el => (el.id || el.className) + ' ' + Math.round(el.getBoundingClientRect().right));
+    if (document.documentElement.scrollWidth > innerWidth + 1) out.push('page ' + document.documentElement.scrollWidth);
+    const body = document.querySelector('.sheet-body'); if (body && body.scrollWidth > body.clientWidth + 1) out.push('sheet ' + body.scrollWidth);
+    return out;
+  }, sel);
+  ok('320 px, extra-large text, big buttons: the sheet opens', same(sheets, [QUESTION]) && await page.evaluate(() => document.documentElement.dataset.text === 'xlarge' && document.documentElement.dataset.targets === 'large'));
+  let w = await wide('.sheet, .sheet .ac-ask-row, .sheet .ac-ask-main, .sheet button');
+  ok('…and nothing in it is wider than the screen or scrolls sideways', w.length === 0, w.join(' | '));
+  const under = await page.$$eval('.sheet .ac-ask-row', rs => rs.map(r => r.querySelector('.ac-ask-answer').getBoundingClientRect().top >= r.querySelector('.ac-ask-main').getBoundingClientRect().bottom - 1));
+  ok('…a row’s buttons sit under its words, Yes and No side by side', under.length === 3 && under.every(Boolean)
+    && await page.evaluate(() => Math.abs(document.getElementById('ac-ask-yes-n-a').getBoundingClientRect().top - document.getElementById('ac-ask-no-n-a').getBoundingClientRect().top) < 2), under.join(','));
+  const small = await page.evaluate(() => { const need = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')); return [need, ...[...document.querySelectorAll('.sheet .ac-ask-row .btn, #ac-ask-close')].map(b => Math.round(b.getBoundingClientRect().height)).filter(x => x < need)]; });
+  ok('…each as tall as the big-button setting asks', small[0] >= 54 && small.length === 1, small.join(','));
+  await page.click('#ac-ask-no-n-b'); await sleep(250);
+  await page.click('#ac-ask-yes-n-a');
+  await logForm(page).waitFor();
+  await logForm(page).locator('[data-key=rating]').fill('100');
+  await logForm(page).locator('button[type=submit]').click(); await sleep(400);
+  w = await wide('.sheet, .sheet .ac-ask-row, .sheet .ac-ask-main, .sheet .ac-ask-answer, .sheet .ac-ask-done, .sheet button');
+  ok('…and still nothing once a row reads Scored 100/100 and another Didn’t go', w.length === 0 && /Scored 100\/100/.test(await rowText(page, 'n-a')) && /Didn’t go/.test(await rowText(page, 'n-b')), w.join(' | '));
+  await page.click('#ac-ask-close'); await sleep(250);
+  await openB(page, 'n-c');
+  w = await wide('.bk-score, .bk-score button');
+  ok('the show’s page at that size: Score and Didn’t go stay on the screen', w.length === 0 && (await page.locator('#bk-score-no').count()) === 1, w.join(' | '));
+  await page.click('#bk-score-no'); await sleep(500);
+  w = await wide('.bk-score, .bk-score button, .bk-score-text');
+  ok('…and so do Didn’t go and Change', w.length === 0 && (await page.locator('#bk-score-change').count()) === 1, w.join(' | '));
+  await go(page, 'settings');
+  await page.waitForSelector('#se-role');
+  if (!(await page.$eval('#se-role', d => d.open))) { await page.click('#se-role-sum'); await sleep(200); }
+  w = await wide('.ac-ask-pref, .ac-ask-pref button, .ac-ask-pref .ac-ask-note, .ac-ask-pref .pref-label');
+  ok('the Settings control at that size does not scroll sideways', w.length === 0 && (await page.locator('.ac-ask-pref .seg button').count()) === 3, w.join(' | '));
+  const lines = await page.$$eval('.ac-ask-pref .seg button', bs => bs.map(b => { const r = document.createRange(); r.selectNodeContents(b); return new Set([...r.getClientRects()].map(x => Math.round(x.top))).size; }));
+  ok('…and no choice is broken inside a word (each on one line)', same(lines, [1, 1, 1]), lines.join(','));
+  ok('a narrow phone: no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
+  await browser.close();
+  return errors;
+}
+
+/* ---------------- the real sheet when Gdex comes back (the page's clock set by hand, as in the first block) ---------------- */
+async function comingBack() {
+  const { browser, page, errors } = await open({ ask: true, init });
+  const { setClock, away } = clockKit(page);
+  const show = (extra = {}) => ({ kind: 'show', status: 'confirmed', actId: 'k-act', venueName: 'Typed Hall', ...extra });
+  await setClock(BASE);
+  await store(page, (s, d) => {
+    s.upsert('acts', { id: 'k-act', name: 'Clockwork' });
+    s.upsert('bookings', { ...d.show, id: 'k-old', date: d.old });
+    s.upsert('bookings', { ...d.show, id: 'k-late', date: d.today, setTime: '12:00', setLength: 60 });
+  }, { show: show(), old: day(-2), today: day(0) });
+  await sleep(200);
+  await setClock(BASE);
+  let sheets = await loadAsked(page);
+  ok('the real sheet, 08:00: it asks about the show that is over', same(sheets, [QUESTION]) && same(await rowIds(page), ['k-old']), (await rowIds(page)).join(','));
+  await away(240);
+  ok('back after 4 h with the question still on screen: still one sheet, as it was', same(await sheetsOf(page), [QUESTION]) && same(await rowIds(page), ['k-old']), (await sheetsOf(page)).join(' | '));
+  await esc(page); await sleep(800);
+  ok('…and closing it does not bring it back', (await sheetsOf(page)).length === 0);
+  await away(181);
+  ok('back after another 3 h 1 min: asked again in the same visit, the show that ended meanwhile first', same(await sheetsOf(page), [QUESTION]) && same(await rowIds(page), ['k-late', 'k-old']), (await rowIds(page)).join(','));
+  await page.click('#ac-ask-yes-k-old');
+  await logForm(page).waitFor();
+  await away(240);
+  ok('back after 4 h with the score form open over the question: nothing more opens', same(await sheetsOf(page), [QUESTION, 'Log a time seen']), (await sheetsOf(page)).join(' | '));
+  await logForm(page).locator('[data-key=rating]').fill('70');
+  await logForm(page).locator('button[type=submit]').click(); await sleep(400);
+  await page.click('#ac-ask-no-k-late'); await sleep(300);
+  ok('…both answered there', /Scored 70\/100/.test(await rowText(page, 'k-old')) && /Didn’t go/.test(await rowText(page, 'k-late')) && same(await sheetsOf(page), [QUESTION]));
+  await page.click('#ac-ask-close'); await sleep(300);
+  await away(181);
+  ok('with every show answered, coming back asks nothing', (await sheetsOf(page)).length === 0);
+  ok('coming back: no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
+  await browser.close();
+  return errors;
+}
+
+(async () => {
+  const { browser, ctx, page, errors } = await open({ ask: true, init });
+  let fetched = 0;
+  await ctx.route('**/js/acts-ask.js', r => { fetched++; return r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: STAND_IN }); });
+
+  const { setClock, sight, kept, away } = clockKit(page);
+  // A fresh load at 08:00, and time for the question at open (0.9 s in) to have had its turn.
+  const load = async () => { await setClock(BASE); fetched = 0; await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(1600); };
   const state = () => page.evaluate(() => import('./js/model.js').then(m => ({
     asked: (window.__asked || []).map(a => a.ids.join(',')), over: (window.__asked || []).map(a => a.over),
     sheets: [...document.querySelectorAll('.sheet')].map(s => s.getAttribute('aria-label')), tours: document.querySelectorAll('.tour-card').length,
@@ -206,4 +738,10 @@ const init = () => {
 
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
+
+  // The real sheet, each block in a browser of its own. The spec's last line counts every block's errors again.
+  const all = [...errors, ...await theSheet()];
+  const who = await whoIsAsked();
+  all.push(...who.errors, ...await firstOpen(who.dbJson), ...await narrow(), ...await comingBack());
+  ok('no errors in the console', all.length === 0, all.slice(0, 5).join(' | '));
 })().catch(e => { console.log('FAIL ask spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });

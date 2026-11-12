@@ -4,7 +4,8 @@
 // words; an act's page kept to its Overview, led by the times seen, for the scout; + Book follows the role's usual kind
 // (+ Add a show without money); scoring the same night: today's show is offered, and a time logged from the card takes
 // that show's id; the link follows the entry's date on every save; two shows on one day; one score a night (asks
-// first); the latest of a day is the last saved; and Coming up rows on a narrow phone with extra-large text.
+// first); the latest of a day is the last saved; Coming up rows on a narrow phone with extra-large text; and the one
+// time a Coming up row prints on an act's own page, which is the time its day is sorted by.
 const { open, ok, sleep, topSheet } = require('../helpers.cjs');
 
 const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -476,6 +477,39 @@ async function logFromCard(page, id, score) {
     m = await measure();
     ok('420px, normal text: the pill stays beside the text, on one line', !m.below && m.inside && !m.midWord, JSON.stringify(m));
     ok('no errors in the console (narrow rows)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
+  /* ---------------- an act's own page: a Coming up row prints the time its day is sorted by ---------------- */
+  // A day runs in the order the bands play (on stage, else doors, soundcheck, load-in; a session by its start; after
+  // midnight at the end of the night; no time last). Each row prints one time, so it prints that one: the first time of
+  // the day (load-in) would read 10:00, 19:00, 15:00, 23:00 down these rows.
+  {
+    const { browser, page, errors } = await open({ tab: 'acts' });
+    await page.waitForSelector('.ac-page');
+    await put(page, 'acts', { id: 't-day', name: 'One Long Day', members: [] });
+    const on = dayIso(3), show = (id, venueName, times) => ({ id, kind: 'show', status: 'confirmed', actId: 't-day', date: on, venueName, ...times });
+    for (const b of [
+      show('t-none', 'No Times Yet', {}),
+      show('t-after', 'After Midnight', { loadIn: '23:00', setTime: '00:30' }),
+      show('t-set', 'Set At Ten', { loadIn: '15:00', doors: '20:00', setTime: '22:00' }),
+      show('t-doors', 'Doors Only', { loadIn: '19:00', doors: '19:30' }),
+      { id: 't-ses', kind: 'session', status: 'confirmed', actId: 't-day', date: on, venueName: 'The Studio', start: '10:00', end: '14:00' },
+    ]) await put(page, 'bookings', b);
+    await act(page, 't-day');
+    await page.click('#ac-allbk'); await sleep(250); // Show all 5
+    const rows = await page.$$eval('#ac-coming .ac-bk', rs => rs.map(r => ({ main: r.querySelector('.ac-bk-main strong').textContent, sub: r.querySelector('.ac-bk-main .muted').textContent })));
+    const order = await page.evaluate(() => import('./js/store.js').then(s => s.upcoming().filter(b => b.actId === 't-day').map(b => b.id)));
+    ok('the day’s rows are in the order the bands play', JSON.stringify(order) === JSON.stringify(['t-ses', 't-doors', 't-set', 't-after', 't-none']) && rows.map(r => r.main).join('|') === 'The Studio|Doors Only|Set At Ten|After Midnight|No Times Yet', rows.map(r => r.main).join('|'));
+    const times = rows.map(r => (r.sub.match(/(?:(?:On stage|Doors|Soundcheck|Load-in|Start) )?\d\d:\d\d/g) || []).join(','));
+    ok('each row prints the one time it is sorted by, a show’s with its name', JSON.stringify(times) === JSON.stringify(['10:00', 'Doors 19:30', 'On stage 22:00', 'On stage 00:30', '']), JSON.stringify(times));
+    const want = await page.evaluate(ids => Promise.all([import('./js/store.js'), import('./js/model.js')]).then(([s, m]) => ids.map(id => { const b = s.byId('bookings', id), t = m.playTime(b); return t && b.kind === 'show' ? `${m.playLabel(b)} ${t}` : t; })), order);
+    ok('…which is the model’s playing time and its label', JSON.stringify(times) === JSON.stringify(want), JSON.stringify(want));
+    ok('…and the rest of the line is as before (the kind, then the time)', rows[2].sub === '🎤 Show · On stage 22:00' && rows[0].sub === '🎚️ Studio session · 10:00' && rows[4].sub === '🎤 Show', rows.map(r => r.sub).join(' | '));
+    await role(page, 'scout');
+    const again = await page.$$eval('#ac-coming .ac-bk .ac-bk-main .muted', els => els.map(e => e.textContent));
+    ok('a scout reads the same rows', JSON.stringify(again) === JSON.stringify(rows.map(r => r.sub)), again.join(' | '));
+    ok('no errors in the console (the time a row prints)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
 })().catch(e => { console.log('FAIL roles-acts spec crashed — ' + e.message); process.exit(1); });
