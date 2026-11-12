@@ -83,7 +83,9 @@
 .mn-year button { min-width: var(--hit); font-size: 1.2rem; padding: 4px 10px; }
 .mn-year-now { font-weight: 800; font-variant-numeric: tabular-nums; padding: 0 6px; min-width: 3.4rem; text-align: center; }
 .mn-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; }
-.mn-stats .stat b { font-size: clamp(1rem, 5vw, 1.3rem); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+/* The smallest size is low enough that, with big text on a small phone, an amount fits its tile rather than splitting. */
+.mn-stats .stat b { font-size: clamp(.72rem, 5vw, 1.3rem); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.mn-stats .stat span { overflow-wrap: break-word; }
 @media (min-width: 560px) { .mn-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .mn-note { margin: 0 0 6px; }
 .mn-sec { min-width: 0; }

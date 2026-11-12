@@ -10,7 +10,7 @@ import { dateText } from '../money-doc.js';
 import { csv, saveFile } from '../print.js';
 import { openBooking, newBooking } from './bookings.js';
 import { isSettled } from '../blocks/settlement.js';
-import { sectionName, pageOpt } from '../roles.js';
+import { sectionName, pageOpt, actWord } from '../roles.js';
 
 let year = null;          // the year on show (null: this year)
 let showAllSettled = false;
@@ -39,6 +39,8 @@ const ownEarned = () => earnedWord() === 'earned';
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
 // "what you earned" / "what your acts earned", for sentences (the empty page, the walkthrough).
 const whatEarned = () => (ownEarned() ? 'what you earned' : 'what ' + earnedWord());
+// One act's row under By act: "earned", or where the year's income is the acts' (a manager's), "the act earned".
+const actEarned = a => (ownEarned() || !a.id ? 'earned' : `the ${actWord()} earned`);
 
 // Money received in a year on an invoice: each payment by its date, and the rest of an invoice marked paid in full
 // on the day it was marked.
@@ -167,7 +169,7 @@ function render(root) {
 
     section('mn-months', `Income by month, ${Y}`,
       top > 0 ? [
-        h('div', { class: 'mn-legend', 'aria-hidden': 'true' }, h('span', null, h('i', { class: 'mn-key earned' }), 'Earned'), h('span', null, h('i', { class: 'mn-key booked' }), 'Booked ahead')),
+        h('div', { class: 'mn-legend', 'aria-hidden': 'true' }, h('span', null, h('i', { class: 'mn-key earned' }), cap(earnedWord())), h('span', null, h('i', { class: 'mn-key booked' }), 'Booked ahead')),
         h('ol', { class: 'mn-bars' }, ...months.map(m => h('li', { class: 'mn-bar-row' },
           h('span', { class: 'mn-bar-m', 'aria-hidden': 'true' }, monthShort(m.i)),
           h('span', { class: 'mn-track', 'aria-hidden': 'true' },
@@ -187,7 +189,7 @@ function render(root) {
     section('mn-acts', 'By act', actRows.length ? h('div', { class: 'list' }, ...actRows.map(a => h('div', { class: 'card mn-act' }, h('div', { class: 'card-row' },
       h('div', null, h('strong', null, a.color && h('i', { class: 'mn-dot', style: `background:${/^#[0-9a-f]{3,8}$/i.test(a.color) ? a.color : 'transparent'}`, 'aria-hidden': 'true' }), a.name),
         h('div', { class: 'muted small' }, Object.entries(a.kinds).map(([k, n]) => `${n} ${kindLabel(k).toLowerCase()}${n === 1 ? '' : 's'}`).join(' · '))),
-      h('div', { class: 'mn-amt' }, h('b', null, fmtMoney(a.earned)), h('span', { class: 'muted small' }, 'earned'))),
+      h('div', { class: 'mn-amt' }, h('b', null, fmtMoney(a.earned)), h('span', { class: 'muted small' }, actEarned(a)))),
       h('div', { class: 'muted small mn-act-sub' }, [a.merch > 0 && `merch ${fmtMoney(a.merch)}`, `costs ${fmtMoney(a.costs)}`, `profit ${fmtMoney(r2(a.earned + a.merch - a.costs))}`, a.booked > 0 && `${fmtMoney(a.booked)} booked ahead`].filter(Boolean).join(' · ')))))
       : h('p', { class: 'muted small' }, `No bookings in ${Y}.`)),
 
@@ -210,7 +212,7 @@ export const money = {
     { title: 'Pick a year', text: 'Step back through earlier years, or ahead to bookings next year.', target: ['.mn-year'] },
     { title: 'Deposits due', text: 'Shows with a deposit not in yet. Tap Received when it lands.', target: ['.mn-deposits'] },
     { title: 'Unpaid invoices', text: 'Overdue first. Tap one to open the booking, then send a reminder or record the payment.', target: ['.mn-unpaid'] },
-    { title: 'By month', text: 'Each month’s income: earned in the solid bar, booked ahead in the lighter one.', target: ['.mn-months'] },
+    { title: 'By month', text: `Each month’s income: ${ownEarned() ? 'earned' : whatEarned()} in the solid bar, booked ahead in the lighter one.`, target: ['.mn-months'] },
     { title: 'Shows, acts and players', text: 'What each settled show made, the totals per act, and what each person was paid out.', target: ['.mn-settled', '.mn-acts'] },
     { title: 'For the accountant', text: 'Your invoices and shows as spreadsheets.', target: ['.mn-export'] },
   ],

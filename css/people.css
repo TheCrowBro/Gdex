@@ -82,8 +82,11 @@
 .ins-warn { margin: 8px 0 12px; }
 .ins-row { align-items: flex-start; }
 .ins-ico { font-size: 1.35rem; width: 1.8rem; text-align: center; flex: none; line-height: 1.5; }
-.ins-title { min-width: 0; overflow-wrap: anywhere; }
-.ins-row > .pill { align-self: center; flex: none; }
+/* The name and insurer wrap between words; the renewal pill sits beside them while the name keeps about 9rem, else under. */
+.ins-head { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.ins-title { flex: 1 1 9rem; min-width: 0; overflow-wrap: break-word; }
+.ins-head > .pill { flex: none; }
+.ins-no { display: inline-block; max-width: 100%; overflow-wrap: anywhere; } /* a policy number stays on one line while it fits */
 .ins-row > .icon-btn { margin: -6px -6px 0 -4px; }
 .pill.ins-due { color: var(--accent); border-color: var(--accent); }
 .pill.ins-ok { color: var(--ok); border-color: var(--ok); }
@@ -91,7 +94,11 @@
 .ins-card.ins-old { border-style: dashed; }
 .ins-kv > div > b { text-align: right; overflow-wrap: anywhere; }
 .ins-notes { margin-top: 8px; overflow-wrap: anywhere; }
-@media (max-width: 380px) { .ins-stats .stat b { font-size: 1rem; } }
+/* Three tiles while each keeps 5.5rem (so with big text on a small phone, two a row), labels wrapping between words,
+   and amounts a size that fits the tile rather than splitting mid-number. */
+.ins-stats { grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.5rem), 1fr)); }
+.ins-stats .stat b { font-size: clamp(.85rem, 4.4vw, 1.15rem); font-variant-numeric: tabular-nums; }
+.ins-stats .stat span { overflow-wrap: break-word; }
 
 /* The footer button wraps rather than pushing the page sideways (extra-large text on a small phone). */
 .pp-foot .btn { max-width: 100%; white-space: normal; text-align: center; }
