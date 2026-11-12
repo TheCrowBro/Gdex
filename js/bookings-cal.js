@@ -323,7 +323,7 @@ function blockSpan(b) {
 
 function timeGrid(mode, R, all, today) {
   const one = mode === 'day', hh = one ? 52 : 44; // px an hour
-  const inView = all.filter(b => b.date <= R.last && lastDay(b) >= R.first);
+  const inView = all.filter(b => R.days.some(d => covers(b, d))); // on one of the days shown (a date that is no day, a 30 February from an old backup, is on none)
   // Bookings with no time, and every booking over several days, sit in the "any time" row at the top.
   const loose = inView.filter(b => multi(b) || model.playKey(b) == null), timed = inView.filter(b => !loose.includes(b));
   const heads = !one && h('div', { class: 'bk-grid-heads' }, h('span', { 'aria-hidden': 'true' }), R.days.map(iso => { const now = iso === today;
@@ -334,7 +334,9 @@ function timeGrid(mode, R, all, today) {
     return one ? none : [frame(), none]; // three days keep their names, each a way into its day
   }
   const any = loose.length > 0 && anyRow(loose, R, one);
-  if (!timed.length) return [frame(any), h('p', { class: 'muted small bk-grid-note' }, 'No times set yet.')];
+  // Nothing for the hours: the row alone, and "No times set yet." unless a pill shows a time (a festival over two days
+  // with a set at 16:30 has one, and is up there for its days, not for want of a time).
+  if (!timed.length) return [frame(any), loose.every(b => model.playKey(b) == null) && h('p', { class: 'muted small bk-grid-note' }, 'No times set yet.')];
 
   // The hours fit what is on: the evening, widened to the hour the earliest block starts in and to the first full hour
   // at or after the latest end. Every day of the grid shares them.
@@ -380,7 +382,9 @@ const px = n => Math.round(n * 100) / 100;
 function block({ b, top, tall, lane, lanes }, iso, one) {
   const by = fallBack(b), where = one && !didntGo(b) && venueLine(b);
   const style = [actStyle(b), `top:${px(top)}px`, `height:${px(tall)}px`, `left:calc(${px(lane * 100 / lanes)}% + 1px)`, `width:calc(${px(100 / lanes)}% - 2px)`].filter(Boolean).join(';');
-  const el = h('button', { type: 'button', class: `bk-ev bk-block ${tone(b.status)}`, id: `bk-ev-${b.id}-${iso}`, 'data-id': b.id, style, title: 'Tap to open; press and hold to delete',
+  // Many sets at once (a festival's stages): past four side by side in three days, or eight in one, a block gives up
+  // its padding, so each stays in its own lane and none runs over the next day.
+  const el = h('button', { type: 'button', class: `bk-ev bk-block ${tone(b.status)}` + (lanes > (one ? 8 : 4) ? ' bk-block-slim' : ''), id: `bk-ev-${b.id}-${iso}`, 'data-id': b.id, style, title: 'Tap to open; press and hold to delete',
     onclick: () => { if (!wasHeld(el)) X.showBooking(b, iso); } },
     h('span', { class: 'bk-block-in' },
       h('strong', { class: 'bk-block-title' }, h('span', { class: 'bk-ico', 'aria-hidden': 'true' }, model.kindIcon(b.kind) + ' '), model.bookingTitle(b)),

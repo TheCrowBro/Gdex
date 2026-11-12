@@ -280,6 +280,10 @@ async function press(page, loc, ms) {
   ok('the hours after midnight carry a small +1', same(g.hours.slice(-2).map(h => h[0]), ['00:00+1', '01:00+1']) && g.hours[5][0] === '23:00');
   ok('the blocks are in the order the night runs, and a column is named for its day', same(g.cols[0].blocks.map(b => b.id), ['c-X', 'c-P', 'c-Q', 'c-E', 'c-A', 'c-L', 'c-C']) && g.cols[0].label === (await fmt(T, 'fmtLong')), g.cols[0].blocks.map(b => b.id).join(','));
   ok('a set at 21:00 for 75 minutes starts on the 21:00 line and is 75/60 of an hour tall', blk('c-E').top === line('21:00') && Math.abs(blk('c-E').h - 75 / 60 * g.hh) < 0.6, JSON.stringify(blk('c-E')));
+  // The name is at the top of its block, where the set starts (a button centres what is in it unless told otherwise).
+  const nameTop = id => page.evaluate(id => { const b = document.querySelector(`.bk-col .bk-ev[data-id="${id}"]`), t = b.querySelector('.bk-block-title'); return { gap: t.getBoundingClientRect().top - b.getBoundingClientRect().top, h: b.offsetHeight }; }, id);
+  let nt = await nameTop('c-E');
+  ok('a block’s name is at the top of the block, where the set starts, not half-way down it', nt.h > 60 && nt.gap >= 0 && nt.gap <= 6, JSON.stringify(nt));
   const over = (a, b) => a.top < b.top + b.h && b.top < a.top + a.h;
   ok('two sets that overlap sit side by side', over(blk('c-E'), blk('c-A')) && blk('c-A').left >= blk('c-E').left + blk('c-E').w - 1 && Math.abs(blk('c-E').w - blk('c-A').w) <= 1 && blk('c-E').w < g.cols[0].w / 2, JSON.stringify([blk('c-E'), blk('c-A')]));
   ok('two sets that only touch (19:00 for an hour, then 20:00) share a lane, the whole width', blk('c-P').left === blk('c-Q').left && blk('c-P').w === blk('c-Q').w && blk('c-P').w > g.cols[0].w - 6 && blk('c-P').top + blk('c-P').h <= blk('c-Q').top + 0.5 && blk('c-Q').top + blk('c-Q').h <= blk('c-E').top + 0.5, JSON.stringify([blk('c-P'), blk('c-Q')]));
@@ -354,6 +358,13 @@ async function press(page, loc, ms) {
   await put(page, 'bookings', { id: 'c-U', kind: 'other', status: 'hold', title: 'Untimed', date: T3 }); await sleep(300);
   ok('a day with nothing timed shows the “any time” row and “No times set yet.”, without empty hours', (await page.locator('.bk-any #bk-ev-c-U-any').count()) === 1 && (await page.locator('.bk-grid-body').count()) === 0 && (await page.locator('.bk-grid-note').textContent()) === 'No times set yet.' && (await page.locator('.bk-cal-panel .bk-none').count()) === 0);
   await page.evaluate(() => import('./js/store.js').then(s => s.remove('bookings', 'c-U'))); await sleep(300);
+  // a booking over two days that has a time is in that row for its days, not for want of a time
+  await put(page, 'bookings', { id: 'c-F', kind: 'show', status: 'hold', title: 'Two-day Fest', date: T3, endDate: T4, setTime: '16:30', setLength: 30 }); await sleep(300);
+  const fest = await page.evaluate(() => ({ pill: (document.querySelector('#bk-ev-c-F-any .bk-any-text') || {}).textContent || '', notes: document.querySelectorAll('.bk-cal-panel .bk-grid-note').length, hours: document.querySelectorAll('.bk-grid-body').length, none: document.querySelectorAll('.bk-cal-panel .bk-none').length, said: /No times set yet/.test(document.querySelector('.bk-cal-panel').textContent) }));
+  ok('a day whose only booking runs over two days and has a time shows its pill with the time first, and does not say “No times set yet.”', fest.pill.startsWith('16:30 ') && fest.pill.includes('Two-day Fest') && fest.notes === 0 && !fest.said && fest.hours === 0 && fest.none === 0, JSON.stringify(fest));
+  await put(page, 'bookings', { id: 'c-U', kind: 'other', status: 'hold', title: 'Untimed', date: T3 }); await sleep(300);
+  ok('…with a booking that has no time beside it, the row has both and nothing is said about times (one of them has one)', (await page.locator('.bk-any .bk-ev').count()) === 2 && (await page.locator('.bk-cal-panel .bk-grid-note').count()) === 0);
+  await page.evaluate(() => import('./js/store.js').then(s => { s.remove('bookings', 'c-U'); s.remove('bookings', 'c-F'); })); await sleep(300);
 
   /* ---------------- three days ---------------- */
   await toDay(page, T);
@@ -361,6 +372,8 @@ async function press(page, loc, ms) {
   g = await geo();
   ok('three days: three columns from the day in view, 44 px to the hour, sharing the hours the widest day needs', g.hh === 44 && g.n === '3' && same(g.cols.map(c => c.day), [T, T1, T2]) && g.heads === 3 && g.hours[0][0] === '10:00' && g.hours[g.hours.length - 1][0] === '05:00+1' && g.cols.every(c => c.h === g.bodyH) && g.bodyH === 20 * 44, JSON.stringify(g.hours.map(h => h[0])));
   ok('…with the busy night’s blocks in its own column, overlapping sets side by side', same(g.cols[0].blocks.map(b => b.id), ['c-X', 'c-P', 'c-Q', 'c-E', 'c-A', 'c-L', 'c-C']) && blk('c-A').left > blk('c-E').left && blk('c-E').top === line('21:00') && Math.abs(blk('c-E').h - 55) < 0.6 && same(g.cols[1].blocks.map(b => b.id), ['c-S', 'c-B']) && same(g.cols[2].blocks.map(b => b.id), ['c-N']), JSON.stringify(g.cols.map(c => c.blocks.map(b => b.id))));
+  nt = await nameTop('c-N');
+  ok('…and a session eight hours long has its name at its top too (22:00), not at two in the morning', nt.h > 300 && nt.gap >= 0 && nt.gap <= 6, JSON.stringify(nt));
   const anyW = g.any.find(a => a.id === 'bk-ev-c-W-any'), anyD = g.any.find(a => a.id === 'bk-ev-c-D-any');
   ok('the two-day booking is one pill across its two days; the show with no time a pill on its own day', g.any.length === 2 && anyW.col.replace(/\s/g, '') === '1/3' && anyD.col.replace(/\s/g, '') === '1/2', JSON.stringify(g.any));
   const said3 = await page.evaluate(T => ({ w: document.querySelector('#bk-ev-c-W-any .sr-only').textContent.trim(), d: document.querySelector('#bk-ev-c-D-any .sr-only').textContent.trim(), sub: document.querySelector(`#bk-ev-c-Q-${T} .bk-block-sub`).textContent.trim() }), T);
@@ -414,6 +427,20 @@ async function press(page, loc, ms) {
     const u = await page.evaluate(() => ({ cards: document.querySelectorAll('.bk-calview > .bk-agenda .bk-card[data-id]').length, head: document.querySelector('.bk-calview > .bk-agenda-head').textContent, after: document.querySelector('.bk-cal-panel').compareDocumentPosition(document.querySelector('.bk-agenda')) & Node.DOCUMENT_POSITION_FOLLOWING, more: !!document.getElementById('bk-agenda-more'), nodate: document.querySelectorAll('.bk-calview [data-id="c-nodate"]').length, filters: document.querySelectorAll('.bk-calview > .bk-filters .chips').length, money: /[$£€]|\bfee\b|guarantee/i.test(document.querySelector('.bk-calview').textContent) }));
     ok(`${v}: Coming up is under the view, eight cards and “Show all”, with the filter chips above; the booking with no date is nowhere, and no money is on the page`, u.cards === 8 && u.head === 'Coming up' && !!u.after && u.more && u.nodate === 0 && u.filters === 2 && !u.money, JSON.stringify(u));
   }
+
+  /* ---------------- a date that is no day at all ---------------- */
+  // The 0th of next month (as an old or hand-made backup could hold): it is on no day, so it is in no view, like a booking
+  // with no date. Three days across the end of this month are the ones that could take it for one of theirs.
+  const zero = (await monthOf(page, await dayFromNow(page, 0), 1))[0].slice(0, 8) + '00';
+  await put(page, 'bookings', { id: 'c-zero', kind: 'show', status: 'confirmed', title: 'Day nought', date: zero, setTime: '09:00' });
+  await put(page, 'bookings', { id: 'c-zero2', kind: 'show', status: 'confirmed', title: 'Day nought, no time', date: zero }); await sleep(300);
+  await page.click('[aria-label="This month"]'); await page.click('[aria-label="Next month"]'); await sleep(200);
+  await view(page, 'day'); await page.click('[aria-label="Previous day"]'); await sleep(200); // the last day of this month
+  const inPanel = () => page.evaluate(() => ({ n: document.querySelectorAll('.bk-cal-panel [data-id^="c-zero"]').length, first: (document.querySelector('.bk-hour') || {}).textContent || '' }));
+  const zeros = {};
+  for (const v of ['three', 'day', 'week', 'two', 'month']) { await view(page, v); zeros[v] = await inPanel(); }
+  ok('a booking dated the 0th of a month is in no view, and does not stretch the hours of the three days around it', Object.values(zeros).every(z => z.n === 0) && zeros.three.first !== '09:00' && zeros.day.first !== '09:00', JSON.stringify(zeros));
+  await page.evaluate(() => import('./js/store.js').then(s => { s.remove('bookings', 'c-zero'); s.remove('bookings', 'c-zero2'); })); await sleep(300);
 
   /* ---------------- “Didn’t go” ---------------- */
   ok('(the past show’s week is a few taps of ‹ away)', await toWeek(page, PAST, true));
@@ -479,6 +506,26 @@ async function press(page, loc, ms) {
         return { page: document.documentElement.scrollWidth, row: [row.scrollWidth, row.clientWidth], pressedInSight: on.left >= r.left - 1 && on.right <= r.right + 1, nav: [...document.querySelectorAll('.cal-nav button')].every(b => { const x = b.getBoundingClientRect(); return x.left >= panel.left && x.right <= panel.right; }), entries: document.querySelectorAll('.bk-cal-panel .bk-ev, .bk-cal-panel .bk-day.has').length }; });
       ok(`320 px, ${scheme}, ${v}: the page does not scroll sideways; the row of buttons scrolls inside itself with the pressed one in sight; ‹ Today › stay in the panel`, fit.page <= 320 && fit.row[0] > fit.row[1] && fit.pressedInSight && fit.nav && fit.entries > 0, JSON.stringify(fit));
     }
+    // The last view drawn is the Day view on the busy night. An hour there is 52 px: it holds the name and, under it, the
+    // time and where, even in extra-large text; and a set beside another keeps its time whole.
+    const hour = await n.page.evaluate(D => ['c-Q', 'c-A'].map(id => {
+      const b = document.getElementById(`bk-ev-${id}-${D}`), sub = b.querySelector('.bk-block-sub'), s = sub.getBoundingClientRect(), r = b.getBoundingClientRect(), where = b.querySelector('.bk-block-where');
+      const time = [...sub.childNodes].find(x => x.nodeType === 3 && /\d\d:\d\d/.test(x.textContent)), range = document.createRange(); range.selectNodeContents(time); const t = range.getBoundingClientRect();
+      return { id, h: b.offsetHeight, w: Math.round(r.width), twoLines: getComputedStyle(b.querySelector('.bk-block-in')).display !== 'flex' && s.top >= b.querySelector('.bk-block-title').getBoundingClientRect().bottom - 1, inside: s.bottom <= r.bottom + 0.5,
+        timeWhole: t.width > 10 && t.left >= s.left - 0.5 && t.right <= s.right + 0.5, where: where ? where.getBoundingClientRect().width > 2 : null };
+    }), D);
+    ok(`320 px, ${scheme}, day: an hour-long set has two lines (its name, then the time and where), inside its block`, hour[0].h === 52 && hour[0].twoLines && hour[0].inside && hour[0].timeWhole && hour[0].where === true, JSON.stringify(hour[0]));
+    ok(`320 px, ${scheme}, day: a set beside another keeps its time whole under its name`, hour[1].w < 140 && hour[1].twoLines && hour[1].inside && hour[1].timeWhole, JSON.stringify(hour[1]));
+    // Six sets at once (a festival's stages), in three days on this narrow screen: each block keeps to its own lane,
+    // inside its own day.
+    const D3 = await dayFromNow(n.page, 11);
+    for (let i = 0; i < 6; i++) await put(n.page, 'bookings', { id: 'c-st' + i, kind: 'show', status: 'confirmed', title: 'Stage ' + (i + 1), date: D3, setTime: '20:0' + i, setLength: 60 });
+    await sleep(300);
+    for (let i = 0; i < 3; i++) { await n.page.click('[aria-label="Next day"]'); await sleep(120); }
+    await view(n.page, 'three');
+    const stages = await n.page.evaluate(D3 => { const col = document.querySelector(`.bk-col[data-day="${D3}"]`), c = col.getBoundingClientRect(), bs = [...col.querySelectorAll('.bk-ev')].map(e => e.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+      return { n: bs.length, spill: Math.max(...bs.map(b => b.right)) - c.right, over: Math.max(...bs.slice(1).map((b, i) => bs[i].right - b.left)), page: document.documentElement.scrollWidth }; }, D3);
+    ok(`320 px, ${scheme}, three days: six sets at once are six lanes side by side, none over another or over the next day`, stages.n === 6 && stages.spill <= 0.5 && stages.over <= 0.5 && stages.page <= 320, JSON.stringify(stages));
     ok(`no errors in the console (320 px, ${scheme})`, n.errors.length === 0, n.errors.slice(0, 5).join(' | '));
     await n.browser.close();
   }

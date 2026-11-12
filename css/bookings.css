@@ -155,12 +155,12 @@
 .bk-block { position: absolute; padding: 2px 4px; font-size: .7rem; line-height: 1.25; container: bk-entry / size; }
 .bk-col .bk-ev.holding { position: absolute; } /* the press-and-hold fill makes a card relative: a block stays where it is */
 .bk-block:focus-visible { z-index: 1; }
-.bk-block-in { display: block; min-width: 0; }
+.bk-block-in { display: block; min-width: 0; height: 100%; } /* as tall as the block, so the name is at its top, where the set starts (a button would centre it) */
 .bk-block-title, .bk-block-sub { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .bk-block-sub { color: var(--muted); font-variant-numeric: tabular-nums; }
 .bk-block-went { font-weight: 600; }
 @container bk-entry (max-height: 2.45em) {
-  .bk-block-in { display: flex; align-items: baseline; gap: .5em; }
+  .bk-block-in { display: flex; align-items: baseline; gap: .5em; height: auto; } /* the one line sits in the middle of a short block */
   .bk-block-title { flex: 1 1 auto; min-width: 0; }
   .bk-block-sub { flex: none; max-width: 60%; }
   .bk-block-where { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } /* out of sight, still read out */
@@ -173,8 +173,10 @@
   .bk-block-by { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .bk-block-title, .bk-block-sub { text-overflow: clip; }
 }
-.bk-mode-day .bk-block { padding: 3px 8px; font-size: .82rem; }
+.bk-mode-day .bk-block { padding: 2px 8px; font-size: .82rem; } /* an hour (52px) holds two lines of this text at every text size */
 @media (min-width: 560px) { .bk-mode-three .bk-block { padding: 2px 6px; font-size: .78rem; } .bk-ev-any { font-size: .78rem; } }
+/* one of many sets side by side: no padding, so the block can be as narrow as its lane */
+.bk-grid .bk-col .bk-block-slim { padding-left: 1px; padding-right: 0; }
 /* a hold or an offer is dashed, as its line in the month is; a cancelled booking is struck through and faded */
 .bk-block.st-hold, .bk-block.st-offer, .bk-ev-any.st-hold, .bk-ev-any.st-offer { background-color: var(--card); border-style: dashed; border-color: var(--act, var(--tone)); border-left-style: solid; }
 .bk-block.st-cancelled, .bk-ev-any.st-cancelled { opacity: .6; }
