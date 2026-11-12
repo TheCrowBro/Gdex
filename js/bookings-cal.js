@@ -101,13 +101,15 @@ export function calendarView(ctx) {
   const today = todayISO(), R = rangeOf(mode, S.day);
   const title = mode === 'month' ? monthTitle(S.day) : isDay ? fmtLong(S.day) : rangeTitle(R.first, R.last);
   // ‹ › step by the length of the view; 0 is Today. Another month: the day in view becomes today when that is this
-  // month, else its 1st. The Day view's title is a heading, not a live region, so a step there is said aloud.
+  // month, else its 1st. The new title is said aloud (announce): the page is drawn again at every step, and a live
+  // region that arrives with its words already in it is not read out, so the title itself is not one.
   const step = n => {
     let day = todayISO();
     if (n && mode === 'month') { const c = monthStart(S.day), first = ymd(new Date(c.getFullYear(), c.getMonth() + n, 1)); day = first.slice(0, 7) === day.slice(0, 7) ? day : first; }
     else if (n) day = addDays(S.day, n * nav.days);
     go({ day }, { top: false });
-    if (isDay) announce(fmtLong(day) + (day === todayISO() ? ', today' : ''));
+    const to = rangeOf(mode, day);
+    announce(isDay ? fmtLong(day) + (day === todayISO() ? ', today' : '') : mode === 'month' ? monthTitle(day) : rangeTitle(to.first, to.last));
   };
   const all = db.bookings.filter(b => isoOk(b.date) && X.passes(b)); // the filter chips apply in every view
   const body = h('div', { class: 'bk-body' }, squared ? squares(mode, R, all, today, title) : mode === 'week' ? weekList(R, all, today) : timeGrid(mode, R, all, today));
@@ -134,7 +136,7 @@ export function calendarView(ctx) {
         h('button', { type: 'button', class: 'icon-btn', 'aria-label': nav.prev, onclick: () => step(-1) }, '‹'),
         // Arriving at a day says which day: there the title is the view's heading.
         isDay ? h('h2', { class: 'cal-title', tabindex: '-1', 'data-view-head': '' }, title, S.day === today && h('span', { class: 'muted small' }, ' · today'))
-          : h('div', { class: 'cal-title', 'aria-live': 'polite' }, title),
+          : h('div', { class: 'cal-title' }, title),
         h('button', { type: 'button', class: 'btn ghost small', 'aria-label': nav.today, onclick: () => step(0) }, 'Today'),
         h('button', { type: 'button', class: 'icon-btn', 'aria-label': nav.next, onclick: () => step(1) }, '›')),
       body,
@@ -253,7 +255,8 @@ function dayCell(iso, all, today, tall = false, named = false) {
   // A line that runs on from the day before carries no name: a no-break space keeps it a line high.
   const mini = b => h('span', { class: `bk-mini ${tone(b.status)}${seg(b)}`, style: actStyle(b) }, !titled(b) ? '\u00a0' : tall ? timed(b) : short(b));
   const dot = b => h('i', { class: `bk-dot ${tone(b.status)}${multi(b) ? ' bk-bar' + seg(b) : ''}`, style: actStyle(b) });
-  const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(b => `${tall && playClock(b) ? playClock(b) + ' ' : ''}${model.bookingTitle(b)} (${model.statusLabel(b.status)})`).join(', ') : 'nothing booked'}`;
+  // A square has no room to write "Didn’t go" (a phone shows a dot, or a time): its spoken name says it, after the status.
+  const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(b => `${tall && playClock(b) ? playClock(b) + ' ' : ''}${model.bookingTitle(b)} (${model.statusLabel(b.status)}${didntGo(b) ? ', didn’t go' : ''})`).join(', ') : 'nothing booked'}`;
   return h('button', {
     type: 'button', class: 'day bk-day' + (tall ? ' bk-day-tall' : '') + (iso === today ? ' today' : '') + (list.length ? ' has' : ''), 'data-date': iso, 'aria-label': label,
     'aria-current': iso === today ? 'date' : null, onclick: () => X.go({ mode: 'day', day: iso }),

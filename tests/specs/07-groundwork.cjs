@@ -169,7 +169,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
         phonesNo: chip({ rules: { phones: 'no', flash: 'no' } }), cameras: chip({ rules: { proCameras: 'no', compacts: 'no', phones: 'yes' } }), allThree: chip({ rules: { proCameras: 'no', compacts: 'no', phones: 'no' } }),
         age21: chip({ rules: { age: '21' } }), age18more: chip({ rules: { age: '18', bags: 'no' } }), allAges: chip({ rules: { age: 'all' } }),
         fact: chip({ rules: { cashOnly: 'yes' } }), factFine: chip({ rules: { cashOnly: 'no', earplugs: 'yes', floor: 'standing' } }),
-        note: chip({ rulesNote: 'No re-entry.' }), longNote: chip({ rulesNote: 'No re-entry after eleven at night, coats in the cloakroom' }), longWord: chip({ rulesNote: 'Supercalifragilisticexpialidocious-and-then-some' }),
+        note: chip({ rulesNote: 'No re-entry.' }), longNote: chip({ rulesNote: 'No re-entry after eleven at night, coats in the cloakroom' }), longWord: chip({ rulesNote: 'Supercalifragilisticexpialidocious-and-then-some' }), cutComma: chip({ rulesNote: 'Shoes off in the live room, and no drinks near the desk.' }), cutStop: chip({ rulesNote: 'No bags at all in here. Coats too.' }),
         lines: chip({ rulesNote: '\n   \n  Ask   at the\tdoor \nSecond line' }), markup: chip({ rulesNote: '<b>No bags</b> after 11' }),
         fineNote: chip({ rules: { phones: 'yes' }, rulesNote: 'Coats in the cloakroom' }), badNote: chip({ rules: { proCameras: 'no' }, rulesNote: 'Coats in the cloakroom' }), badTwoNote: chip({ rules: { proCameras: 'no', flash: 'no', bags: 'no' }, rulesNote: 'x' }),
         tonesEmpty: tones(undefined, ''), tonesBad: tones({ proCameras: 'no' }, ''), tonesNote: tones(undefined, 'Ask at the door'), tonesFineNote: tones({ phones: 'yes' }, 'Ask at the door'),
@@ -189,6 +189,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   ok('a fact reads in its own words (Cash only); cards taken, earplugs advised and standing restrict nothing', same(hr.chip.fact, ['some', '💵 Cash only', 'House rules: Cash only']) && same(hr.chip.factFine, ['ok', 'No restrictions', 'House rules: No restrictions']), JSON.stringify([hr.chip.fact, hr.chip.factFine]));
   ok('free text alone: amber, with the start of the note', same(hr.chip.note, ['some', '📝 No re-entry.', 'House rules: Note: No re-entry.']), JSON.stringify(hr.chip.note));
   ok('…a long note is cut at a word with an ellipsis; one long word at 28 characters', same(hr.chip.longNote, ['some', '📝 No re-entry after eleven at…', 'House rules: Note: No re-entry after eleven at…']) && hr.chip.longWord[1] === '📝 Supercalifragilisticexpialid…' && [...'Supercalifragilisticexpialid'].length === 28, JSON.stringify([hr.chip.longNote, hr.chip.longWord]));
+  ok('…a cut that lands after a comma or a full stop leaves none hanging before the …', hr.chip.cutComma[1] === '📝 Shoes off in the live room…' && hr.chip.cutComma[2] === 'House rules: Note: Shoes off in the live room…' && hr.chip.cutStop[1] === '📝 No bags at all in here…', JSON.stringify([hr.chip.cutComma, hr.chip.cutStop]));
   ok('…its first line that is not blank, runs of spaces made one; markup stays text', hr.chip.lines[1] === '📝 Ask at the door' && hr.chip.markup[1] === '📝 <b>No bags</b> after 11', JSON.stringify([hr.chip.lines, hr.chip.markup]));
   ok('fine answers and a note: amber too, with the start of the note (a written rule is a rule)', same(hr.chip.fineNote, ['some', '📝 Coats in the cloakroom', 'House rules: Note: Coats in the cloakroom']), JSON.stringify(hr.chip.fineNote));
   ok('a restricted answer and a note: the note counts as one more', same(hr.chip.badNote, ['some', '📷 Pro cameras ✗ · 1 more', 'House rules: Pro cameras not allowed, and 1 more']) && hr.chip.badTwoNote[1] === '📷 Pro cameras ✗ · 3 more', JSON.stringify([hr.chip.badNote, hr.chip.badTwoNote]));
@@ -298,6 +299,30 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       return { cal: localStorage.getItem('gdex-cal-view'), prefs: localStorage.getItem('gdex-prefs') === prefs && !!prefs, ask: localStorage.getItem('gdex-ask-seen'), role: localStorage.getItem('gdex-role'), tour: localStorage.getItem('gdex-tour') };
     }));
     ok('Erase this device keeps the calendar’s view and the display settings, and clears the role and the question’s setting', kept.cal === 'week' && kept.prefs && kept.ask === null && kept.role === null && kept.tour === null, JSON.stringify(kept));
+    // A browser whose storage is full still reads but cannot write. A choice made then holds for the visit all the same.
+    const full = await page.evaluate(() => import('./js/roles.js').then(r => {
+      localStorage.removeItem('gdex-ask-seen');
+      const real = Storage.prototype.setItem, out = {};
+      Storage.prototype.setItem = function () { throw new DOMException('The quota has been exceeded.', 'QuotaExceededError'); };
+      try {
+        r.setAskSetting('off'); out.off = [r.askSetting(), r.askSeen(), localStorage.getItem('gdex-ask-seen')];
+        r.setAskSetting('on'); out.on = [r.askSetting(), r.askSeen(), localStorage.getItem('gdex-ask-seen')];
+      } finally { Storage.prototype.setItem = real; }
+      r.setAskSetting('off'); out.kept = [r.askSetting(), localStorage.getItem('gdex-ask-seen')];
+      localStorage.setItem('gdex-ask-seen', 'on'); out.read = r.askSetting(); // changed in storage since: read again, now that a write worked
+      r.setAskSetting(''); out.cleared = [r.askSetting(), localStorage.getItem('gdex-ask-seen')];
+      return out;
+    }));
+    ok('with storage full, Never ask and Always ask still hold for the visit', same(full.off, ['off', false, null]) && same(full.on, ['on', true, null]), JSON.stringify(full));
+    ok('…and once a choice can be written again, storage is what is read', same(full.kept, ['off', 'off']) && full.read === 'on' && same(full.cleared, ['', null]), JSON.stringify(full));
+    await page.evaluate(() => { window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function () { throw new DOMException('The quota has been exceeded.', 'QuotaExceededError'); }; });
+    await page.click('#displayBtn'); await page.locator('.sheet [data-pref="menu:tape"]').click(); await sleep(250);
+    const fullMenu = await page.evaluate(() => Promise.all([import('./js/a11y.js'), import('./js/tour.js')]).then(([a, t]) => ({ style: a.menuStyle(), stored: JSON.parse(localStorage.getItem('gdex-prefs')).menu, attr: document.documentElement.dataset.menu, deck: !!document.querySelector('#deck .dk-cassette'),
+      tracks: t.welcomeSteps().find(x => x.title === 'Your sections are tracks').text, last: (x => x[x.length - 1].text)(t.welcomeSteps()) })));
+    await page.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
+    await page.keyboard.press('Escape'); await sleep(200);
+    ok('a menu chosen while storage is full is the menu for the visit (the tape deck; storage still holds the digital player)', fullMenu.style === 'tape' && fullMenu.stored === 'digital' && fullMenu.attr === 'tape' && fullMenu.deck, JSON.stringify(fullMenu));
+    ok('…and the tour speaks of the menu in use, the cassette and Tracks, not of the one in storage', /Swipe the cassette or tap ⏪ ⏩/.test(fullMenu.tracks) && !/☰|the bar/.test(fullMenu.tracks) && !/Tap ☰/.test(fullMenu.last), `${fullMenu.tracks} | ${fullMenu.last}`);
     ok('no errors in the console (preferences and words)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }

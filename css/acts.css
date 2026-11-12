@@ -218,7 +218,3 @@
    colours the choice in use is told by the system's own highlight (its background would be flattened otherwise). */
 html[data-contrast=high] .ac-ask-row { border-left-width: 6px; }
 @media (forced-colors: active) { .ac-ask-pref .seg.wide button.on { background: Highlight; color: HighlightText; forced-color-adjust: none; } }
-/* The show's own page (js/pages/bookings.js scoreRow): the row's words follow the text size, and "Didn’t go" reads as
-   the answer it is. */
-.bk-score .bk-score-text { font-size: 1rem; }
-.bk-score-went .bk-score-text { font-weight: 700; }

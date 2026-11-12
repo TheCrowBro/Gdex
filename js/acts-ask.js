@@ -11,7 +11,7 @@
 import { h, sheet, announce, fmtShort, fmtLong } from './util.js';
 import { byId, subscribe } from './store.js';
 import { waitingShows, seenAnswer, seenEntryFor, ratingOf, markWent, venueOf } from './model.js';
-import { askSeen, askSetting, setAskSetting, askDefault, moneyShown } from './roles.js';
+import { askSeen, askSetting, setAskSetting, askDefault, moneyShown, pageOpt } from './roles.js';
 import { haptic } from './a11y.js';
 import { sheetTutorial } from './tour.js';
 import { stripeStyle } from './acts-docs.js';
@@ -122,7 +122,8 @@ export function askAtOpen(ids) {
 // always ask, never ask. A group of pressed buttons, not radios (Your role has one radio group: the roles).
 const CHOICES = [['', 'ac-ask-auto', 'Follow my role'], ['on', 'ac-ask-on', 'Always ask'], ['off', 'ac-ask-off', 'Never ask']];
 const prefNote = cur => (cur === 'on' ? 'Gdex asks about every show that has finished, for two weeks after it.'
-  : cur === 'off' ? 'Gdex never asks. You can still score a show from its own page or the act’s card.'
+  // Never ask: a role that scores shows (a scout, an audiophile) keeps ★ Score on a show's own page; anyone else has it there only while they are asked
+  : cur === 'off' ? (pageOpt('bookings', 'score', false) ? 'Gdex never asks. You can still score a show from its own page or the act’s card.' : 'Gdex never asks. You can still score a show from the act’s card.')
     : askDefault() ? 'Your role is asked: when Gdex opens, it lists the shows that have finished so you can score the ones you saw.'
       : 'Your role is not asked. Choose Always ask to be asked anyway.');
 export function askPref() {

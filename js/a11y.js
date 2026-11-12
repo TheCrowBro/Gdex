@@ -34,6 +34,7 @@ export function applyPrefs() {
   // for reduced motion.
   r.dataset.motion = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : prefs.motion;
   r.dataset.targets = prefs.targets;
+  r.dataset.menu = prefs.menu; // for js/tour.js, which cannot import this module: the menu in use, even when storage could not keep the choice
 }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch { /* ignore */ } applyPrefs(); window.dispatchEvent(new Event('gdex-prefs')); };
 
@@ -59,7 +60,7 @@ export function displayPanel({ onTour } = {}) {
   const draw = () => groups.replaceChildren(...GROUPS.map(([key, label, opts]) => h('div', { class: 'pref', role: 'group', 'aria-label': label },
     h('div', { class: 'pref-label' }, label),
     h('div', { class: 'seg wide' }, opts.map(([v, l]) => h('button', {
-      type: 'button', class: prefs[key] === v ? 'on' : '', 'aria-pressed': prefs[key] === v, 'data-pref': key + ':' + v,
+      type: 'button', class: prefs[key] === v ? 'on' : '', 'aria-pressed': String(prefs[key] === v), 'data-pref': key + ':' + v, // "false" in words: h() leaves out an attribute that is false
       onclick: () => { prefs[key] = v; save(); haptic(); draw(); groups.querySelector(`[data-pref="${key}:${v}"]`)?.focus({ preventScroll: true }); }, // the redrawn twin keeps the focus
     }, l))))));
   draw();
@@ -70,7 +71,7 @@ export function displayPanel({ onTour } = {}) {
     themeSum.textContent = themeSummary();
     themeBody.replaceChildren(
       h('div', { class: 'pref' }, h('div', { class: 'pref-label' }, 'Appearance'),
-        h('div', { class: 'seg wide' }, [['system', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => h('button', { type: 'button', class: prefs.scheme === v ? 'on' : '', 'aria-pressed': prefs.scheme === v, 'data-pref': 'scheme:' + v, onclick: () => { prefs.scheme = v; save(); haptic(); drawTheme(); themeBody.querySelector(`[data-pref="scheme:${v}"]`)?.focus({ preventScroll: true }); } }, l)))),
+        h('div', { class: 'seg wide' }, [['system', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => h('button', { type: 'button', class: prefs.scheme === v ? 'on' : '', 'aria-pressed': String(prefs.scheme === v), 'data-pref': 'scheme:' + v, onclick: () => { prefs.scheme = v; save(); haptic(); drawTheme(); themeBody.querySelector(`[data-pref="scheme:${v}"]`)?.focus({ preventScroll: true }); } }, l)))),
       h('div', { class: 'theme-list', role: 'radiogroup', 'aria-label': 'Colour theme' }, PALETTES.flatMap((p, i) => [i === 0 && h('div', { class: 'theme-group' }, 'Classic'), p.group === 'mood' && PALETTES[i - 1].group !== 'mood' && h('div', { class: 'theme-group' }, 'Stage moods'), (() => {
         const c = p[resolvedScheme()], on = prefs.palette === p.id;
         return h('button', { type: 'button', class: 'theme-row', role: 'radio', 'aria-checked': on, 'data-pref': 'palette:' + p.id, onclick: () => { prefs.palette = p.id; save(); haptic(); drawTheme(); themeBody.querySelector(`[data-pref="palette:${p.id}"]`)?.focus({ preventScroll: true }); } },

@@ -271,7 +271,7 @@ const noteStart = note => {
   const chars = [...line];
   if (chars.length <= 28) return line;
   const head = chars.slice(0, 28).join(''), at = head.lastIndexOf(' ');
-  return (at > 0 ? head.slice(0, at) : head) + '…';
+  return (at > 0 ? head.slice(0, at) : head).replace(/[\s,;:.!?\-–—]+$/, '') + '…'; // no comma or full stop left hanging before the …
 };
 // The chip on a show's card: null when the venue has no level, else { level, label (what it shows, with its emoji),
 // spoken ("House rules: …", for a screen reader: capitalised, no emoji) }. The words name the main rule; a tone set by

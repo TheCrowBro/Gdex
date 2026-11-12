@@ -274,10 +274,17 @@ button, .btn, a.btn, .chip, .check, .day, summary { touch-action: manipulation; 
 .actions { gap: 10px; }
 .card .actions .btn { flex: 1 1 auto; justify-content: center; }
 @media (min-width: 560px) { .card .actions .btn { flex: 0 0 auto; } }
-.seg.wide { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; margin: 0; } .seg.wide button { min-width: 0; overflow-wrap: anywhere; padding-inline: 8px; } .pref-label { font-weight: 700; margin-bottom: 6px; } .pref { margin-bottom: 4px; }
+.seg.wide { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; margin: 0; } .seg.wide button { min-width: 0; overflow-wrap: anywhere; padding-inline: 8px; }
+/* The display choices on a narrow phone with large text: equal thirds would break "Standard" or "Record" inside the word. There each choice is as wide as its words, and a row that cannot hold all of them puts the last on a line of its own. */
+@media (max-width: 380px) {
+  html[data-text=large] .pref:not(.ac-ask-pref) > .seg.wide, html[data-text=xlarge] .pref:not(.ac-ask-pref) > .seg.wide { display: flex; flex-wrap: wrap; }
+  html[data-text=large] .pref:not(.ac-ask-pref) > .seg.wide button, html[data-text=xlarge] .pref:not(.ac-ask-pref) > .seg.wide button { flex: 1 1 auto; overflow-wrap: normal; }
+} .pref-label { font-weight: 700; margin-bottom: 6px; } .pref { margin-bottom: 4px; }
 .stack .btn { width: 100%; }
 .help summary { min-height: var(--hit); display: flex; align-items: center; }
 .form-actions .btn { min-width: 96px; }
+/* On the narrowest phones Delete, Cancel and Save at that width are wider than the form (312px in 302), and every Edit form would scroll sideways: there they share the row. */
+@media (max-width: 340px) { .form-actions .btn { min-width: 0; flex: 1 1 auto; padding-inline: 10px; } }
 .page-head .btn { min-width: 88px; }
 :root[data-contrast=high], :root[data-contrast=high][data-palette][data-scheme] { --muted: color-mix(in srgb, var(--text) 82%, var(--bg)); --line: color-mix(in srgb, var(--text) 55%, var(--bg)); --focus: #ffd400; }
 html[data-contrast=high] .btn.ghost, html[data-contrast=high] .chip, html[data-contrast=high] .card, html[data-contrast=high] input, html[data-contrast=high] select, html[data-contrast=high] textarea, html[data-contrast=high] .deck, html[data-contrast=high] .dk-btn, html[data-contrast=high] .dk-cassette, html[data-contrast=high] .dk-tab { border-width: 2px; }
@@ -535,6 +542,8 @@ body.has-licence-bar.has-update-bar #page { padding-bottom: 180px; }
 .price-group { gap: 0; } .price-group h4 { margin: 10px 0 2px; }
 .price-pick { align-items: flex-start; } .price-pick input { margin-top: 2px; }
 .price-pick-text { flex: 1; display: grid; gap: 1px; min-width: 0; overflow-wrap: break-word; } .price-pick-text > span { font-size: 1rem; }
+/* A box or button of a form reached with Tab is scrolled clear of the Save bar, which stays at the foot of the sheet and would cover it: the bar is one button and its padding tall, and the focus ring needs its own room. */
+.sheet-body:has(.form-actions) { scroll-padding-bottom: calc(var(--hit) + 30px); }
 .sheet-body:has(.price-picker) { scroll-padding-bottom: 84px; } /* a ticked row reached with Tab is never under the Add bar */
 /* Rows in a form (quote lines, contacts, deliverables): the first text box on a line of its own, the rest below it */
 .field .rows .row-edit { flex-wrap: wrap; } .field .rows .row-edit > input { flex: 1 1 0; min-width: 0; } .field .rows .row-edit > input[type=text]:first-child { flex: 1 1 100%; }

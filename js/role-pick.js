@@ -1,6 +1,6 @@
 // "Who's using Gdex?": the first-run question (askRole) and Settings → Your role (rolePanel). Each choice shows the
 // menu it gives; choosing changes the menu at once (js/roles.js, js/app.js) and nothing in the data.
-import { h, sheet, toast, announce } from './util.js';
+import { h, nodes, sheet, toast, announce } from './util.js';
 import { ROLES, EVERYTHING, roleId, roleChosen, roleOf, setRole, menuSections, offMenu, sectionName } from './roles.js';
 import { haptic, menuWords } from './a11y.js';
 
@@ -80,7 +80,8 @@ export function rolePanel() {
   const el = h('div', { class: 'stack rp-panel' });
   const draw = () => {
     const cur = roleId(), r = roleOf(cur), extra = offMenu(r);
-    el.replaceChildren(
+    // nodes(): a line that does not apply (no bonus tracks, money on) is left out, not written as the word "null"
+    el.replaceChildren(...nodes(
       h('p', { class: 'small muted rp-about' }, aboutText()),
       h('div', { class: 'list rp-list', role: 'radiogroup', 'aria-label': 'Your role' }, [...ROLES, EVERYTHING].map(x => card(x, { on: x.id === cur, radio: true, onPick: id => {
         if (id === roleId() && roleChosen()) return;
@@ -90,7 +91,7 @@ export function rolePanel() {
       extra.length ? h('p', { class: 'small muted rp-bonus' }, 'Bonus tracks for this role: ' + extra.map(id => sectionName(id, NAMES[id])).join(', ') + '.') : null,
       r.money === false ? h('p', { class: 'small muted rp-money' }, 'Fees, deals and settlements are off for this role. Booking acts and settling shows yourself? Manager or Everything has them. Quotes & invoices come back with a role that uses money, or with Everything.') : null,
       h('p', { class: 'small muted' }, 'Kept on this device, not in backups: on a new phone you pick it again when Gdex first opens.'),
-      h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost', id: 'rp-tour', onclick: () => import('./tour.js').then(m => m.startTour()) }, '🧭 Show me around')));
+      h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost', id: 'rp-tour', onclick: () => import('./tour.js').then(m => m.startTour()) }, '🧭 Show me around'))));
   };
   draw();
   return el;

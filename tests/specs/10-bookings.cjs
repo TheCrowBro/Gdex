@@ -379,6 +379,19 @@ const unfold = t => t.replace(/\r\n /g, '');
   if (await page.locator('#sh-st-settle').count()) { await page.locator('#sh-st-settle').click(); await sleep(300); }
   await page.locator('.bk-edit').click();
   const eform = sheetNamed(page, 'Edit show'); await eform.waitFor();
+  // With the keyboard alone: the Save bar stays at the foot of the sheet, and nothing the Tab key stops on is under it
+  // (a box or button is scrolled clear of it; a tall notes box at least to the line where typing starts).
+  await eform.locator('input, select, textarea').first().focus();
+  const underBar = []; let tabStops = 0;
+  for (let i = 0; i < 90; i++) {
+    await page.keyboard.press('Tab'); await sleep(25);
+    const at = await page.evaluate(() => { const a = document.activeElement, sheet = a.closest('.sheet'), bar = sheet && sheet.querySelector('.form-actions'); if (!bar || bar.contains(a)) return null;
+      const b = a.getBoundingClientRect(), r = bar.getBoundingClientRect(), body = a.closest('.sheet-body').getBoundingClientRect();
+      return { id: a.dataset.key || a.id || a.tagName, clear: (a.tagName === 'TEXTAREA' ? b.top + 30 : b.bottom) <= r.top + 0.5 && b.top >= body.top - 0.5 }; });
+    if (!at) break;
+    tabStops++; if (!at.clear) underBar.push(at.id);
+  }
+  ok('Tab down the Edit form: every box and button it stops on is clear of the Save bar', tabStops > 20 && underBar.length === 0, `${tabStops} stops; under the bar: ${underBar.join(' ') || 'none'}`);
   await eform.locator('select[id$="-status"]').selectOption('done');
   await eform.locator('button[type="submit"]').click(); await sleep(300);
   p = await past();

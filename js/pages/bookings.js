@@ -85,7 +85,8 @@ function draw(focus = false) {
   const key = viewKey();
   if (key !== S.drawn) ROOT.querySelectorAll('.back-btn').forEach(el => el.classList.add('shine'));
   S.drawn = key;
-  if (focus) { const head = ROOT.querySelector('[data-view-head]'); if (head) head.focus({ preventScroll: true }); }
+  const lost = HEAD_NEXT && (!document.activeElement || document.activeElement === document.body); HEAD_NEXT = false;
+  if (focus || lost) { const head = ROOT.querySelector('[data-view-head]'); if (head) head.focus({ preventScroll: true }); }
 }
 // Move to another view (or day): merges p into S and draws. top: for a new view, go to the top and put the focus on
 // its heading ([data-view-head]).
@@ -385,6 +386,9 @@ function duplicateSheet(b) {
 // Press and hold a booking (its card, or its header on its own page) for three seconds: this sheet offers to delete
 // it. The Delete button on its page does the same for keyboards.
 const HOLD_MS = 3000;
+// What a booking was deleted from (its card, its row in the week, its block or pill on the grid) goes with it, and the
+// focus with that: the draw that follows puts it on the view's heading rather than nowhere.
+let HEAD_NEXT = false;
 function deleteSheet(b) {
   const { close } = sheet('Delete this booking?', h('div', { class: 'stack' },
     h('p', null, h('strong', null, model.bookingTitle(b)), h('span', { class: 'muted small bk-del-when' }, [dateRange(b, fmtShort), model.kindLabel(b.kind)].join(' · '))),
@@ -396,7 +400,7 @@ function deleteSheet(b) {
         ? 'Its deal, running order, guest list, settlement, checklist ticks, quote and invoice go with it. Your act, venue, people and setlist stay. This cannot be undone.'
         : 'Its checklist ticks, notes, clocked hours, quote and invoice go with it. Take logs stay in the Studio log, unlinked. This cannot be undone.'),
     h('div', { class: 'actions' },
-      h('button', { type: 'button', class: 'btn danger', onclick: () => { close(); if (remove('bookings', b.id) !== false) { toast('Booking deleted'); haptic(30); announce('Booking deleted'); } } }, '🗑 Delete booking'),
+      h('button', { type: 'button', class: 'btn danger', onclick: () => { close(); if (remove('bookings', b.id) !== false) { HEAD_NEXT = true; toast('Booking deleted'); haptic(30); announce('Booking deleted'); } } }, '🗑 Delete booking'),
       h('button', { type: 'button', class: 'btn ghost', onclick: () => close() }, 'Keep it'))));
 }
 const holdToDelete = (el, b) => { hold(el, HOLD_MS, () => { haptic(20); deleteSheet(byId('bookings', b.id) || b); }); return el; };
@@ -489,7 +493,10 @@ function moreBoxes(b, ctx) {
 // and offered the booking's form on the act; anyone who has the row only because they are asked gets no row (the
 // question is only ever about a show with an act).
 const scoresShows = () => !!pageOpt('bookings', 'score', false);
-const scoreable = b => !!((scoresShows() || askSeen()) && b.kind === 'show' && b.status !== 'cancelled' && isoOk(b.date) && b.date <= todayISO());
+// A show answered No keeps the row whoever is looking (someone who has since turned the question off, or become a
+// band): the calendar still says "Didn’t go", and this row is where that answer is taken back.
+const asksOrScores = () => scoresShows() || askSeen();
+const scoreable = b => !!((asksOrScores() || b.went === 'no') && b.kind === 'show' && b.status !== 'cancelled' && isoOk(b.date) && b.date <= todayISO());
 const scoreOn = b => scoreable(b) && !!actOf(b);
 // What the row's button does changes it (★ Score → ✎ Edit, ✎ Edit → Delete → ★ Score, Pick the act → ★ Score, Didn’t go
 // → Change and back), so the app cannot find the old one after the redraw: the draw after its sheet closes, or after
@@ -505,8 +512,10 @@ function scoreRefocus(viewChanged) {
   if (viewChanged || S.view !== 'booking' || S.id !== sf.id) { SCORE_FOCUS = null; return; }
   if (document.querySelector('.sheet')) return; // still open: wait for the draw after it closes
   SCORE_FOCUS = null;
-  const btn = ROOT.querySelector('.bk-score button[id^="bk-score"]'), now = document.activeElement;
-  if (btn && btn.id !== sf.was && (!now || now === document.body)) btn.focus({ preventScroll: true });
+  const btn = ROOT.querySelector('.bk-score button[id^="bk-score"]'), now = document.activeElement, lost = !now || now === document.body;
+  if (btn) { if (btn.id !== sf.was && lost) btn.focus({ preventScroll: true }); }
+  // No row any more (someone who is not asked took back a Didn’t go): the act above it, else the page's heading
+  else if (lost) (ROOT.querySelector('.bk-hero button.bk-act') || ROOT.querySelector('[data-view-head]'))?.focus({ preventScroll: true });
 }
 function scoreRow(b) {
   if (!scoreable(b) || (!actOf(b) && !scoresShows())) return null;
@@ -558,7 +567,8 @@ function hero(b) {
       h('div', { class: 'bk-venue-line' },
         h('span', { 'aria-hidden': 'true' }, '📍 '),
         h('span', { class: 'bk-venue-text' }, h('strong', null, where.name || 'Address'), where.address && h('span', { class: 'muted small' }, String(where.address).replace(/\s*\n\s*/g, ', '))),
-        b.venueId && byId('venues', b.venueId) && h('button', { type: 'button', class: 'btn ghost small', onclick: () => openVenue(b.venueId), 'aria-label': `Venue details: ${where.name}` }, 'Details')),
+        // data-fk: an edit saved in the venue's sheet draws this page again under it; closing the sheet finds this button's stand-in
+        b.venueId && byId('venues', b.venueId) && h('button', { type: 'button', class: 'btn ghost small', 'data-fk': 'bk-venue-details', onclick: () => openVenue(b.venueId), 'aria-label': `Venue details: ${where.name}` }, 'Details')),
       mapButtons(where))
       : b.kind !== 'other' && h('p', { class: 'muted small' }, 'No venue yet. Edit to add one.'),
     warns.map(w => (w.level === 'info' ? h('div', { class: 'muted small bk-venue-info' }, 'ℹ︎ ' + w.text) : h('div', { class: 'warn' }, '⚠ ' + w.text))),
@@ -628,7 +638,8 @@ function bookingSteps(b) {
     { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records but leaves clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records but leaves clashes.', target: ['.bk-status'] },
     { title: 'Times', text: 'Off stage is worked out from the set time and length. A time marked +1 is after midnight.', target: ['.bk-times'] },
     { title: 'House rules', text: 'What this venue allows and what it does not. The rules belong to the venue and apply to every show there; change them by editing the venue.', target: ['.bk-hero .vn-rules'] },
-    scoreOn(b) && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it. If you missed it, Didn’t go says so and Gdex stops asking.', target: ['.bk-score'] },
+    scoreOn(b) && asksOrScores() && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it. If you missed it, Didn’t go says so and Gdex stops asking.', target: ['.bk-score'] },
+    scoreOn(b) && !asksOrScores() && { title: 'Didn’t go', text: 'You said you missed this show, so it is not counted as seen. Change takes that answer back.', target: ['.bk-score'] },
     scoreable(b) && !actOf(b) && scoresShows() && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },

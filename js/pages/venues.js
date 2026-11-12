@@ -5,7 +5,7 @@
 // its sheet, and their part of the form.
 import { h, nodes, empty, sheet, toast, fmtShort, todayISO, telUrl, safeUrl } from '../util.js';
 import { db, byId, upsert, remove, subscribe, lastDay } from '../store.js';
-import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMin, addMinutes, minutesBetween, actName, kindLabel, kindIcon, statusLabel, statusTone, byPlay, byDayPlayDesc, RULE_TONES, rulesOf } from '../model.js';
+import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMin, addMinutes, minutesBetween, actName, kindLabel, kindIcon, statusLabel, statusTone, byPlay, byDayPlayDesc, RULE_TONES, rulesOf, seenAnswer } from '../model.js';
 import { openForm } from '../form.js';
 import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
@@ -160,6 +160,8 @@ function bookingRow(b, close, withWarnings) {
     h('span', { class: 'vn-row-date' }, dateText(b)),
     h('span', { class: 'pill ' + statusTone(b.status) }, statusLabel(b.status)),
     h('span', { class: 'vn-row-main' }, `${kindIcon(b.kind)} ${who(b)}`),
+    // A show the person said they missed ("Did you see them?" → No) says so here too: this is the list of what they went to.
+    b.kind === 'show' && b.status !== 'cancelled' && b.went === 'no' && seenAnswer(b) === 'no' && h('span', { class: 'vn-row-went muted small' }, 'Didn’t go'),
     issues.map(x => h('span', { class: 'vn-row-warn' }, '⚠ ' + x.text)));
 }
 

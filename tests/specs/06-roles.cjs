@@ -371,7 +371,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     if (!(await page.locator(`.bk-day[data-date="${far}"]`).count())) { await page.click('[aria-label="Next month"]'); await sleep(200); }
     await page.locator(`.bk-day[data-date="${far}"]`).click(); await page.waitForSelector('.bk-dayview');
     await go(page, 'venues'); await go(page, 'bookings');
-    ok('within a visit, coming back to the calendar keeps the day that was open', (await page.locator('.bk-dayview').count()) === 1 && (await page.locator('.bk-dayview .bk-ev[data-id="s-reh"]').count()) === 1); // owner-list: fixed by calendar (Coming up is under the Day view too, and its card carries the same data-id; .bk-ev is the day's own entry)
+    ok('within a visit, coming back to the calendar keeps the day that was open', (await page.locator('.bk-dayview').count()) === 1 && (await page.locator('.bk-dayview .bk-ev[data-id="s-reh"]').count()) === 1); // .bk-ev: the day's own entry (Coming up is under the Day view too, and its card carries the same data-id)
     ok('no errors in the console (the calendar as the landing page)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
@@ -389,6 +389,9 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   ok('…in a radio group', (await page.locator('#se-role [role=radiogroup]').count()) === 1);
   ok('Settings says the role is kept on this device, not in backups', /not in backups/.test(await page.textContent('#se-role')));
   ok('…and offers a tour of the role', (await page.locator('#rp-tour').count()) === 1);
+  // A line that does not apply to the role (no bonus tracks, money on) is left out: nothing is written in its place.
+  const stray = () => page.$$eval('#se-role .rp-panel', ps => ps.flatMap(p => [...p.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent)));
+  ok('Everything has no bonus tracks and keeps money: no line for either, and no stray word where they would be', (await stray()).length === 0 && (await page.locator('#se-role .rp-bonus, #se-role .rp-money').count()) === 0 && !/null|undefined/.test(await page.textContent('#se-role .rp-panel')), (await stray()).join('|'));
 
   for (const id of ['manager', 'band', 'solo', 'scout', 'audiophile', 'producer']) {
     await page.click(`#se-role .rp-card[data-role="${id}"]`);
@@ -398,6 +401,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok(`${id}: the menu changes at once, and you stay on Settings`, JSON.stringify(s.ids) === JSON.stringify(R.menus[id]) && (await page.evaluate(() => window.logiPage())) === 'settings', s.ids.join(','));
     ok(`${id}: the rest are bonus tracks`, s.bonus.length + s.ids.length === 11);
     ok(`${id}: Settings is last on the menu`, s.ids[s.ids.length - 1] === 'settings');
+    ok(`${id}: Your role lists its bonus tracks and writes nothing stray under the cards`, (await stray()).length === 0 && (await page.locator('#se-role .rp-bonus').count()) === 1 && !/null|undefined/.test(await page.textContent('#se-role .rp-panel')), (await stray()).join('|'));
   }
   ok('a role without money says where fees went', await page.evaluate(() => import('./js/roles.js').then(m => { m.setRole('scout'); return new Promise(r => setTimeout(() => r(/Fees, deals and settlements are off/.test(document.getElementById('se-role').textContent)), 300)); })));
   ok('…and that quotes & invoices come back with a role that uses money', /Quotes & invoices come back with a role that uses money, or with Everything\./.test(await page.textContent('#se-role .rp-money')));

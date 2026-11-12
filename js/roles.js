@@ -149,14 +149,15 @@ export const kindOrder = () => { const r = role(), base = ['show', 'session', 'r
 // setting turns the question on or off for anyone: gdex-ask-seen 'on' | 'off'; unset follows the role. Like the role
 // it is kept on this device, is not in backups, and is cleared by Erase this device.
 const ASK_KEY = 'gdex-ask-seen';
-let askMem = null; // the choice made this visit, for a browser that blocks storage
-// 'on', 'off', or '' (follow the role). Read from storage each time.
-export const askSetting = () => { let v = askMem; try { v = localStorage.getItem(ASK_KEY); } catch { /* blocked storage: this visit's choice */ } return v === 'on' || v === 'off' ? v : ''; };
+let askMem = null;        // the choice made this visit, for a browser whose storage is blocked or full
+let askMemOnly = false;   // the last choice could not be written: it holds for this visit, whatever storage still says
+// 'on', 'off', or '' (follow the role). Read from storage each time, unless the last choice could not be kept there.
+export const askSetting = () => { let v = askMem; if (!askMemOnly) { try { v = localStorage.getItem(ASK_KEY); } catch { /* blocked storage: this visit's choice */ } } return v === 'on' || v === 'off' ? v : ''; };
 // 'on' or 'off'; anything else ('') removes the setting.
 export function setAskSetting(v) {
   const val = v === 'on' || v === 'off' ? v : '';
   askMem = val;
-  try { if (val) localStorage.setItem(ASK_KEY, val); else localStorage.removeItem(ASK_KEY); } catch { /* private mode: for this visit only */ }
+  try { if (val) localStorage.setItem(ASK_KEY, val); else localStorage.removeItem(ASK_KEY); askMemOnly = false; } catch { askMemOnly = true; /* private mode, or storage full: for this visit only */ }
 }
 // The role's own answer.
 export const askDefault = (r = role()) => (((r && r.pages) || {}).bookings || {}).ask !== false;

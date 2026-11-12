@@ -89,8 +89,10 @@
 .bk-date { flex: none; width: 3.2rem; display: grid; justify-items: center; gap: 1px; padding: 5px 0; border-radius: 10px; background: var(--bg2); color: var(--muted); font-size: .66rem; line-height: 1.1; text-transform: uppercase; letter-spacing: .06em; }
 .bk-date b { font-size: 1.35rem; color: var(--text); letter-spacing: 0; font-variant-numeric: tabular-nums; }
 .bk-card-main { flex: 1; min-width: 0; display: grid; gap: 3px; }
-.bk-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.bk-card-title { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+/* The status sits beside the name while the name keeps about seven letters' width; on a narrow phone with large text it
+   drops under the name instead, so the name is not broken inside its words (as a week's row does). */
+.bk-card-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 4px 8px; }
+.bk-card-title { flex: 1 1 7rem; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
 .bk-card-top .pill { flex: none; margin-top: 2px; }
 .bk-card-sub { display: block; overflow-wrap: anywhere; }
 /* what a card adds under its own lines (bookings-kit.js cardExtras): the overlap note and "Didn’t go"; the house-rules
@@ -111,6 +113,8 @@
 /* an empty day is one line: its name, then "Nothing on" (under the name when both do not fit) */
 .bk-wday-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; }
 .bk-wday-empty .bk-none { margin: 0; font-size: .85rem; }
+/* On an empty day the heading is only as wide as its words, and the button's own max-width (with its margins pulled in) would squeeze it by its padding: "· today" broke onto a second line. There it keeps its full width, on one line. */
+.bk-wday-empty .bk-wday-head { max-width: none; white-space: nowrap; }
 .bk-wrows { display: grid; gap: 4px; }
 /* The time's column is sized in rem, so it grows with the text and the words beside it wrap. */
 .bk-wrow { display: grid; grid-template-columns: 3.1rem minmax(0, 1fr); gap: 8px; align-items: baseline; width: 100%; min-width: 0; min-height: var(--hit); padding: 7px 9px; text-align: left; font: inherit; color: var(--text); cursor: pointer; touch-action: pan-y;
@@ -192,9 +196,10 @@ html[data-contrast=high] .bk-block, html[data-contrast=high] .bk-ev-any { border
 }
 
 /* ------------------------------ the booking ------------------------------ */
-.bk-hero { border-left-color: var(--act, var(--accent)); gap: 10px; }
-.bk-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.bk-title { font-size: 1.3rem; min-width: 0; overflow-wrap: anywhere; padding-top: 8px; }
+.card.bk-hero { border-left-color: var(--act, var(--accent)); gap: 10px; } /* .card.bk-hero: styles.css sets the edge with .card.hero, which a single class would not out-rank */
+/* As on a card: the status drops under the name where the name would be squeezed (a narrow phone, large text), so no word of it is broken. */
+.bk-hero-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0 10px; }
+.bk-title { flex: 1 1 8rem; font-size: 1.3rem; min-width: 0; overflow-wrap: anywhere; padding-top: 8px; }
 .bk-title-ico { font-size: 1.15rem; }
 .bk-status { flex: none; display: inline-flex; align-items: center; justify-content: flex-end; min-height: var(--hit); min-width: var(--hit); padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .bk-status .pill { font-size: .82rem; padding: 5px 11px; }
@@ -224,6 +229,9 @@ html[data-contrast=high] .bk-block, html[data-contrast=high] .bk-ev-any { border
 .bk-score-text b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 /* "Pick the act you saw…" is a sentence: where it would be squeezed beside its button, the button goes under it. */
 .bk-score-noact .bk-score-text { flex: 1 1 9rem; }
+/* The row's words follow the text size, and "Didn’t go" reads as the answer it is. */
+.bk-score .bk-score-text { font-size: 1rem; }
+.bk-score-went .bk-score-text { font-weight: 700; }
 .bk-contact { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .bk-contact-who { display: grid; min-width: 0; overflow-wrap: anywhere; }
 .bk-contact-btns { display: flex; flex-wrap: wrap; gap: 6px; }

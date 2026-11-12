@@ -230,6 +230,12 @@ async function theSheet() {
   await page.click('.bk-page .back-btn'); await page.waitForSelector('.bk-dayview');
   ok('on the calendar, the show answered No says Didn’t go', /Didn’t go/.test(await page.locator('.bk-dayview .bk-ev[data-id="q-c"]').innerText()), (await page.locator('.bk-dayview .bk-ev[data-id="q-c"]').innerText()).replace(/\s+/g, ' '));
 
+  // …and so does the venue's own list of what was on there before
+  await page.evaluate(() => import('./js/pages/venues.js').then(m => m.openVenue('s-greenfield'))); await page.waitForSelector('.vn-sheet #vn-bk-q-c'); await sleep(200);
+  const before = await page.evaluate(() => ({ went: [...document.querySelectorAll('.vn-sheet .vn-row-went')].map(e => e.closest('.vn-row').id), text: document.getElementById('vn-bk-q-c').innerText.replace(/\s+/g, ' ') }));
+  ok('…and in the venue’s list of what was on there before, on that show alone', same(before.went, ['vn-bk-q-c']) && /Didn’t go$/.test(before.text), JSON.stringify(before));
+  await esc(page);
+
   /* the show's own page, as Everything with the setting unset */
   await openB(page, 'q-c');
   ok('the show’s page reads Didn’t go, with Change', (await page.locator('.bk-score.bk-score-went .bk-score-text').innerText()) === 'Didn’t go' && (await page.locator('#bk-score-change').innerText()) === 'Change'
@@ -274,6 +280,14 @@ async function theSheet() {
   ok('a producer, asked by default, has the row', (await page.locator('#bk-score').count()) === 1);
   await roleNow(page, 'band');
   ok('a band with the setting unset has no row', (await page.locator('.bk-score').count()) === 0 && !(await bkSteps(page)).some(x => x[0] === 'Score this show'));
+  // …unless the show was answered No before (as another role, or before the question was turned off): the calendar
+  // goes on saying Didn’t go, so the row stays, and it is where that answer is taken back.
+  await page.evaluate(() => import('./js/model.js').then(m => m.markWent('q-b', true))); await sleep(400);
+  ok('…but a show answered No before keeps its row: Didn’t go, with Change, and nothing to score', (await page.locator('.bk-score-went .bk-score-text').innerText()) === 'Didn’t go' && same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score-change']));
+  step = (await bkSteps(page)).find(x => x[0] === 'Didn’t go');
+  ok('…its walkthrough step says what Change does, and nothing about a score', !!step && step[1] === 'You said you missed this show, so it is not counted as seen. Change takes that answer back.' && !(await bkSteps(page)).some(x => x[0] === 'Score this show'), step && step[1]);
+  await page.focus('#bk-score-change'); await page.keyboard.press('Enter'); await sleep(500);
+  ok('…Change takes it back: the row goes (a band is not asked) and the focus moves to the act above it, not nowhere', !('went' in (await rec(page, 'bookings', 'q-b'))) && (await page.locator('.bk-score').count()) === 0 && await page.evaluate(() => !!document.activeElement && document.activeElement.classList.contains('bk-act')), await focusId(page));
   await setKey(page, 'gdex-ask-seen', 'on');
   await page.evaluate(() => import('./js/store.js').then(s => s.redraw())); await sleep(300);
   ok('a band that chose to be asked has it', same(await page.$$eval('.bk-score button', bs => bs.map(b => b.id)), ['bk-score', 'bk-score-no']));
@@ -438,7 +452,7 @@ async function whoIsAsked() {
   await page.click('#ac-ask-off'); await sleep(150);
   P = await pref();
   ok('Never ask writes off, shows as pressed, keeps the focus and says what still works', P.key === 'off' && P.on === 'ac-ask-auto:false:false ac-ask-on:false:false ac-ask-off:true:true' && P.focus === 'ac-ask-off'
-    && P.note === 'Gdex never asks. You can still score a show from its own page or the act’s card.', JSON.stringify(P));
+    && P.note === 'Gdex never asks. You can still score a show from the act’s card.', JSON.stringify(P)); // Everything has ★ Score on a show's page only while it is asked
   await page.focus('#ac-ask-on'); await page.keyboard.press('Enter'); await sleep(150);
   P = await pref();
   ok('Always ask (with the keyboard) writes on', P.key === 'on' && P.on === 'ac-ask-auto:false:false ac-ask-on:true:true ac-ask-off:false:false' && P.focus === 'ac-ask-on'
@@ -451,6 +465,11 @@ async function whoIsAsked() {
   await roleNow(page, 'band');
   P = await pref();
   ok('for a band the note says the role is not asked, and how to be', P.note === 'Your role is not asked. Choose Always ask to be asked anyway.' && P.on.startsWith('ac-ask-auto:true:true'), JSON.stringify(P));
+  await roleNow(page, 'scout');
+  await page.click('#ac-ask-off'); await sleep(150);
+  P = await pref();
+  ok('for a scout, who keeps ★ Score on a show’s own page whatever is chosen here, Never ask names that page too', P.note === 'Gdex never asks. You can still score a show from its own page or the act’s card.' && P.key === 'off', JSON.stringify(P));
+  await page.click('#ac-ask-auto'); await sleep(150);
   ok('still nine sections, one group of role cards with seven choices, and no radio among the three buttons', (await page.locator('#page details.se-sec').count()) === 9 && (await page.locator('#se-role [role=radiogroup]').count()) === 1
     && (await page.locator('#se-role [role=radio]').count()) === 7 && (await page.locator('.ac-ask-pref [role=radio]').count()) === 0);
   await roleNow(page, 'all');

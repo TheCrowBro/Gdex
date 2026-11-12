@@ -37,8 +37,13 @@ export const STOP_TEXT = {
 };
 export const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', settings: 'Settings' };
 const MAX_STOPS = 5; // the tour stays about a minute: the first sections on the menu
-// Which section menu is in use (Aa → Section menu). Read from storage, not js/a11y.js, which imports this module.
-const menuKind = () => { try { const m = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu; return m === 'tape' || m === 'digital' ? m : 'record'; } catch { return 'record'; } };
+// Which section menu is in use (Aa → Section menu). js/a11y.js imports this module, so it is read from what a11y.js
+// leaves on the page (data-menu: the choice in use, also when storage could not keep it), else from storage.
+const menuKind = () => {
+  let m = document.documentElement.dataset.menu;
+  if (!m) { try { m = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu; } catch { m = ''; } }
+  return m === 'tape' || m === 'digital' ? m : 'record';
+};
 const listWords = list => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`);
 export function welcomeSteps() {
   const r = role(), menu = menuSections(r), stopsOn = menu.filter(id => id !== 'settings');

@@ -396,6 +396,7 @@ const all = []; // every console error of every browser below
     let f = await full(page, '.bk-hero');
     ok('the show’s page lists Not allowed, Allowed and Good to know', !!f && f.show && same(f.rows, [['Not allowed', 'Pro cameras · Flash'], ['Allowed', 'Point-and-shoots · Phones'], ['Good to know', 'Earplugs advised']]), JSON.stringify(f));
     ok('…headed “House rules at The Lantern Rooms”, with the chip', f.head === 'House rules at The Lantern Rooms' && f.headShown && same(await chip(page, '.bk-hero .vn-rules'), LANTERN));
+    ok('…and the page’s header carries the act’s colour on its left edge, as the card does', (await page.evaluate(() => getComputedStyle(document.querySelector('.bk-hero')).borderLeftColor)) === 'rgb(255, 92, 138)', await page.evaluate(() => getComputedStyle(document.querySelector('.bk-hero')).borderLeftColor));
     const where = await page.evaluate(() => { const r = document.querySelector('.bk-hero .vn-rules'), kids = [...r.parentElement.children]; const i = kids.indexOf(r); return { parent: r.parentElement.className, before: kids.slice(0, i).map(k => k.className).filter(c => /bk-venue/.test(c)), after: kids.slice(i + 1).map(k => k.className) }; });
     ok('…under the venue and its checks, above the act', /bk-hero/.test(where.parent) && where.before.includes('bk-venue') && where.before.some(c => /bk-venue-info/.test(c)) && /bk-act-row/.test(where.after[0] || ''), JSON.stringify(where));
     ok('…with no control inside (the header is press-and-hold)', f.controls === 0);
@@ -578,6 +579,9 @@ const all = []; // every console error of every browser below
     ok(`${scheme}, 320px: the rules follow the Text size setting`, Math.abs(box.size - box.rem) < 0.5, JSON.stringify(box));
     await openB(page, 's-show1');
     ok(`${scheme}, 320px: the page of the sample show does not scroll sideways`, (await wide(page)) <= 320 && (await page.locator('.bk-hero .vn-rules').count()) === 1, String(await wide(page)));
+    // Words broken in two (a name squeezed beside its status): none, on the page's name or on a Coming up card's.
+    const brokenIn = sel => page.$$eval(sel, ts => ts.flatMap(t => { const out = [], walk = document.createTreeWalker(t, NodeFilter.SHOW_TEXT); for (let n; (n = walk.nextNode());) { const re = /\S+/g; for (let m; (m = re.exec(n.textContent));) { const r = document.createRange(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); if (r.getClientRects().length > 1) out.push(m[0]); } } return out; }));
+    ok(`${scheme}, 320px: …and its name is not broken inside a word: the status sits under it`, (await brokenIn('.bk-title')).length === 0 && await page.evaluate(() => document.querySelector('.bk-status').getBoundingClientRect().top >= document.querySelector('.bk-title').getBoundingClientRect().bottom - 1), (await brokenIn('.bk-title')).join(' '));
     await go(page, 'venues'); await page.waitForSelector('#vn-club9');
     fit = await inside('#page');
     ok(`${scheme}, 320px: the venue list does not scroll sideways, with each chip inside its card`, (await wide(page)) <= 320 && fit.length === 4 && fit.every(Boolean), `${await wide(page)} ${fit.join()}`);
@@ -608,6 +612,8 @@ const all = []; // every console error of every browser below
     await openEdit(page, 'club9');
     const widths = await page.evaluate(sel => { const w = s => Math.round(document.querySelector(sel + ' ' + s).getBoundingClientRect().width); return { block: w('.vn-rules-edit'), field: w('[data-key=name]') }; }, FORM.edit);
     ok(`${scheme}, 320px: in the Edit form the block is no wider than the other fields`, (await wide(page)) <= 320 && widths.block <= widths.field, JSON.stringify(widths));
+    const ef = await sheetFit(), bar = await page.evaluate(sel => { const f = document.querySelector(sel + ' .form-actions').getBoundingClientRect(); return [...document.querySelectorAll(sel + ' .form-actions .btn')].map(x => { const r = x.getBoundingClientRect(); return [x.textContent, r.left >= f.left - 0.5 && r.right <= f.right + 0.5, Math.round(r.height)]; }); }, FORM.edit);
+    ok(`${scheme}, 320px: …and the Edit form does not scroll sideways in itself: Delete, Cancel and Save share its last row`, ef[0] <= ef[1] && bar.length === 3 && bar.every(x => x[1] && x[2] >= 44), `${ef.join('/')} ${JSON.stringify(bar)}`);
     const tabbed = await tabDown(page, FORM.edit);
     ok(`${scheme}, 320px: with the keyboard, no button, list or box reached with Tab is under the Save bar`, tabbed.stops.length === 34 && tabbed.stops[33] === 'rulesTone' && tabbed.under.length === 0, tabbed.under.join(' ') || tabbed.stops.slice(-2).join(' '));
     await page.keyboard.press('Escape'); await sleep(200);
@@ -719,6 +725,21 @@ const all = []; // every console error of every browser below
     await page.keyboard.press('Escape'); await sleep(300);
     at = await focused();
     ok('…and Escape again closes the sheet with the focus on the venue’s card, drawn again since the edit', at.id === 'vn-s-lantern' && (await page.locator('.vn-sheet').count()) === 0 && same((c => c && c.label)(await chip(page, '#vn-s-lantern')), '📷 Pro cameras ✗ · 2 more'), JSON.stringify(at));
+
+    /* ---------------- from a show's page: Details, Edit, Save, then close ---------------- */
+    await openB(page, 's-show1');
+    await page.focus('.bk-venue [data-fk="bk-venue-details"]'); await page.keyboard.press('Enter');
+    await page.waitForSelector('.vn-sheet'); await sleep(250);
+    await page.focus('#vn-edit'); await page.keyboard.press('Enter');
+    await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250);
+    await page.focus('#vn-rule-bags-no'); await page.keyboard.press('Space');
+    await page.focus(FORM.edit + ' button[type=submit]'); await page.keyboard.press('Enter'); await sleep(400);
+    at = await focused();
+    ok('from a show’s page (Details, Edit, Save): the focus is back on Edit in the venue’s sheet', at.id === 'vn-edit' && at.sheet === 'The Lantern Rooms', JSON.stringify(at));
+    await page.keyboard.press('Escape'); await sleep(350);
+    const back = await page.evaluate(() => { const a = document.activeElement; return { fk: a.dataset.fk || a.tagName, label: a.getAttribute('aria-label'), sheets: document.querySelectorAll('.sheet').length }; });
+    ok('…and closing the sheet gives the focus back to Details on the show’s page, which was drawn again under it', back.fk === 'bk-venue-details' && back.label === 'Venue details: The Lantern Rooms' && back.sheets === 0 && /Not allowed\s+Pro cameras · Video · Flash · Bags/.test(await page.locator('.bk-hero .vn-rules').innerText()), JSON.stringify(back));
+    await go(page, 'venues'); await page.waitForSelector('#vn-s-lantern');
 
     /* ---------------- the form's walkthrough points at one rule ---------------- */
     await page.click('#vn-s-lantern');

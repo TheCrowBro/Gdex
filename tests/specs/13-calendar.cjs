@@ -15,6 +15,8 @@ const modeOf = page => page.evaluate(() => (document.querySelector('.bk-calview'
 const title = page => page.locator('.bk-cal-panel .cal-title').evaluate(el => el.textContent);
 const saved = page => page.evaluate(() => localStorage.getItem('gdex-cal-view'));
 const steps = page => page.evaluate(() => import('./js/pages/bookings.js').then(m => m.bookings.tutorial().map(s => [s.title, s.text, s.target])));
+// What was last said aloud for a screen reader (util.js announce() fills #sr-live a moment after it is called).
+const spoken = page => page.evaluate(() => new Promise(r => setTimeout(() => r((document.getElementById('sr-live') || {}).textContent || ''), 120)));
 // The first day a view shows (the Day view has none to read when the day is empty: its title says the day).
 const firstDay = page => page.evaluate(() => { const el = document.querySelector('.bk-cal .bk-day, .bk-wday-head, .bk-grid-head'); return el ? el.dataset.date : null; });
 // What the title of a view must read, from the device's own formatters: the month and its year, a range of days (with
@@ -91,7 +93,7 @@ async function press(page, loc, ms) {
       });
       ok(`${v}: the button draws its view, is pressed, keeps the focus and saves the view`, (await modeOf(page)) === v && at.focus === 'bk-view-' + v && same(at.pressed, ['bk-view-' + v]) && (await saved(page)) === v, JSON.stringify(at));
       ok(`${v}: the head, the calendar panel (buttons, ‹ Today ›, the view) and Coming up, in that order`, same(at.kids, ['page-head', 'cal-panel', 'bk-agenda-head', 'empty']) && same(at.panel.slice(0, 3), ['bk-views', 'cal-nav', 'bk-body']) && at.agenda === 'Coming up' && at.empties === 1, JSON.stringify([at.kids, at.panel]));
-      ok(`${v}: only the month is .bk-monthview and only the day .bk-dayview; one heading takes the focus on arrival`, at.month === (v === 'month' ? 1 : 0) && at.day === (v === 'day' ? 1 : 0) && same(at.heads, [v === 'day' ? 'H2' : 'H1']) && at.live === (v === 'day' ? null : 'polite'), JSON.stringify(at));
+      ok(`${v}: only the month is .bk-monthview and only the day .bk-dayview; one heading takes the focus on arrival`, at.month === (v === 'month' ? 1 : 0) && at.day === (v === 'day' ? 1 : 0) && same(at.heads, [v === 'day' ? 'H2' : 'H1']) && at.live === null, JSON.stringify(at));
       ok(`${v}: ‹, Today and › are named for the view; the legend sits under squares only; no tab or grid roles`, same(at.nav, NAV[v]) && at.todayText === 'Today' && at.legend === (v === 'month' || v === 'two' ? 1 : 0) && at.roles === 0, JSON.stringify(at.nav));
 
       // where it starts, and how far ‹ › go
@@ -106,11 +108,15 @@ async function press(page, loc, ms) {
       const t1 = await title(page), d1 = await shown();
       ok(`${v}: › steps ${v === 'month' ? 'a month' : LEN[v] + (LEN[v] === 1 ? ' day' : ' days')}, and the title follows`, (v === 'day' ? true : d1 === next[0]) && t1 === (await wantTitle(page, v, next[0], next[1])) && t1 !== t0, `${d1} “${t1}”`);
       ok(`${v}: the focus stays on ›`, await page.evaluate(l => document.activeElement && document.activeElement.getAttribute('aria-label') === l, NAV[v][2]));
+      // The page is drawn again at every step, and a live region that arrives with its words in it is not read out: the
+      // title is no live region, and each step says the new title through the app's own announcer.
+      ok(`${v}: …and the new title is said aloud`, (await spoken(page)) === t1, await spoken(page));
       await page.click(`[aria-label="${NAV[v][0]}"]`); await sleep(200);
       ok(`${v}: ‹ steps back the same way`, (await title(page)) === t0 && (await shown()) === d0);
       await page.click(`[aria-label="${NAV[v][2]}"]`); await page.click(`[aria-label="${NAV[v][2]}"]`); await sleep(150);
       await page.click(`[aria-label="${NAV[v][1]}"]`); await sleep(200);
       ok(`${v}: Today comes back to today`, (await title(page)) === t0 && (await shown()) === d0);
+      ok(`${v}: …and says so aloud`, (await spoken(page)) === (v === 'day' ? (await wantTitle(page, 'day', first, first)) + ', today' : t0), await spoken(page));
       if (v === 'two' || v === 'week') ok(`${v}: the days start on a Monday`, await page.evaluate(iso => import('./js/util.js').then(u => u.parseISO(iso).getDay() === 1), d0), d0);
 
       // nothing booked: each view says so in its own words, and the Coming up box is the only .empty
@@ -137,6 +143,10 @@ async function press(page, loc, ms) {
     const long = await wantTitle(page, 'day', now, now), short = await page.evaluate(iso => import('./js/util.js').then(u => { const d = u.parseISO(iso); return `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()}`; }), now);
     ok('Week picked, then a reload: Gdex opens on the Week view, on this week', (await modeOf(page)) === 'week' && wk.pressed === 'true' && wk.first === (await monday(page, now)), JSON.stringify(wk));
     ok('today’s name says so in words, and to a screen reader', same(wk.today, [[now, `${short} · today`, `${long}, today. Open the day`, 'date']]), JSON.stringify(wk.today));
+    // On an empty day the name is only as wide as its words: “· today” must not break onto a line of its own under the weekday.
+    const todayLine = await page.evaluate(() => { const b = document.querySelector('.bk-wday.today .bk-wday-head'), r = document.createRange(); r.selectNodeContents(b); const mids = [...r.getClientRects()].filter(x => x.width > 1).map(x => x.top + x.height / 2);
+      return { spread: Math.round(Math.max(...mids) - Math.min(...mids)), h: b.offsetHeight, none: (b.closest('.bk-wday').querySelector('.bk-none') || {}).textContent }; });
+    ok('…on one line, beside “Nothing on”', todayLine.spread < 5 && todayLine.none === 'Nothing on', JSON.stringify(todayLine));
 
     // three days start on the day in view; Today brings them back to today
     const other = await page.evaluate(now => [...document.querySelectorAll('.bk-wday-head')].map(b => b.dataset.date).find(d => d !== now), now);
@@ -366,6 +376,23 @@ async function press(page, loc, ms) {
   ok('…with a booking that has no time beside it, the row has both and nothing is said about times (one of them has one)', (await page.locator('.bk-any .bk-ev').count()) === 2 && (await page.locator('.bk-cal-panel .bk-grid-note').count()) === 0);
   await page.evaluate(() => import('./js/store.js').then(s => { s.remove('bookings', 'c-U'); s.remove('bookings', 'c-F'); })); await sleep(300);
 
+  // deleted from the view itself by press and hold: what was pressed has gone, and the focus goes to the view's heading, not nowhere
+  await put(page, 'bookings', { id: 'c-Y', kind: 'show', status: 'confirmed', title: 'Hold Me', date: T, venueName: 'The Crown', setTime: '17:00', setLength: 20 }); await sleep(300);
+  const holdDelete = async sel => {
+    await page.waitForFunction(() => !document.querySelector('.toast')); // a toast at the foot of the screen could be under the finger
+    await press(page, page.locator(sel), 3300);
+    await sheetNamed(page, 'Delete this booking?').waitFor({ timeout: 4000 }); await page.mouse.up(); await sleep(300);
+    await page.locator('.sheet button', { hasText: 'Delete booking' }).click(); await sleep(500);
+    return page.evaluate(() => { const a = document.activeElement; return a && a !== document.body ? a.tagName + (a.hasAttribute('data-view-head') ? '[head]' : '') : 'BODY'; });
+  };
+  await toDay(page, T);
+  let after = await holdDelete(`#bk-ev-c-Y-${T}`);
+  ok('a block deleted by press and hold: it goes, the Day view stays and the focus is on the day’s name', (await page.locator(`#bk-ev-c-Y-${T}`).count()) === 0 && (await modeOf(page)) === 'day' && after === 'H2[head]' && (await page.locator('.sheet').count()) === 0, after);
+  await put(page, 'bookings', { id: 'c-Y', kind: 'show', status: 'confirmed', title: 'Hold Me', date: T, venueName: 'The Crown', setTime: '17:00', setLength: 20 }); await sleep(300);
+  await toWeek(page, T);
+  after = await holdDelete(`#bk-ev-c-Y-${T}`);
+  ok('…and a row of the week the same: the focus is on the page’s heading', (await page.locator(`#bk-ev-c-Y-${T}`).count()) === 0 && (await modeOf(page)) === 'week' && after === 'H1[head]', after);
+
   /* ---------------- three days ---------------- */
   await toDay(page, T);
   await view(page, 'three');
@@ -459,13 +486,20 @@ async function press(page, loc, ms) {
   await view(page, 'three');
   wb = await wentBlock();
   ok('in three days, where a block has no room for it, the hidden words carry it', wb.sub === '20:00' && wb.eye === null && wb.said === (await wantSaid(page, 'c-G', { went: true })), JSON.stringify(wb));
+  // A day square has no room for it either (a dot, or a time): the day's spoken name says it, after the status.
+  const sqName = () => page.evaluate(P => document.querySelector(`.bk-day[data-date="${P}"]`).getAttribute('aria-label'), PAST);
+  await view(page, 'two'); const sq2 = await sqName();
+  await view(page, 'month'); const sqM = await sqName();
+  ok('in two weeks and in the month the day’s spoken name says it, after the status', sq2 === `${await fmt(PAST, 'fmtLong')}: 20:00 The Night Owls @ Harbour Hall (Done, didn’t go)` && sqM === `${await fmt(PAST, 'fmtLong')}: The Night Owls @ Harbour Hall (Done, didn’t go)`, `${sq2} | ${sqM}`);
+  await view(page, 'three');
   await page.evaluate(() => import('./js/store.js').then(s => s.patch('bookings', 'c-G', { status: 'cancelled' }))); await sleep(300);
   wb = await page.evaluate(P => document.getElementById(`bk-ev-c-G-${P}`).textContent, PAST);
   await view(page, 'day');
   const wd = await page.evaluate(P => document.getElementById(`bk-ev-c-G-${P}`).textContent, PAST);
   await toWeek(page, PAST, true);
   w = await went();
-  ok('the same show cancelled says it nowhere', !/Didn’t go/.test(wb) && !/Didn’t go/.test(wd) && w && w.went.length === 0 && !/Didn’t go/.test(w.text), JSON.stringify([wb, wd, w]));
+  await view(page, 'month');
+  ok('the same show cancelled says it nowhere', !/Didn’t go/.test(wb) && !/Didn’t go/.test(wd) && w && w.went.length === 0 && !/Didn’t go/.test(w.text) && (await sqName()).endsWith('(Cancelled)'), JSON.stringify([wb, wd, w, await sqName()]));
 
   /* ---------------- the sample's show; a scout ---------------- */
   await toDay(page, SHOW1);
@@ -486,7 +520,44 @@ async function press(page, loc, ms) {
   }
   await page.evaluate(() => { localStorage.removeItem('gdex-role'); });
 
-  // (The checks that need every step B branch merged go here: the sample is loaded and the busy night is seeded.)
+  /* ---------------- house rules in the views (js/venues-rules.js through cardExtras; the words from the model) ---------------- */
+  await page.evaluate(() => import('./js/roles.js').then(r => r.setRole('all'))); await sleep(400);
+  await page.evaluate(() => { localStorage.removeItem('gdex-role'); });
+  // A row's chip: its colour class, what it shows, what a screen reader hears, where it sits, and whether it stays inside the row.
+  const chipOf = (id, iso) => page.evaluate(([id, iso]) => { const r = document.getElementById(`bk-ev-${id}-${iso}`), c = r && r.querySelector('.vn-chip'); if (!c) return null; const box = r.getBoundingClientRect(), cb = c.getBoundingClientRect();
+    return { cls: c.className, label: c.querySelector('[aria-hidden=true]').textContent, spoken: c.querySelector('.sr-only').textContent, direct: c.parentElement.classList.contains('bk-wrow-main'), inside: cb.left >= box.left && cb.right <= box.right + 0.5, kids: [...r.querySelectorAll('.bk-wrow-main > *')].map(e => e.className.split(' ')[0]) }; }, [id, iso]);
+  const blockOf = (id, iso) => page.evaluate(([id, iso]) => { const b = document.getElementById(`bk-ev-${id}-${iso}`); return b ? { said: b.querySelector('.sr-only').textContent.trim(), chips: b.querySelectorAll('.vn-chip, .bk-overlap, .bk-went').length } : null; }, [id, iso]);
+  ok('(the sample’s show is a tap or two of ‹ › away)', await toWeek(page, SHOW1, SHOW1 < (await monday(page, T))));
+  let chip = await chipOf('s-show1', SHOW1);
+  ok('the Week row of the sample’s show carries its venue’s house rules: an amber chip, “📷 Pro cameras ✗ · 1 more”', !!chip && chip.cls === 'vn-chip vn-chip-some' && chip.label === '📷 Pro cameras ✗ · 1 more' && chip.spoken === 'House rules: Pro cameras not allowed, and 1 more' && chip.direct && chip.inside, JSON.stringify(chip));
+  await page.click(`#bk-wd-${SHOW1}`); await page.waitForSelector('.bk-dayview'); await sleep(200);
+  let blk1 = await blockOf('s-show1', SHOW1);
+  ok('its block in the Day view has no chip: its hidden words say the rules', !!blk1 && blk1.chips === 0 && blk1.said === 'Confirmed. House rules: Pro cameras not allowed, and 1 more.' && blk1.said === (await wantSaid(page, 's-show1')), JSON.stringify(blk1));
+  await view(page, 'three');
+  blk1 = await blockOf('s-show1', SHOW1);
+  ok('…and in three days the same', !!blk1 && blk1.chips === 0 && blk1.said === 'Confirmed. House rules: Pro cameras not allowed, and 1 more.', JSON.stringify(blk1));
+  // the busy night: a row with the overlap note and the chip, in that order, inside the row
+  await toWeek(page, T);
+  chip = await chipOf('c-E', T);
+  ok('a row with a note and a chip has the note first, then the chip, both inside the row', !!chip && same(chip.kids, ['bk-wrow-top', 'bk-wrow-sub', 'bk-overlap', 'vn-chip']) && chip.label === '📷 Pro cameras ✗ · 1 more' && chip.inside, JSON.stringify(chip));
+  chip = await chipOf('c-A', T);
+  ok('a hold at a venue with nothing restricted has the green chip, “No restrictions”', !!chip && chip.cls === 'vn-chip vn-chip-ok' && chip.label === 'No restrictions', JSON.stringify(chip));
+  ok('a cancelled show, a show at a typed venue and a diary entry have no chip', (await chipOf('c-X', T)) === null && (await chipOf('c-Q', T)) === null && (await chipOf('c-W', T)) === null);
+  // Free text is always a rule: a venue whose answers are all fine and that has a note is amber, and its chip reads the note.
+  await page.evaluate(() => import('./js/store.js').then(st => st.patch('venues', 's-harbour', { rulesNote: 'Ask at the door' }))); await sleep(300);
+  chip = await chipOf('c-A', T);
+  ok('a venue with free text: its show’s chip turns amber and reads the note', !!chip && chip.cls === 'vn-chip vn-chip-some' && chip.label === '📝 Ask at the door' && chip.spoken === 'House rules: Note: Ask at the door', JSON.stringify(chip));
+  await page.click(`#bk-wd-${T}`); await page.waitForSelector('.bk-dayview'); await sleep(200);
+  blk1 = await blockOf('c-A', T);
+  ok('…and its block says so to a screen reader, after the status and the overlap', !!blk1 && blk1.chips === 0 && blk1.said === 'Hold. Overlaps with The Night Owls, 21:00. House rules: Note: Ask at the door.', JSON.stringify(blk1));
+  // the past show marked Didn’t go, at the same venue: the chip, then the answer
+  await toWeek(page, PAST, true);
+  await page.evaluate(() => import('./js/store.js').then(st => st.patch('bookings', 'c-G', { status: 'done' }))); await sleep(300);
+  chip = await chipOf('c-G', PAST);
+  ok('a show marked Didn’t go has its venue’s chip and then the answer on its row', !!chip && same(chip.kids, ['bk-wrow-top', 'bk-wrow-sub', 'vn-chip', 'pill']) && chip.label === '📝 Ask at the door' && chip.inside && (await page.locator(`#bk-ev-c-G-${PAST} .bk-went`).count()) === 1, JSON.stringify(chip));
+  await page.evaluate(() => import('./js/store.js').then(st => st.patch('venues', 's-harbour', { rulesNote: '' }))); await sleep(300);
+  ok('with the note taken away the chip is green again', (await chipOf('c-G', PAST)).cls === 'vn-chip vn-chip-ok');
+
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 
@@ -506,6 +577,9 @@ async function press(page, loc, ms) {
         return { page: document.documentElement.scrollWidth, row: [row.scrollWidth, row.clientWidth], pressedInSight: on.left >= r.left - 1 && on.right <= r.right + 1, nav: [...document.querySelectorAll('.cal-nav button')].every(b => { const x = b.getBoundingClientRect(); return x.left >= panel.left && x.right <= panel.right; }), entries: document.querySelectorAll('.bk-cal-panel .bk-ev, .bk-cal-panel .bk-day.has').length }; });
       ok(`320 px, ${scheme}, ${v}: the page does not scroll sideways; the row of buttons scrolls inside itself with the pressed one in sight; ‹ Today › stay in the panel`, fit.page <= 320 && fit.row[0] > fit.row[1] && fit.pressedInSight && fit.nav && fit.entries > 0, JSON.stringify(fit));
     }
+    // Coming up, under the view: a card's name is never broken inside a word (the status drops under the name instead).
+    const broken = await n.page.$$eval('.bk-agenda .bk-card-title', ts => ts.flatMap(t => { const out = [], walk = document.createTreeWalker(t, NodeFilter.SHOW_TEXT); for (let x; (x = walk.nextNode());) { const re = /\S+/g; for (let m; (m = re.exec(x.textContent));) { const r = document.createRange(); r.setStart(x, m.index); r.setEnd(x, m.index + m[0].length); if (r.getClientRects().length > 1) out.push(m[0]); } } return out; }));
+    ok(`320 px, ${scheme}: no Coming up card breaks its name inside a word`, broken.length === 0 && (await n.page.locator('.bk-agenda .bk-card-title').count()) === 8, broken.join(' '));
     // The last view drawn is the Day view on the busy night. An hour there is 52 px: it holds the name and, under it, the
     // time and where, even in extra-large text; and a set beside another keeps its time whole.
     const hour = await n.page.evaluate(D => ['c-Q', 'c-A'].map(id => {
@@ -528,5 +602,64 @@ async function press(page, loc, ms) {
     ok(`320 px, ${scheme}, three days: six sets at once are six lanes side by side, none over another or over the next day`, stages.n === 6 && stages.spill <= 0.5 && stages.over <= 0.5 && stages.page <= 320, JSON.stringify(stages));
     ok(`no errors in the console (320 px, ${scheme})`, n.errors.length === 0, n.errors.slice(0, 5).join(' | '));
     await n.browser.close();
+  }
+
+  /* ------------------------------ a No given in “Did you see them?” shows in every view ------------------------------ */
+  {
+    const a = await open({ sample: true, ask: true });
+    const P3 = await dayFromNow(a.page, -3); // three days back: over, whatever the hour of this run
+    await put(a.page, 'bookings', { id: 'c-ask', kind: 'show', status: 'confirmed', actId: 's-owls', date: P3, venueId: 's-lantern', setTime: '21:00', setLength: 45 });
+    await sleep(200);
+    await a.page.reload(); await a.page.waitForSelector('#deck .dk-next');
+    const Q = '.sheet[aria-label="Did you see them?"]';
+    await a.page.locator(Q).waitFor({ timeout: 8000 }).catch(() => {}); await sleep(250);
+    ok('with a show that is over, Gdex opens on the calendar and asks “Did you see them?” about it', (await a.page.evaluate(() => window.logiPage())) === 'bookings' && same(await a.page.$$eval(`${Q} .ac-ask-row`, rs => rs.map(r => r.dataset.id)), ['c-ask']));
+    await a.page.click('#ac-ask-no-c-ask'); await sleep(300);
+    await a.page.click('#ac-ask-close'); await sleep(300);
+    ok('No, then Done: the sheet is closed and the booking is marked', (await a.page.locator('.sheet').count()) === 0 && (await a.page.evaluate(() => import('./js/store.js').then(st => st.byId('bookings', 'c-ask').went))) === 'no');
+    await toWeek(a.page, P3, true);
+    const wrow = await a.page.evaluate(d => { const r = document.getElementById(`bk-ev-c-ask-${d}`); return r ? { went: [...r.querySelectorAll('.bk-went')].map(e => e.textContent), kids: [...r.querySelectorAll('.bk-wrow-main > *')].map(e => e.className.split(' ')[0]), inside: [...r.querySelectorAll('.bk-wrow-main > *')].every(e => e.getBoundingClientRect().right <= r.getBoundingClientRect().right + 0.5) } : null; }, P3);
+    ok('its Week row says “Didn’t go”, after its venue’s chip, inside the row', !!wrow && same(wrow.went, ['Didn’t go']) && same(wrow.kids, ['bk-wrow-top', 'bk-wrow-sub', 'vn-chip', 'pill']) && wrow.inside, JSON.stringify(wrow));
+    await a.page.click(`#bk-wd-${P3}`); await a.page.waitForSelector('.bk-dayview'); await sleep(200);
+    const ask = () => a.page.evaluate(d => { const b = document.getElementById(`bk-ev-c-ask-${d}`); return b ? { sub: b.querySelector('.bk-block-sub').textContent.trim(), said: b.querySelector('.sr-only').textContent.trim() } : null; }, P3);
+    let ab = await ask();
+    ok('its block in the Day view reads “· Didn’t go”, and a screen reader hears the status, the rules and the answer', !!ab && ab.sub === '21:00 · Didn’t go' && ab.said === 'Confirmed. House rules: Pro cameras not allowed, and 1 more. Didn’t go.', JSON.stringify(ab));
+    await view(a.page, 'three'); ab = await ask();
+    ok('…in three days the hidden words say it', !!ab && ab.said.endsWith(' Didn’t go.'), JSON.stringify(ab));
+    const sqA = () => a.page.evaluate(d => document.querySelector(`.bk-day[data-date="${d}"]`).getAttribute('aria-label'), P3);
+    await view(a.page, 'two'); const two = await sqA();
+    await view(a.page, 'month'); const mon = await sqA();
+    ok('…and in two weeks and the month the day’s spoken name does', two.includes('21:00 The Night Owls @ The Lantern Rooms (Confirmed, didn’t go)') && mon.includes('The Night Owls @ The Lantern Rooms (Confirmed, didn’t go)'), `${two} | ${mon}`);
+    // Changed on the show's own page: the mark goes from the calendar
+    await a.page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('c-ask'))); await a.page.waitForSelector('.bk-page'); await sleep(300);
+    ok('the show’s own page reads Didn’t go, with Change', (await a.page.locator('.bk-score-went .bk-score-text').innerText()) === 'Didn’t go' && (await a.page.locator('#bk-score-change').count()) === 1);
+    await a.page.click('#bk-score-change'); await sleep(400);
+    await a.page.click('.bk-page .back-btn'); await a.page.waitForSelector('.bk-dayview'); await sleep(200);
+    ab = await ask();
+    ok('Change there takes the mark off the calendar', !!ab && !/Didn’t go/.test(ab.sub) && !/Didn’t go/.test(ab.said), JSON.stringify(ab));
+    ok('no errors in the console (the question, then the views)', a.errors.length === 0, a.errors.slice(0, 5).join(' | '));
+    await a.browser.close();
+  }
+
+  /* ------------------------------ the digital player over the five views, on a narrow phone ------------------------------ */
+  for (const scheme of ['light', 'dark']) {
+    const d = await open({ sample: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('gdex-prefs', '${JSON.stringify({ scheme, menu: 'digital', text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });
+    await d.page.waitForSelector('.bk-monthview');
+    const D = await dayFromNow(d.page, 8);
+    for (const rec of seed.filter(x => x.date)) await put(d.page, 'bookings', rec);
+    await sleep(300);
+    ok(`digital player, 320 px, ${scheme}: the player is the menu, with extra-large text and large buttons`, await d.page.evaluate(s => document.documentElement.dataset.text === 'xlarge' && document.documentElement.dataset.targets === 'large' && document.documentElement.dataset.scheme === s && document.querySelectorAll('#deck .dk-player').length === 1 && !document.querySelector('#deck .dk-record, #deck .dk-cassette'), scheme));
+    await toDay(d.page, D);
+    for (const v of ['month', 'two', 'week', 'three', 'day']) {
+      await view(d.page, v);
+      await d.page.evaluate(() => window.scrollTo(0, 0)); await sleep(150); // at the top, where the menu is in sight
+      const fit = await d.page.evaluate(() => { const deck = document.querySelector('.deck').getBoundingClientRect(), box = e => e.getBoundingClientRect(), inDeck = e => { const r = box(e); return r.width > 0 && r.left >= deck.left - 0.5 && r.right <= deck.right + 0.5 && r.top >= deck.top - 0.5 && r.bottom <= deck.bottom + 0.5; };
+        const tabs = document.querySelector('.dk-tabs'), cur = document.querySelector('.dk-tab[aria-current=page]'), t = box(tabs), c = box(cur);
+        return { page: document.documentElement.scrollWidth, next: inDeck(document.querySelector('#deck .dk-next')), prev: inDeck(document.querySelector('#deck .dk-prev')), list: inDeck(document.querySelector('#deck .dk-list')), name: document.querySelector('.dk-name').textContent,
+          tab: cur.dataset.section, tabInSight: c.left >= t.left - 0.5 && c.right <= t.right + 0.5, pressed: (document.querySelector('.bk-views .on') || {}).id, entries: document.querySelectorAll('.bk-cal-panel .bk-ev, .bk-cal-panel .bk-day.has').length }; });
+      ok(`digital player, 320 px, ${scheme}, ${v}: the page is no wider than the screen; ⏮ ☰ ⏭ are inside the menu, which names Bookings and marks its tab`, fit.page <= 320 && fit.next && fit.prev && fit.list && fit.name === 'Bookings' && fit.tab === 'bookings' && fit.tabInSight && fit.pressed === 'bk-view-' + v && fit.entries > 0, JSON.stringify(fit));
+    }
+    ok(`no errors in the console (digital player, 320 px, ${scheme})`, d.errors.length === 0, d.errors.slice(0, 5).join(' | '));
+    await d.browser.close();
   }
 })().catch(e => { console.log('FAIL calendar spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });

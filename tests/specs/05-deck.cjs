@@ -119,6 +119,8 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.click('#displayBtn'); await page.waitForSelector('[data-pref="menu:digital"]');
   const choices = await page.$$eval('.sheet .pref[aria-label="Section menu"] button', bs => bs.map(b => b.textContent));
   ok('Aa → Section menu has three choices', JSON.stringify(choices) === JSON.stringify(['Record player', 'Tape deck', 'Digital player']), choices.join(', '));
+  const pressedSaid = await page.$$eval('.sheet .pref[aria-label="Section menu"] button, .sheet [data-pref^="scheme:"]', bs => bs.map(b => b.getAttribute('aria-pressed')));
+  ok('…each says whether it is the one in use: the record player is, the other two say they are not (and so do Light, Dark and Follow device)', JSON.stringify(pressedSaid.slice(0, 3)) === JSON.stringify(['true', 'false', 'false']) && pressedSaid.length === 6 && pressedSaid.every(x => x === 'true' || x === 'false') && pressedSaid.filter(x => x === 'true').length === 2, pressedSaid.join(','));
   const said = await live();
   await page.focus('[data-pref="menu:digital"]'); await page.keyboard.press('Enter'); await sleep(300);
   ok('choosing Digital player swaps the menu at once: one player, no record, no cassette', (await page.locator('#deck .dk-player').count()) === 1 && (await page.locator('#deck .dk-record, #deck .dk-cassette').count()) === 0 && (await page.getAttribute('#deck .deck', 'data-style')) === 'digital');
@@ -288,6 +290,16 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.focus('#deck .dk-next');
   const cutNarrow = [...await tabAlong('Tab', 11), ...await tabAlong('Shift+Tab', 10)];
   ok('…and each tab the Tab key lands on is wholly in view there too', cutNarrow.length === 0 && (await focusOn()) === 'tab:bookings', `cut off: ${cutNarrow.join() || 'none'}`);
+  // …and where the menu is chosen (Aa), at that size: no choice is broken inside a word (three choices do not fit side by
+  // side there, so the row lets one drop to a line of its own), and the sheet does not scroll sideways.
+  await page.click('#displayBtn'); await page.waitForSelector('.sheet [data-pref="menu:digital"]'); await sleep(250);
+  const aa = await page.evaluate(() => {
+    const broken = [...document.querySelectorAll('.sheet .seg.wide button')].flatMap(t => { const out = [], walk = document.createTreeWalker(t, NodeFilter.SHOW_TEXT); for (let n; (n = walk.nextNode());) { const re = /\S+/g; for (let m; (m = re.exec(n.textContent));) { const r = document.createRange(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); if (r.getClientRects().length > 1) out.push(m[0]); } } return out; });
+    const body = [...document.querySelectorAll('.sheet-body')].pop(), rows = [...document.querySelectorAll('.sheet .seg.wide')].filter(r => r.offsetParent !== null);
+    return { broken, fits: body.scrollWidth <= body.clientWidth && rows.every(r => r.scrollWidth <= r.clientWidth + 1 && [...r.children].every(b => b.getBoundingClientRect().height >= 44)), rows: rows.length, choices: document.querySelectorAll('.sheet .pref[aria-label="Section menu"] .seg.wide button').length };
+  });
+  ok('320px wide, extra-large: in Aa no choice is broken inside a word, the three menus among them, and nothing runs out of the sheet', aa.broken.length === 0 && aa.fits && aa.choices === 3 && aa.rows >= 6, JSON.stringify(aa));
+  await page.keyboard.press('Escape'); await sleep(250);
   // A small phone at the standard sizes: the bar is still one slim line.
   await page.setViewportSize({ width: 360, height: 760 });
   await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
