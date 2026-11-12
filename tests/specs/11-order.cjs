@@ -143,6 +143,19 @@ async function dayIds(page, iso) {
   const forPat = await page.locator('.pp-upcoming .pp-bk').evaluateAll(els => els.map(e => e.dataset.id));
   ok('a person’s bookings: the same order', same(forPat, ['o-Q', 'o-P']), forPat.join(','));
   await page.keyboard.press('Escape'); await sleep(250);
+  // Lead's decision 2: a row in playing order prints the time it is sorted by, so the day reads in order. A show with no
+  // on-stage time says its soundcheck or doors, after its load-in.
+  const T2 = await dayFromNow(page, 10);
+  await put(page, 'bookings', { id: 'o-S', kind: 'show', status: 'confirmed', title: 'Early Check', venueName: 'A Typed Room', people: ['t-per'], date: T2, loadIn: '17:30', soundcheck: '18:30' });
+  await put(page, 'bookings', { id: 'o-U', kind: 'show', status: 'confirmed', title: 'Long Day', venueName: 'A Typed Room', people: ['t-per'], date: T2, loadIn: '11:00', setTime: '19:45' });
+  await put(page, 'bookings', { id: 'o-V', kind: 'show', status: 'confirmed', title: 'Doors Only', venueName: 'A Typed Room', people: ['t-per'], date: T2, doors: '21:00' });
+  await sleep(300);
+  await page.evaluate(() => import('./js/pages/people.js').then(p => { p.openPerson('t-per'); })); await page.waitForSelector('.pp-upcoming .pp-bk');
+  const rows = await page.locator('.pp-upcoming .pp-bk').evaluateAll(els => els.map(e => [e.dataset.id, e.querySelector('.pp-bk-when').textContent.split(' · ').slice(1).join(' · ')]));
+  ok('a person’s rows print the time each is sorted by: “load-in 17:30 · soundcheck 18:30” before “load-in 11:00 · on stage 19:45”, then “doors 21:00”', same(rows.filter(r => /^o-[SUV]$/.test(r[0])), [['o-S', 'load-in 17:30 · soundcheck 18:30'], ['o-U', 'load-in 11:00 · on stage 19:45'], ['o-V', 'doors 21:00']]), JSON.stringify(rows));
+  await page.keyboard.press('Escape'); await sleep(250);
+  for (const id of ['o-S', 'o-U', 'o-V']) await page.evaluate(id => import('./js/store.js').then(s => s.remove('bookings', id)), id);
+  await sleep(200);
   await page.evaluate(() => import('./js/pages/venues.js').then(v => { v.openVenue('t-room'); })); await page.waitForSelector('.vn-sheet .vn-row');
   const atRoom = await page.locator('.vn-sheet .vn-rows').first().locator('.vn-row').evaluateAll(els => els.map(e => e.id));
   ok('a venue’s “Coming up here”: the 21:00 set before the 22:00 one', same(atRoom, ['vn-bk-o-R', 'vn-bk-o-P']), atRoom.join(','));

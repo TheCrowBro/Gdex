@@ -10,6 +10,7 @@ import { openForm } from '../form.js';
 import { qrSvg, loadQR } from '../qr.js';
 import { saveFile, fileName } from '../print.js';
 import { sheetTutorial } from '../tour.js';
+import { playField, playLabel, playTime } from '../model.js'; // the time a show is sorted by, printed on its row
 import { sectionName, pageOpt, actWord, moneyShown } from '../roles.js';
 
 /* ------------------------------- small helpers ------------------------------- */
@@ -51,9 +52,11 @@ const asContact = p => {
 const rateText = p => (moneyShown() && p && p.rate !== '' && p.rate != null && Number.isFinite(Number(p.rate)) ? (Number(p.rate) > 0 ? `${fmtMoney(Number(p.rate))} ${unitLabel(p.rateUnit)}` : 'No fee') : '');
 const dateText = b => (!ISO.test(b.date || '') ? 'No date yet' : ISO.test(b.endDate || '') && b.endDate > b.date ? `${fmtShort(b.date)} – ${fmtShort(b.endDate)}` : fmtShort(b.date));
 const longDate = iso => parseISO(iso).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-// The times that matter on a list line: a show's load-in and stage time; a session's start to finish (past midnight too).
+// The times that matter on a list line: a show's load-in and stage time, or with no stage time yet the doors or
+// soundcheck it is sorted by (rows run in playing order, so a day reads in order); a session's start to finish (past
+// midnight too).
 function timesLine(b) {
-  if (b.kind === 'show') return [b.loadIn && `load-in ${b.loadIn}`, b.setTime && `on stage ${b.setTime}`].filter(Boolean).join(' · ');
+  if (b.kind === 'show') return [b.loadIn && `load-in ${b.loadIn}`, b.setTime ? `on stage ${b.setTime}` : !['', 'loadIn'].includes(playField(b)) && `${playLabel(b).toLowerCase()} ${playTime(b)}`].filter(Boolean).join(' · ');
   if (b.start && b.end) return `${b.start}–${b.end}${b.end < b.start ? ' (past midnight)' : ''}`;
   return b.start || '';
 }

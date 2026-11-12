@@ -188,8 +188,9 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   playing time (`Doors 20:00` when that stands in for the on-stage time). A Coming up card keeps its first time and
   adds the on-stage time (`Load-in 16:00 · On 21:00`) or, for a show with none yet, the time it is sorted by
   (`Load-in 15:00 · Doors 19:30`). A row on an act's own page prints `playLabel(b)` and `playTime(b)` for a show
-  (`On stage 21:00`, `Doors 19:30`) and the start for anything else. An act's card, a person's sheet and a venue's
-  rows print no time or both.
+  (`On stage 21:00`, `Doors 19:30`) and the start for anything else. A row on a person's sheet prints a show's load-in
+  and its on-stage time, or with none the soundcheck or doors it is sorted by (`load-in 17:30 · soundcheck 18:30`).
+  An act's card and a venue's rows print no time or both.
 * Helpers: `bookingsOn(date)`, `upcoming()`, `activeBookings()`, `covers(b, date)`, `overlaps(a, b)`, `lastDay(b)`,
   `personBookings(id)`, `gearBookings(id)`, `personClash(b, personId)`, `gearClash(b, gearId)` (other overlapping bookings
   when together they need more than are owned), `gearShort(b, gearId)` (this booking alone needs more than are owned), `qtyOf(g)`,
