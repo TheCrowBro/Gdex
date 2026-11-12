@@ -387,6 +387,9 @@ async function press(page, loc, ms) {
   };
   await toDay(page, T);
   let after = await holdDelete(`#bk-ev-c-Y-${T}`);
+  // "Booking deleted" is still on screen at the foot of the page: a tap there goes through it to what is under it.
+  const through = await page.evaluate(() => { const t = document.querySelector('.toast'); if (!t) return 'no toast'; const r = t.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return at && at.closest('.toast') ? 'the toast takes the tap' : 'through'; });
+  ok('the toast that says so does not take a tap meant for what is under it', through === 'through', through);
   ok('a block deleted by press and hold: it goes, the Day view stays and the focus is on the day’s name', (await page.locator(`#bk-ev-c-Y-${T}`).count()) === 0 && (await modeOf(page)) === 'day' && after === 'H2[head]' && (await page.locator('.sheet').count()) === 0, after);
   await put(page, 'bookings', { id: 'c-Y', kind: 'show', status: 'confirmed', title: 'Hold Me', date: T, venueName: 'The Crown', setTime: '17:00', setLength: 20 }); await sleep(300);
   await toWeek(page, T);
@@ -527,7 +530,7 @@ async function press(page, loc, ms) {
   const chipOf = (id, iso) => page.evaluate(([id, iso]) => { const r = document.getElementById(`bk-ev-${id}-${iso}`), c = r && r.querySelector('.vn-chip'); if (!c) return null; const box = r.getBoundingClientRect(), cb = c.getBoundingClientRect();
     return { cls: c.className, label: c.querySelector('[aria-hidden=true]').textContent, spoken: c.querySelector('.sr-only').textContent, direct: c.parentElement.classList.contains('bk-wrow-main'), inside: cb.left >= box.left && cb.right <= box.right + 0.5, kids: [...r.querySelectorAll('.bk-wrow-main > *')].map(e => e.className.split(' ')[0]) }; }, [id, iso]);
   const blockOf = (id, iso) => page.evaluate(([id, iso]) => { const b = document.getElementById(`bk-ev-${id}-${iso}`); return b ? { said: b.querySelector('.sr-only').textContent.trim(), chips: b.querySelectorAll('.vn-chip, .bk-overlap, .bk-went').length } : null; }, [id, iso]);
-  ok('(the sample’s show is a tap or two of ‹ › away)', await toWeek(page, SHOW1, SHOW1 < (await monday(page, T))));
+  ok('(the sample’s show is in this week or the next)', await toWeek(page, SHOW1)); // today + 5: from this week, forwards, whatever the weekday of the run
   let chip = await chipOf('s-show1', SHOW1);
   ok('the Week row of the sample’s show carries its venue’s house rules: an amber chip, “📷 Pro cameras ✗ · 1 more”', !!chip && chip.cls === 'vn-chip vn-chip-some' && chip.label === '📷 Pro cameras ✗ · 1 more' && chip.spoken === 'House rules: Pro cameras not allowed, and 1 more' && chip.direct && chip.inside, JSON.stringify(chip));
   await page.click(`#bk-wd-${SHOW1}`); await page.waitForSelector('.bk-dayview'); await sleep(200);
