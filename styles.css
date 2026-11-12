@@ -266,6 +266,7 @@ input[type=range] { min-height: var(--hit); padding: 0; accent-color: var(--acce
 @media (max-width: 400px) { .top .brand { letter-spacing: .08em; font-size: .9rem; } }
 /* The top bar on a phone, with the search button in it (five buttons while Install shows): the small words "booking deck" go, GDEX shows whole and no longer gives way, and the buttons share the rest of the row. Each keeps its height and narrows only where five do not fit (a 320px phone; large text or large buttons); at 340px and under the dot before GDEX goes too, for room. */
 @media (max-width: 600px) { .brand small { display: none; } }
+@media (max-width: 640px) { html[data-text=xlarge] .brand small { display: none; } } /* with extra-large text they would be cut short just above 600px (large buttons, Install showing) */
 @media (max-width: 560px) { .top .brand { flex: 0 0 auto; overflow: visible; } .top-actions { flex: 0 1 auto; min-width: 0; } .top .cloud { flex: 0 1 var(--hit); min-width: 0; } }
 @media (max-width: 340px) { .top-actions { gap: 4px; } .top .brand .dot { display: none; } }
 .search-ico { display: block; width: 1.15em; height: 1.15em; } /* the magnifying glass, drawn in the text colour */

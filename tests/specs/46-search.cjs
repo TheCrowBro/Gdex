@@ -17,6 +17,8 @@ const store = (page, fn, arg) => page.evaluate(`import('./js/store.js').then(s =
 const openSearch = async page => { await page.click('#searchBtn'); await page.waitForSelector('#srch-q'); await sleep(150); };
 const closeSearch = async page => { await page.keyboard.press('Escape'); await sleep(200); };
 const type = async (page, q) => { await page.fill('#srch-q', q); await sleep(180); };
+// Narrowing or widening as a person does it, at the end of the words already there: back is how many to rub out first.
+const typeOn = async (page, more, back = 0) => { await page.focus('#srch-q'); await page.keyboard.press('End'); for (let i = 0; i < back; i++) await page.keyboard.press('Backspace'); await page.keyboard.type(more, { delay: 10 }); await sleep(180); };
 // The list as drawn: a booking's id, a time seen's id, or TODAY for the line.
 const rows = page => page.$$eval('.srch-list > li', els => els.map(li => (li.classList.contains('srch-today') ? 'TODAY' : li.firstElementChild.dataset.seen || li.firstElementChild.dataset.id)));
 const foundLine = page => page.evaluate(() => (document.querySelector('.srch-found') || { textContent: '' }).textContent);
@@ -77,6 +79,14 @@ const DATES = { today: day(0), began: day(-2), ends: day(2), w1: day(-40), w2: d
   let b = await bar();
   ok('the top bar has a magnifying glass, the first of its buttons, named Search for a screen reader', b.first && b.n === 5 && b.name === 'Search' && b.glass && b.hiddenFromSR === 'true' && b.shown && b.keys === '/', JSON.stringify(b));
   ok('on a phone the small words “booking deck” are hidden and GDEX shows whole', b.small === 'none' && b.whole, JSON.stringify(b));
+  // Just wider than a phone, extra-large text and large buttons with Install showing leave no room for "booking deck":
+  // it goes, rather than being cut short.
+  await page.evaluate(() => { const r = document.documentElement.dataset; window.__was = { text: r.text, targets: r.targets }; r.text = 'xlarge'; r.targets = 'large'; document.getElementById('installBtn').hidden = false; });
+  const cutAt = [];
+  for (let w = 596; w <= 660; w += 2) { await page.setViewportSize({ width: w, height: 900 }); if (await page.evaluate(() => { const br = document.querySelector('.top .brand'); return br.scrollWidth > br.clientWidth + 0.5; })) cutAt.push(w); }
+  await page.setViewportSize({ width: 420, height: 900 });
+  await page.evaluate(() => { Object.assign(document.documentElement.dataset, window.__was); document.getElementById('installBtn').hidden = true; });
+  ok('with extra-large text and large buttons, from 596 to 660 px the brand is never cut short (“booking deck” goes instead)', !cutAt.length, cutAt.join(' '));
   const everywhere = [];
   for (const id of ['acts', 'people', 'songs', 'sessions', 'backline', 'venues', 'money', 'tools', 'insurance', 'settings', 'bookings']) { await go(page, id); const x = await bar(); everywhere.push(x.first && x.shown ? '' : id); }
   ok('the button is on every page', everywhere.every(x => !x), everywhere.filter(Boolean).join(', '));
@@ -206,9 +216,9 @@ const DATES = { today: day(0), began: day(-2), ends: day(2), w1: day(-40), w2: d
   await chip(page, '.srch-kinds', 'Other').click(); await sleep(150);
   ok('Other lists the diary entry, which has no place', same(await rows(page), ['b-x1']) && (await foundLine(page)) === '1 diary entry', await foundLine(page));
   await chip(page, '.srch-kinds', 'Sessions').click(); await sleep(150);
-  await type(page, 'chelsea echo');
+  await typeOn(page, ' echo'); // chelsea echo
   ok('the kind picked holds while the search is narrowed and still finds it', same(await rows(page), ['b-s1']) && same((await chips(page, '.srch-kinds')).map(x => x.slice(0, 2)), [['Sessions', 1], ['Rehearsals', 1]]), JSON.stringify(await chips(page, '.srch-kinds')));
-  await type(page, 'chelsea church');
+  await typeOn(page, 'church', 4); // chelsea church
   ok('when the kind picked finds nothing and another does, the list moves there and says so', (await foundLine(page)) === 'No sessions found. 4 shows at The Church' && same(await rows(page), ['b-w4', 'TODAY', 'b-w1', 'b-w2', 'sw3']) && !(await page.$('.srch-kinds')), await foundLine(page));
   await type(page, '');
   ok('an emptied box is the box and the line of help again', same(await page.$$eval('.srch-out > *', els => els.map(e => e.className)), ['srch-help muted small']));
@@ -217,8 +227,15 @@ const DATES = { today: day(0), began: day(-2), ends: day(2), w1: day(-40), w2: d
   await type(page, 'chelsea'); await chip(page, '.srch-kinds', 'Rehearsals').click(); await sleep(150);
   await type(page, 'motorhead'); // typed over “chelsea” with Rehearsals picked: a new search, which starts on Shows
   ok('a search typed over the last one starts on Shows again; with one kind found there is no kind row, and with one place no place chips', (await foundLine(page)) === '1 show at Hammersmith Odeon' && same(await rows(page), ['sm1']) && !(await page.$('.srch-chips')) && !(await page.$('.srch-today')), await foundLine(page));
+  // Typed key by key over the whole of the last search, a new one starts on Shows even when its first letter begins an
+  // old word ("c" over "chelsea", on the way to "church").
+  await type(page, 'chelsea'); await chip(page, '.srch-kinds', 'Sessions').click(); await sleep(150);
+  await page.focus('#srch-q'); await page.keyboard.press('ControlOrMeta+A'); await page.keyboard.type('church', { delay: 15 }); await sleep(200);
+  ok('…also typed key by key over the words selected, when its first letter begins one of the old words', (await foundLine(page)) === '4 shows at The Church', await foundLine(page));
   await type(page, 'loudest thing');
   ok('a card found by its notes shows the piece of the note', same(await page.$$eval('.srch-list .srch-why', els => els.map(e => e.textContent)), ['Notes: Loudest thing I have ever heard.']));
+  await type(page, 'owls halloween');
+  ok('a show with a title of its own, whose card does not name the band, says whose show it is', same(await rows(page), ['b-t1']) && same(await page.$$eval('.srch-list .srch-who', els => els.map(e => e.textContent)), ['Act: The Night Owls']), JSON.stringify(await page.$$eval('.srch-list .bk-card-main', els => els.map(e => e.textContent))));
   await type(page, 'radio');
   ok('one result with no place: “No shows found. 1 diary entry”', (await foundLine(page)) === 'No shows found. 1 diary entry', await foundLine(page));
   await type(page, 'zzzz');
@@ -326,7 +343,7 @@ const DATES = { today: day(0), began: day(-2), ends: day(2), w1: day(-40), w2: d
     if (id === 'scout' || id === 'audiophile') ok(`${id}: no money in the results (the show has a fee, a settlement and costs; the session a rate)`, !/[$£€]|1,?234|987|\b45\b/.test(got.text) && /Paid \/ settled/.test(got.text), got.text.slice(0, 200));
     if (id === 'audiophile') {
       await chip(page, '.srch-kinds', 'Sessions').click(); await sleep(150);
-      await type(page, 'chelsea church');
+      await typeOn(page, ' church'); // chelsea church
       ok('audiophile: “No sessions found. 4 gigs at The Church”', (await foundLine(page)) === 'No sessions found. 4 gigs at The Church', await foundLine(page));
       await type(page, ''); await type(page, 'echo chamber');
       ok('audiophile: in a new search with no gig found the line says “No gigs found.”', (await foundLine(page)) === 'No gigs found. 1 session at Echo Chamber Studios', await foundLine(page));
@@ -366,6 +383,16 @@ const DATES = { today: day(0), began: day(-2), ends: day(2), w1: day(-40), w2: d
   ok('the line counts everything found, and the list draws the first thirty', /^\d+ shows at \d+ places$/.test(await foundLine(page)) && (await page.$$('.srch-list .card')).length === 30 && /^Show 30 more \(\d+ left\)$/.test(await page.$eval('#srch-more', e => e.textContent)), [await foundLine(page), await page.$eval('#srch-more', e => e.textContent)].join(' | '));
   await page.click('#srch-more'); await sleep(250);
   ok('Show more adds the next thirty and puts the focus on the first of them', (await page.$$('.srch-list .card')).length === 60 && (await page.evaluate(() => [...document.querySelectorAll('.srch-list .card')].indexOf(document.activeElement))) === 30);
+  // A tap on a card far down the list while the list is still moving (a fling on a phone), then the search again: the
+  // same cards, scrolled to where they were. The scroll the closed sheet reports afterwards (back at the top) must not count.
+  const far = await page.evaluate(() => { const body = document.querySelector('.srch-sheet .sheet-body'); body.scrollTop = 1600; const b = body.getBoundingClientRect();
+    const c = [...document.querySelectorAll('.srch-list .card[data-id]')].find(x => { const r = x.getBoundingClientRect(); return r.top > b.top + 150 && r.bottom < b.bottom; });
+    const res = { id: c && c.dataset.id, top: body.scrollTop }; if (c) c.click(); return res; }); // the tap comes before the scroll is reported
+  await sleep(600);
+  const wentTo = await page.evaluate(() => (document.querySelector('.bk-page [data-view-head]') || { textContent: '' }).textContent);
+  await openSearch(page);
+  const cameBackTo = await page.evaluate(id => { const body = document.querySelector('.srch-sheet .sheet-body'), b = body.getBoundingClientRect(), r = document.querySelector(`.srch-list .card[data-id="${id}"]`).getBoundingClientRect(); return { top: body.scrollTop, cards: document.querySelectorAll('.srch-list .card').length, inView: r.top >= b.top && r.bottom <= b.bottom }; }, far.id);
+  ok('after a tap on a card far down, the search comes back with the same cards, scrolled to where it was', !!far.id && /Bulk Band/.test(wentTo) && cameBackTo.cards === 60 && Math.abs(cameBackTo.top - far.top) < 2 && cameBackTo.inView, JSON.stringify({ far, wentTo, cameBackTo }));
   await store(page, st => st.patch('acts', 'pa7', { name: 'Renamed Seven' }));
   await type(page, 'renamed seven');
   const again = await stats();

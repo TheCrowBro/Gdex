@@ -147,12 +147,16 @@ function whyLines(it, words) {
   }
   return out;
 }
-// A booking: the calendar's own card, with the year when it is not this one, the score when the act's log has the
-// show, and why it was found.
+// A booking with a title of its own ("Halloween Special") has a card that does not name its band: a line does
+// ("Band: The Night Owls"), so a card found by the band says whose show it is.
+const whoLine = b => { const who = clean(model.actName(b.actId) || b.client);
+  return !!who && !fold(model.bookingTitle(b)).includes(fold(who)) && h('span', { class: 'srch-why srch-who' }, `${capital(actWord())}: ${who}`); };
+// A booking: the calendar's own card, with the year when it is not this one, its band when the title hides it, the
+// score when the act's log has the show, and why it was found.
 function showCard(it, words) {
   const card = bookingCard(it.b), main = card.querySelector('.bk-card-main'), year = yearOf(it.date);
   if (year) card.querySelector('.bk-date')?.append(year);
-  if (main) main.append(...[it.seen && scoreLine(it.seen), ...whyLines(it, words)].filter(Boolean));
+  if (main) main.append(...[whoLine(it.b), it.seen && scoreLine(it.seen), ...whyLines(it, words)].filter(Boolean));
   return card;
 }
 // A time seen with no booking on the calendar: a plainer card with the date, the band, the place, the score, and
@@ -273,6 +277,7 @@ const focusKey = el => { const d = el.dataset || {}, q = (k, v) => `[data-${k}="
 function openResult(card) {
   const { act, seen, id } = card.dataset;
   UI.going = true; // the focus goes to what opens, not back to the button
+  S.top = UI.scroll.scrollTop; // where the list is now, even when the tap comes before its last scroll is reported
   UI.close();
   if (seen) openSeen(act, seen).then(row => { if (!row) return; row.classList.add('srch-hit'); setTimeout(() => row.classList.remove('srch-hit'), 2600); });
   else openBooking(id);
@@ -281,9 +286,13 @@ function openResult(card) {
 export function openSearch() {
   if (UI) { UI.input.focus(); return; }
   const w = actWord(), shows = showWords();
+  // Typing over the whole of the last search (its words selected, as they are when the search opens again) is a new
+  // search from the first key, even when that key begins one of the old words ("c" over "chelsea" on the way to "coldplay").
+  let over = false;
   // The placeholder is short enough for a 320 px phone with extra-large text; the label and the help say the rest.
   const input = h('input', { class: 'search', id: 'srch-q', type: 'search', value: S.q, placeholder: `${capital(w)}, place or notes`, autocomplete: 'off', autocapitalize: 'off', enterkeyhint: 'search', 'aria-describedby': 'srch-help',
-    oninput: () => { if (!related(S.q, input.value)) Object.assign(S, { kind: '', place: null }); S.q = input.value; S.limit = STEP; draw(); UI.scroll.scrollTop = 0; },
+    onbeforeinput: () => { over = input.value !== '' && input.selectionStart === 0 && input.selectionEnd === input.value.length; },
+    oninput: () => { if (over || !related(S.q, input.value)) Object.assign(S, { kind: '', place: null }); over = false; S.q = input.value; S.limit = STEP; draw(); UI.scroll.scrollTop = 0; },
     onkeydown: e => {
       if (e.key === 'Escape') e.preventDefault(); // the sheet closes; the box keeps its words for next time (a search box would empty itself)
       else if ((e.key === 'Enter' || e.key === 'ArrowDown') && cards().length) { e.preventDefault(); cards()[0].focus(); }
@@ -311,7 +320,7 @@ export function openSearch() {
   UI = { input, out, scroll, close, again: 0, going: false };
   draw();
   scroll.scrollTop = S.top; // back where the list was left
-  scroll.addEventListener('scroll', () => { S.top = scroll.scrollTop; }, { passive: true });
+  scroll.addEventListener('scroll', () => { if (scroll.isConnected) S.top = scroll.scrollTop; }, { passive: true }); // not the 0 a closed sheet reports (after a tap on a card)
   input.focus({ preventScroll: true });
   if (S.q) input.select(); // typing starts a new search; the last one's results stay until then
 }

@@ -580,7 +580,7 @@ press that opened it, still down) does not.
 
 The magnifying glass, `#searchBtn` (named "Search", `aria-keyshortcuts="/"`), is the first button of the top bar in
 `index.html`, on every page and in every role; `/` opens the search too, unless the focus is in a field or a sheet,
-form or tour is up. `initSearch(btn)` wires both. On a phone (600 px and narrower) the small words "booking deck" beside
+form or tour is up. `initSearch(btn)` wires both. On a phone (600 px and narrower, 640 px with extra-large text) the small words "booking deck" beside
 GDEX are hidden; under 560 px the brand keeps its width and the buttons narrow to share the rest of the row, so all
 five (with Install) fit at 320 px with extra-large text and large buttons (`styles.css`, after `.top-actions`).
 
@@ -589,8 +589,9 @@ five (with Install) fit at 320 px with extra-large text and large buttons (`styl
   the list scrolls). Escape and ✕ close it and the focus goes back to `#searchBtn`; a tap on a result closes it and the
   focus goes where the result opens. What was typed, the kind and the place picked, how many cards are drawn and how
   far the list was scrolled live in memory for the visit, so opening it again brings the last search back with its
-  words selected. Nothing about a search is written to storage. A search typed over the last one (no word of one
-  begins a word of the other) starts again on Shows at every place; one narrowed or widened keeps them.
+  words selected. Nothing about a search is written to storage. A search typed over the last one (over the whole of
+  its words selected, or with no word of one beginning a word of the other) starts again on Shows at every place; one
+  narrowed or widened keeps them.
 * **What is searched**, built once per change of the data (any store change drops the index; the next search builds
   it): for each booking with a date, the act's names (`actNames(a)`) and genre, the client, the place (the saved
   venue's name and address, or the venue name and address typed on the booking), its title, the other acts on its bill
@@ -612,7 +613,8 @@ five (with Install) fit at 320 px with extra-large text and large buttons (`styl
   is announced half a second after the typing stops, when it has changed.
 * **The cards.** A booking is the calendar's own card (`bookingCard(b)`), so its status, the overlap note, the
   house-rules chip, "Didn’t go" and anything added to Coming up's card read as they do there. The search adds the
-  year under the date when it is not this year (`.srch-year`), the score of the act's time seen for it
+  year under the date when it is not this year (`.srch-year`), the band when a title of the booking's own hides it
+  (`.srch-who`, "Band: The Night Owls", in the role's word), the score of the act's time seen for it
   (`.srch-score`, "★ Scored 92/100"), and why it was found when its own words do not show it (`.srch-why`: "Also on the
   bill: …", "Notes: …"). A time seen with no booking is `button.bk-card.srch-seen[data-act][data-seen]`: the date,
   "Act @ place", "From the log" and the score. A booking opens with `openBooking(id)`, a time seen with
