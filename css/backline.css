@@ -129,6 +129,10 @@ html[data-contrast=high] .vn-rules-show { border-width: 2px; }
 .vn-rule-btn { display: inline-flex; align-items: center; justify-content: center; gap: .4em; min-width: 0; min-height: var(--hit); padding: 6px; border: 1px solid var(--line); border-radius: 10px;
   background: var(--bg2); color: var(--text); font: inherit; font-size: .85rem; font-weight: 600; line-height: 1.2; cursor: pointer; }
 .vn-rule-says { min-width: 0; }
+/* Reached with Tab, a button, a list or a box of the venue form is scrolled clear of the Save bar, which stays at the
+   foot of the sheet and would cover the control in focus: the bar is one button and its padding tall, and the focus
+   ring needs its own room. (As styles.css does for the price list's Add bar.) */
+.sheet-body:has(.vn-rules-edit) { scroll-padding-bottom: calc(var(--hit) + 30px); }
 @media (hover: hover) { .vn-rule-btn:hover { border-color: var(--accent); } } /* not on a touch screen, where a hover would stay on a button just cleared */
 /* The tick-box in each button: empty until the button is pressed, and always there, so a press changes no size. */
 .vn-rule-mark { flex: none; display: inline-grid; place-items: center; width: 1.2em; height: 1.2em; border: 1.5px solid var(--muted); border-radius: 4px; background: var(--card); font-size: .95em; line-height: 1; }
@@ -152,5 +156,5 @@ html[data-contrast=high] .vn-rule-mark { border-width: 2px; border-color: var(--
 }
 @media (forced-colors: active) {
   .vn-chip { border: 1px solid CanvasText; }
-  .vn-rule-btn[aria-pressed=true] { border: 3px solid Highlight; }
+  .vn-rule .vn-rule-btn[aria-pressed=true] { border: 3px solid Highlight; } /* every pressed button alike: Allowed and Not allowed too */
 }

@@ -35,7 +35,8 @@ const byDate = (a, b) => String(a.date || '9999').localeCompare(String(b.date ||
 const bookingsAt = id => db.bookings.filter(b => b.venueId === id);
 const nextAt = id => { const t = todayISO(); return bookingsAt(id).filter(b => b.status !== 'cancelled' && b.date && isAhead(b, t)).sort(byDate)[0] || null; };
 const goBooking = id => import('./bookings.js').then(m => m.openBooking(id)).catch(e => { console.error(e); toast('That booking could not be opened.'); });
-const searchText = v => [v.name, v.address, v.contact, v.stage, v.pa, v.backline, v.notes, v.rulesNote, venueKindLabel(kindOf(v))].map(x => String(x || '')).join(' ').toLowerCase();
+// The words a search looks through. The written house rules are read through rulesOf, so a stored note that is not text is not searched.
+const searchText = v => [v.name, v.address, v.contact, v.stage, v.pa, v.backline, v.notes, rulesOf(v).note, venueKindLabel(kindOf(v))].map(x => String(x || '')).join(' ').toLowerCase();
 
 // The hire rate of a studio or a room, as "$45 per hour". '' when none is set, and for a role without money (a scout, a
 // gig-goer), whose pages keep fees off (the form keeps the field).
@@ -143,7 +144,8 @@ function listView(draw) {
 
 function venueCard(v) {
   const next = nextAt(v.id), addr = oneLine(v.address), f = facts(v);
-  return h('button', { type: 'button', class: 'card tap vn-card', id: 'vn-' + v.id, 'data-id': v.id, onclick: () => openVenue(v.id) },
+  // data-fk: when the page is drawn again under the venue's open sheet (an edit saved from it), closing the sheet finds this card's stand-in.
+  return h('button', { type: 'button', class: 'card tap vn-card', id: 'vn-' + v.id, 'data-id': v.id, 'data-fk': 'vn-' + v.id, onclick: () => openVenue(v.id) },
     h('span', { class: 'vn-card-top' }, h('strong', { class: 'vn-card-name' }, venueName(v)), h('span', { class: 'pill vn-kind' }, kindText(v))),
     addr && h('span', { class: 'vn-addr muted small' }, addr),
     f.length > 0 && h('span', { class: 'vn-facts small' }, f.map(x => h('span', { class: 'vn-fact' }, x))),
@@ -196,7 +198,8 @@ export function openVenue(id) {
       ['Hospitality', v.hospitality], ['Rate', rateText(v)],
     ].filter(([, x]) => String(x || '').trim());
     const map = miniMap(v), buttons = mapButtons(v);
-    body.replaceChildren(...nodes(
+    // The sheet is drawn again after every change (Edit → Save lands back on Edit): the control in focus keeps it, by its id.
+    keepFocus(body, () => body.replaceChildren(...nodes(
       h('div', { class: 'vn-top' }, h('span', { class: 'pill vn-kind' }, kindText(v)), v.address && h('p', { class: 'prewrap vn-address' }, v.address)),
       h('div', { class: 'actions vn-sheet-actions' },
         h('button', { type: 'button', class: 'btn primary', id: 'vn-book', onclick: () => { close(); bookHere(v); } }, bookWords(v).btn),
@@ -223,7 +226,7 @@ export function openVenue(id) {
           h('h3', null, `Before (${past.length})`),
           h('div', { class: 'vn-rows' }, (allPast ? past : past.slice(0, 5)).map(b => bookingRow(b, close, false))),
           past.length > 5 && h('button', { type: 'button', class: 'btn ghost small', id: 'vn-more', onclick: () => { allPast = !allPast; draw(); document.getElementById('vn-more')?.focus(); } },
-            allPast ? 'Show fewer' : `Show all ${past.length}`)])));
+            allPast ? 'Show fewer' : `Show all ${past.length}`)]))));
   };
   handle = sheet(title, body, { onClose: () => unsub() });
   unsub = subscribe(() => { if (!queued) { queued = true; queueMicrotask(draw); } });
@@ -307,7 +310,7 @@ const FORM_STEPS = () => [
   { title: 'The place', text: 'Its name, what kind of place it is, and the address.', target: ['[data-key=name]'] },
   { title: 'On the map', text: 'Find it from the address, paste a map link, or use where you are now. The map and directions use it.', target: ['.place'] },
   { title: 'Curfew and limits', text: moneyShown() ? 'Shows here warn you when the set would run past the curfew or the deal counts on more people than it holds.' : 'Shows here warn you when the set would run past the curfew. The noise limit is there for the sound meter.', target: ['[data-key=curfew]', '[data-key=capacity]'] },
-  { title: 'House rules', text: 'Tap what you know about each rule and type anything unusual. Every show here then carries them in green, amber or red; How strict sets the colour by hand.', target: ['.vn-rules-edit'] },
+  { title: 'House rules', text: 'Tap what you know about each rule and type anything unusual. Every show here then carries them in green, amber or red; How strict sets the colour by hand.', target: ['.vn-rules-edit .vn-rule', '.vn-rules-edit'] }, // one rule with its two buttons: the whole block is taller than a phone, and the card would be cut short over its middle
 ];
 sheetTutorial('Add venue', FORM_STEPS);
 sheetTutorial('Edit venue', FORM_STEPS);

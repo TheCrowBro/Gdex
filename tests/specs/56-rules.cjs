@@ -3,7 +3,8 @@
 // amber or red, with its words for a screen reader), the full rules on the venue's sheet and on the show's page, the
 // levels reached through the form, free text shown as text, the bookings that carry no rules, backups and junk, that
 // nothing about house rules leaves in a day sheet or a calendar file, every role, 320px with extra-large text in light
-// and dark, every theme's contrast, and the walkthroughs. The model's own sums are checked in 07-groundwork.
+// and dark, every theme's contrast, the walkthroughs, and the keyboard alone (nothing in focus under the form's Save bar,
+// where the focus is after Save and after the sheet closes). The model's own sums are checked in 07-groundwork.
 const { open, ok, sleep, go, toMonth } = require('../helpers.cjs');
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -63,6 +64,18 @@ async function setRules(page, id, { answers = {}, note = '', tone = '' } = {}) {
   await page.fill(FORM.edit + ' [data-key=rulesNote]', note);
   await page.selectOption(FORM.edit + ' [data-key=rulesTone]', tone);
   await saveForm(page);
+}
+// Tab from the noise limit down the House rules part of an open venue form, to How strict: where the focus stopped
+// (a rule's button or list by its id, a box by its key), and which of those stops were under the form's Save bar.
+async function tabDown(page, form) {
+  await page.focus(form + ' [data-key=noiseLimit]');
+  const stops = [], under = [];
+  for (let i = 0; i < 34; i++) {
+    await page.keyboard.press('Tab'); await sleep(30);
+    const at = await page.evaluate(sel => { const a = document.activeElement, b = a.getBoundingClientRect(), bar = document.querySelector(sel + ' .form-actions').getBoundingClientRect(), body = a.closest('.sheet-body').getBoundingClientRect(); return { id: a.dataset.key || a.id || a.tagName, clear: b.bottom <= bar.top + 0.5 && b.top >= body.top - 0.5 }; }, form);
+    stops.push(at.id); if (!at.clear) under.push(at.id);
+  }
+  return { stops, under };
 }
 // The titles a walkthrough shows, stepping through it to the end.
 async function tourTitles(page) {
@@ -319,6 +332,15 @@ const all = []; // every console error of every browser below
     ok('a venue with some junk shows what is known', (await shows(page, 'bags')) === 'no' && (await shows(page, 'phones')) === '' && (await shows(page, 'age')) === '' && (await page.inputValue(FORM.edit + ' [data-key=rulesTone]')) === '');
     await saveForm(page);
     ok('…and Save keeps only that', JSON.stringify((await rec(page, 'venues', 'j-part')).rules) === '{"bags":"no"}' && (await rec(page, 'venues', 'j-part')).rulesTone === '');
+
+    await page.evaluate(() => window.__s.update(d => { d.venues.push({ id: 'j-note', kind: 'venue', name: 'Junk Note', rules: {}, rulesNote: 12345, rulesTone: '' }); }));
+    await sleep(300);
+    await page.fill('#vn-search', '12345'); await sleep(200);
+    ok('search does not read a stored note that is not text (it shows nowhere)', (await page.locator('#page .vn-card').count()) === 0 && (await page.locator('#vn-clear').count()) === 1 && (await chips(page, '#page')) === 0);
+    await page.fill('#vn-search', 'junk note'); await sleep(200);
+    ok('…while the venue is still found by its name', (await page.locator('#page .vn-card').count()) === 1 && (await page.locator('#vn-j-note').count()) === 1);
+    await page.fill('#vn-search', ''); await sleep(200);
+    await page.evaluate(() => { window.__s.remove('venues', 'j-note'); }); await sleep(250);
 
     /* ---------------- a backup, there and back ---------------- */
     await setRules(page, 'club9', { answers: { phones: 'no', age: '21', strobes: 'yes' }, note: 'Pouches at the door.', tone: 'some' });
@@ -586,6 +608,8 @@ const all = []; // every console error of every browser below
     await openEdit(page, 'club9');
     const widths = await page.evaluate(sel => { const w = s => Math.round(document.querySelector(sel + ' ' + s).getBoundingClientRect().width); return { block: w('.vn-rules-edit'), field: w('[data-key=name]') }; }, FORM.edit);
     ok(`${scheme}, 320px: in the Edit form the block is no wider than the other fields`, (await wide(page)) <= 320 && widths.block <= widths.field, JSON.stringify(widths));
+    const tabbed = await tabDown(page, FORM.edit);
+    ok(`${scheme}, 320px: with the keyboard, no button, list or box reached with Tab is under the Save bar`, tabbed.stops.length === 34 && tabbed.stops[33] === 'rulesTone' && tabbed.under.length === 0, tabbed.under.join(' ') || tabbed.stops.slice(-2).join(' '));
     await page.keyboard.press('Escape'); await sleep(200);
     ok(`no errors in the console (320px, ${scheme})`, errors.length === 0, errors.slice(0, 5).join(' | ')); all.push(...errors);
     await browser.close();
@@ -644,6 +668,8 @@ const all = []; // every console error of every browser below
     await page.emulateMedia({ forcedColors: 'active' });
     const fc = await page.evaluate(() => { const c = getComputedStyle(document.querySelector('#vn-s-lantern .vn-chip')), on = getComputedStyle(document.getElementById('vn-rule-proCameras-no')), off = getComputedStyle(document.getElementById('vn-rule-video-yes')); const box = id => { const m = document.querySelector('#' + id + ' .vn-rule-mark'); return `${getComputedStyle(m).borderTopStyle} ${getComputedStyle(m.firstElementChild).visibility}`; }; return { chip: `${c.borderTopWidth} ${c.borderTopStyle}`, on: on.borderTopWidth, off: off.borderTopWidth, pressed: box('vn-rule-proCameras-no'), rest: box('vn-rule-video-yes') }; });
     ok('forced colours: the chip keeps a solid edge; a pressed button has a thicker one and its box ticked, one at rest an empty box', fc.chip === '1px solid' && fc.on === '3px' && fc.off === '1px' && fc.pressed === 'solid visible' && fc.rest === 'solid hidden', JSON.stringify(fc));
+    const fcEdge = await page.evaluate(() => ['vn-rule-proCameras-no', 'vn-rule-compacts-yes', 'vn-rule-cashOnly-yes', 'vn-rule-video-yes'].map(id => { const c = getComputedStyle(document.getElementById(id)); return `${c.borderTopWidth} ${c.borderTopColor}`; }));
+    ok('forced colours: every pressed button has the same edge, a permission and a fact alike', fcEdge[0] === fcEdge[1] && fcEdge[1] === fcEdge[2] && fcEdge[2] !== fcEdge[3], fcEdge.join(' | '));
     await page.emulateMedia({ forcedColors: 'none' });
     await page.keyboard.press('Escape'); await sleep(200);
     ok('no errors in the console (themes)', errors.length === 0, errors.slice(0, 5).join(' | ')); all.push(...errors);
@@ -662,6 +688,61 @@ const all = []; // every console error of every browser below
     ok('…and nothing scrolls sideways', (await wide(page)) <= 1100 && (await page.evaluate(() => { const b = [...document.querySelectorAll('.sheet-body')].pop(); return b.scrollWidth <= b.clientWidth; })));
     await page.keyboard.press('Escape'); await sleep(200);
     ok('no errors in the console (a wide screen)', errors.length === 0, errors.slice(0, 5).join(' | ')); all.push(...errors);
+    await browser.close();
+  }
+
+  /* ======================= the keyboard alone: the Save bar, and where the focus is after each step ======================= */
+  {
+    const { browser, page, errors } = await open({ sample: true, tab: 'venues' });
+    await page.waitForSelector('#vn-s-lantern');
+    await hook(page);
+    const focused = () => page.evaluate(() => { const a = document.activeElement; return { id: a.id || a.tagName, sheet: (a.closest('.sheet') || { getAttribute: () => '' }).getAttribute('aria-label') }; });
+    await page.focus('#vn-s-lantern'); await page.keyboard.press('Enter');
+    await page.waitForSelector('.vn-sheet'); await sleep(250);
+    await page.focus('#vn-edit'); await page.keyboard.press('Enter');
+    await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250);
+    const order = await page.evaluate(() => window.__m.HOUSE_RULES.flatMap(r => (r.kind === 'pick' ? ['vn-rule-' + r.id] : [`vn-rule-${r.id}-yes`, `vn-rule-${r.id}-no`])));
+    const tabbed = await tabDown(page, FORM.edit);
+    ok('Tab goes from the noise limit down every rule in order, then to Other house rules and How strict', same(tabbed.stops, [...order, 'rulesNote', 'rulesTone']), tabbed.stops.filter((x, i) => x !== [...order, 'rulesNote', 'rulesTone'][i]).join(' '));
+    ok('…and nothing it stops on is under the form’s Save bar', tabbed.under.length === 0, tabbed.under.join(' '));
+    await page.focus('#vn-rule-video-no'); await page.keyboard.press('Space');
+    await page.focus(FORM.edit + ' button[type=submit]'); await page.keyboard.press('Enter'); await sleep(400);
+    let at = await focused();
+    ok('after Save the focus is back on Edit in the venue’s sheet, which was drawn again', at.id === 'vn-edit' && at.sheet === 'The Lantern Rooms' && /Pro cameras · Video · Flash/.test(await page.locator('.vn-sheet .vn-rules-sec').innerText()), JSON.stringify(at));
+    if (at.id !== 'vn-edit') await page.focus('#vn-edit'); // already failed above: carry on with the rest
+    await page.keyboard.press('Enter');
+    await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250);
+    ok('Enter there opens the form again, on what was saved', (await shows(page, 'video')) === 'no');
+    await page.keyboard.press('Escape'); await sleep(250);
+    at = await focused();
+    ok('Escape leaves the form with the focus on Edit', at.id === 'vn-edit' && (await page.locator(FORM.edit).count()) === 0, JSON.stringify(at));
+    await page.keyboard.press('Escape'); await sleep(300);
+    at = await focused();
+    ok('…and Escape again closes the sheet with the focus on the venue’s card, drawn again since the edit', at.id === 'vn-s-lantern' && (await page.locator('.vn-sheet').count()) === 0 && same((c => c && c.label)(await chip(page, '#vn-s-lantern')), '📷 Pro cameras ✗ · 2 more'), JSON.stringify(at));
+
+    /* ---------------- the form's walkthrough points at one rule ---------------- */
+    await page.click('#vn-s-lantern');
+    await page.waitForSelector('.vn-sheet'); await sleep(250);
+    await page.click('#vn-edit'); await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250);
+    await page.click(FORM.edit + ' .sheet-help');
+    await page.waitForSelector('.tour-card h2');
+    let step = null;
+    for (let i = 0; i < 12 && await page.locator('.tour-card').count(); i++) {
+      if ((await page.textContent('#tour-title')) === 'House rules') {
+        await sleep(500); // the spotlight moves into place
+        step = await page.evaluate(sel => {
+          const card = document.querySelector('.tour-card'), c = card.getBoundingClientRect(), spot = document.querySelector('.tour-spot').getBoundingClientRect(), row = document.querySelector(sel + ' .vn-rule').getBoundingClientRect(), title = document.querySelector(sel + ' .vn-rules-title').getBoundingClientRect(), words = card.querySelector('.tour-body');
+          return { whole: !card.classList.contains('tour-docked') && words.scrollHeight <= words.clientHeight + 1 && c.top >= 0 && c.bottom <= innerHeight, onRule: spot.top <= row.top && spot.bottom >= row.bottom && spot.height < row.height + 40,
+            title: title.top >= 0 && title.bottom <= innerHeight && (title.bottom <= c.top || title.top >= c.bottom), clear: c.top >= row.bottom || c.bottom <= row.top };
+        }, FORM.edit);
+      }
+      await page.click('.tour-actions .btn.primary'); await sleep(450);
+    }
+    if (await page.locator('.tour-card').count()) { await page.keyboard.press('Escape'); await sleep(200); }
+    ok('the form walkthrough’s House rules step points at one rule with its two buttons, the block’s title in view', !!step && step.onRule && step.title && step.clear, JSON.stringify(step));
+    ok('…and its words show whole (the card is not cut short over a block taller than the screen)', !!step && step.whole, JSON.stringify(step));
+    await page.keyboard.press('Escape'); await sleep(200); await page.keyboard.press('Escape'); await sleep(200);
+    ok('no errors in the console (the keyboard)', errors.length === 0, errors.slice(0, 5).join(' | ')); all.push(...errors);
     await browser.close();
   }
 
