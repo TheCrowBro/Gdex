@@ -255,14 +255,14 @@ export function rulesOf(v) {
 }
 // The colour of a venue's rules: '' (nothing to show), 'ok' (green), 'some' (amber) or 'strict' (red). A tone set by
 // hand wins. Automatic: strict when phones are not allowed, or neither pro cameras nor point-and-shoots are; some
-// when anything else is restricted; ok when at least one answer is known and nothing is restricted (free text beside
-// fine answers stays green: the chip says the note is there); some for free text alone.
+// when anything else is restricted or there is free text (a written rule is a rule, with answers or without); ok
+// when at least one answer is known, nothing is restricted and there is no free text.
 export function rulesLevel(v) {
   const r = rulesOf(v), x = r.values;
   if (r.tone) return { relaxed: 'ok', some: 'some', strict: 'strict' }[r.tone];
   if (!r.known && !r.note) return '';
   if (x.phones === 'no' || (x.proCameras === 'no' && x.compacts === 'no')) return 'strict';
-  return r.restricted.length ? 'some' : r.known ? 'ok' : 'some';
+  return r.restricted.length || r.note ? 'some' : 'ok';   // a written rule is a rule: free text is amber, with answers or without
 }
 // The start of a note for the chip: its first line that is not blank, runs of spaces made one, cut at a word before
 // the 28th character (at the 28th when it is one long word) with an ellipsis.
@@ -293,8 +293,7 @@ export function rulesChipText(v) {
   if (label) {
     const more = r.restricted.filter(q => !covered.includes(q.id)).length + (r.note ? 1 : 0);
     if (more) { label += ` · ${more} more`; words += `, and ${more} more`; }
-  } else if (r.note && !r.known) { const start = noteStart(r.note); label = `📝 ${start}`; words = `Note: ${start}`; }
-  else if (r.note) { label = 'No restrictions · 1 note'; words = 'No restrictions, and a note'; }
+  } else if (r.note) { const start = noteStart(r.note); label = `📝 ${start}`; words = `Note: ${start}`; }
   else label = words = { ok: 'No restrictions', some: 'Some rules', strict: 'Strict' }[level];
   return { level, label, spoken: `House rules: ${words}` };
 }

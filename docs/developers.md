@@ -301,11 +301,11 @@ yes?, no?, bad? }`), `RULE_TONES`, `rulesOf(v)` (`{ values, note, tone, known, r
 (`{ no, yes, know, note }`), `showRulesVenue(b)` (the saved venue of a show that is not cancelled, else `null`). The
 colour: a tone set by hand wins; else red (`strict`) when phones are not allowed, or neither pro cameras nor
 point-and-shoots are; amber (`some`) when anything else is restricted (an age limit, ID needed, cash only, strobes
-count); green (`ok`) when at least one answer is known and nothing is restricted, free text or not; amber for free
-text alone; nothing when the venue has no answer, no note and no tone. The chip names the main rule
-(`📷 Pro cameras ✗ · 1 more`, `📵 No phones or cameras`, `🔞 21+`, `💵 Cash only`), reads `No restrictions`
-(`No restrictions · 1 note` beside free text), or shows the start of a note that stands alone; a tone set by hand
-changes only the colour. `spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both
+count) or when there is free text (a written rule is a rule, with answers beside it or without); green (`ok`) when
+at least one answer is known, nothing is restricted and there is no free text; nothing when the venue has no answer,
+no note and no tone. The chip names the main rule (`📷 Pro cameras ✗ · 1 more`, `📵 No phones or cameras`, `🔞 21+`,
+`💵 Cash only`; free text counts as one more), reads `No restrictions`, or shows the start of the note when nothing
+ticked is restricted; a tone set by hand changes only the colour. `spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both
 are text: set them with `textContent`.
 
 Use these instead of re-implementing them, so a show's numbers agree on every page. If one is wrong or missing, say
