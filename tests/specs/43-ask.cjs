@@ -400,11 +400,14 @@ async function whoIsAsked() {
   ok('…nor for someone who is not asked', (await call(['w-2'])).length === 0);
   await setKey(page, 'gdex-ask-seen', null);
   ok('askAtOpen opens its sheet before it returns, for the ids it was given and no others', same(await call(['w-2']), [QUESTION]) && same(await rowIds(page), ['w-2']));
+  const helpLine = () => page.locator(`${Q} .ac-ask > p`).innerText();
+  ok('…one show: its line of help speaks of that show alone', (await helpLine()) === 'This show is over. Tap Yes if you saw it and give a score, or No if you missed it. Close this any time: until you answer, Gdex asks again for two weeks after the show.', await helpLine());
   ok('called again while the sheet is up: nothing happens (never two sheets)', same(await call(['w-2', 'w-13']), [QUESTION]) && same(await rowIds(page), ['w-2']));
   await esc(page);
   ok('called again after it was closed: it opens again, the newest show first whatever the order given', same(await call(['w-13', 'w-2']), [QUESTION]) && same(await rowIds(page), ['w-2', 'w-13']));
   await sleep(150);
   ok('…with the focus on the first Yes', (await focusId(page)) === 'ac-ask-yes-w-2', await focusId(page));
+  ok('…two shows: the line of help speaks of them all', (await helpLine()) === 'These shows are over. Tap Yes for the ones you saw and give a score, or No for the ones you missed. Close this any time: Gdex asks again about the rest for two weeks after each show.', await helpLine());
   await esc(page);
 
   /* whichever section menu is in use */

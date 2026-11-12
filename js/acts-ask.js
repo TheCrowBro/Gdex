@@ -101,7 +101,8 @@ export function askAtOpen(ids) {
 
   fill();
   const body = h('div', { class: 'ac-ask' },
-    h('p', { class: 'small muted' }, 'These shows are over. Tap Yes for the ones you saw and give a score, or No for the ones you missed. Close this any time: Gdex asks again about the rest for two weeks after each show.'),
+    h('p', { class: 'small muted' }, list.length === 1 ? 'This show is over. Tap Yes if you saw it and give a score, or No if you missed it. Close this any time: until you answer, Gdex asks again for two weeks after the show.'
+      : 'These shows are over. Tap Yes for the ones you saw and give a score, or No for the ones you missed. Close this any time: Gdex asks again about the rest for two weeks after each show.'),
     listBox,
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost', id: 'ac-ask-close', onclick: () => close() }, 'Done')));
   ({ el, close } = sheet(TITLE, body, {
