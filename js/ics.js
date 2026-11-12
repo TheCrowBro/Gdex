@@ -3,10 +3,11 @@
 //
 // Times are "floating" local times (no time zone): a show at 21:15 is at 21:15 wherever the phone is, which is what a
 // band means. A booking starts at load-in (or the first time it has) and ends at the curfew (or the finish), rolled to
-// the next day when that is past midnight. A booking with no times is an all-day event over its days.
+// the next day when that is past midnight; a show that starts and plays after midnight (before 06:00) starts the
+// morning after its date, the end of that night. A booking with no times is an all-day event over its days.
 // No money goes in: no deal, fee, rate or settlement. The description carries the times, the act and the people.
 import { db, byId, lastDay } from './store.js';
-import { bookingTitle, actName, venueOf, statusLabel, kindLabel, addMinutes } from './model.js';
+import { bookingTitle, actName, venueOf, statusLabel, kindLabel, addMinutes, nightMin, isAfterMidnight } from './model.js';
 import { parseISO, ymd, pad } from './util.js';
 
 const CRLF = '\r\n';
@@ -61,10 +62,14 @@ export function eventWhen(b) {
     end = okTime(b.end) || (start ? addMinutes(start, 60) : '');
   }
   if (!start) return { allDay: true, start: first, end: nextDay(last) };
+  // A show that starts after midnight (before 06:00), and plays then, is on the night of its date, as the calendar
+  // shows it: it starts the morning after (an early load-in for a set in the evening stays on the day).
+  const late = b.kind === 'show' && nightMin(start) >= 1440 && isAfterMidnight(b);
+  const startDay = late ? nextDay(first) : first, endBase = late ? nextDay(last) : last;
   // An end at or before the start is after midnight: the day after the last day (on a festival weekend too, so a
   // curfew at 00:30 ends the last night, not the one before it).
-  const endDay = end <= start ? nextDay(last) : last;
-  return { allDay: false, start: local(first, start), end: local(endDay, end) };
+  const endDay = end <= start ? nextDay(endBase) : endBase;
+  return { allDay: false, start: local(startDay, start), end: local(endDay, end) };
 }
 
 const STATUS = s => (s === 'cancelled' ? 'CANCELLED' : s === 'hold' || s === 'offer' ? 'TENTATIVE' : 'CONFIRMED');

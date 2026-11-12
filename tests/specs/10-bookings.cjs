@@ -221,8 +221,13 @@ const unfold = t => t.replace(/\r\n /g, '');
       block: end({ id: 'u4', kind: 'session', status: 'hold', title: 'Block', date: '2026-12-11', endDate: '2026-12-12', start: '22:00', end: '02:00' }),
       day: end({ id: 'u5', kind: 'session', status: 'hold', title: 'Days', date: '2026-12-11', endDate: '2026-12-12', start: '10:00', end: '18:00' }),
     };
-    return { a, b, long, esc: m.icsEscape(long), multi };
+    // Item 3: a time before 06:00 is the end of the night of the booking's date. A show whose set is after midnight
+    // starts after midnight in the file too; one that plays in the evening keeps an early load-in on its own date.
+    const when = x => { const w = m.eventWhen({ id: 'u6', kind: 'show', status: 'confirmed', date: '2026-06-20', ...x }); return `${w.start}-${w.end}`; };
+    const late = { set: when({ setTime: '01:15', setLength: 45 }), fest: when({ endDate: '2026-06-21', setTime: '00:30' }), evening: when({ doors: '22:00', setTime: '01:15', setLength: 45 }), early: when({ loadIn: '05:00', setTime: '21:00', setLength: 60 }) };
+    return { a, b, long, esc: m.icsEscape(long), multi, late };
   }));
+  ok('a set after midnight is in the file on the night Gdex shows it: the small hours after its date', unit.late.set === '20260621T011500-20260621T020000' && unit.late.fest === '20260621T003000-20260622T013000' && unit.late.evening === '20260620T220000-20260621T020000' && unit.late.early === '20260620T050000-20260620T220000', JSON.stringify(unit.late));
   ok('a booking over several days that ends after midnight ends the morning after its last day', unit.multi.fest === '20261214T003000' && unit.multi.block === '20261213T020000' && unit.multi.day === '20261212T180000', JSON.stringify(unit.multi));
   ok('escaping: backslash, semicolon, comma and line breaks', unit.a.includes('SUMMARY:Back\\\\slash\\; semi\\, comma\\nnew line\r\n'), unit.a.match(/SUMMARY[^\r]*/)[0]);
   ok('a booking with no times is all day over its days (end date exclusive) and a hold is TENTATIVE', unit.a.includes('DTSTART;VALUE=DATE:20261201\r\n') && unit.a.includes('DTEND;VALUE=DATE:20261203\r\n') && unit.a.includes('STATUS:TENTATIVE'));
