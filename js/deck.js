@@ -110,12 +110,16 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
       return h('button', { type: 'button', class: 'dk-tab', 'data-section': t.id, 'aria-label': isBonus(k) ? `${t.label}, bonus track` : null, onclick: () => pickSection(t.id) },
         h('span', { class: 'dk-tab-ico', 'aria-hidden': 'true' }, t.icon || '♪'), h('span', { class: 'dk-tab-name', 'data-name': name }, name)); });
     const row = h('div', { class: 'dk-tabs', role: 'group', 'aria-label': 'Go to a section' }, tabEls);
+    // A tab the keyboard lands on is brought wholly into view as well: a browser may leave one that is only part hidden
+    // where it is (Chromium does, once 32 px of it show). Not for a tap or a click, which must not move the row under the finger.
+    row.addEventListener('focusin', e => { const b = e.target.closest('.dk-tab'); if (b && b.matches(':focus-visible')) reveal(b); });
     holder.replaceChildren(h('div', { class: 'dk-player' }, now, h('div', { class: 'dk-keys' }, prev, list, next), h('span', { class: 'dk-progress', 'aria-hidden': 'true' }, fill)), row);
     return { now, art, name, at, count, meta, fill, row, tabEls, prev, next, swipe: now };
   }
-  // The current tab, brought into view in its row with a little of its neighbour showing. Set outright: nothing slides.
-  function reveal() {
-    const row = parts.row, tab = parts.tabEls && parts.tabEls[index];
+  // A tab (the current one, unless another is named) brought into view in its row with a little of its neighbour
+  // showing. Set outright: nothing slides.
+  function reveal(tab = parts.tabEls && parts.tabEls[index]) {
+    const row = parts.row;
     if (!row || !tab) return;
     const box = row.getBoundingClientRect(), t = tab.getBoundingClientRect(), peek = 28;
     const left = t.left - box.left + row.scrollLeft, right = left + t.width;
@@ -268,11 +272,12 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
     if (tab && parts.tabEls && parts.tabEls[index]) parts.tabEls[index].focus({ preventScroll: true });
   });
   // Choosing another menu (Aa → Section menu) redraws in place. Any other display choice (a text size, say) can move
-  // the digital player's tabs, so the current one is brought back into view.
-  window.addEventListener('gdex-prefs', () => { if (want() !== style) draw(); else reveal(); });
+  // the digital player's tabs, so the current one is brought back into view, and then the one the keyboard is on, if any.
+  const settle = () => { reveal(); const a = document.activeElement; if (onTab() && a.matches(':focus-visible')) reveal(a); };
+  window.addEventListener('gdex-prefs', () => { if (want() !== style) draw(); else settle(); });
   // …and so can a narrower window (a phone turned upright). Not a change of height: a phone's address bar comes and goes.
   let wide = window.innerWidth;
-  window.addEventListener('resize', () => { if (window.innerWidth === wide) return; wide = window.innerWidth; reveal(); });
+  window.addEventListener('resize', () => { if (window.innerWidth === wide) return; wide = window.innerWidth; settle(); });
 
   // A new list of tracks (another role, or a bonus track coming or going): redrawn in place, on track `at`, silently.
   // A sleeve still open lists the old tracks, so it closes first (the focus goes back to the deck, then to the twin).

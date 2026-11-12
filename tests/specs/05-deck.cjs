@@ -109,6 +109,10 @@ const page$ = page => page.evaluate(() => window.logiPage());
   // Which control of the menu has the focus: 'dk-now', 'dk-prev', 'dk-list', 'dk-next', 'tab:<section>', or ''.
   const focusOn = () => page.evaluate(() => { const a = document.activeElement; if (!a || !a.closest('#deck')) return ''; return a.classList.contains('dk-tab') ? 'tab:' + a.dataset.section : ['dk-now', 'dk-prev', 'dk-list', 'dk-next'].find(c => a.classList.contains(c)) || '?'; });
   const current = () => page.$$eval('#deck .dk-tab[aria-current]', bs => bs.map(b => `${b.dataset.section}:${b.getAttribute('aria-current')}:${b.classList.contains('on')}`).join());
+  // The tab that has the focus when part of it is outside its row ('' when it is wholly in view, or the focus is not on a tab).
+  const focusCut = () => page.evaluate(() => { const a = document.activeElement; if (!a || !a.classList.contains('dk-tab')) return ''; const row = document.querySelector('#deck .dk-tabs').getBoundingClientRect(), t = a.getBoundingClientRect(); return t.left >= row.left - 1 && t.right <= row.right + 1 ? '' : a.dataset.section; });
+  // Tab (or Shift+Tab) pressed n times: the tabs the focus landed on that were not wholly in view.
+  const tabAlong = async (key, n) => { const cut = []; for (let k = 0; k < n; k++) { await page.keyboard.press(key); const c = await focusCut(); if (c) cut.push(c); } return cut; };
   const ALL = 'bookings,acts,people,songs,sessions,backline,venues,money,tools,insurance,settings';
 
   await page.evaluate(() => window.logiGo('acts')); await sleep(500);
@@ -224,6 +228,11 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.keyboard.press('Space'); await page.waitForSelector('.sheet[aria-label="Track list"]');
   ok('Space opens it too', (await page.locator('.dk-queue .dk-track').count()) === 11);
   await page.keyboard.press('Escape'); await page.waitForSelector('.sheet', { state: 'detached' });
+  // Tab along the row and back: every tab the keyboard lands on is wholly in view, also one that was only part hidden
+  // (a browser left to itself does not scroll to those), and the section does not change.
+  await page.focus('#deck .dk-next');
+  const cutOn = await tabAlong('Tab', 11), lastTab = await focusOn(), cutBack = await tabAlong('Shift+Tab', 11);
+  ok('Tab along the row, then Shift+Tab back: each tab it lands on is wholly in view', cutOn.length === 0 && cutBack.length === 0 && lastTab === 'tab:settings' && (await focusOn()) === 'dk-next' && (await page$(page)) === 'venues', `cut off going on: ${cutOn.join() || 'none'}; coming back: ${cutBack.join() || 'none'}`);
   await page.evaluate(() => window.logiGo('songs')); await sleep(500);
   await page.locator('input[type=search]').first().focus(); await page.keyboard.press('ArrowRight'); await sleep(300);
   ok('arrow keys in a search box still move the cursor, not the section', (await page$(page)) === 'songs');
@@ -276,6 +285,9 @@ const page$ = page => page.evaluate(() => window.logiPage());
       rowScrolls: row.scrollWidth > row.clientWidth + 40 && q('#deck .dk-tabs').right <= d.right + 1 && q('#deck .dk-tabs').left >= d.left - 1, tab: tab.left >= q('#deck .dk-tabs').left - 1 && tab.right <= q('#deck .dk-tabs').right + 1 && tab.height >= 54 };
   });
   ok('320px wide, extra-large: Studio log stays inside the bar, the three keys sit under it, and the tabs scroll inside their row with the current one in view', Object.values(narrow).every(Boolean), JSON.stringify(narrow));
+  await page.focus('#deck .dk-next');
+  const cutNarrow = [...await tabAlong('Tab', 11), ...await tabAlong('Shift+Tab', 10)];
+  ok('…and each tab the Tab key lands on is wholly in view there too', cutNarrow.length === 0 && (await focusOn()) === 'tab:bookings', `cut off: ${cutNarrow.join() || 'none'}`);
   // A small phone at the standard sizes: the bar is still one slim line.
   await page.setViewportSize({ width: 360, height: 760 });
   await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
@@ -302,6 +314,19 @@ const page$ = page => page.evaluate(() => window.logiPage());
   }
   ok('“Now playing” and the track line read at 4.5:1 or better against the deck, light and dark', ['light', 'dark'].every(sc => smallText[sc].eyebrow >= 4.5 && smallText[sc].meta >= 4.5 && smallText[sc].name > smallText[sc].meta), JSON.stringify(smallText));
   ok('…and in colour the art is not greyed', smallText.light.art === 'none' && smallText.dark.art === 'none');
+  // The line: the theme's accent on the line colour. With high contrast the line colour is a strong grey that the accent
+  // sinks into, so there the line is drawn in the text colour on a quiet track: 3:1 or better against it, light and dark.
+  const lineOf = async prefs => {
+    await page.evaluate(p => { localStorage.setItem('gdex-prefs', JSON.stringify(p)); }, { menu: 'digital', palette: 'ocean', ...prefs }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+    return page.evaluate(() => {
+      const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
+      const lum = colour => { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1, 1); ctx.fillStyle = colour; ctx.fillRect(0, 0, 1, 1); const [r, g, b] = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const css = s => getComputedStyle(document.querySelector(s)), fill = css('#deck .dk-fill').backgroundColor, a = lum(fill), b = lum(css('#deck .dk-progress').backgroundColor);
+      return { ratio: Math.round((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) * 100) / 100, accent: fill === css('#deck .dk-tab.on').backgroundColor };
+    });
+  };
+  const line = { plain: await lineOf({ scheme: 'light' }), light: await lineOf({ scheme: 'light', contrast: 'high' }), dark: await lineOf({ scheme: 'dark', contrast: 'high' }) };
+  ok('the line is the accent; with high contrast it stands out from its track by 3:1 or better, light and dark', line.plain.accent && line.light.ratio >= 3 && line.dark.ratio >= 3, JSON.stringify(line));
   await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
 
   // A menu of one track (no role has one, but a menu can be Settings alone): Track 1 of 1, the line full, one tab, and

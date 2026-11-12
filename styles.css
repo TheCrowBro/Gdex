@@ -282,6 +282,7 @@ button, .btn, a.btn, .chip, .check, .day, summary { touch-action: manipulation; 
 :root[data-contrast=high], :root[data-contrast=high][data-palette][data-scheme] { --muted: color-mix(in srgb, var(--text) 82%, var(--bg)); --line: color-mix(in srgb, var(--text) 55%, var(--bg)); --focus: #ffd400; }
 html[data-contrast=high] .btn.ghost, html[data-contrast=high] .chip, html[data-contrast=high] .card, html[data-contrast=high] input, html[data-contrast=high] select, html[data-contrast=high] textarea, html[data-contrast=high] .deck, html[data-contrast=high] .dk-btn, html[data-contrast=high] .dk-cassette, html[data-contrast=high] .dk-tab { border-width: 2px; }
 html[data-contrast=high] .pill { border-width: 2px; color: var(--text); }
+@media (forced-colors: none) { html[data-contrast=high] .dk-progress { background: color-mix(in srgb, var(--text) 25%, var(--bg2)); } html[data-contrast=high] .dk-fill { background: var(--text); } } /* the digital player's line: on the stronger --line the accent is almost the same grey (under 2:1 in most themes), so with high contrast it is drawn in the text colour on a quiet track */
 /* Motion. Default ("soft"): the section menu moves (the record or the tape turns, the digital player's line slides), page
    content fades in, and small touches below run. "bar": only the section menu. "off": nothing. The device's reduce-motion
    setting wins over all of them. */
