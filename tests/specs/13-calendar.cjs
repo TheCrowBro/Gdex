@@ -518,7 +518,7 @@ async function press(page, loc, ms) {
     ok(`320 px, ${scheme}, day: a set beside another keeps its time whole under its name`, hour[1].w < 140 && hour[1].twoLines && hour[1].inside && hour[1].timeWhole, JSON.stringify(hour[1]));
     // Six sets at once (a festival's stages), in three days on this narrow screen: each block keeps to its own lane,
     // inside its own day.
-    const D3 = await dayFromNow(n.page, 11);
+    const D3 = await plus(n.page, D, 3); // three days on from the busy night, counted from it: a day with nothing else on
     for (let i = 0; i < 6; i++) await put(n.page, 'bookings', { id: 'c-st' + i, kind: 'show', status: 'confirmed', title: 'Stage ' + (i + 1), date: D3, setTime: '20:0' + i, setLength: 60 });
     await sleep(300);
     for (let i = 0; i < 3; i++) { await n.page.click('[aria-label="Next day"]'); await sleep(120); }
