@@ -1,6 +1,8 @@
 // Settings: everything that isn't a record, in twirl-down sections that each say where they stand on their closed
 // line: your role (which sets the section menu), your details (and your contact card as a QR code and a .vcf file), quotes & invoices, backups, display &
 // accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here.
+// A role without money (scout, audiophile: moneyShown() false) has no Quotes & invoices section, and its details
+// are not said to go on quotes and invoices; the section comes back with a role that uses money.
 import { h, toast, announce, safeUrl, telUrl } from '../util.js';
 import * as store from '../store.js';
 import { db, update } from '../store.js';
@@ -14,7 +16,7 @@ import { VERSION, BUILD, BUILT } from '../version.js';
 import { updatePanel } from '../update.js';
 import { installState, openInstallHelp } from '../install.js';
 import { backupPanel, health, fileState, onBackupChange, unlinkFile } from '../backup.js';
-import { role, roleChosen, menuSections, sectionName } from '../roles.js';
+import { role, roleChosen, menuSections, sectionName, moneyShown } from '../roles.js';
 import { rolePanel } from '../role-pick.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
@@ -159,7 +161,7 @@ function profileBody() {
   const line = (label, value) => value && h('div', null, h('span', { class: 'muted' }, label), h('span', { class: 'se-val' }, value));
   const contact = contactBlock();
   const body = [
-    has && h('p', { class: 'small muted' }, 'They go on your day sheets, quotes and invoices, and on your contact card below.'),
+    has && h('p', { class: 'small muted' }, moneyShown() ? 'They go on your day sheets, quotes and invoices, and on your contact card below.' : 'They go on your day sheets and on your contact card below.'),
     has
       ? h('div', { class: 'card kv se-kv' },
         line('Name', p.name), line('Business', p.business), line('What you do', p.role),
@@ -169,7 +171,7 @@ function profileBody() {
         line('Based in', p.location),
         p.address && line('Postal address', h('span', { class: 'prewrap' }, p.address)),
         line('Currency', `${currency()}  (e.g. ${fmtMoney(1250)})`))
-      : h('div', { class: 'empty se-empty' }, h('p', null, 'Add your name, business and contact details. They go on your day sheets, quotes and invoices.')),
+      : h('div', { class: 'empty se-empty' }, h('p', null, moneyShown() ? 'Add your name, business and contact details. They go on your day sheets, quotes and invoices.' : 'Add your name and contact details. They go on your day sheets and your contact card.')),
     p.bio && h('p', { class: 'small prewrap se-bio' }, p.bio),
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn primary', id: 'se-edit-profile', onclick: editProfile }, has ? '✎ Edit your details' : '+ Add your details')),
     contact.el,
@@ -312,9 +314,10 @@ function eraseBody() {
 }
 
 /* ------------------------------- the page ------------------------------- */
+// The walkthrough's words for each section; billing is left out, with the section, while money is off.
 const SECTIONS = [
   ['role', 'Your role', 'Producer, manager, band, solo artist, scout or audiophile: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed.'],
-  ['profile', 'Your details', 'Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, your contact card as a QR code to scan and a file to send.'],
+  ['profile', 'Your details', () => (moneyShown() ? 'Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, your contact card as a QR code to scan and a file to send.' : 'Your name and contact details: they go on day sheets. Under them, your contact card as a QR code to scan and a file to send.')],
   ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
   ['backups', 'Backups', 'Save a backup file, bring one back, or keep a copy in a file in a synced folder. Everything else lives on this device only.'],
   ['display', 'Display & accessibility', 'Colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
@@ -336,7 +339,7 @@ export const settings = {
     const sec = {
       role: section('role', '🎭', 'Your role', roleSummary(), rolePanel()),
       profile: section('profile', '🪪', 'Your details', profileSummary(), profile.body, profile.paint),
-      billing: section('billing', '🧾', 'Quotes & invoices', billingSummary(), billingBody()),
+      billing: moneyShown() ? section('billing', '🧾', 'Quotes & invoices', billingSummary(), billingBody()) : null,
       backups: section('backups', '☁️', 'Backups', backupSummary(), backupPanel()),
       display: section('display', '🔆', 'Display & accessibility', cap(prefsSummary()), display.el),
       help: section('help', '🧭', 'Help', 'Page tutorials and the welcome tour', [
@@ -356,7 +359,7 @@ export const settings = {
 
     root.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Settings')),
-      h('div', { class: 'se-list' }, Object.values(sec).map(s => s.el)));
+      h('div', { class: 'se-list' }, Object.values(sec).filter(Boolean).map(s => s.el)));
     return () => {
       done.forEach(f => { try { f(); } catch { /* already gone */ } });
       if (window.logiPage && window.logiPage() !== 'settings') S.erase = ''; // leaving Settings disarms the erase button
@@ -364,7 +367,7 @@ export const settings = {
   },
   tutorial: () => [
     { title: 'Settings', text: 'Everything that isn’t a booking or a record. Tap a section to open it; each one says where it stands on its closed line.', target: ['#page .page-head'] },
-    ...SECTIONS.map(([id, title, text]) => ({ title, text, target: [`#se-${id} > summary`] })),
+    ...SECTIONS.filter(([id]) => id !== 'billing' || moneyShown()).map(([id, title, text]) => ({ title, text: typeof text === 'function' ? text() : text, target: [`#se-${id} > summary`] })),
   ],
 };
 

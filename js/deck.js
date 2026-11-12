@@ -107,12 +107,17 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
       parts.cassette.setAttribute('aria-label', `Now on ${spoken(index)}, ${t.label}. Open the track list to pick any section`);
     }
   }
+  // Drawn afresh, the controls are new elements: the one that had the focus (the record or cassette, ⏮, the list
+  // button, ⏭) hands it to its twin, so a keyboard keeps its place when a bonus track comes or goes.
+  const CONTROLS = ['dk-swipe', 'dk-prev', 'dk-list', 'dk-next'];
   function draw() {
+    const a = document.activeElement, had = a && holder.contains(a) ? CONTROLS.find(c => a.classList.contains(c)) : null;
     style = menuStyle() === 'tape' ? 'tape' : 'record';
     holder.dataset.style = style;
     parts = style === 'tape' ? buildTape() : buildRecord();
     wireSwipe(parts.swipe);
     holder.classList.add('dk-still'); paint(); void holder.offsetWidth; holder.classList.remove('dk-still'); // no animation when drawn fresh
+    if (had) holder.querySelector('.' + had)?.focus({ preventScroll: true });
   }
 
   /* ------------------------------- moving ------------------------------- */
@@ -126,13 +131,20 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
   }
   const step = d => go(index + d, false, d);
 
-  // The whole list at once: the sleeve (record) or the cassette's track list.
+  // The whole list at once: the sleeve (record) or the cassette's track list. Each entry opens its section by id when
+  // tapped, wherever that section is on the menu by then; a new list of tracks closes the sleeve (setTabs).
+  let closeList = () => {};
+  const pickSection = id => {
+    const at = tabs.findIndex(t => t.id === id);
+    if (at === index) return;
+    if (at >= 0) go(at); else if (onExtra) onExtra(id);
+  };
   function openList() {
     let close = () => {};
     const col = (from, to, side) => h('div', { class: 'dk-side' }, h('span', { class: 'dk-side-head' }, 'Side ' + side),
       ...tabs.slice(from, to).map((t, j) => {
         const k = from + j, c = countOf(k);
-        return h('button', { type: 'button', class: 'dk-track' + (k === index ? ' on' : ''), 'aria-current': k === index ? 'true' : null, 'data-section': t.id, onclick: () => { close(); go(k); } },
+        return h('button', { type: 'button', class: 'dk-track' + (k === index ? ' on' : ''), 'aria-current': k === index ? 'true' : null, 'data-section': t.id, onclick: () => { close(); pickSection(t.id); } },
           h('span', { class: 'dk-track-id' }, idOf(k)), h('span', { class: 'dk-track-name' }, t.label), h('span', { class: 'dk-track-n' }, c ? String(c.n) : ''));
       }));
     // Every section not on this role's menu, so nothing is ever out of reach.
@@ -140,12 +152,14 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
     const cur = tabs[index] && tabs[index].id;
     const bonus = more.length > 0 && h('div', { class: 'dk-side dk-bonus' }, h('span', { class: 'dk-side-head' }, 'Bonus tracks'), h('div', { class: 'dk-bonus-list' },
       ...more.map(x => { let c = null; try { c = x.count && x.count(); } catch { c = null; } const on = x.id === cur;
-        return h('button', { type: 'button', class: 'dk-track' + (on ? ' on' : ''), 'aria-current': on ? 'true' : null, 'data-section': x.id, onclick: () => { close(); if (on) return; if (onExtra) onExtra(x.id); } },
+        return h('button', { type: 'button', class: 'dk-track' + (on ? ' on' : ''), 'aria-current': on ? 'true' : null, 'data-section': x.id, onclick: () => { close(); pickSection(x.id); } },
           h('span', { class: 'dk-track-id', 'aria-hidden': 'true' }, '★'), h('span', { class: 'dk-track-name' }, x.label), h('span', { class: 'dk-track-n' }, c && Number.isFinite(c.n) ? String(c.n) : '')); })));
     const tape = style === 'tape';
     const head = tape ? h('p', { class: 'dk-jcard-title' }, 'Gdex, the booking deck')
       : h('div', { class: 'dk-sleeve-head' }, h('span', { class: 'dk-cover', 'aria-hidden': 'true' }, 'GDEX'), h('div', null, h('strong', null, 'Gdex'), h('div', { class: 'muted small' }, `The booking deck · ${tracks} tracks` + (more.length ? ` · ${more.length} bonus` : ''))));
-    ({ close } = sheet(tape ? 'Track list' : 'The sleeve', h('div', { class: 'dk-sheet ' + (tape ? 'dk-jcard' : 'dk-sleeve') }, head, h('div', { class: 'dk-sides' }, col(0, sideA, 'A'), col(sideA, tracks, 'B')), bonus)));
+    const s = sheet(tape ? 'Track list' : 'The sleeve', h('div', { class: 'dk-sheet ' + (tape ? 'dk-jcard' : 'dk-sleeve') }, head, h('div', { class: 'dk-sides' }, col(0, sideA, 'A'), col(sideA, tracks, 'B')), bonus),
+      { onClose: () => { if (closeList === s.close) closeList = () => {}; } });
+    close = closeList = s.close;
     setTimeout(() => document.querySelector('.dk-sheet .dk-track.on')?.focus(), 60);
   }
 
@@ -197,7 +211,9 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
   window.addEventListener('gdex-prefs', () => { if ((menuStyle() === 'tape' ? 'tape' : 'record') !== style) draw(); });
 
   // A new list of tracks (another role, or a bonus track coming or going): redrawn in place, on track `at`, silently.
+  // A sleeve still open lists the old tracks, so it closes first (the focus goes back to the deck, then to the twin).
   function setTabs(list, at = 0) {
+    closeList();
     tabs = list; sizes();
     index = Math.min(n - 1, Math.max(0, at));
     draw();

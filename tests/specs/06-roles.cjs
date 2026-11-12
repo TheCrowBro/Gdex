@@ -63,6 +63,58 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     const s = await sleeve(page);
     ok('…with every section on the menu', s.ids.length === 11 && s.bonus.length === 0, s.ids.join(','));
     ok('…and no role saved', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === null);
+    ok('closing the question counts as the answer: the role card is not offered later', (await page.evaluate(() => localStorage.getItem('gdex-role-nudged'))) === '1');
+    await page.reload();
+    await page.waitForSelector('#deck .dk-next');
+    await sleep(2800);
+    ok('…so the next visit shows no “New: a menu for the way you work” card', (await page.locator('.rp-nudge, .sheet, .tour-card').count()) === 0);
+    await browser.close();
+  }
+
+  /* ---------------- the sleeve opened in the first moment: the question waits for it ---------------- */
+  {
+    const browser = await chromium.launch();
+    const page = await (await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' })).newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    await page.goto(BASE);
+    await page.waitForSelector('#deck .dk-record');
+    await page.click('#deck .dk-record');
+    await page.waitForSelector('.dk-sheet');
+    await sleep(1500);
+    ok('a sleeve opened before the question: the question waits until it is closed', (await page.locator('.rp-ask').count()) === 0 && (await page.locator('.dk-sheet').count()) === 1);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.rp-ask', { timeout: 3000 });
+    ok('…then asks, on its own', (await page.locator('.sheet').count()) === 1);
+    await page.click('.rp-card[data-role="scout"]');
+    await page.waitForSelector('.tour-card');
+    ok('…and the welcome tour runs over the page, not over a stale sleeve', (await page.locator('.dk-sheet').count()) === 0);
+    await page.click('.tour-actions .btn.ghost');
+    await page.click('#deck .dk-record');
+    await page.waitForSelector('.dk-sheet');
+    ok('the sleeve then lists the scout’s tracks', JSON.stringify(await menuIds(page)) === JSON.stringify(['acts', 'bookings', 'people', 'venues', 'settings']), (await menuIds(page)).join(','));
+    await page.click('.dk-sheet .dk-bonus [data-section="insurance"]');
+    await sleep(700);
+    ok('…and Insurance on it opens Insurance', (await page.evaluate(() => window.logiPage())) === 'insurance');
+    // A role chosen while a sleeve is open (from a link or a script): the sleeve closes rather than list the old tracks.
+    await page.click('#deck .dk-list');
+    await page.waitForSelector('.dk-sheet');
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('band', { start: true })));
+    await sleep(500);
+    ok('a new role closes an open sleeve, and the deck has the focus back', (await page.locator('.dk-sheet, .sheet').count()) === 0 && !(await page.evaluate(() => document.getElementById('app').inert)) && await page.evaluate(() => !!document.activeElement.closest('#deck')));
+    await page.click('#deck .dk-list');
+    await page.waitForSelector('.dk-sheet');
+    const entries = await menuIds(page);
+    await page.keyboard.press('Escape');
+    let named = true;
+    for (const id of entries) {
+      await page.click('#deck .dk-list'); await page.waitForSelector('.dk-sheet');
+      await page.click(`.dk-sheet .dk-sides [data-section="${id}"]`); await sleep(500);
+      if ((await page.evaluate(() => window.logiPage())) !== id) named = false;
+    }
+    ok('every entry on the sleeve opens the section it names', named, entries.join(','));
+    ok('no errors in the console (sleeve before the question)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
 
@@ -78,22 +130,93 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.waitForSelector('.rp-nudge', { timeout: 8000 });
     ok('an install whose tour is done, with no role, gets one card about roles', (await page.locator('.rp-nudge').count()) === 1 && (await page.locator('.sheet, .tour-card').count()) === 0);
     ok('…under the section menu, not over the page', await page.evaluate(() => { const c = document.querySelector('.rp-nudge'); return !!c && !document.getElementById('page').contains(c) && c.getBoundingClientRect().top >= document.getElementById('deck').getBoundingClientRect().bottom - 1; }));
-    await page.click('#rp-nudge-no');
+    ok('the card speaks of the sleeve with the record player', /every other one stays on the sleeve\./.test(await page.textContent('.rp-nudge-text')));
+    await page.focus('#rp-nudge-no');
+    await page.keyboard.press('Enter');
     ok('Not now puts it away', (await page.locator('.rp-nudge').count()) === 0);
+    ok('…and the page takes the focus, not nowhere', await page.evaluate(() => document.activeElement && document.activeElement.id === 'page'));
     await page.reload();
     await page.waitForSelector('#deck .dk-next');
     await sleep(2800);
     ok('…for good', (await page.locator('.rp-nudge').count()) === 0);
-    await page.evaluate(() => localStorage.removeItem('gdex-role-nudged'));
+    await page.evaluate(() => { localStorage.removeItem('gdex-role-nudged'); localStorage.setItem('gdex-tab', 'acts'); });
     await page.reload();
     await page.waitForSelector('.rp-nudge', { timeout: 8000 });
-    await page.click('#rp-nudge-go');
+    const y0 = await page.evaluate(() => window.scrollY);
+    await page.focus('#rp-nudge-go');
+    await page.keyboard.press('Enter');
     await page.waitForSelector('.rp-ask');
     ok('Choose my role asks the question', (await page.locator('.rp-ask .rp-card').count()) === 6);
-    await page.click('.rp-card[data-role="manager"]');
-    await sleep(500);
-    ok('…and the answer sets the menu, with no welcome tour again', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'manager' && (await page.locator('.tour-card').count()) === 0);
+    await sleep(150);
+    await page.focus('.rp-card[data-role="audiophile"]');
+    await page.keyboard.press('Enter');
+    await sleep(700);
+    ok('…and the answer sets the menu, with no welcome tour again', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile' && (await page.locator('.tour-card').count()) === 0);
+    ok('…the page takes the focus, without a jump', await page.evaluate(() => document.activeElement && document.activeElement.id === 'page') && (await page.evaluate(() => window.scrollY)) === y0);
+    const region = await page.evaluate(() => ({ label: document.querySelector('#page .page-card').getAttribute('aria-label'), h1: document.querySelector('#page h1').textContent }));
+    ok('the page stays Acts, and its region takes the role’s name for it (Bands)', region.label === 'Bands' && region.h1 === 'Bands', JSON.stringify(region));
     ok('no errors in the console (the role card)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
+  /* ---------------- the role texts follow the section menu: a tape deck has Tracks, not a record ---------------- */
+  {
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+    await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-prefs', '{"menu":"tape"}'); } catch (e) { /* ignore */ } });
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    await page.goto(BASE);
+    await page.waitForSelector('.rp-nudge', { timeout: 8000 });
+    ok('tape deck: the role card says the track list', /every other one stays on the track list\./.test(await page.textContent('.rp-nudge-text')) && !/sleeve/.test(await page.textContent('.rp-nudge-text')));
+    await page.click('#rp-nudge-go');
+    await page.waitForSelector('.rp-ask');
+    ok('tape deck: so does the question', /one tap away on the track list\./.test(await page.textContent('.rp-intro')) && !/sleeve/.test(await page.textContent('.rp-intro')));
+    await page.keyboard.press('Escape');
+    await go(page, 'settings');
+    await page.evaluate(() => { document.getElementById('se-role').open = true; });
+    await page.waitForSelector('#se-role .rp-about');
+    const about = await page.textContent('#se-role .rp-about');
+    ok('tape deck: Settings → Your role says bonus tracks on the track list (tap Tracks)', /bonus tracks on the track list \(tap Tracks\)/.test(about) && !/record|sleeve/.test(about), about);
+    await page.evaluate(() => { document.getElementById('se-display').open = true; });
+    await page.click('#se-display [data-pref="menu:record"]');
+    await sleep(300);
+    ok('switching to the record player there changes those words at once', /bonus tracks on the sleeve \(tap the record\)/.test(await page.textContent('#se-role .rp-about')));
+    ok('no errors in the console (role texts and the menu style)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
+  /* ---------------- the welcome tour on a small screen: the card never hides what it points at ---------------- */
+  for (const [label, prefs] of [['standard text', null], ['extra large text', '{"text":"xlarge"}']]) {
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 640 }, serviceWorkers: 'block' });
+    if (prefs) await ctx.addInitScript(p => { try { localStorage.setItem('gdex-prefs', p); } catch (e) { /* ignore */ } }, prefs);
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    await page.goto(BASE);
+    await page.waitForSelector('.rp-ask .rp-card');
+    await page.click('.rp-card[data-role="scout"]');
+    await page.waitForSelector('.tour-card');
+    const seen = [];
+    for (let i = 0; i < 10 && await page.locator('.tour-card').count(); i++) {
+      await sleep(300);
+      seen.push(await page.evaluate(() => {
+        const c = document.querySelector('.tour-card'), s = document.querySelector('.tour-spot'), a = c.querySelector('.tour-actions');
+        const cr = c.getBoundingClientRect(), sr = s.getBoundingClientRect(), ar = a.getBoundingClientRect();
+        const over = s.classList.contains('center') ? 0 : Math.max(0, Math.min(cr.bottom, sr.bottom) - Math.max(cr.top, sr.top));
+        return { title: document.getElementById('tour-title').textContent, over: Math.round(over), inView: cr.top >= 0 && cr.bottom <= innerHeight + 1, buttons: ar.top >= cr.top - 1 && ar.bottom <= cr.bottom + 1 && ar.bottom <= innerHeight };
+      }));
+      await page.click('.tour-actions .btn.primary');
+      await sleep(900);
+    }
+    const deck = seen.find(x => x.title === 'Your sections are tracks') || {};
+    ok(`320×640, ${label}: the “Your sections are tracks” card leaves the deck in view`, deck.over === 0 && deck.inView, JSON.stringify(deck));
+    ok(`320×640, ${label}: no card covers its highlighted part, and Next always shows`, seen.length >= 6 && seen.every(x => x.over === 0 && x.inView && x.buttons), JSON.stringify(seen.filter(x => x.over || !x.inView || !x.buttons)));
+    ok(`no errors in the console (tour at 320, ${label})`, errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
 
@@ -151,8 +274,15 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok(`${id}: Settings is last on the menu`, s.ids[s.ids.length - 1] === 'settings');
   }
   ok('a role without money says where fees went', await page.evaluate(() => import('./js/roles.js').then(m => { m.setRole('scout'); return new Promise(r => setTimeout(() => r(/Fees, deals and settlements are off/.test(document.getElementById('se-role').textContent)), 300)); })));
+  ok('…and that quotes & invoices come back with a role that uses money', /Quotes & invoices come back with a role that uses money, or with Everything\./.test(await page.textContent('#se-role .rp-money')));
+  const noMoney = await page.$$eval('#page details.se-sec', ds => ds.map(d => d.dataset.s));
+  ok('a role without money: Settings has no Quotes & invoices section', !noMoney.includes('billing') && noMoney.length === 8 && (await page.locator('#se-billing').count()) === 0, noMoney.join(','));
+  const noMoneyTut = await page.evaluate(() => import('./js/pages/settings.js').then(m => m.settings.tutorial().map(s => `${s.title}: ${s.text}`)));
+  ok('…its walkthrough leaves it out, and Your details is not said to go on quotes and invoices', noMoneyTut.length === 9 && !noMoneyTut.some(t => /quote|invoice/i.test(t)) && /Your details: Your name and contact details: they go on day sheets\./.test(noMoneyTut.join('\n')), noMoneyTut.join(' | ').slice(0, 300));
+  ok('…nor is it on the page', !/quotes|invoices/i.test(await page.textContent('#se-profile')) && /They go on your day sheets and on your contact card below\./.test(await page.textContent('#se-profile')));
   await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('producer')));
   await sleep(300);
+  ok('a role with money has Quotes & invoices again, third as before', (await page.$$eval('#page details.se-sec', ds => ds.map(d => d.dataset.s)))[2] === 'billing' && /day sheets, quotes and invoices/.test(await page.textContent('#se-profile')));
   ok('the line says the role and its menu', new RegExp(`Producer · ${R.menus.producer.length} sections`).test(await page.textContent('#se-role summary')), await page.textContent('#se-role summary'));
 
   /* a section off the menu, from a link and from the sleeve */
@@ -179,6 +309,25 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   const off2 = ['money', 'insurance', 'songs', 'sessions', 'backline'].find(id => id !== off && !R.menus.audiophile.includes(id));
   await go(page, off2);
   ok('one bonus track gives way to another', (await page.evaluate(() => window.logiPage())) === off2 && (await sleeve(page)).ids.length === R.menus.audiophile.length);
+
+  /* the keyboard keeps its place when a bonus track comes onto the record or leaves it */
+  const keyOn = cls => page.evaluate(c => !!document.activeElement && document.activeElement.classList.contains(c) && !!document.activeElement.closest('#deck'), cls);
+  const bonusByKeyboard = async id => { await page.focus('#deck .dk-list'); await page.keyboard.press('Enter'); await page.waitForSelector('.dk-sheet'); await sleep(100); await page.focus(`.dk-sheet .dk-bonus [data-section="${id}"]`); await page.keyboard.press('Enter'); await sleep(600); };
+  await go(page, R.menus.audiophile[0]);
+  await bonusByKeyboard('songs');
+  ok('keyboard: a bonus track picked from the sleeve leaves the focus on the sleeve button', (await page.evaluate(() => window.logiPage())) === 'songs' && await keyOn('dk-list'));
+  await page.focus('#deck .dk-next'); await page.keyboard.press('Enter'); await sleep(600);
+  ok('keyboard: ⏭ off a bonus track keeps the focus on ⏭', (await page.evaluate(() => window.logiPage())) === R.menus.audiophile[0] && await keyOn('dk-next'));
+  await bonusByKeyboard('money');
+  await page.focus('#deck .dk-prev'); await page.keyboard.press('Enter'); await sleep(600);
+  ok('keyboard: ⏮ off a bonus track keeps the focus on ⏮', (await page.evaluate(() => window.logiPage())) === 'settings' && await keyOn('dk-prev'));
+  await bonusByKeyboard('songs');
+  await page.focus('#deck .dk-list'); await page.keyboard.press('Enter'); await page.waitForSelector('.dk-sheet'); await sleep(100);
+  await page.focus('.dk-sheet .dk-sides [data-section="venues"]'); await page.keyboard.press('Enter'); await sleep(600);
+  ok('keyboard: from a bonus track to a track on the sleeve, the focus is back on the sleeve button', (await page.evaluate(() => window.logiPage())) === 'venues' && await keyOn('dk-list'));
+  await bonusByKeyboard('songs');
+  await page.focus('#deck .dk-record'); await page.keyboard.press('ArrowRight'); await sleep(600);
+  ok('keyboard: an arrow key on the record off a bonus track keeps the focus on the record', (await page.evaluate(() => window.logiPage())) === R.menus.audiophile[0] && await keyOn('dk-record'));
 
   /* booking boxes */
   await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1')));

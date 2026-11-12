@@ -95,18 +95,33 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   document.body.append(layer); if (app) app.inert = true;
   let i = from, target = null, dir = 1;
   const seen = new Set(); // steps already shown: they keep their place in the count when going back
-  const stop = () => { if (!active) return; active = null; layer.remove(); if (app) app.inert = wasInert; window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); document.removeEventListener('keydown', keys, true); if (remember) done(); };
+  const stop = () => { if (!active) return; active = null; layer.remove(); if (app) app.inert = wasInert; window.removeEventListener('resize', place); window.removeEventListener('scroll', onScroll, true); document.removeEventListener('keydown', keys, true); if (remember) done(); };
   active = { stop };
   // Arrow keys move between steps, except while typing in a field of the card; Escape always leaves.
   const keys = e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && e.key !== 'Escape') return; if (e.key === 'Escape') { e.stopPropagation(); stop(); } else if (e.key === 'ArrowRight') { e.stopPropagation(); next(); } else if (e.key === 'ArrowLeft') { e.stopPropagation(); dir = -1; show(i - 1); } };
+  // The card goes under the thing it points at, else over it. When it fits on neither side (a small screen, big text,
+  // the tall section menu), it docks to the edge of the screen on the roomier side and is cut to the room left there,
+  // its words scrolling inside it, so the highlighted part stays in view; Skip, Back and Next always show.
+  // A card cut short fades out at the foot of its words while there is more to read (scrolling them clears it).
+  const moreCue = b => { if (b) b.classList.toggle('tour-more', b.scrollTop + b.clientHeight < b.scrollHeight - 2); };
   const place = () => {
-    if (!target) { spot.classList.add('center'); card.classList.add('center'); return; }
+    Object.assign(card.style, { top: '', bottom: '', maxHeight: '' });
+    card.classList.remove('tour-docked');
+    if (!target) { spot.classList.add('center'); card.classList.add('center'); moreCue(card.querySelector('.tour-body')); return; }
     spot.classList.remove('center'); card.classList.remove('center');
-    const r = target.getBoundingClientRect(), pad = 8;
+    const r = target.getBoundingClientRect(), pad = 8, edge = 16;
     Object.assign(spot.style, { top: r.top - pad + 'px', left: r.left - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
     card.style.left = '';
-    const below = r.bottom + 16, cardH = card.offsetHeight, fits = below + cardH + 16 < innerHeight;
-    card.style.top = (fits ? below : Math.max(16, r.top - 16 - cardH)) + 'px';
+    const below = r.bottom + 16, above = r.top - 16, cardH = card.offsetHeight;
+    if (below + cardH + edge < innerHeight) card.style.top = below + 'px';
+    else if (above - cardH >= edge) card.style.top = above - cardH + 'px';
+    else {
+      const roomBelow = innerHeight - edge - below, roomAbove = above - edge, least = Math.min(200, innerHeight - 2 * edge); // never too short to read
+      card.classList.add('tour-docked');
+      if (roomBelow >= roomAbove) Object.assign(card.style, { top: 'auto', bottom: edge + 'px', maxHeight: Math.max(roomBelow, least) + 'px' });
+      else Object.assign(card.style, { top: edge + 'px', maxHeight: Math.max(roomAbove, least) + 'px' });
+    }
+    moreCue(card.querySelector('.tour-body'));
   };
   let busy = false; // a tap during a transition must not double-advance
   const show = async n => { if (busy) return; busy = true; try { await step(n); } finally { busy = false; } };
@@ -131,9 +146,10 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
     const forward = () => advance(isLast ? stop : next);
     const body = s.body ? s.body({ refresh: () => show(n), next: forward, stop, index: n }) : null;
     card.replaceChildren(...nodes(
-      h('div', { class: 'tour-step muted small' }, `${pos + 1} / ${shown.length}`),
-      h('h2', { id: 'tour-title' }, s.title), h('p', null, s.text),
-      body && h('form', { class: 'tour-form', noValidate: true, onsubmit: e => { e.preventDefault(); forward(); } }, body),
+      h('div', { class: 'tour-body', onscroll: e => moreCue(e.currentTarget) },
+        h('div', { class: 'tour-step muted small' }, `${pos + 1} / ${shown.length}`),
+        h('h2', { id: 'tour-title' }, s.title), h('p', null, s.text),
+        body && h('form', { class: 'tour-form', noValidate: true, onsubmit: e => { e.preventDefault(); forward(); } }, body)),
       h('div', { class: 'tour-actions' },
         h('button', { class: 'btn ghost small', type: 'button', onclick: stop }, 'Skip'), footer && footer(n, stop), h('span', { class: 'spacer' }),
         pos > 0 && h('button', { class: 'btn ghost', type: 'button', onclick: () => { dir = -1; show(n - 1); } }, 'Back'),
@@ -143,7 +159,8 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
     ((body && card.querySelector('.tour-form input, .tour-form textarea, .tour-form select')) || card.querySelector('.tour-actions .btn.primary'))?.focus();
   };
   const next = () => { dir = 1; show(i + 1); };
-  window.addEventListener('resize', place); window.addEventListener('scroll', place, true); document.addEventListener('keydown', keys, true);
+  const onScroll = e => { if (!(e.target instanceof Node && card.contains(e.target))) place(); }; // the card's own words scrolling move nothing
+  window.addEventListener('resize', place); window.addEventListener('scroll', onScroll, true); document.addEventListener('keydown', keys, true);
   show(i);
   return stop;
 }
