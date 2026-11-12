@@ -235,7 +235,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await page.keyboard.press('Escape'); await sleep(150);
   await page.click('.bk-actions .bk-delete');
   await sheetNamed(page, 'Delete this booking?').waitFor();
-  ok('Delete names only what the role keeps on a booking', (await sheetNamed(page, 'Delete this booking?').locator('.stack > p.small').innerText()) === 'Its notes and checklist ticks go with it. Your act, venue and people stay. This cannot be undone.');
+  ok('Delete names only what the role keeps on a booking', (await sheetNamed(page, 'Delete this booking?').locator('.stack > p.small').innerText()) === 'Its notes, checklist ticks, running order and guest list go with it. Your act, venue and people stay. This cannot be undone.');
   await page.keyboard.press('Escape'); await sleep(150);
   await page.locator('.bk-actions button', { hasText: 'Duplicate' }).click();
   await sheetNamed(page, 'Duplicate booking').waitFor();
