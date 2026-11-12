@@ -175,6 +175,7 @@ function askRename({ old, now, since, onPick, back }) {
   date.addEventListener('input', () => { err.hidden = true; });
   const body = h('div', { class: 'stack ac-rename' },
     h('p', { class: 'ac-rename-names', id: 'ac-rename-names' }, h('span', { class: 'ac-rename-old' }, old), h('span', { class: 'ac-rename-arrow', 'aria-hidden': 'true' }, '→'), h('span', { class: 'sr-only' }, ' becomes '), h('strong', { class: 'ac-rename-now' }, now)),
+    h('span', { id: 'ac-rename-said', hidden: true }, `${old} becomes ${now}.`), // what the sheet is read out with: a sentence of its own before the question
     h('p', { class: 'ac-rename-q', id: 'ac-rename-q' }, 'Did the name change, or are you fixing the spelling?'),
     h('div', { class: 'field' }, h('label', { for: 'ac-rename-since' }, 'Since when?'), date, h('small', { class: 'muted', id: 'ac-rename-hint' }, 'The day the new name began. Move it back if the name changed a while ago.')),
     err,
@@ -183,7 +184,7 @@ function askRename({ old, now, since, onPick, back }) {
       h('button', { type: 'button', class: 'btn ghost', id: 'ac-rename-fix', onclick: () => choose('fix') }, 'Just fixing the spelling')),
     h('p', { class: 'small muted' }, `A new name keeps ${old} as an earlier name: shows and scores from before that day say “formerly ${old}”. A spelling fix keeps nothing of the old spelling.`));
   ({ el, close } = sheet(RENAME, body, { onClose: () => { if (!answered) back(); } }));
-  el.setAttribute('aria-describedby', 'ac-rename-names ac-rename-q'); // read out with the sheet's name as the focus arrives
+  el.setAttribute('aria-describedby', 'ac-rename-said ac-rename-q'); // read out with the sheet's name as the focus arrives
   setTimeout(() => { if (el.isConnected && !body.contains(document.activeElement)) date.focus(); }, 60);
 }
 

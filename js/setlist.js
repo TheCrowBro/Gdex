@@ -5,6 +5,7 @@
 import { h, nodes, uid, toast, announce, sheet, fmtShort, todayISO } from './util.js';
 import { db, byId, upsert, remove, update, subscribe } from './store.js';
 import { setlistLength, itemTitle, fmtDur, parseDur, fmtMin, actName, markCheck, venueOf, addMinutes, minutesBetween, byDayPlay } from './model.js';
+import { earlierNames } from './model.js'; // an act's earlier names: the song search finds its songs by them too
 import { openForm } from './form.js';
 import { printElement } from './print.js';
 import { sheetTutorial } from './tour.js';
@@ -464,7 +465,7 @@ function openPicker(id, ctx) {
     if (!list) { if (s) s.close(); return; }
     const inSet = new Set((list.items || []).map(x => x && x.songId).filter(Boolean));
     const ql = q.trim().toLowerCase();
-    const songs = db.songs.filter(x => !ql || `${x.title} ${x.key} ${shortKey(x.key)} ${x.tuning || ''} ${actName(x.actId)}`.toLowerCase().includes(ql)).sort(byTitle);
+    const songs = db.songs.filter(x => !ql || `${x.title} ${x.key} ${shortKey(x.key)} ${x.tuning || ''} ${actName(x.actId)} ${earlierNames(byId('acts', x.actId)).map(n => n.name).join(' ')}`.toLowerCase().includes(ql)).sort(byTitle);
     const act = byId('acts', list.actId) ? list.actId : '';
     const groups = act
       ? [[actName(act), songs.filter(x => x.actId === act), false], [db.songs.some(x => x.actId === act) ? 'Other songs' : 'Songs', songs.filter(x => x.actId !== act), true]]

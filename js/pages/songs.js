@@ -4,7 +4,7 @@
 import { h, toast, empty, safeUrl, fmtShort, fmtLong, todayISO, uid, sheet } from '../util.js';
 import { db, byId, upsert, remove, update } from '../store.js';
 import { SONG_STATUS, songStatusLabel, KEYS, SPLIT_ROLES, fmtDur, parseDur, actName, setlistLength, venueOf, bookingTitle, kindIcon, byDayPlay } from '../model.js';
-import { earlierNames } from '../model.js'; // an act's earlier names: the search finds its songs by them too
+import { earlierNames, formerlyNote } from '../model.js'; // an act's earlier names: the search finds its songs by them too; a session from before a change says "formerly …"
 import { openForm } from '../form.js';
 import { printElement } from '../print.js';
 import { sheetTutorial } from '../tour.js';
@@ -205,7 +205,7 @@ function songView(s, ctx) {
         : h('p', { class: 'small muted' }, 'Not in a setlist yet.')),
     sessions.length > 0 && h('section', { class: 'sg-sec' }, h('h3', null, 'Studio sessions'),
       h('div', { class: 'sg-links' }, sessions.map(b => h('button', { class: 'card tap', type: 'button', 'data-fk': 'sg-b-' + b.id, onclick: () => { ctx.close(); openBooking(b.id); } },
-        h('strong', null, bookingTitle(b)), h('span', { class: 'muted small sg-block' }, dotted([b.date && fmtShort(b.date), venueOf(b).name]).join('')))))),
+        h('strong', null, bookingTitle(b)), formerlyNote(b) && h('span', { class: 'muted small sg-block' }, formerlyNote(b)), h('span', { class: 'muted small sg-block' }, dotted([b.date && fmtShort(b.date), venueOf(b).name]).join('')))))),
   ];
 }
 

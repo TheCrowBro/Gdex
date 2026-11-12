@@ -586,10 +586,12 @@ Every record goes on using the current name, so lists and search stay in one pie
   `ul.ac-names`, the latest first): `from <day> until <day>`, `until <day>` for the first dated one, `date not
   known` for a name with no day. Days are written by `toLocaleDateString` with the year.
 * **Records from before a change.** Where a row names the act, `formerlyLine(b)` goes under the name: Coming up cards,
-  Week rows, the booking's header. A venue's rows have `span.vn-row-was` and a row of "Did you see them?"
-  `span.ac-formerly`, both after the name; a take log's card in the Studio log adds the words after its session's
-  name. Where there is no room the words are only spoken: a day square's `aria-label` has them after the booking's
-  name (`Owl Parliament @ The Crown, formerly The Night Owls (Confirmed)`), and a grid block's or pill's hidden words
+  Week rows, the booking's header. A venue's rows have `span.vn-row-was`, a backline item's `span.bl-row-was`, a
+  person's `span.pp-bk-was`, a song's studio sessions a `span.sg-block` and a row of "Did you see them?"
+  `span.ac-formerly`, all after the name; a take log's card in the Studio log, and the link to its session on the
+  log's own page, add the words after the session's name. Where there is no room the words are only spoken: a day
+  square's `aria-label` has them after the booking's name (`Owl Parliament @ The Crown, formerly The Night Owls
+  (Confirmed)`), and a grid block's or pill's hidden words
   start with them (`Formerly The Night Owls. Confirmed.`). In the act's own lists the name is not on each row, so a
   row says `as The Night Owls`: `span.ac-as` in the log of times seen (`model.formerlyOn(a, entry.date)`), and ` · as
   …` at the end of a date on the card, of a past show in "From a past show" and of a booking on the act's page. A
@@ -606,8 +608,8 @@ Every record goes on using the current name, so lists and search stay in one pie
   cannot be after it, and cannot be before the day the old name began (`model.nameSince`, from the form's rows as
   they stand); a day outside that is refused in words, with the focus on the date. "It’s a new name" adds
   `{ name: <old name>, until: <day> }`; a spelling fix adds nothing. The focus arrives on the date, never on an
-  answer, so a held Enter answers nothing; the dialog is described by the two names and the question
-  (`aria-describedby`).
+  answer, so a held Enter answers nothing; the dialog is described (`aria-describedby`) by a hidden sentence,
+  `<old name> becomes <new name>.`, and the question.
 * **The form's part.** `div.field.wide.ac-was[role=group]` straight after the Name field: `div.ac-was-row` per name
   (the latest first) with `input.ac-was-name`, `label.ac-was-until > input[type=date]` (`max` today, so the form's
   own validation refuses a later day; it may be empty) and `button.ac-was-del`, then `#ac-was-add`. With no name
@@ -616,9 +618,9 @@ Every record goes on using the current name, so lists and search stay in one pie
 * **Walkthroughs.** The act form's has an "Earlier names" step (`.ac-was`), and its Name step speaks of the question
   only in the Edit form; "New name?" has three steps of its own; the act's page gets an "Earlier names" step
   (`#ac-names`) only when the act has one, so an act that never changed its name keeps the tour it had.
-* **Search.** The acts list, People and Songs match an act's earlier names too; the booking form lists an act as
-  `Owl Parliament (formerly The Night Owls)`. The song pickers (setlist editor, metronome) and the Studio log's
-  search do not.
+* **Search.** Every search that finds things by an act's name matches its earlier names too: the acts list, People,
+  Songs, the Studio log and the two song pickers (a setlist's + Songs, the metronome's song tempo); the booking form
+  lists an act as `Owl Parliament (formerly The Night Owls)`.
 * **Never outside Gdex.** Documents, calendar files and spreadsheets call `actName` / `bookingTitle` / `a.name`,
   which are the current name; `44-formerly` checks each of them. A document made before the change keeps the
   words it was made with (an invoice's lines are stored text), as does a booking's own typed title.

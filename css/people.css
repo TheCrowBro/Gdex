@@ -44,6 +44,7 @@
 .pp-bk-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .pp-bk-when { font-size: .85rem; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
 .pp-bk-title { font-weight: 600; overflow-wrap: anywhere; }
+.pp-bk-was { overflow-wrap: anywhere; } /* "formerly The Night Owls", under the name of a booking from before its act changed its name */
 .pp-clash { color: var(--danger); font-size: .85rem; font-weight: 600; margin: 0; }
 .pp-past { margin-top: 16px; }
 .pp-past .twirl-body .pp-bk { background: var(--card); }

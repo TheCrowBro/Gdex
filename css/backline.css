@@ -18,7 +18,7 @@
 .bl-row-date, .vn-row-date { font-weight: 700; font-size: .9rem; font-variant-numeric: tabular-nums; }
 .bl-row-main, .vn-row-main { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
 .vn-row-went { grid-column: 1 / -1; }
-.vn-row-was { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; } /* "formerly The Night Owls", under the name of a booking from before its act changed its name */
+.bl-row-was, .vn-row-was { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; } /* "formerly The Night Owls", under the name of a booking from before its act changed its name */
 .bl-row-warn, .vn-row-warn { grid-column: 1 / -1; color: var(--danger); font-size: .85rem; line-height: 1.35; }
 .bl-sheet h3, .vn-sheet h3 { margin: 14px 0 6px; }
 .bl-sheet .actions, .vn-sheet .actions, .bl-inv-sheet .actions { margin-top: 0; gap: 8px; }

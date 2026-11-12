@@ -4,7 +4,8 @@
 //  2. the "New name?" sheet as a changed name is saved (when it asks and when it does not, the "Since when?" day and
 //     its limits, both answers, closing it, the keyboard, the focus, a screen reader's words);
 //  3. what a person then sees: the act's card and page, its own lists ("as …"), the calendar's five views, a booking's
-//     page, a venue's list, the searches, the Earlier names in the act form; and what nobody else is sent: documents,
+//     page, a venue's, a person's and a backline item's lists, a song's studio sessions, the Studio log, every search
+//     that finds things by an act's name, the Earlier names in the act form; and what nobody else is sent: documents,
 //     calendar files and spreadsheets carry the current name only, a backup carries the earlier names;
 //  4. "Did you see them?"; 5. every role's words; 6. a narrow phone with extra-large text; 7. junk in the stored field.
 // Nothing depends on the day, the hour or the time zone of the run: block 1 uses fixed dates; elsewhere every day is
@@ -176,7 +177,7 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     ok('the focus goes into the sheet, to the date', (await focusAt(page)) === 'ac-rename-since');
     const said = await page.evaluate(() => { const d = document.querySelector('.sheet[aria-label="New name?"]'); const text = id => { const c = document.getElementById(id).cloneNode(true); c.querySelectorAll('[aria-hidden=true]').forEach(x => x.remove()); return c.textContent.replace(/\s+/g, ' ').trim(); };
       return { role: d.getAttribute('role'), modal: d.getAttribute('aria-modal'), by: (d.getAttribute('aria-describedby') || '').split(' ').map(text), date: (document.getElementById('ac-rename-since').getAttribute('aria-describedby') || '').split(' ').map(id => !!document.getElementById(id)), alert: document.getElementById('ac-rename-err').getAttribute('role'), inert: document.getElementById('app').inert }; });
-    ok('a screen reader is told the sheet’s name, the two names and the question as it arrives', said.role === 'dialog' && said.modal === 'true' && same(said.by, ['The Owls becomes The Night Owls', 'Did the name change, or are you fixing the spelling?']) && said.inert, JSON.stringify(said));
+    ok('a screen reader is told the sheet’s name, the two names and the question as it arrives', said.role === 'dialog' && said.modal === 'true' && same(said.by, ['The Owls becomes The Night Owls.', 'Did the name change, or are you fixing the spelling?']) && said.inert, JSON.stringify(said));
     ok('…and the date says what it is for, and where an error would be read out', same(said.date, [true, true]) && said.alert === 'alert');
 
     /* closing it without an answer: back in the form, nothing saved, nothing lost */
@@ -381,6 +382,51 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     await go(page, 'sessions');
     await page.waitForSelector('.sd-log[data-id="l-ses"]');
     ok('the Studio log says “formerly” after the session a take log was made at', (await page.locator('.sd-log[data-id="l-ses"] .sd-log-booking').innerText()).endsWith('Owl Parliament @ Echo Studios, formerly The Night Owls'), await page.locator('.sd-log[data-id="l-ses"] .sd-log-booking').innerText());
+
+    /* the other lists that name a booking: a person's, a backline item's, a song's studio sessions, a take log's own
+       page; and the other searches that find things by an act's name (the Studio log's, the two song pickers') */
+    await store(page, s => {
+      s.upsert('gear', { id: 'gr1', name: 'Telecaster' });
+      for (const id of ['b-40', 'b-own', 'b-3']) s.patch('bookings', id, { people: ['p1'], gear: ['gr1'] });
+      s.patch('bookings', 'b-ses', { songIds: ['g4'] });
+      s.patch('songs', 'g4', { bpm: 120 }); s.patch('songs', 'g1', { bpm: 100 }); // two songs with a tempo: the search has one to leave out
+      for (let i = 1; i <= 6; i++) s.upsert('logs', { id: 'l-x' + i, bookingId: '', date: '2020-01-0' + i, title: 'Other takes ' + i, takes: [] }); // enough for the Studio log's search box
+      s.upsert('setlists', { id: 'sl-x', name: 'Able’s set', actId: 'x1', items: [] });
+    });
+    await page.evaluate(() => import('./js/pages/people.js').then(m => m.openPerson('p1')));
+    await page.waitForSelector('.sheet .pp-past');
+    await page.click('.sheet .pp-past summary'); await sleep(150);
+    const was = sel => page.evaluate(x => { const el = document.querySelector(x); return el ? el.textContent : null; }, sel);
+    ok('a person’s list of bookings says “formerly” on the ones from before a change', await was('.pp-bk[data-id="b-40"] .pp-bk-was') === 'formerly The Night Owls' && await was('.pp-bk[data-id="b-own"] .pp-bk-was') === 'Owl Parliament, formerly The Night Owls' && await was('.pp-bk[data-id="b-3"] .pp-bk-was') === null,
+      [await was('.pp-bk[data-id="b-40"]'), await was('.pp-bk[data-id="b-3"]')].join(' | '));
+    await page.keyboard.press('Escape'); await sleep(200);
+    await page.evaluate(() => import('./js/pages/backline.js').then(m => m.openGear('gr1')));
+    await page.waitForSelector('.sheet #bl-bk-b-40');
+    ok('a backline item’s list of bookings does too', await was('#bl-bk-b-40 .bl-row-was') === 'formerly The Night Owls' && await was('#bl-bk-b-own .bl-row-was') === 'Owl Parliament, formerly The Night Owls' && await was('#bl-bk-b-3 .bl-row-was') === null, await was('#bl-bk-b-40'));
+    await page.keyboard.press('Escape'); await sleep(200);
+    await page.evaluate(() => import('./js/pages/songs.js').then(m => m.openSong('g4')));
+    await page.waitForSelector('.sheet [data-fk="sg-b-b-ses"]');
+    ok('…and a song’s studio sessions', /^Owl Parliament @ Echo Studios\s*formerly The Night Owls\s*/.test(await page.locator('.sheet [data-fk="sg-b-b-ses"]').innerText()), await page.locator('.sheet [data-fk="sg-b-b-ses"]').innerText());
+    await page.keyboard.press('Escape'); await sleep(200);
+    await page.evaluate(() => import('./js/pages/sessions.js').then(m => m.openLog('l-ses')));
+    await page.waitForSelector('.sd-log-view .sd-link');
+    ok('a take log’s own page names its session as its card does', (await page.locator('.sd-log-view .sd-link').innerText()).endsWith('Owl Parliament @ Echo Studios, formerly The Night Owls'), await page.locator('.sd-log-view .sd-link').innerText());
+    await page.click('.sd-log-view .back-btn'); await sleep(250);
+    await page.fill('#sd-search', 'night owls'); await sleep(200);
+    ok('the Studio log’s search finds a session’s take log by the act’s earlier name', same(await page.$$eval('.sd-log', els => els.map(e => e.dataset.id)), ['l-ses']), JSON.stringify(await page.$$eval('.sd-log', els => els.map(e => e.dataset.id))));
+    await page.fill('#sd-search', ''); await sleep(100);
+    await page.evaluate(() => import('./js/setlist.js').then(m => m.openSetlist('sl-x')));
+    await page.waitForSelector('[data-fk="sl-add-songs"]');
+    await page.click('[data-fk="sl-add-songs"]');
+    await page.waitForSelector('#sgp-q');
+    await page.fill('#sgp-q', 'night owls'); await sleep(200);
+    ok('the setlist’s song picker finds the act’s songs by its earlier name', same(await page.$$eval('.sg-pick-row', els => els.map(e => e.dataset.song)), ['g4']), JSON.stringify(await page.$$eval('.sg-pick-row', els => els.map(e => e.dataset.song))));
+    while (await page.locator('.sheet').count()) { await page.keyboard.press('Escape'); await sleep(200); }
+    await go(page, 'tools');
+    await page.click('#tl-tab-metronome'); await page.click('#tl-metro-song'); await page.waitForSelector('.sheet .tl-song');
+    await page.fill('#tl-song-q', 'the owls'); await sleep(150);
+    ok('…and so does the metronome’s', same(await page.$$eval('.sheet .tl-song', els => els.map(e => e.dataset.song)), ['g4']));
+    await page.keyboard.press('Escape'); await sleep(200);
 
     /* the booking form: the act can be picked by its old name too */
     await openB(page, 'b-3');
