@@ -18,6 +18,7 @@ export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'bac
 //   welcome, tour   the welcome tour's first card and its stops ({ id, text }, at most five, in menu order).
 //   pages      small defaults on existing pages, read with pageOpt(page, key, fallback):
 //              bookings.open { kind: [box ids open at first] }, bookings.score (Score this show on a show you went to),
+//              bookings.noActs (the booking form's hint while there are no acts to pick),
 //              acts.order ('name' | 'latest' | 'recent'), acts.tabs (an act's tabs: ['about'] leaves out the press kit and rider,
 //              and puts the times seen at the top of its Overview), acts.seen ('always' | 'logged': the times-seen line and log lead
 //              only once something is logged), acts.empty (the empty list's words), people.group (+ Add starts there),
@@ -80,7 +81,7 @@ export const ROLES = [
       { id: 'acts', text: 'You as an act: bio and links, a one-page press kit with a QR code for the merch table, and the tech rider to send ahead.' },
       { id: 'venues', text: 'The rooms you play or want to: capacity, stage, PA, curfew and the contact. + Book here starts a booking there.' },
     ],
-    pages: { bookings: { open: { show: ['deal', 'setlist'] } }, acts: { seen: 'logged', empty: 'Add yourself as an act: your name, bio and links. Its page keeps a one-page press kit and the tech rider to send ahead.' }, people: { group: 'session' } } },
+    pages: { bookings: { open: { show: ['deal', 'setlist'] }, noActs: 'Add yourself on the My act page to pick it here.' }, acts: { seen: 'logged', empty: 'Add yourself as an act: your name, bio and links. Its page keeps a one-page press kit and the tech rider to send ahead.' }, people: { group: 'session' } } },
   { id: 'scout', label: 'Scout', icon: '🔭', what: 'A&R scout',
     blurb: 'Acts you’re watching: a score out of 100 each time you see them, and where they play next.',
     sections: ['acts', 'bookings', 'people', 'venues'], start: 'acts', names: { bookings: 'Shows' },

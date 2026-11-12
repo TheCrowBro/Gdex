@@ -30,6 +30,11 @@ const STATUS_HELP = {
   advanced: 'Details confirmed with the promoter.', done: 'It happened.', settled: 'Paid or settled up.',
   cancelled: 'Off. Stays in your records, out of clashes and money.',
 };
+// A role without money has no money to keep a cancelled booking out of.
+const statusHelp = id => (id === 'cancelled' && !moneyShown() ? 'Off. Stays in your records, out of clashes.' : STATUS_HELP[id] || '');
+// The statuses to pick from for a kind. A role without money is not offered Paid / settled (it would settle a show it
+// never saw a deal for), unless the booking already has it (cur), so it can stay as it is.
+const statusChoices = (kind, cur) => model.statusesFor(kind).filter(([id]) => moneyShown() || id !== 'settled' || id === cur);
 const CONTACT_ROLES = ['Promoter', 'Booking agent', 'Venue manager', 'Production manager', 'Studio manager', 'Engineer', 'Producer', 'Client', 'Manager', 'Festival booker'];
 
 /* ------------------------------- helpers ------------------------------- */
@@ -94,6 +99,7 @@ function draw(focus = false) {
   const was = focus ? null : keyOf(document.activeElement);
   ROOT.replaceChildren(S.view === 'booking' ? bookingPage(byId('bookings', S.id)) : S.view === 'day' ? dayView() : monthView());
   if (was) { const again = [...ROOT.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].find(x => keyOf(x) === was); if (again) again.focus({ preventScroll: true }); }
+  scoreRefocus(focus);
   // The back button's shine runs when a page is arrived at, not on the redraw every change causes.
   const key = [S.view, S.id, S.day].join('|');
   if (key !== S.drawn) ROOT.querySelectorAll('.back-btn').forEach(el => el.classList.add('shine'));
@@ -113,7 +119,7 @@ const showBooking = b => go({ view: 'booking', id: b.id, day: covers(b, S.day) ?
 export const bookings = {
   id: 'bookings', label: 'Bookings', icon: '📅',
   render(root) { ROOT = root; draw(); },
-  tutorial: () => (S.view === 'booking' && byId('bookings', S.id) ? bookingSteps(byId('bookings', S.id)) : S.view === 'day' ? daySteps() : MONTH_STEPS),
+  tutorial: () => (S.view === 'booking' && byId('bookings', S.id) ? bookingSteps(byId('bookings', S.id)) : S.view === 'day' ? daySteps() : monthSteps()),
 };
 
 // Go to Bookings and show that booking's page. Resolves (true) once it is drawn; false when there is no such booking.
@@ -178,14 +184,19 @@ const pageHint = (id, fallback) => {
   return offMenu().includes(id) ? ` ${name} is a bonus track ${menuStyle() === 'tape' ? 'on the track list' : 'on the sleeve'}.` : '';
 };
 const capital = w => w.charAt(0).toUpperCase() + w.slice(1);
+// "All acts" in the role's words: "All bands", "All artists"; a roster is one thing, so "Whole roster".
+const allActs = () => { const n = sectionName('acts', 'Acts'), plural = actWord() + 's'; return n.toLowerCase() === plural || /^my\b/i.test(n) ? `All ${plural}` : `Whole ${n.toLowerCase()}`; };
 
-function fieldsFor(kind) {
+function fieldsFor(kind, cur = '') {
   const acts = sortByName(db.acts), word = actWord(); // 'act', or the role's own: 'artist', 'band'
-  const noActs = !acts.length ? `Add your bands and artists on the ${sectionName('acts', 'Acts')} page to pick them here.${pageHint('acts', 'Acts')}` : '';
+  // With no acts yet: where to add them, in the role's words (a solo artist adds themselves: pages.bookings.noActs).
+  const noActs = !acts.length ? `${pageOpt('bookings', 'noActs', '') || `Add your bands and artists on the ${sectionName('acts', 'Acts')} page to pick them here.`}${pageHint('acts', 'Acts')}` : '';
   // The members join an empty line-up (tidy), except for a role that keeps the line-up out of the way.
   const joins = kind !== 'other' && blockShown('lineup') ? 'Its members are added to the line-up when the line-up is empty.' : '';
-  const act = (label = capital(word)) => ({ key: 'actId', label, type: 'select', options: [['', `Not in my ${word}s`], ...acts.map(a => [a.id, a.name || 'Unnamed act'])], hint: noActs || joins });
-  const status = { key: 'status', label: 'Status', type: 'select', options: model.statusesFor(kind).map(([id, label]) => [id, label]) };
+  // A role that scores the shows it goes to scores the act picked here (Score this show on the booking).
+  const scores = kind === 'show' && pageOpt('bookings', 'score', false) ? `The ${word} you’re going to see. On the night or after, Score this show logs your score on their card.` : '';
+  const act = (label = capital(word)) => ({ key: 'actId', label, type: 'select', options: [['', `Not in my ${word}s`], ...acts.map(a => [a.id, a.name || 'Unnamed act'])], hint: noActs || scores || joins });
+  const status = { key: 'status', label: 'Status', type: 'select', options: statusChoices(kind, cur).map(([id, label]) => [id, label]) };
   const date = { key: 'date', label: 'Date', type: 'date', required: true };
   const endDate = { key: 'endDate', label: 'Last day (more than one day)', type: 'date', hint: 'Leave blank for a single day.' };
   const venue = (label, nameLabel, ph) => [
@@ -212,7 +223,8 @@ function fieldsFor(kind) {
     ...venue('Where', 'Place', 'e.g. BBC Maida Vale'), act(`${capital(word)} (optional)`), { key: 'fee', label: 'Fee', type: 'number', min: 0, step: 'any', placeholder: '0' }];
 }
 
-function editBooking(b) {
+// focus: the key of a field to put the cursor in (Score this show's "Pick the act" opens the form on the act).
+function editBooking(b, { focus = '' } = {}) {
   const isNew = !b.id;
   const kind = model.KINDS.some(k => k[0] === b.kind) ? b.kind : 'other';
   const c = b.contact || {};
@@ -220,7 +232,7 @@ function editBooking(b) {
   if (!model.statusesFor(kind).some(s => s[0] === values.status)) values.status = model.statusesFor(kind)[0][0];
   openForm({
     title: `${isNew ? 'New' : 'Edit'} ${NOUN[kind]}`,
-    values, fields: fieldsFor(kind), saveLabel: isNew ? 'Add' : 'Save',
+    values, fields: fieldsFor(kind, values.status), saveLabel: isNew ? 'Add' : 'Save',
     onSave: v => {
       const rec = tidy(v, kind);
       const before = (b.id && byId('bookings', b.id)) || b;
@@ -232,6 +244,7 @@ function editBooking(b) {
     onDelete: isNew ? null : () => { if (remove('bookings', b.id) !== false) { toast('Booking deleted'); haptic(30); } },
   });
   wireForm(kind);
+  if (focus) { const forms = document.querySelectorAll('.sheet form.form'), f = forms[forms.length - 1]; const el = f && f.querySelector(`[data-key="${focus}"], select[id$="-${focus}"]`); if (el) el.focus(); }
 }
 
 // What the form gave back, made into a booking record.
@@ -313,12 +326,13 @@ function wireForm(kind) {
 const settledNow = x => !!(x && (x.status === 'settled' || (x.settlement && x.settlement.settledAt)));
 // A new status on a booking record (x), with what goes with it: marking a show advanced ticks that line, and a show's
 // settlement follows Paid / settled both ways, as Mark settled and Reopen do on the Settlement box (settledAt and the
-// "Settled on the night" tick).
+// "Settled on the night" tick). A role without money never touches the settlement: the status changes, nothing else.
 function withStatus(x, s, wasSettled) {
   x.status = s;
   if (x.kind !== 'show') return x;
-  const st = x.settlement && typeof x.settlement === 'object' ? { ...x.settlement } : null;
   if (s === 'advanced') x.checks = { ...(x.checks || {}), 'show-advance': true };
+  if (!moneyShown()) return x;
+  const st = x.settlement && typeof x.settlement === 'object' ? { ...x.settlement } : null;
   if (s === 'settled') {
     x.settlement = { ...(st || {}), settledAt: (st && st.settledAt) || Date.now() };
     x.checks = { ...(x.checks || {}), 'show-settled': true };
@@ -340,10 +354,10 @@ function setStatus(b, s) {
 
 function statusPicker(b) {
   const { close } = sheet('Booking status', h('div', { class: 'bk-status-list', role: 'radiogroup', 'aria-label': 'Status' },
-    model.statusesFor(b.kind).map(([id, label, t]) => h('button', {
+    statusChoices(b.kind, b.status).map(([id, label, t]) => h('button', {
       type: 'button', role: 'radio', 'aria-checked': String(b.status === id), class: 'bk-status-opt' + (b.status === id ? ' on' : ''), 'data-status': id,
       onclick: () => { close(); setStatus(b, id); },
-    }, h('span', { class: 'pill st-' + t }, label), h('span', { class: 'muted small' }, STATUS_HELP[id] || ''), b.status === id && h('span', { class: 'bk-tick', 'aria-hidden': 'true' }, '✓')))));
+    }, h('span', { class: 'pill st-' + t }, label), h('span', { class: 'muted small' }, statusHelp(id)), b.status === id && h('span', { class: 'bk-tick', 'aria-hidden': 'true' }, '✓')))));
 }
 
 // A copy for another date: same act, venue, times, people and gear, but none of the money or the night (no
@@ -393,9 +407,13 @@ const HOLD_MS = 3000;
 function deleteSheet(b) {
   const { close } = sheet('Delete this booking?', h('div', { class: 'stack' },
     h('p', null, h('strong', null, model.bookingTitle(b)), h('span', { class: 'muted small bk-del-when' }, [dateRange(b, fmtShort), model.kindLabel(b.kind)].join(' · '))),
-    h('p', { class: 'small muted' }, b.kind === 'show'
-      ? 'Its deal, running order, guest list, settlement, checklist ticks, quote and invoice go with it. Your act, venue, people and setlist stay. This cannot be undone.'
-      : 'Its checklist ticks, notes, clocked hours, quote and invoice go with it. Take logs stay in the Studio log, unlinked. This cannot be undone.'),
+    h('p', { class: 'small muted' }, !moneyShown() // a role without money: only what it keeps on a booking
+      ? (b.kind === 'session'
+        ? `Its notes, checklist ticks and clocked hours go with it. Your ${actWord()}, venue and people stay. Take logs stay in the Studio log, unlinked. This cannot be undone.`
+        : `Its notes and checklist ticks go with it. Your ${actWord()}, venue and people stay. This cannot be undone.`)
+      : b.kind === 'show'
+        ? 'Its deal, running order, guest list, settlement, checklist ticks, quote and invoice go with it. Your act, venue, people and setlist stay. This cannot be undone.'
+        : 'Its checklist ticks, notes, clocked hours, quote and invoice go with it. Take logs stay in the Studio log, unlinked. This cannot be undone.'),
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn danger', onclick: () => { close(); if (remove('bookings', b.id) !== false) { toast('Booking deleted'); haptic(30); announce('Booking deleted'); } } }, '🗑 Delete booking'),
       h('button', { type: 'button', class: 'btn ghost', onclick: () => close() }, 'Keep it'))));
@@ -442,8 +460,8 @@ function monthView() {
     (kindsUsed.length > 1 || S.kind) && h('div', { class: 'chips', role: 'group', 'aria-label': 'Kind of booking' },
       chip(!S.kind, 'All kinds', () => go({ kind: '' }, { top: false })),
       model.KINDS.filter(([k]) => S.kind === k || kindsUsed.some(x => x[0] === k)).map(([k, , icon]) => chip(S.kind === k, `${icon} ${KIND_CHIP[k]}`, () => go({ kind: S.kind === k ? '' : k }, { top: false })))),
-    (actsUsed.length > 1 || S.act) && h('div', { class: 'chips', role: 'group', 'aria-label': 'Act' },
-      chip(!S.act, 'All acts', () => go({ act: '' }, { top: false })),
+    (actsUsed.length > 1 || S.act) && h('div', { class: 'chips', role: 'group', 'aria-label': capital(actWord()) },
+      chip(!S.act, allActs(), () => go({ act: '' }, { top: false })),
       actsUsed.concat(S.act && !actsUsed.some(a => a.id === S.act) && byId('acts', S.act) ? [byId('acts', S.act)] : []).map(a => chip(S.act === a.id,
         [h('span', { class: 'bk-swatch', style: safeColor(a.color) ? `--act:${safeColor(a.color)}` : null, 'aria-hidden': 'true' }), a.name || 'Unnamed act'],
         () => go({ act: S.act === a.id ? '' : a.id }, { top: false })))));
@@ -468,8 +486,9 @@ function monthView() {
       ? h('div', { class: 'bk-agenda' },
         h('div', { class: 'list' }, shown.map(agendaCard)),
         list.length > 8 && h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost small', id: 'bk-agenda-more', onclick: () => go({ all: !S.all }, { top: false }) }, S.all ? 'Show fewer' : `Show all (${list.length})`)))
-      : empty(filtersOn() ? 'Nothing coming up with these filters.' : 'Nothing coming up. Add a show, a studio session or a rehearsal, or tap a date on the calendar.',
-        filtersOn() ? h('button', { type: 'button', class: 'btn ghost', onclick: () => go({ kind: '', act: '' }, { top: false }) }, 'Clear the filters') : h('button', { type: 'button', class: 'btn primary', onclick: () => newBooking({}) }, '+ New booking')));
+      : empty(filtersOn() ? 'Nothing coming up with these filters.' : moneyShown() ? 'Nothing coming up. Add a show, a studio session or a rehearsal, or tap a date on the calendar.' : 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.',
+        filtersOn() ? h('button', { type: 'button', class: 'btn ghost', onclick: () => go({ kind: '', act: '' }, { top: false }) }, 'Clear the filters')
+          : moneyShown() ? h('button', { type: 'button', class: 'btn primary', onclick: () => newBooking({}) }, '+ New booking') : h('button', { type: 'button', class: 'btn primary', onclick: () => newBooking({ kind: 'show' }) }, '+ Add a show')));
 }
 
 function dayCell(iso, all, today) {
@@ -613,23 +632,46 @@ function moreBoxes(b, ctx) {
   return fold;
 }
 
-// Score this show, for a role that scores the acts it sees (js/roles.js pages.bookings.score): a show with an act, from
-// its day on, not cancelled. It logs a time seen on the act's card with the date, the venue and the booking filled in.
-// Once the act's log has it (from here, or from the act's card on the same day), the score shows instead.
-const scoreOn = b => !!(pageOpt('bookings', 'score', false) && b.kind === 'show' && actOf(b) && b.status !== 'cancelled' && isoOk(b.date) && b.date <= todayISO());
+// Score this show, for a role that scores the acts it sees (js/roles.js pages.bookings.score): a show from its day on,
+// not cancelled. With its act, it logs a time seen on the act's card with the date, the venue and the booking filled
+// in; once the act's log has it (from here, or from the act's card on the same day), the score shows instead. With no
+// act yet, it says so and opens the booking's form on the act.
+const scoreable = b => !!(pageOpt('bookings', 'score', false) && b.kind === 'show' && b.status !== 'cancelled' && isoOk(b.date) && b.date <= todayISO());
+const scoreOn = b => scoreable(b) && !!actOf(b);
+// What the row's button does changes it (★ Score → ✎ Edit, ✎ Edit → Delete → ★ Score, Pick the act → ★ Score), so the
+// app cannot find the old one after the redraw: the draw after its sheet closes puts the focus on the new one.
+let SCORE_FOCUS = null; // { id: the booking's id, was: the id of the button that opened the sheet }
+const scoreTap = (b, was, fn) => () => { SCORE_FOCUS = { id: b.id, was }; fn(); };
+function scoreRefocus(viewChanged) {
+  const sf = SCORE_FOCUS;
+  if (!sf) return;
+  if (viewChanged || S.view !== 'booking' || S.id !== sf.id) { SCORE_FOCUS = null; return; }
+  if (document.querySelector('.sheet')) return; // still open: wait for the draw after it closes
+  SCORE_FOCUS = null;
+  const btn = ROOT.querySelector('.bk-score button[id^="bk-score"]'), now = document.activeElement;
+  if (btn && btn.id !== sf.was && (!now || now === document.body)) btn.focus({ preventScroll: true });
+}
 function scoreRow(b) {
-  if (!scoreOn(b)) return null;
-  const act = actOf(b), name = act.name || 'Unnamed act', entry = model.seenEntryFor(act, b);
+  if (!scoreable(b)) return null;
+  const act = actOf(b);
+  if (!act) {
+    const word = actWord();
+    return h('div', { class: 'bk-score bk-score-noact' },
+      h('span', { class: 'bk-score-text' }, `Pick the ${word} you saw to score this show.`),
+      h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-act', onclick: scoreTap(b, 'bk-score-act', () => editBooking(byId('bookings', b.id) || b, { focus: 'actId' })) },
+        h('span', { 'aria-hidden': 'true' }, '✎ '), `Pick the ${word}`));
+  }
+  const name = act.name || 'Unnamed act', entry = model.seenEntryFor(act, b);
   if (!entry) {
     return h('div', { class: 'bk-score' },
       h('button', { type: 'button', class: 'btn primary small', id: 'bk-score',
-        onclick: () => logSighting(byId('acts', act.id) || act, { date: b.date, venueId: b.venueId || '', where: b.venueId ? '' : (b.venueName || ''), bookingId: b.id }) },
+        onclick: scoreTap(b, 'bk-score', () => logSighting(byId('acts', act.id) || act, { date: b.date, venueId: b.venueId || '', where: b.venueId ? '' : (b.venueName || ''), bookingId: b.id })) },
       h('span', { 'aria-hidden': 'true' }, '★ '), `Score ${name}`));
   }
   const r = model.ratingOf(entry);
   return h('div', { class: 'bk-score bk-scored' },
     h('span', { class: 'bk-score-text' }, h('span', { 'aria-hidden': 'true' }, '★ '), r != null ? ['Scored ', h('b', null, String(r)), '/100'] : 'Seen, no score yet'),
-    h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-edit', 'aria-label': `Edit the time you saw ${name}`, onclick: () => logSighting(byId('acts', act.id) || act, entry) }, '✎ Edit'));
+    h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-edit', 'aria-label': `Edit the time you saw ${name}`, onclick: scoreTap(b, 'bk-score-edit', () => logSighting(byId('acts', act.id) || act, entry)) }, '✎ Edit'));
 }
 
 function hero(b) {
@@ -713,9 +755,9 @@ function blockBox(b, blk, ctx) {
 }
 
 /* ------------------------------- walkthroughs ------------------------------- */
-const MONTH_STEPS = [
+const monthSteps = () => [
   { title: 'New booking', text: 'Add a show, a studio session, a rehearsal or anything else in the diary.', target: ['.bk-new'] },
-  { title: 'Export calendar', text: 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar, or to send to the band. No fees or deals go in it.', target: ['.bk-export'] },
+  { title: 'Export calendar', text: moneyShown() ? 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar, or to send to the band. No fees or deals go in it.' : 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar.', target: ['.bk-export'] },
   { title: 'Filters', text: 'Show one act, or one kind of booking, on the calendar and in the list.', target: ['.bk-filters'] },
   { title: 'The calendar', text: 'Each line or dot is a booking in its act’s colour. Hollow or dashed means a hold or an offer. Tap a day to see it; swipe, or use ‹ ›, for other months.', target: ['.bk-cal-panel'] },
   { title: 'Coming up', text: 'Your next bookings, soonest first. Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-agenda', '.bk-monthview .empty'] },
@@ -729,9 +771,10 @@ const daySteps = () => [
 function bookingSteps(b) {
   const base = [
     { title: 'The booking', text: 'The date, the times in the order the day runs, the venue with directions, the act and the contact. Press and hold this card for three seconds to delete the booking.', target: ['.bk-hero'] },
-    { title: 'Status', text: 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records but leaves clashes and money.', target: ['.bk-status'] },
+    { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records but leaves clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records but leaves clashes.', target: ['.bk-status'] },
     { title: 'Times', text: 'Off stage is worked out from the set time and length. A time marked +1 is after midnight.', target: ['.bk-times'] },
     scoreOn(b) && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.', target: ['.bk-score'] },
+    scoreable(b) && !actOf(b) && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },
     { title: 'The boxes', text: 'Everything else about the booking, one box each: tap a box to open it. Boxes you open stay open.', target: ['.bk-blocks'] },
@@ -752,7 +795,7 @@ const formSteps = kind => () => [
   kind !== 'rehearsal' && kind !== 'other' && { title: 'Contact', text: 'The promoter, agent or studio contact. Their phone and email give you call, text and email buttons on the booking.', target: ['[data-key="contactName"]'] },
 ].filter(Boolean);
 for (const [kind] of model.KINDS) { sheetTutorial(`New ${NOUN[kind]}`, formSteps(kind)); sheetTutorial(`Edit ${NOUN[kind]}`, formSteps(kind)); }
-sheetTutorial('What are you booking?', [{ title: 'Pick a kind', text: 'Each kind has its own form and boxes: a show has a deal and a guest list, a session a rate and takes.', target: ['.bk-kinds'] }]);
-sheetTutorial('Booking status', [{ title: 'Status', text: 'Tap one to set it. Hold and offer show hollow on the calendar; cancelled leaves clashes and money.', target: ['.bk-status-list'] }]);
+sheetTutorial('What are you booking?', () => [{ title: 'Pick a kind', text: moneyShown() ? 'Each kind has its own form and boxes: a show has a deal and a guest list, a session a rate and takes.' : 'Each kind has its own form and boxes. The one you add most is first.', target: ['.bk-kinds'] }]);
+sheetTutorial('Booking status', () => [{ title: 'Status', text: moneyShown() ? 'Tap one to set it. Hold and offer show hollow on the calendar; cancelled leaves clashes and money.' : 'Tap one to set it. Hold and offer show hollow on the calendar; a cancelled one stays in your records, out of clashes.', target: ['.bk-status-list'] }]);
 sheetTutorial('Duplicate booking', () => [{ title: 'New date', text: moneyShown() ? 'The copy goes on this date, on hold, with the same act, venue, times, people and gear.' : 'The copy goes on this date, confirmed, with the same act, venue, times and notes.', target: ['#bk-dup-date'] }]);
 sheetTutorial('Delete this booking?', [{ title: 'Delete', text: 'Deleting cannot be undone. Keep it closes this without changing anything.', target: ['.btn.danger'] }]);

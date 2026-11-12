@@ -7,6 +7,7 @@ import { bookingTitle, fmtMoney, currency, rateUnitLabel, kindIcon, daysSpan } f
 import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { clockCard, runningShift, onBreak, shiftsOf, workedMs, breakMs, bookingMs, fmtHm, clockTime, plannedHours, tick } from '../clock.js';
+import { moneyShown } from '../roles.js';
 
 const H = 36e5;
 const toHm = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -100,7 +101,9 @@ export default {
   render(b, ctx = {}) {
     const sym = (ctx && ctx.sym) || currency();
     const shifts = shiftsOf(b.id);
-    const plan = plannedHours(b), hourly = b.kind === 'session' && b.rateUnit === 'hour' && Number(b.rate) > 0;
+    // A role without money (a scout, a gig-goer) sees the hours only: no fee, no billing line.
+    const money = moneyShown(), billed = money && b.kind === 'session';
+    const plan = plannedHours(b), hourly = billed && b.rateUnit === 'hour' && Number(b.rate) > 0;
     const days = Math.max(1, daysSpan(b));
     const planText = plan ? `of ${fmtHm(plan * H)} planned${days > 1 ? ` (${days} days)` : ''}` : 'logged';
     return h('div', { class: 'sd-clock-box' },
@@ -110,8 +113,8 @@ export default {
         stat(tick('total', b.id), planText),
         hourly && stat(tick('fee', b.id), `at ${fmtMoney(Number(b.rate), sym)}/hour, to the ¼ hour`)),
       plan > 0 && h('div', { class: 'progress sd-progress' + (bookingMs(b.id) > plan * H ? ' over' : ''), role: 'img', 'aria-label': `${fmtHm(bookingMs(b.id))} logged of ${fmtHm(plan * H)} planned` }, h('i', { 'data-sd-tick': 'bar', 'data-sd-for': b.id, style: `width:${Math.min(100, (bookingMs(b.id) / (plan * H)) * 100)}%` })),
-      b.kind === 'session' && Number(b.rate) > 0 && !hourly && h('p', { class: 'muted small' }, `Billed ${fmtMoney(Number(b.rate), sym)} ${rateUnitLabel(b.rateUnit) || 'flat'}, so the hours here are for your records.`),
-      b.kind === 'session' && !(Number(b.rate) > 0) && h('p', { class: 'muted small' }, 'Set an hourly rate on the booking and the hours here turn into the amount to bill.'),
+      billed && Number(b.rate) > 0 && !hourly && h('p', { class: 'muted small' }, `Billed ${fmtMoney(Number(b.rate), sym)} ${rateUnitLabel(b.rateUnit) || 'flat'}, so the hours here are for your records.`),
+      billed && !(Number(b.rate) > 0) && h('p', { class: 'muted small' }, 'Set an hourly rate on the booking and the hours here turn into the amount to bill.'),
       h('div', { class: 'card-row sd-shifts-head' },
         h('h4', null, shifts.length ? `Shifts (${shifts.length})` : 'Shifts'),
         h('button', { type: 'button', class: 'btn ghost small', id: `sd-add-hours-${b.id}`, onclick: () => editShift(null, b) }, '+ Add hours')),
@@ -119,9 +122,10 @@ export default {
         ? h('div', { class: 'sd-shifts' }, shifts.map(s => shiftRow(s, b)))
         : h('p', { class: 'muted small' }, 'Each time the clock runs it adds a shift here. Forgot to start it? Add the hours by hand.'));
   },
-  tutorial: [
+  tutorial: () => [
     { title: 'Session clock', text: 'Start it when the session starts. Take a break pauses it; Back starts it again; Stop ends the shift. While it runs, a strip under the section menu shows it on every page.', target: ['#blk-clock .sd-clock', '.sd-clock'] },
-    { title: 'Hours', text: 'Today’s time, all the hours logged against the hours planned (start to finish on the booking), and at an hourly rate what they come to. The invoice bills these hours, to the nearest quarter hour, and so does the amount here.', target: ['#blk-clock .sd-stats', '.sd-stats'] },
+    { title: 'Hours', text: moneyShown() ? 'Today’s time, all the hours logged against the hours planned (start to finish on the booking), and at an hourly rate what they come to. The invoice bills these hours, to the nearest quarter hour, and so does the amount here.'
+      : 'Today’s time, and all the hours logged against the hours planned (start to finish on the booking).', target: ['#blk-clock .sd-stats', '.sd-stats'] },
     { title: 'Shifts', text: 'Every shift with its breaks. Tap one to fix its times (or delete it), or add hours by hand when the clock was not running.', target: ['#blk-clock .sd-shifts-head', '.sd-shifts-head'] },
   ],
 };
