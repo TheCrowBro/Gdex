@@ -5,7 +5,7 @@
 // .vcf file. Act membership lives on the act (act.members); the form here can change it too.
 import { h, nodes, empty, toast, sheet, telUrl, fmtShort, parseISO, todayISO } from '../util.js';
 import { db, upsert, update, remove, byId, subscribe, personBookings, personClash, activeBookings, lastDay, upcoming, totalValue } from '../store.js';
-import { PEOPLE_GROUPS, ROLES, PERSON_RATE_UNITS, kindIcon, bookingTitle, actName, venueOf, statusLabel, statusTone, fmtMoney, fmtMin } from '../model.js';
+import { PEOPLE_GROUPS, ROLES, PERSON_RATE_UNITS, kindIcon, bookingTitle, actName, venueOf, statusLabel, statusTone, fmtMoney, fmtMin, byDayPlay, byDayPlayDesc } from '../model.js';
 import { openForm } from '../form.js';
 import { qrSvg, loadQR } from '../qr.js';
 import { saveFile, fileName } from '../print.js';
@@ -38,9 +38,9 @@ const okColor = c => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '');
 const actsOf = id => db.acts.filter(a => (a.members || []).includes(id)).sort(byName);
 const today = () => todayISO();
 // store.personBookings, but a booking still without a date (half made, or from an old backup) cannot break the page.
-const bookingsOf = id => { try { return personBookings(id); } catch { return activeBookings().filter(b => (b.people || []).includes(id)).sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))); } };
+const bookingsOf = id => { try { return personBookings(id); } catch { return activeBookings().filter(b => (b.people || []).includes(id)).sort(byDayPlay); } };
 const upcomingFor = id => bookingsOf(id).filter(b => ISO.test(b.date || '') && lastDay(b) >= today());
-const pastFor = id => bookingsOf(id).filter(b => ISO.test(b.date || '') && lastDay(b) < today()).reverse();
+const pastFor = id => bookingsOf(id).filter(b => ISO.test(b.date || '') && lastDay(b) < today()).sort(byDayPlayDesc); // newest day first, a day in playing order
 // Bookings where this person is the promoter / client / studio contact (matched by email, else by name).
 const asContact = p => {
   const mail = emailOf(p).toLowerCase(), name = String(p.name || '').trim().toLowerCase();

@@ -3,7 +3,7 @@
 // venueWarnings(b) checks a booking against its venue for the booking page (set past curfew, deal above capacity…).
 import { h, nodes, empty, sheet, toast, fmtShort, todayISO, telUrl, safeUrl } from '../util.js';
 import { db, byId, upsert, remove, subscribe, lastDay } from '../store.js';
-import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMin, addMinutes, minutesBetween, actName, kindLabel, kindIcon, statusLabel, statusTone } from '../model.js';
+import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMin, addMinutes, minutesBetween, actName, kindLabel, kindIcon, statusLabel, statusTone, byPlay, byDayPlayDesc } from '../model.js';
 import { openForm } from '../form.js';
 import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
@@ -27,7 +27,8 @@ const dateText = b => (b.date ? fmtShort(b.date) + (lastDay(b) > b.date ? ' – 
 // Who a booking is for, without the venue (the venue is already on screen).
 const who = b => String(b.title || '').trim() || actName(b.actId) || String(b.client || '').trim() || kindLabel(b.kind);
 const isAhead = (b, today = todayISO()) => !b.date || lastDay(b) >= today;
-const byDate = (a, b) => String(a.date || '9999').localeCompare(String(b.date || '9999'));
+// Soonest first (no date last); on one day, in the order the bands play.
+const byDate = (a, b) => String(a.date || '9999').localeCompare(String(b.date || '9999')) || byPlay(a, b);
 const bookingsAt = id => db.bookings.filter(b => b.venueId === id);
 const nextAt = id => { const t = todayISO(); return bookingsAt(id).filter(b => b.status !== 'cancelled' && b.date && isAhead(b, t)).sort(byDate)[0] || null; };
 const goBooking = id => import('./bookings.js').then(m => m.openBooking(id)).catch(e => { console.error(e); toast('That booking could not be opened.'); });
@@ -183,7 +184,7 @@ export function openVenue(id) {
       const h2 = handle.el.querySelector('.sheet-head h2'); if (h2) h2.textContent = title;
     }
     const now = todayISO(), here = bookingsAt(id);
-    const next = here.filter(b => isAhead(b, now)).sort(byDate), past = here.filter(b => !isAhead(b, now)).sort(byDate).reverse();
+    const next = here.filter(b => isAhead(b, now)).sort(byDate), past = here.filter(b => !isAhead(b, now)).sort(byDayPlayDesc); // newest day first, a day in playing order
     const site = safeUrl(String(v.website || '').trim());
     const details = [
       ['Capacity', num(v.capacity) > 0 ? String(num(v.capacity)) : ''], ['Stage', v.stage], ['PA & desk', v.pa], ['Backline provided', v.backline],

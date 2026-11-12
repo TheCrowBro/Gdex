@@ -3,7 +3,7 @@
 // The page draws from db every time (it is drawn again after every change), and every change goes through the store.
 import { h, nodes, empty, sheet, toast, fmtShort, fmtLong, todayISO, groupBy } from '../util.js';
 import { db, byId, upsert, patch, remove, subscribe, gearBookings, gearClash, gearShort, activeBookings, lastDay, qtyOf, usedQty, unitValue, totalValue } from '../store.js';
-import { GEAR_CATS, PEOPLE_GROUPS, fmtMoney, currency, bookingTitle, kindIcon, statusLabel, statusTone } from '../model.js';
+import { GEAR_CATS, PEOPLE_GROUPS, fmtMoney, currency, bookingTitle, kindIcon, statusLabel, statusTone, byDayPlay, byDayPlayDesc } from '../model.js';
 import { openForm } from '../form.js';
 import { printElement, docPage, saveFile, fileName, csv } from '../print.js';
 import { sheetTutorial } from '../tour.js';
@@ -34,7 +34,7 @@ const dateText = b => (b.date ? fmtShort(b.date) + (lastDay(b) > b.date ? ' – 
 
 // The live bookings an item is on, soonest first. A booking saved without a date must not break the page.
 function bookingsWith(id) {
-  try { return gearBookings(id); } catch { return activeBookings().filter(b => (b.gear || []).includes(id)).sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))); }
+  try { return gearBookings(id); } catch { return activeBookings().filter(b => (b.gear || []).includes(id)).sort(byDayPlay); }
 }
 const isAhead = (b, today = todayISO()) => !b.date || lastDay(b) >= today;
 const aheadOf = id => { const t = todayISO(); return bookingsWith(id).filter(b => isAhead(b, t)); };
@@ -184,7 +184,7 @@ export function openGear(id) {
       const h2 = handle.el.querySelector('.sheet-head h2'); if (h2) h2.textContent = title;
     }
     const n = qtyOf(g), owner = ownerOf(g), now = todayISO();
-    const all = bookingsWith(id), next = all.filter(b => isAhead(b, now)), past = all.filter(b => !isAhead(b, now)).reverse();
+    const all = bookingsWith(id), next = all.filter(b => isAhead(b, now)), past = all.filter(b => !isAhead(b, now)).sort(byDayPlayDesc); // newest day first, a day in playing order
     const packs = db.kits.filter(k => (k.items || []).includes(id));
     body.replaceChildren(...nodes(
       h('dl', { class: 'bl-kv' },

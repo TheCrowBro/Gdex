@@ -1,24 +1,27 @@
-// Bookings: the heart of Gdex. Three views kept in module state (S): the month calendar with "Coming up" under it,
-// one day, and a booking's own page (its header, then one fold-down box per block from js/blocks/index.js, and the
-// boxes the role keeps out of the way in one "More boxes" fold below them).
-// Adapted from Vdex's bookings page: the month grid, the day list, press and hold to delete, duplicate.
-import { h, nodes, ymd, todayISO, parseISO, fmtLong, fmtShort, daysUntil, toast, announce, sheet, empty, backBtn, hold, wasHeld, telUrl } from '../util.js';
-import { db, byId, update, upsert, remove, bookingsOn, upcoming, covers, lastDay, usedQty } from '../store.js';
+// Bookings: the heart of Gdex. Two views kept in module state (S): the calendar (js/bookings-cal.js: the month with
+// "Coming up" under it, or one day) and a booking's own page (its header, then one fold-down box per block from
+// js/blocks/index.js, and the boxes the role keeps out of the way in one "More boxes" fold below them), with the forms
+// and sheets that make, copy and delete a booking.
+// Adapted from Vdex's bookings page: press and hold to delete, duplicate.
+import { h, nodes, todayISO, fmtLong, fmtShort, toast, announce, sheet, backBtn, hold, telUrl } from '../util.js';
+import { db, byId, update, upsert, remove, upcoming, covers, lastDay } from '../store.js';
 import * as model from '../model.js';
 import { openForm } from '../form.js';
 import { mapButtons } from '../map.js';
 import { saveFile, fileName } from '../print.js';
 import { sheetTutorial } from '../tour.js';
-import { haptic, menuStyle } from '../a11y.js';
+import { haptic, menuWords } from '../a11y.js';
 import { blocksFor, foldedFor } from '../blocks/index.js';
 import { bookingIcs, allIcs, runOfDay } from '../ics.js';
 import { openAct, logSighting } from './acts.js';
 import { venueChecks, openVenue } from './venues.js';
-import { kindHelp, kindOrder, moneyShown, blockShown, pageOpt, sectionName, actWord, offMenu } from '../roles.js';
+import { kindHelp, kindOrder, moneyShown, blockShown, pageOpt, sectionName, actWord, offMenu, askSeen } from '../roles.js'; // askSeen: for the score row (who is asked "Did you see them?")
+import { isoOk, addDays, daysBetween, actOf, actStyle, tone, multi, dateRange, plural, sortByName, capital, KIND_CHIP, calMode } from '../bookings-kit.js';
+import { calendarView, calendarSteps } from '../bookings-cal.js';
+import { rulesFull } from '../venues-rules.js';
 
 /* ------------------------------- words ------------------------------- */
 const NOUN = { show: 'show', session: 'studio session', rehearsal: 'rehearsal', other: 'diary entry' };
-const KIND_CHIP = { show: 'Shows', session: 'Sessions', rehearsal: 'Rehearsals', other: 'Other' };
 const KIND_HELP = {
   show: 'A gig: load-in, set times, the deal, guest list and settlement.',
   session: 'Studio time: the rate, the songs, takes and what to deliver.',
@@ -38,37 +41,9 @@ const statusChoices = (kind, cur) => model.statusesFor(kind).filter(([id]) => mo
 const CONTACT_ROLES = ['Promoter', 'Booking agent', 'Venue manager', 'Production manager', 'Studio manager', 'Engineer', 'Producer', 'Client', 'Manager', 'Festival booker'];
 
 /* ------------------------------- helpers ------------------------------- */
-const isoOk = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
-const monthStart = iso => { const d = isoOk(iso) ? parseISO(iso) : new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); };
-const addDays = (iso, n) => { const d = parseISO(iso); d.setDate(d.getDate() + n); return ymd(d); };
-const daysBetween = (a, b) => Math.round((parseISO(b) - parseISO(a)) / 864e5);
-const safeColor = c => (/^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(c || '') ? c : '');
-const actOf = b => (b && b.actId ? byId('acts', b.actId) : null);
-const actStyle = b => { const c = safeColor(actOf(b) && actOf(b).color); return c ? `--act:${c}` : null; };
-const tone = s => model.statusTone(s);
-const pill = s => h('span', { class: 'pill ' + tone(s) }, model.statusLabel(s));
-const multi = b => lastDay(b) > b.date;
-const dateRange = (b, f) => (!isoOk(b.date) ? 'No date' : multi(b) ? `${f(b.date)} → ${f(lastDay(b))}` : f(b.date));
-const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-// The first time on the day with its name ("Load-in 17:00"), or "10:00–18:00" for studio time and rehearsals.
-function timeLine(b) {
-  const run = runOfDay(b);
-  if (!run.length) return '';
-  if (b.kind !== 'show') return run.map(x => x[1]).join('–');
-  const [l, t] = run[0], set = run.find(x => x[0] === 'On stage');
-  return `${l} ${t}` + (set && set !== run[0] ? ` · On ${set[1]}` : '');
-}
-// Where, without repeating the title: the venue's name unless "Act @ Venue" already says it; with the address
-// (first line) when asked for, or when the name is already in the title.
-function venueLine(b, withAddress = false) {
-  const v = model.venueOf(b), name = v.name || '', addr = String(v.address || b.address || '').split('\n')[0].trim();
-  const said = name && model.bookingTitle(b).includes(name);
-  return [!said && name, (withAddress || said) && addr].filter(Boolean).join(', ');
-}
+// Dates, an act's colour and the status pill are in js/bookings-kit.js, shared with the calendar.
 const filtersOn = () => !!(S.kind || S.act);
 const passes = b => (!S.kind || b.kind === S.kind) && (!S.act || b.actId === S.act);
-// The section's name for the role ("Shows" for a scout), wherever this page says it.
-const pageName = () => sectionName('bookings', 'Bookings');
 // "Line-up & gear, Advance checklist and Guest list".
 const andList = list => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`);
 // A new booking's status. A show or a studio session starts on hold (pencilled in), the rest confirmed. A role without
@@ -77,7 +52,10 @@ const andList = list => (list.length < 2 ? list.join('') : `${list.slice(0, -1).
 const firstStatus = kind => (!moneyShown() ? 'confirmed' : kind === 'show' || kind === 'session' ? 'hold' : 'confirmed');
 
 /* ------------------------------- state ------------------------------- */
-const S = { view: 'month', cursor: monthStart(todayISO()), day: todayISO(), id: null, kind: '', act: '', all: false, drawn: '' };
+// view: 'cal' (the calendar, in the view S.mode: 'month' | 'two' | 'week' | 'three' | 'day') or 'booking' (S.id).
+// S.day is the one anchor day every calendar view is drawn around (the month shown is its month), and it is always a
+// valid date. kind and act are the filter chips; all: Coming up in full.
+const S = { view: 'cal', mode: calMode(), day: todayISO(), id: null, kind: '', act: '', all: false, drawn: '' };
 const OPEN = new Map(); // booking id → Set of open block ids, and 'more' for the More boxes fold (survives every redraw)
 // The boxes a role opens at first (js/roles.js pages.bookings.open: { show: ['deal', 'advance'] }), the first time a
 // booking is drawn in a visit. After that, what the person opens and closes is what stays open.
@@ -89,44 +67,49 @@ const openSet = id => { if (!OPEN.has(id)) OPEN.set(id, new Set(firstOpen(id)));
 const FILL = new WeakMap(); // a box (details element) → fills its body now, if it is not filled yet
 let ROOT = null;
 
-// What identifies a control across one of this page's own redraws (a filter chip, a month arrow, a day).
+// What identifies a control across one of this page's own redraws (a filter chip, a month arrow, a day). An id wins
+// over a date.
 const keyOf = el => (!el || !ROOT || el === ROOT || !ROOT.contains(el) ? null
   : el.id ? '#' + el.id : el.dataset && el.dataset.date ? 'd' + el.dataset.date : el.getAttribute('aria-label') ? 'a' + el.getAttribute('aria-label') : 't' + el.tagName + (el.textContent || '').trim().slice(0, 60));
+const viewKey = () => [S.view, S.id, S.day, S.mode].join('|');
 function draw(focus = false) {
   if (!ROOT) return;
-  if (S.view === 'booking' && !byId('bookings', S.id)) { S.view = 'day'; focus = true; } // deleted (here or elsewhere): its day
+  if (!isoOk(S.day)) S.day = todayISO(); // every view does its date sums on S.day; a booking can lack a date
+  if (S.view === 'booking' && !byId('bookings', S.id)) { S.view = 'cal'; S.mode = 'day'; focus = true; } // deleted (here or elsewhere): its day
   if (S.act && !byId('acts', S.act)) S.act = '';
   const was = focus ? null : keyOf(document.activeElement);
-  ROOT.replaceChildren(S.view === 'booking' ? bookingPage(byId('bookings', S.id)) : S.view === 'day' ? dayView() : monthView());
+  ROOT.replaceChildren(S.view === 'booking' ? bookingPage(byId('bookings', S.id)) : calendarView(CTX));
   if (was) { const again = [...ROOT.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].find(x => keyOf(x) === was); if (again) again.focus({ preventScroll: true }); }
   scoreRefocus(focus);
   // The back button's shine runs when a page is arrived at, not on the redraw every change causes.
-  const key = [S.view, S.id, S.day].join('|');
+  const key = viewKey();
   if (key !== S.drawn) ROOT.querySelectorAll('.back-btn').forEach(el => el.classList.add('shine'));
   S.drawn = key;
   if (focus) { const head = ROOT.querySelector('[data-view-head]'); if (head) head.focus({ preventScroll: true }); }
 }
-// Move to another view (or month): draws and, for a new view, goes to the top and puts the focus on its heading.
+// Move to another view (or day): merges p into S and draws. top: for a new view, go to the top and put the focus on
+// its heading ([data-view-head]).
 function go(p, { top = true } = {}) {
-  const was = [S.view, S.id, S.day].join('|');
+  const was = viewKey();
   Object.assign(S, p);
-  const now = [S.view, S.id, S.day].join('|');
-  draw(top && was !== now);
+  draw(top && was !== viewKey());
   if (top) window.scrollTo({ top: 0 });
 }
-const showBooking = b => go({ view: 'booking', id: b.id, day: covers(b, S.day) ? S.day : b.date, cursor: monthStart(b.date) });
+// A booking's page. day: the day it was tapped on, so Back returns there (a festival opened from its second day);
+// else the day in view when the booking covers it, else its first day. A booking with no date keeps the day in view.
+const showBooking = (b, day) => go({ view: 'booking', id: b.id, day: day && covers(b, day) ? day : covers(b, S.day) ? S.day : isoOk(b.date) ? b.date : S.day });
 
 export const bookings = {
   id: 'bookings', label: 'Bookings', icon: '📅',
   render(root) { ROOT = root; draw(); },
-  tutorial: () => (S.view === 'booking' && byId('bookings', S.id) ? bookingSteps(byId('bookings', S.id)) : S.view === 'day' ? daySteps() : monthSteps()),
+  tutorial: () => (S.view === 'booking' && byId('bookings', S.id) ? bookingSteps(byId('bookings', S.id)) : calendarSteps(CTX)),
 };
 
 // Go to Bookings and show that booking's page. Resolves (true) once it is drawn; false when there is no such booking.
 export function openBooking(id) {
   const b = byId('bookings', id);
   if (!b) { toast('That booking is not here any more.'); return Promise.resolve(false); }
-  Object.assign(S, { view: 'booking', id: b.id, day: b.date, cursor: monthStart(b.date) });
+  Object.assign(S, { view: 'booking', id: b.id, day: isoOk(b.date) ? b.date : S.day });
   const here = () => window.logiPage && window.logiPage() === 'bookings' && ROOT && ROOT.isConnected;
   if (here()) { draw(true); window.scrollTo({ top: 0 }); return Promise.resolve(true); }
   return Promise.resolve(window.logiGo ? window.logiGo('bookings') : null).then(() => {
@@ -169,7 +152,6 @@ function chooseKind(preset = {}) {
   setTimeout(() => document.querySelector('.bk-kinds .bk-kind')?.focus(), 60);
 }
 
-const sortByName = list => [...list].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 // Venues for a kind of booking: the fitting kind first (studios for a session), the rest after with their kind named.
 function venueOptions(kind) {
   const want = { show: ['venue', 'festival'], session: ['studio'], rehearsal: ['rehearsal'], other: [] }[kind] || [];
@@ -181,11 +163,8 @@ function venueOptions(kind) {
 // A section's name, and when it is not on the role's menu, where to find it (wireForm adds a button there).
 const pageHint = (id, fallback) => {
   const name = sectionName(id, fallback);
-  return offMenu().includes(id) ? ` ${name} is a bonus track ${menuStyle() === 'tape' ? 'on the track list' : 'on the sleeve'}.` : '';
+  return offMenu().includes(id) ? ` ${name} is a bonus track on ${menuWords().list}.` : '';
 };
-const capital = w => w.charAt(0).toUpperCase() + w.slice(1);
-// "All acts" in the role's words: "All bands", "All artists"; a roster is one thing, so "Whole roster".
-const allActs = () => { const n = sectionName('acts', 'Acts'), plural = actWord() + 's'; return n.toLowerCase() === plural || /^my\b/i.test(n) ? `All ${plural}` : `Whole ${n.toLowerCase()}`; };
 
 function fieldsFor(kind, cur = '') {
   const acts = sortByName(db.acts), word = actWord(); // 'act', or the role's own: 'artist', 'band'
@@ -237,6 +216,8 @@ function editBooking(b, { focus = '' } = {}) {
       const rec = tidy(v, kind);
       const before = (b.id && byId('bookings', b.id)) || b;
       if (rec.status !== before.status) withStatus(rec, rec.status, settledNow(before)); // a status picked here does what the status pill does
+      // A show moved to another date, or given another act, is asked about again ("Did you see them?").
+      if (before.id && (rec.date !== before.date || (rec.endDate || '') !== (before.endDate || '') || (rec.actId || '') !== (before.actId || ''))) delete rec.went;
       const stored = upsert('bookings', rec);
       haptic();
       if (isNew) { toast(`${model.kindLabel(kind)} added`); openBooking(stored.id); } else toast('Saved');
@@ -361,12 +342,12 @@ function statusPicker(b) {
 }
 
 // A copy for another date: same act, venue, times, people and gear, but none of the money or the night (no
-// settlement, quote, invoice, ticks, guests marked in or day sheet sent), and on hold; confirmed for a role without
-// money, as a new booking is (firstStatus).
+// settlement, quote, invoice, ticks, guests marked in or day sheet sent, and never "Didn’t go"), and on hold; confirmed
+// for a role without money, as a new booking is (firstStatus).
 export function copyOf(b, date) {
   const off = isoOk(b.date) && isoOk(date) ? daysBetween(b.date, date) : 0;
   const c = JSON.parse(JSON.stringify(b));
-  for (const k of ['id', 'createdAt', 'updatedAt', 'sample', 'settlement', 'quote', 'invoice', 'daySheet']) delete c[k];
+  for (const k of ['id', 'createdAt', 'updatedAt', 'sample', 'settlement', 'quote', 'invoice', 'daySheet', 'went']) delete c[k];
   c.status = moneyShown() ? 'hold' : 'confirmed'; c.checks = {}; c.date = date;
   if (c.endDate) c.endDate = addDays(c.endDate, off);
   if (Array.isArray(c.guestList)) c.guestList = c.guestList.map(g => ({ ...g, in: false }));
@@ -435,152 +416,19 @@ function exportCalendar() {
     .catch(() => toast('The calendar file could not be saved here.'));
 }
 
-/* ------------------------------- month ------------------------------- */
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-function monthView() {
-  const y = S.cursor.getFullYear(), m = S.cursor.getMonth();
-  const total = new Date(y, m + 1, 0).getDate(), lead = (new Date(y, m, 1).getDay() + 6) % 7; // Monday first
-  const today = todayISO();
-  const all = db.bookings.filter(b => isoOk(b.date) && passes(b));
-  const cells = [];
-  for (let i = 0; i < lead; i++) cells.push(h('div', { class: 'day blank', 'aria-hidden': 'true' }));
-  for (let d = 1; d <= total; d++) cells.push(dayCell(ymd(new Date(y, m, d)), all, today));
-  const shift = n => go({ cursor: new Date(y, m + n, 1) }, { top: false });
-  const grid = h('div', { class: 'cal bk-cal', role: 'group', 'aria-label': S.cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) },
-    WEEKDAYS.map(w => h('div', { class: 'wd', 'aria-hidden': 'true' }, w)), cells);
-  swipeMonths(grid, shift);
-  arrowKeys(grid);
-
-  const list = upcoming().filter(passes);
-  const shown = S.all ? list : list.slice(0, 8);
-  const actsUsed = sortByName(db.acts.filter(a => db.bookings.some(b => b.actId === a.id)));
-  const kindsUsed = model.KINDS.filter(([k]) => db.bookings.some(b => b.kind === k));
-  const chip = (on, label, onclick, extra = {}) => h('button', { type: 'button', class: 'chip' + (on ? ' on' : ''), 'aria-pressed': String(on), onclick, ...extra }, label);
-  const filters = (kindsUsed.length > 1 || S.kind || actsUsed.length > 1 || S.act) && h('div', { class: 'bk-filters', role: 'group', 'aria-label': 'Filters' },
-    (kindsUsed.length > 1 || S.kind) && h('div', { class: 'chips', role: 'group', 'aria-label': 'Kind of booking' },
-      chip(!S.kind, 'All kinds', () => go({ kind: '' }, { top: false })),
-      model.KINDS.filter(([k]) => S.kind === k || kindsUsed.some(x => x[0] === k)).map(([k, , icon]) => chip(S.kind === k, `${icon} ${KIND_CHIP[k]}`, () => go({ kind: S.kind === k ? '' : k }, { top: false })))),
-    (actsUsed.length > 1 || S.act) && h('div', { class: 'chips', role: 'group', 'aria-label': capital(actWord()) },
-      chip(!S.act, allActs(), () => go({ act: '' }, { top: false })),
-      actsUsed.concat(S.act && !actsUsed.some(a => a.id === S.act) && byId('acts', S.act) ? [byId('acts', S.act)] : []).map(a => chip(S.act === a.id,
-        [h('span', { class: 'bk-swatch', style: safeColor(a.color) ? `--act:${safeColor(a.color)}` : null, 'aria-hidden': 'true' }), a.name || 'Unnamed act'],
-        () => go({ act: S.act === a.id ? '' : a.id }, { top: false })))));
-
-  return h('div', { class: 'bk-monthview' },
-    h('div', { class: 'page-head' },
-      h('h1', { tabindex: '-1', 'data-view-head': '' }, pageName()),
-      h('div', { class: 'bk-head-actions' },
-        h('button', { type: 'button', class: 'btn ghost small bk-export', title: 'Save your upcoming bookings as a calendar file (.ics)', onclick: exportCalendar }, '📆 Export calendar'),
-        h('button', { type: 'button', class: 'btn primary bk-new', onclick: () => newBooking({ date: today >= ymd(S.cursor) && today <= ymd(new Date(y, m, total)) ? today : ymd(S.cursor) }) }, '+ New'))),
-    filters,
-    h('section', { class: 'cal-panel box-dark bk-cal-panel', 'aria-label': 'Calendar' },
-      h('div', { class: 'cal-nav' },
-        h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Previous month', onclick: () => shift(-1) }, '‹'),
-        h('div', { class: 'cal-title', 'aria-live': 'polite' }, S.cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })),
-        h('button', { type: 'button', class: 'btn ghost small', 'aria-label': 'This month', onclick: () => go({ cursor: monthStart(today) }, { top: false }) }, 'Today'),
-        h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Next month', onclick: () => shift(1) }, '›')),
-      grid,
-      h('div', { class: 'bk-legend muted', 'aria-hidden': 'true' }, h('span', null, h('i', { class: 'bk-dot st-confirmed' }), ' booked'), h('span', null, h('i', { class: 'bk-dot st-hold' }), ' hold or offer'), h('span', null, h('i', { class: 'bk-dot st-cancelled' }), ' cancelled'))),
-    h('h3', { class: 'bk-agenda-head' }, filtersOn() ? 'Coming up (filtered)' : 'Coming up'),
-    list.length
-      ? h('div', { class: 'bk-agenda' },
-        h('div', { class: 'list' }, shown.map(agendaCard)),
-        list.length > 8 && h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost small', id: 'bk-agenda-more', onclick: () => go({ all: !S.all }, { top: false }) }, S.all ? 'Show fewer' : `Show all (${list.length})`)))
-      : empty(filtersOn() ? 'Nothing coming up with these filters.' : moneyShown() ? 'Nothing coming up. Add a show, a studio session or a rehearsal, or tap a date on the calendar.' : 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.',
-        filtersOn() ? h('button', { type: 'button', class: 'btn ghost', onclick: () => go({ kind: '', act: '' }, { top: false }) }, 'Clear the filters')
-          : moneyShown() ? h('button', { type: 'button', class: 'btn primary', onclick: () => newBooking({}) }, '+ New booking') : h('button', { type: 'button', class: 'btn primary', onclick: () => newBooking({ kind: 'show' }) }, '+ Add a show')));
-}
-
-function dayCell(iso, all, today) {
-  const list = all.filter(b => covers(b, iso)).sort((a, b) => model.firstTime(a).localeCompare(model.firstTime(b)));
-  const d = parseISO(iso), dow = (d.getDay() + 6) % 7;
-  // A booking over several days shows on each: its line runs on from the day before, and the name shows on the first
-  // day and at the start of each week row.
-  const seg = b => (!multi(b) ? '' : iso === b.date ? ' bk-seg-start' : iso === lastDay(b) ? ' bk-seg-end' : ' bk-seg-mid');
-  const named = b => !multi(b) || iso === b.date || dow === 0 || iso.endsWith('-01'); // and on the 1st, for one that began last month
-  // The line leads with where (the act is its colour): a typed title, else the venue, else the act or client.
-  const short = b => b.title || model.venueOf(b).name || model.bookingTitle(b);
-  const mini = b => h('span', { class: `bk-mini ${tone(b.status)}${seg(b)}`, style: actStyle(b) }, named(b) ? `${model.kindIcon(b.kind)} ${short(b)}` : ' ');
-  const dot = b => h('i', { class: `bk-dot ${tone(b.status)}${multi(b) ? ' bk-bar' + seg(b) : ''}`, style: actStyle(b) });
-  const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(b => `${model.bookingTitle(b)} (${model.statusLabel(b.status)})`).join(', ') : 'nothing booked'}`;
-  return h('button', {
-    type: 'button', class: 'day bk-day' + (iso === today ? ' today' : '') + (list.length ? ' has' : ''), 'data-date': iso, 'aria-label': label,
-    'aria-current': iso === today ? 'date' : null, onclick: () => go({ view: 'day', day: iso }),
-  },
-    h('span', { class: 'num' }, d.getDate()),
-    list.length > 0 && h('span', { class: 'bk-minis' }, list.slice(0, 3).map(mini), list.length > 3 && h('span', { class: 'more' }, `+${list.length - 3} more`)),
-    list.length > 0 && h('span', { class: 'bk-dots', 'aria-hidden': 'true' }, list.slice(0, 4).map(dot), list.length > 4 && h('span', { class: 'more' }, '+')));
-}
-
-// Swipe the calendar left or right for the next or previous month (a scroll up or down is left alone).
-function swipeMonths(grid, shift) {
-  let x = null, y = 0, at = 0;
-  grid.addEventListener('pointerdown', e => { if (e.button === 0) { x = e.clientX; y = e.clientY; } });
-  grid.addEventListener('pointerup', e => {
-    if (x == null) return;
-    const dx = e.clientX - x, dy = e.clientY - y; x = null;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) { at = Date.now(); setTimeout(() => shift(dx < 0 ? 1 : -1), 0); }
-  });
-  grid.addEventListener('pointercancel', () => { x = null; });
-  grid.addEventListener('click', e => { if (Date.now() - at < 500) { e.stopPropagation(); e.preventDefault(); } }, true); // the tap that ends a swipe opens nothing
-}
-// Arrow keys move between days (up and down by a week), across into the next or previous month.
-function arrowKeys(grid) {
-  grid.addEventListener('keydown', e => {
-    const cell = e.target.closest && e.target.closest('[data-date]');
-    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
-    if (!cell || !step) return;
-    e.preventDefault(); // the section menu keeps its arrows for the rest of the page
-    const iso = addDays(cell.dataset.date, step);
-    if (iso.slice(0, 7) !== cell.dataset.date.slice(0, 7)) go({ cursor: monthStart(iso) }, { top: false });
-    const next = ROOT && ROOT.querySelector(`[data-date="${iso}"]`);
-    if (next) next.focus();
-  });
-}
-
-function agendaCard(b) {
-  const d = parseISO(b.date), n = daysUntil(b.date);
-  const when = n < 0 ? 'On now' : n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : n < 14 ? `In ${n} days` : '';
-  const card = h('button', { type: 'button', class: 'card tap bk-card', style: actStyle(b), 'data-id': b.id, title: 'Tap to open; press and hold to delete',
-    onclick: () => { if (!wasHeld(card)) showBooking(b); } },
-    h('span', { class: 'bk-date', 'aria-hidden': 'true' },
-      h('span', null, d.toLocaleDateString(undefined, { weekday: 'short' })), h('b', null, d.getDate()), h('span', null, d.toLocaleDateString(undefined, { month: 'short' }))),
-    h('span', { class: 'sr-only' }, dateRange(b, fmtLong) + '. '),
-    h('span', { class: 'bk-card-main' },
-      h('span', { class: 'bk-card-top' }, h('strong', { class: 'bk-card-title' }, h('span', { 'aria-hidden': 'true' }, model.kindIcon(b.kind) + ' '), model.bookingTitle(b)), pill(b.status)),
-      h('span', { class: 'bk-card-sub muted small' }, [when, multi(b) && `to ${fmtShort(lastDay(b))}`, timeLine(b), venueLine(b) && `📍 ${venueLine(b)}`].filter(Boolean).join(' · '))));
-  return holdToDelete(card, b);
-}
-
-/* -------------------------------- day -------------------------------- */
-function dayView() {
-  const list = bookingsOn(S.day);
-  const shift = n => go({ day: addDays(S.day, n), cursor: monthStart(addDays(S.day, n)) }, { top: false });
-  return h('div', { class: 'bk-dayview' },
-    h('div', { class: 'page-head' },
-      backBtn('Calendar', () => go({ view: 'month', cursor: monthStart(S.day) })),
-      h('button', { type: 'button', class: 'btn primary bk-new-day', onclick: () => newBooking({ date: S.day }) }, '+ New on this day')),
-    h('div', { class: 'cal-nav' },
-      h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Previous day', onclick: () => shift(-1) }, '‹'),
-      h('h2', { class: 'cal-title', tabindex: '-1', 'data-view-head': '' }, fmtLong(S.day), S.day === todayISO() && h('span', { class: 'muted small' }, ' · today')),
-      h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Next day', onclick: () => shift(1) }, '›')),
-    list.length
-      ? h('div', { class: 'list bk-daylist' }, list.map(dayCard))
-      : empty('Nothing booked on this day.', h('button', { type: 'button', class: 'btn primary', onclick: () => newBooking({ date: S.day }) }, '+ Add a booking')));
-}
-
-function dayCard(b) {
-  const people = (b.people || []).filter(id => byId('people', id)).length;
-  const items = (b.gear || []).filter(id => byId('gear', id)).reduce((s, id) => s + usedQty(b, id), 0); // pieces, as the Line-up box counts them
-  const card = h('button', { type: 'button', class: 'card tap bk-card bk-card-day', style: actStyle(b), 'data-id': b.id, title: 'Tap to open; press and hold to delete',
-    onclick: () => { if (!wasHeld(card)) go({ view: 'booking', id: b.id }); } },
-    h('span', { class: 'bk-card-main' },
-      h('span', { class: 'bk-card-top' }, h('strong', { class: 'bk-card-title' }, h('span', { 'aria-hidden': 'true' }, model.kindIcon(b.kind) + ' '), model.bookingTitle(b)), pill(b.status)),
-      h('span', { class: 'bk-card-sub muted small' }, [model.kindLabel(b.kind), multi(b) && dateRange(b, fmtShort), timeLine(b)].filter(Boolean).join(' · ')),
-      venueLine(b, true) && h('span', { class: 'bk-card-sub muted small' }, '📍 ' + venueLine(b, true)),
-      (people || items) ? h('span', { class: 'bk-card-sub muted small' }, [people && plural(people, 'person', 'people'), items && plural(items, 'item')].filter(Boolean).join(' · ')) : null));
-  return holdToDelete(card, b);
-}
+/* ------------------------------- the calendar ------------------------------- */
+// What js/bookings-cal.js gets from this page (the whole contract: the calendar never imports this module).
+const CTX = {
+  S,                 // the page's state: read mode, day, kind, act, all. Change it only through go().
+  go,                // go(patch, { top = true }): merge patch into S and redraw; top: scroll up and focus [data-view-head] when the view changed
+  showBooking,       // showBooking(b, day?): the booking's page; day = the day it was tapped on, so Back returns there
+  newBooking,        // newBooking({ date, kind? })
+  holdToDelete,      // holdToDelete(el, b) → el: press and hold for three seconds offers to delete
+  exportCalendar,    // () → saves the upcoming bookings (with the filters) as .ics
+  passes,            // passes(b) → boolean: the filter chips
+  filtersOn,         // () → boolean
+  root: () => ROOT,  // the page's root element
+};
 
 /* ------------------------------- the booking ------------------------------- */
 function bookingPage(b) {
@@ -604,7 +452,7 @@ function bookingPage(b) {
   };
   return h('div', { class: 'bk-page' },
     h('div', { class: 'page-head' },
-      backBtn(isoOk(here) ? fmtShort(here) : 'Day', () => go({ view: 'day', day: isoOk(here) ? here : todayISO() })),
+      backBtn(isoOk(here) ? fmtShort(here) : 'Day', () => go({ view: 'cal', mode: 'day', day: isoOk(here) ? here : todayISO() })), // to the Day view; the view kept on the device does not change
       h('button', { type: 'button', class: 'btn ghost bk-edit', onclick: () => editBooking(byId('bookings', b.id) || b) }, '✎ Edit')),
     hero(b),
     h('div', { class: 'bk-actions' },
@@ -697,6 +545,8 @@ function hero(b) {
       mapButtons(where))
       : b.kind !== 'other' && h('p', { class: 'muted small' }, 'No venue yet. Edit to add one.'),
     warns.map(w => (w.level === 'info' ? h('div', { class: 'muted small bk-venue-info' }, 'ℹ︎ ' + w.text) : h('div', { class: 'warn' }, '⚠ ' + w.text))),
+    // The venue's house rules in full (js/venues-rules.js): they are the venue's, on every show there.
+    (() => { try { const rv = model.showRulesVenue(b); return rv ? rulesFull(rv, { where: 'show' }) : null; } catch (e) { console.warn('house rules', e); return null; } })(),
     (act || b.client) && h('div', { class: 'bk-act-row' },
       act ? h('button', { type: 'button', class: 'chip bk-act', style: actStyle(b), onclick: () => openAct(act.id), 'aria-label': `Act: ${act.name}. Open it` }, h('span', { class: 'bk-swatch', 'aria-hidden': 'true' }), act.name || 'Unnamed act')
         : h('span', { class: 'chip bk-act bk-client' }, '🎙 ' + b.client)),
@@ -755,24 +605,12 @@ function blockBox(b, blk, ctx) {
 }
 
 /* ------------------------------- walkthroughs ------------------------------- */
-const monthSteps = () => [
-  { title: 'New booking', text: 'Add a show, a studio session, a rehearsal or anything else in the diary.', target: ['.bk-new'] },
-  { title: 'Export calendar', text: moneyShown() ? 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar, or to send to the band. No fees or deals go in it.' : 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar.', target: ['.bk-export'] },
-  { title: 'Filters', text: 'Show one act, or one kind of booking, on the calendar and in the list.', target: ['.bk-filters'] },
-  { title: 'The calendar', text: 'Each line or dot is a booking in its act’s colour. Hollow or dashed means a hold or an offer. Tap a day to see it; swipe, or use ‹ ›, for other months.', target: ['.bk-cal-panel'] },
-  { title: 'Coming up', text: 'Your next bookings, soonest first. Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-agenda', '.bk-monthview .empty'] },
-];
-const daySteps = () => [
-  { title: 'One day', text: 'Everything booked on this day. ‹ › move a day at a time.', target: ['.bk-dayview .cal-nav'] },
-  { title: 'Add to this day', text: 'A new booking with this date already filled in.', target: ['.bk-new-day'] },
-  { title: pageName(), text: 'Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-daylist', '.bk-dayview .empty'] },
-  { title: 'Back to the month', text: 'Calendar takes you back to the month.', target: ['.bk-dayview .back-btn'] },
-];
 function bookingSteps(b) {
   const base = [
     { title: 'The booking', text: 'The date, the times in the order the day runs, the venue with directions, the act and the contact. Press and hold this card for three seconds to delete the booking.', target: ['.bk-hero'] },
     { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records but leaves clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records but leaves clashes.', target: ['.bk-status'] },
     { title: 'Times', text: 'Off stage is worked out from the set time and length. A time marked +1 is after midnight.', target: ['.bk-times'] },
+    { title: 'House rules', text: 'What this venue allows and what it does not. The rules belong to the venue and apply to every show there; change them by editing the venue.', target: ['.bk-hero .vn-rules'] },
     scoreOn(b) && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.', target: ['.bk-score'] },
     scoreable(b) && !actOf(b) && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },

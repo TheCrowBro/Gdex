@@ -1,10 +1,12 @@
-/* bookings: the month calendar, a day, a booking's page and its boxes (js/pages/bookings.js, js/blocks/advance.js,
-   lineup.js, notes.js). Theme tokens only; an act's own colour arrives as --act on the element that shows it. */
+/* bookings: the calendar (js/bookings-cal.js, with js/bookings-kit.js for the lines a card adds), a booking's page and
+   its boxes (js/pages/bookings.js, js/blocks/advance.js, lineup.js, notes.js). Theme tokens only; an act's own colour
+   arrives as --act on the element that shows it. .bk-calview is the calendar's frame in every view; .bk-monthview is
+   on it only in the month, .bk-dayview only on one day. */
 
 /* ------------------------------ month ------------------------------ */
 .bk-head-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .page-head .bk-head-actions .btn { min-width: 0; }
-.bk-monthview > .page-head h1, .bk-dayview .cal-title, .bk-title { outline: none; }
+.bk-monthview > .page-head h1, .bk-calview > .page-head h1, .bk-dayview .cal-title, .bk-title { outline: none; }
 .bk-filters { display: grid; gap: 2px; margin: -2px 0 10px; }
 .bk-filters .chips { margin-bottom: 0; }
 .bk-filters .chip { display: inline-flex; align-items: center; gap: 6px; }
@@ -57,6 +59,11 @@
 .bk-card-title { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
 .bk-card-top .pill { flex: none; margin-top: 2px; }
 .bk-card-sub { display: block; overflow-wrap: anywhere; }
+/* what a card adds under its own lines (bookings-kit.js cardExtras): the overlap note and "Didn’t go"; the house-rules
+   chip between them is css/backline.css's. The note's words carry its meaning, not its colour. */
+.bk-overlap { display: block; font-size: .78rem; color: var(--amber); overflow-wrap: anywhere; }
+.bk-went { justify-self: start; }
+.bk-none { margin: 4px 2px 0; }
 
 /* ------------------------------ a day ------------------------------ */
 .bk-dayview .cal-nav { margin-bottom: 12px; }
@@ -199,16 +206,16 @@
 .bk-notes { min-height: 128px; resize: vertical; }
 .bk-notes-state { margin: 0; }
 
-/* ------------------------------ laptops: the calendar beside what is coming up; the boxes two by two ------------------------------ */
+/* ------------------------------ laptops: the calendar beside what is coming up (in every view); the boxes two by two ------------------------------ */
 @media (min-width: 1000px) {
-  .bk-monthview { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto auto auto 1fr; column-gap: 28px; align-items: start; }
-  .bk-monthview > .page-head { grid-column: 1 / -1; grid-row: 1; }
-  .bk-monthview > .bk-filters { grid-column: 1 / -1; grid-row: 2; }
-  .bk-monthview > .bk-cal-panel { grid-column: 1; grid-row: 3 / span 2; }
-  .bk-monthview > .bk-agenda-head { grid-column: 2; grid-row: 3; margin-top: 0; }
-  .bk-monthview > .bk-agenda, .bk-monthview > .empty { grid-column: 2; grid-row: 4; }
-  .bk-monthview .bk-agenda .list { grid-template-columns: 1fr; }
-  .bk-monthview .bk-day { min-height: 104px; }
+  .bk-calview { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto auto auto 1fr; column-gap: 28px; align-items: start; }
+  .bk-calview > .page-head { grid-column: 1 / -1; grid-row: 1; }
+  .bk-calview > .bk-filters { grid-column: 1 / -1; grid-row: 2; }
+  .bk-calview > .bk-cal-panel { grid-column: 1; grid-row: 3 / span 2; }
+  .bk-calview > .bk-agenda-head { grid-column: 2; grid-row: 3; margin-top: 0; }
+  .bk-calview > .bk-agenda, .bk-calview > .empty { grid-column: 2; grid-row: 4; }
+  .bk-calview .bk-agenda .list { grid-template-columns: 1fr; }
+  .bk-calview .bk-day { min-height: 104px; }
   .bk-actions { max-width: 620px; }
   .bk-blocks, .bk-more-blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bk-blocks > .blk[open], .bk-more-blocks > .blk[open] { grid-column: 1 / -1; } /* closed boxes two by two; an open one takes the whole width, never leaving a gap beside it */
@@ -217,7 +224,7 @@
 /* The legend shows the dot shapes (filled, hollow, faded); a day's dots take the act's colour, so the legend's are neutral. */
 .bk-legend .bk-dot { --act: var(--text); }
 /* Extra-large text on a small phone: the month title gives way so the › button stays on screen. */
-.bk-monthview .cal-title { min-width: 0; }
+.bk-calview .cal-title { min-width: 0; }
 /* Extra-large text: the month gets a row of its own above ‹ Today ›, so a long month name never runs into them. */
-html[data-text=xlarge] .bk-monthview .cal-nav { flex-wrap: wrap; }
-html[data-text=xlarge] .bk-monthview .cal-title { order: -1; flex-basis: 100%; }
+html[data-text=xlarge] .bk-calview .cal-nav { flex-wrap: wrap; }
+html[data-text=xlarge] .bk-calview .cal-title { order: -1; flex-basis: 100%; }

@@ -2,7 +2,7 @@
 // status, duplicate, delete from the page and by press and hold, the .ics files), and the bookings feature's own boxes
 // (advance checklist with the person's own lines and the advance email, line-up & gear with clashes, notes).
 const fs = require('fs');
-const { open, ok, sleep } = require('../helpers.cjs');
+const { open, ok, sleep, toMonth } = require('../helpers.cjs');
 
 const rec = (page, id) => page.evaluate(id => import('./js/store.js').then(s => { const b = s.byId('bookings', id); return b ? JSON.parse(JSON.stringify(b)) : null; }), id);
 const byVenueName = (page, n) => page.evaluate(n => import('./js/store.js').then(s => { const b = s.db.bookings.find(x => x.venueName === n); return b ? JSON.parse(JSON.stringify(b)) : null; }), n);
@@ -115,8 +115,8 @@ const unfold = t => t.replace(/\r\n /g, '');
 
   // calendar, Coming up and the day
   await page.locator('.bk-page .back-btn').click(); await page.waitForSelector('.bk-dayview');
-  ok('back goes to the day, which lists the show', (await page.locator('.bk-daylist .bk-card', { hasText: 'Moth Club' }).count()) === 1);
-  await page.locator('.bk-dayview .back-btn').click(); await page.waitForSelector('.bk-monthview');
+  ok('back goes to the day, which lists the show', (await page.locator('.bk-dayview .bk-ev', { hasText: 'Moth Club' }).count()) === 1);
+  await toMonth(page); await page.waitForSelector('.bk-monthview');
   ok('the calendar shows the show on its day', /The Night Owls @ The Moth Club \(Hold\)/.test(await page.locator(`.bk-day[data-date="${D}"]`).getAttribute('aria-label')) && (await page.locator(`.bk-day[data-date="${D}"] .bk-dot.st-hold`).count()) === 1);
   ok('…and Coming up lists it', (await page.locator('.bk-agenda .bk-card', { hasText: 'Moth Club' }).count()) === 1);
   await page.locator('.bk-agenda .bk-card', { hasText: 'Moth Club' }).click(); await page.waitForSelector('.bk-page');
@@ -270,12 +270,12 @@ const unfold = t => t.replace(/\r\n /g, '');
   await sheetNamed(page, 'Delete this booking?').waitFor();
   ok('Delete asks first and says what goes with it', /cannot be undone/.test(await page.locator('.sheet').innerText()) && (await page.locator('.sheet button', { hasText: 'Keep it' }).count()) === 1);
   await page.locator('.sheet button', { hasText: 'Delete booking' }).click(); await sleep(400);
-  ok('Delete booking removes it and lands on its day', !(await rec(page, copy.id)) && (await page.locator('.bk-dayview').count()) === 1 && (await page.locator('.bk-daylist .bk-card', { hasText: 'Moth Club' }).count()) === 1);
-  await page.locator('.bk-dayview .back-btn').click(); await page.waitForSelector('.bk-monthview');
+  ok('Delete booking removes it and lands on its day', !(await rec(page, copy.id)) && (await page.locator('.bk-dayview').count()) === 1 && (await page.locator('.bk-dayview .bk-ev', { hasText: 'Moth Club' }).count()) === 1);
+  await toMonth(page); await page.waitForSelector('.bk-monthview');
   const card = page.locator('.bk-agenda .bk-card', { hasText: 'Moth Club' });
   await press(page, card, 700); await page.mouse.up(); await sleep(400);
   ok('a short press is a tap: it opens the booking, with no sheet', (await page.locator('.bk-page').count()) === 1 && (await page.locator('.sheet').count()) === 0);
-  await page.locator('.bk-page .back-btn').click(); await page.locator('.bk-dayview .back-btn').click(); await page.waitForSelector('.bk-monthview');
+  await toMonth(page); await page.waitForSelector('.bk-monthview');
   await press(page, page.locator('.bk-agenda .bk-card', { hasText: 'Moth Club' }), 3300);
   await sheetNamed(page, 'Delete this booking?').waitFor({ timeout: 4000 }); await page.mouse.up(); await sleep(300);
   ok('press and hold for three seconds offers to delete, and letting go does not open it', (await page.locator('.bk-page').count()) === 0 && /The Moth Club/.test(await page.locator('.sheet').innerText()));
@@ -295,7 +295,7 @@ const unfold = t => t.replace(/\r\n /g, '');
   if (!(await page.locator(`.bk-day[data-date="${D1}"]`).count())) { await page.click('[aria-label="Next month"]'); await sleep(200); }
   await page.locator(`.bk-day[data-date="${D1}"]`).click();
   await page.waitForSelector('.bk-dayview');
-  ok('a day with nothing on it says so and offers to add one', /Nothing booked on this day/.test(await page.locator('.bk-dayview .empty').innerText()));
+  ok('a day with nothing on it says so and offers to add one', /Nothing booked on this day/.test(await page.locator('.bk-dayview .bk-none').innerText()) && (await page.locator('.bk-new-day').count()) === 1);
   await page.locator('.bk-new-day').click();
   await page.locator('.bk-kind[data-kind="rehearsal"]').click();
   const rform = sheetNamed(page, 'New rehearsal'); await rform.waitFor();
@@ -410,7 +410,7 @@ const unfold = t => t.replace(/\r\n /g, '');
   /* ---- the month grid names a booking that began last month ---- */
   const spring = await page.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { kind: 'show', status: 'confirmed', title: 'Spring Tour Leg', date: '2027-03-30', endDate: '2027-04-02', setTime: '20:00' }).id));
   await page.evaluate(id => import('./js/pages/bookings.js').then(m => m.openBooking(id)), spring); await sleep(300);
-  await page.locator('.bk-page .back-btn').click(); await page.locator('.bk-dayview .back-btn').click(); await page.waitForSelector('.bk-monthview');
+  await toMonth(page); await page.waitForSelector('.bk-monthview');
   await page.click('[aria-label="Next month"]'); await sleep(250);
   const mini = d => page.locator(`.bk-day[data-date="${d}"] .bk-mini`).first().textContent();
   ok('a booking that began last month is named on the 1st, and runs on as a bar after', /Spring Tour Leg/.test(await mini('2027-04-01')) && !/Spring/.test(await mini('2027-04-02')), `${await mini('2027-04-01')} | ${await mini('2027-04-02')}`);

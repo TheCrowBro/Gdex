@@ -4,7 +4,7 @@
 // Every change saves to the store at once, and the open sheet draws itself again from the store.
 import { h, nodes, uid, toast, announce, sheet, fmtShort, todayISO } from './util.js';
 import { db, byId, upsert, remove, update, subscribe } from './store.js';
-import { setlistLength, itemTitle, fmtDur, parseDur, fmtMin, actName, markCheck, venueOf, addMinutes, minutesBetween } from './model.js';
+import { setlistLength, itemTitle, fmtDur, parseDur, fmtMin, actName, markCheck, venueOf, addMinutes, minutesBetween, byDayPlay } from './model.js';
 import { openForm } from './form.js';
 import { printElement } from './print.js';
 import { sheetTutorial } from './tour.js';
@@ -209,7 +209,7 @@ function editor(list, st, ctx) {
   const p = setlistPlan(list), fit = fitNote(p.sec, st.target);
   const b = st.bookingId ? byId('bookings', st.bookingId) : null, clock = b && b.kind === 'show' ? setClock(b, p.sec) : null;
   const acts = [...db.acts].sort(byName);
-  const used = db.bookings.filter(x => x.setlistId === list.id && x.status !== 'cancelled' && (x.endDate || x.date || '') >= todayISO()).sort((x, y) => String(x.date).localeCompare(String(y.date)));
+  const used = db.bookings.filter(x => x.setlistId === list.id && x.status !== 'cancelled' && (x.endDate || x.date || '') >= todayISO()).sort(byDayPlay);
   const rows = p.rows.map((r, i) => itemRow(list, p, r, i, ctx));
   return [
     h('div', { class: 'sg-ed-fields' },

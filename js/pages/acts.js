@@ -10,7 +10,7 @@
 // those go to other people.
 import { h, empty, backBtn, telUrl, toast, sheet, fmtShort, daysUntil, todayISO, parseISO, uid } from '../util.js';
 import { db, byId, upsert, update, remove, upcoming, redraw } from '../store.js';
-import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, coversDay, seenEntryFor, actShowsOn, onlyShowOn } from '../model.js';
+import { venueOf, kindIcon, kindLabel, statusLabel, statusTone, firstTime, PEOPLE_GROUPS, setlistLength, fmtDur, seenOf, seenStats, seenWhere, ratingOf, actUpcoming, isLive, coversDay, seenEntryFor, actShowsOn, onlyShowOn, byDayPlayDesc } from '../model.js';
 import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { openBooking, newBooking } from './bookings.js';
@@ -176,7 +176,7 @@ function seenPanel(a, onPage = false) {
 const pastShows = a => {
   const today = todayISO(), money = moneyShown();
   return (db.bookings || []).filter(b => b.actId === a.id && isLive(b) && b.date && b.date <= today && b.kind === 'show' && !(money && ['hold', 'offer'].includes(b.status)) && !seenEntryFor(a, b))
-    .sort((x, y) => y.date.localeCompare(x.date));
+    .sort(byDayPlayDesc); // newest day first; on one day, in the order they played
 };
 function fromPastShow(a, past) {
   let close = () => {};

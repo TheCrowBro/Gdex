@@ -3,7 +3,7 @@
 // js/setlist.js.
 import { h, toast, empty, safeUrl, fmtShort, fmtLong, todayISO, uid, sheet } from '../util.js';
 import { db, byId, upsert, remove, update } from '../store.js';
-import { SONG_STATUS, songStatusLabel, KEYS, SPLIT_ROLES, fmtDur, parseDur, actName, setlistLength, venueOf, bookingTitle, kindIcon } from '../model.js';
+import { SONG_STATUS, songStatusLabel, KEYS, SPLIT_ROLES, fmtDur, parseDur, actName, setlistLength, venueOf, bookingTitle, kindIcon, byDayPlay } from '../model.js';
 import { openForm } from '../form.js';
 import { printElement } from '../print.js';
 import { sheetTutorial } from '../tour.js';
@@ -146,7 +146,7 @@ function setlistsList() {
 }
 
 // The next live booking that uses a setlist, today on.
-const nextUse = id => db.bookings.filter(b => b.setlistId === id && b.status !== 'cancelled' && (b.endDate || b.date || '') >= todayISO()).sort((a, b) => String(a.date).localeCompare(String(b.date)))[0] || null;
+const nextUse = id => db.bookings.filter(b => b.setlistId === id && b.status !== 'cancelled' && (b.endDate || b.date || '') >= todayISO()).sort(byDayPlay)[0] || null;
 
 function setlistCard(l) {
   const t = setlistLength(l), next = nextUse(l.id);
