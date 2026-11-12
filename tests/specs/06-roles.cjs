@@ -278,7 +278,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     if (!(await page.locator(`.bk-day[data-date="${far}"]`).count())) { await page.click('[aria-label="Next month"]'); await sleep(200); }
     await page.locator(`.bk-day[data-date="${far}"]`).click(); await page.waitForSelector('.bk-dayview');
     await go(page, 'venues'); await go(page, 'bookings');
-    ok('within a visit, coming back to the calendar keeps the day that was open', (await page.locator('.bk-dayview').count()) === 1 && (await page.locator('.bk-dayview [data-id="s-reh"]').count()) === 1);
+    ok('within a visit, coming back to the calendar keeps the day that was open', (await page.locator('.bk-dayview').count()) === 1 && (await page.locator('.bk-dayview .bk-ev[data-id="s-reh"]').count()) === 1); // owner-list: fixed by calendar (Coming up is under the Day view too, and its card carries the same data-id; .bk-ev is the day's own entry)
     ok('no errors in the console (the calendar as the landing page)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
