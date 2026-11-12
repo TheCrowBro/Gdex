@@ -77,8 +77,10 @@ function card(p) {
   return h('div', { class: 'card ins-card' + (d != null && d < 0 ? ' ins-old' : ''), 'data-id': p.id },
     h('div', { class: 'card-row ins-row' },
       h('span', { class: 'ins-ico', 'aria-hidden': 'true' }, iconOf(p)),
-      h('div', { class: 'grow ins-title' }, h('strong', null, name), h('div', { class: 'muted small' }, [p.provider, p.policy && '#' + p.policy].filter(Boolean).join(' · ') || 'No insurer yet')),
-      renewalPill(p),
+      // The name and the renewal pill share a line while both fit; on a narrow screen or with big text the pill drops under.
+      h('div', { class: 'ins-head' },
+        h('div', { class: 'ins-title' }, h('strong', null, name), h('div', { class: 'muted small' }, p.provider || p.policy ? [p.provider, p.provider && p.policy && '\u00a0· ', p.policy && h('span', { class: 'ins-no' }, '#' + p.policy)] : 'No insurer yet')),
+        renewalPill(p)),
       h('button', { class: 'icon-btn', type: 'button', 'aria-label': `Edit ${name} policy`, onclick: () => edit(p) }, '✎')),
     (has(p.cover) || has(p.premium) || ISO.test(p.renewal || '')) && h('div', { class: 'kv ins-kv' },
       has(p.cover) && kv('Cover', num(p.cover) > 0 ? fmtMoney(num(p.cover)) : 'None'),

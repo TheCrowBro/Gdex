@@ -22,7 +22,7 @@ export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'bac
 //              acts.order ('name' | 'latest' | 'recent'), acts.tabs (an act's tabs: ['about'] leaves out the press kit and rider,
 //              and puts the times seen at the top of its Overview), acts.seen ('always' | 'logged': the times-seen line and log lead
 //              only once something is logged), acts.empty (the empty list's words), people.group (+ Add starts there),
-//              songs.view ('setlists' to open there when there are songs), tools.tool (the first tool while none is
+//              songs.view ('setlists' to open there when there are songs and setlists), tools.tool (the first tool while none is
 //              remembered), money.earned (the label of the year's income).
 const HIDE_ALL = ['lineup', 'advance', 'deal', 'running', 'guests', 'settlement', 'daysheet', 'setlist', 'money', 'budget', 'clock', 'takes', 'worksongs', 'deliverables'];
 export const ROLES = [

@@ -93,9 +93,15 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 
 Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
 seen last), and "From a past show" offers shows up to today (holds and offers too when money is off). Tools writes
-`gdex-tool` only when a tool is picked, and works out the first tool (remembered, else `tools.tool`, else the tuner)
-and Songs its first view each time it is drawn, so a role's default applies until the person chooses. The venue
-checks on a booking speak of "the set" for everyone and mention the deal or settlement only when money is on.
+`gdex-tool-pick` only when a tool is picked (the `gdex-tool` the build before roles wrote on every draw is never read),
+and works out the first tool (picked, else `tools.tool`, else the tuner) and Songs its first view each time it is
+drawn, so a role's default applies until the person chooses. `songs.view: 'setlists'` applies only when there are songs
+and setlists; a link that needs the songs list calls `showSongs()` (`pages/songs.js`) before `logiGo('songs')`, as the
+metronome's Go to Songs does. People's + Add starts in `people.group` only when no act is on show (an act's people:
+Band members). People and Money use the role's words (`actWord()`, `sectionName('bookings')`, the manager's earned
+word); with money off, People and Venues leave rates off cards and sheets (the forms keep their fields) and speak to
+someone who goes to shows. The venue checks on a booking speak of "the set" for everyone and mention the deal or
+settlement only when money is on.
 Settings has no Quotes & invoices section (nor its walkthrough step) while money is off, and Your details is not said
 to go on quotes and invoices; Your role says the section comes back with a role that uses money, or with Everything.
 

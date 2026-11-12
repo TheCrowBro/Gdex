@@ -24,8 +24,11 @@
 .bl-sheet .actions .btn, .vn-sheet .actions .btn, .bl-inv-sheet .actions .btn { width: auto; flex: 1 1 auto; justify-content: center; }
 
 /* ---------- backline: the items ---------- */
-.bl-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.bl-stats .stat b { font-size: clamp(.95rem, 4.2vw, 1.15rem); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+/* Three tiles while each keeps 5.5rem (so with big text on a small phone, two a row): amounts fit rather than
+   splitting mid-number, and labels wrap between words. */
+.bl-stats { grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.5rem), 1fr)); }
+.bl-stats .stat b { font-size: clamp(.85rem, 4.2vw, 1.15rem); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.bl-stats .stat span { overflow-wrap: break-word; }
 .bl-novalue { margin: -2px 0 10px; }
 .bl-owners .bl-n, .vn-kinds .vn-n { opacity: .7; font-variant-numeric: tabular-nums; }
 .chip.on .bl-n, .chip.on .vn-n { opacity: .85; }
@@ -67,6 +70,9 @@
 
 /* ---------- venues ---------- */
 .vn-kind { flex: none; }
+/* The name wraps between words; the kind pill sits beside it while the name keeps about 7rem, else drops under it. */
+.vn-card-top { flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; }
+.vn-card-name { flex: 1 1 7rem; overflow-wrap: break-word; }
 .vn-addr { overflow-wrap: anywhere; }
 .vn-facts { display: flex !important; flex-wrap: wrap; gap: 5px 8px; margin-top: 2px; }
 .vn-fact { padding: 2px 9px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }

@@ -13,15 +13,23 @@ import { sectionName, pageOpt, roleId } from '../roles.js';
 
 // View state survives redraws: which view, which act's chip, the search.
 const S = { view: '', act: '', q: '', lyrics: false, qBox: false }; // qBox: the search box was showing (kept until the view changes, so clearing it never pulls it away mid-typing)
-// The view Songs opens on: the role's (Setlists for a band, when there are songs to make them from), else Songs.
-// Worked out when the page is first drawn in a visit (and again for a role chosen since), not when this file loads,
-// then left alone, so adding the first song never moves the page; once the person picks a view, theirs stays.
+// The view Songs opens on: the role's (Setlists for a band, when there are songs and setlists already: an empty
+// Setlists view is no place to start), else Songs. Worked out when the page is first drawn in a visit (and again for a
+// role chosen since), not when this file loads, then left alone, so adding the first song never moves the page; once
+// the person picks a view, theirs stays.
 const V = { picked: false, role: '' };
 function settleView() {
   if (V.picked || (S.view && V.role === roleId())) return;
   V.role = roleId();
-  S.view = pageOpt('songs', 'view', 'songs') === 'setlists' && db.songs.length > 0 ? 'setlists' : 'songs';
+  S.view = pageOpt('songs', 'view', 'songs') === 'setlists' && db.songs.length > 0 && db.setlists.length > 0 ? 'setlists' : 'songs';
   S.qBox = false;
+}
+// For a link that asks for a view (the metronome's "Go to Songs", to add a song's tempo): Songs opens on it, with no act
+// or search hiding any songs, whatever the role's view. Call it before window.logiGo('songs').
+export function showSongs(view = 'songs') {
+  S.view = view === 'setlists' ? 'setlists' : 'songs';
+  V.role = roleId();
+  S.act = ''; S.q = ''; S.qBox = false;
 }
 const NO_ACT = '-';
 export const TUNINGS = ['Standard', 'Drop D', 'E♭ standard', 'D standard', 'Drop C', 'Open G', 'Open D', 'DADGAD'];

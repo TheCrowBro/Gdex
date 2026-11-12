@@ -10,7 +10,8 @@
 .tl-tab:active { transform: scale(.96); }
 .tl-tab.on { background: var(--accent); color: var(--accent-ink); }
 .tl-tab-ico { font-size: 1.3rem; line-height: 1; }
-.tl-tab-name { font-size: .74rem; font-weight: 700; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Names wrap rather than being cut off: "Set timer" between its words, "Metronome" at its soft hyphen (js/pages/tools.js). */
+.tl-tab-name { font-size: .74rem; font-weight: 700; line-height: 1.1; max-width: 100%; text-align: center; overflow-wrap: normal; hyphens: manual; -webkit-hyphens: manual; }
 
 /* shared bits */
 .tl-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
@@ -219,12 +220,12 @@ body.tl-full-on { overflow: hidden; }
 @media (max-width: 400px) {
   .tl-seg { gap: 2px; padding: 2px; }
   .tl-tab { padding: 6px 0; }
-  .tl-tab-name { font-size: .63rem; letter-spacing: -.01em; text-overflow: clip; }
+  .tl-tab-name { font-size: .63rem; letter-spacing: -.01em; }
 }
 @media (max-width: 380px) {
   .tl-round { width: 50px; height: 50px; }
   .tl-dt-cell b { font-size: .88rem; }
 }
 
-/* Extra-large text: tool names wrap instead of being clipped (Metronome). */
-html[data-text=xlarge] .tl-tab-name { white-space: normal; hyphens: auto; -webkit-hyphens: auto; text-overflow: clip; font-size: .6rem; }
+/* Extra-large text: a smaller name, so each word fits its tab. */
+html[data-text=xlarge] .tl-tab-name { font-size: .6rem; }

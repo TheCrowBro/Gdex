@@ -205,10 +205,13 @@ export function metronome(panel, ctx) {
     const body = withTempo.length
       ? h('div', { class: 'stack' }, q, list, without > 0 && h('p', { class: 'muted small' }, `${without} song${without === 1 ? ' has' : 's have'} no tempo yet, so ${without === 1 ? 'it isn’t' : 'they aren’t'} listed. Add the BPM under Songs.`))
       : h('div', { class: 'empty' }, h('p', null, db.songs.length ? 'None of your songs has a tempo yet. Add the BPM to a song under Songs and it shows up here.' : 'No songs yet. Add your songs with their tempo under Songs, and pick one here to set the click.'),
-        h('button', { type: 'button', class: 'btn primary', onclick: () => { close(); window.logiGo && window.logiGo('songs'); } }, '🎼 Go to Songs'));
+        h('button', { type: 'button', class: 'btn primary', onclick: () => { close(); goSongs(); } }, '🎼 Go to Songs'));
     ({ close } = sheet('Use a song’s tempo', body));
     if (withTempo.length) { draw(); setTimeout(() => q.focus(), 60); }
   }
+
+  // Songs on its list of songs (not a role's Setlists view), where a song's tempo is added.
+  const goSongs = () => import('./pages/songs.js').then(m => m.showSongs('songs')).catch(e => console.error(e)).then(() => window.logiGo && window.logiGo('songs'));
 
   /* ---------- the panel ---------- */
   const problem = h('div', { class: 'warn', role: 'alert', hidden: true });

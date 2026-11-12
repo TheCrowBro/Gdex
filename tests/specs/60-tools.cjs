@@ -20,7 +20,7 @@ const stored = (page, key) => page.evaluate(k => localStorage.getItem(k), key);
     const on = await page.getAttribute(`#tl-tab-${id}`, 'aria-selected');
     ok(`${id} opens`, on === 'true' && (await page.locator(`#tl-panel ${sel}`).count()) === 1);
   }
-  ok('the last tool used is remembered', (await stored(page, 'gdex-tool')) === 'timer');
+  ok('the last tool used is remembered', (await stored(page, 'gdex-tool-pick')) === 'timer');
   await page.focus('#tl-tab-timer');
   await page.keyboard.press('ArrowRight');
   await sleep(200);

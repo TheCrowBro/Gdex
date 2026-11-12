@@ -33,12 +33,15 @@ const nextAt = id => { const t = todayISO(); return bookingsAt(id).filter(b => b
 const goBooking = id => import('./bookings.js').then(m => m.openBooking(id)).catch(e => { console.error(e); toast('That booking could not be opened.'); });
 const searchText = v => [v.name, v.address, v.contact, v.stage, v.pa, v.backline, v.notes, venueKindLabel(kindOf(v))].map(x => String(x || '')).join(' ').toLowerCase();
 
+// The hire rate of a studio or a room, as "$45 per hour". '' when none is set, and for a role without money (a scout, a
+// gig-goer), whose pages keep fees off (the form keeps the field).
+const rateText = v => (moneyShown() && num(v.rate) > 0 ? `${fmtMoney(num(v.rate))} ${rateUnitLabel(v.rateUnit || 'hour')}` : '');
 // The short facts on a card: how many it holds, the curfew, the noise limit, the rate for a studio or a room.
 const facts = v => [
   num(v.capacity) > 0 && `Holds ${num(v.capacity)}`,
   isTime(v.curfew) && `Curfew ${v.curfew}`,
   num(v.noiseLimit) > 0 && `🔊 ${num(v.noiseLimit)} dB`,
-  num(v.rate) > 0 && `${fmtMoney(num(v.rate))} ${rateUnitLabel(v.rateUnit || 'hour')}`,
+  rateText(v),
 ].filter(Boolean);
 
 // Redraw without losing the box someone is typing in or the chip they tapped (by id).
@@ -105,7 +108,7 @@ export const venues = {
     const draw = () => keepFocus(root, () => root.replaceChildren(...nodes(listView(draw))));
     draw();
   },
-  tutorial: () => PAGE_STEPS,
+  tutorial: () => PAGE_STEPS(),
 };
 
 function listView(draw) {
@@ -128,7 +131,8 @@ function listView(draw) {
       ? h('div', { class: 'list vn-list' }, shown.map(venueCard))
       : all.length
         ? empty('No place matches that. Try another word or kind.', h('button', { type: 'button', class: 'btn ghost', id: 'vn-clear', onclick: () => { S.q = ''; S.kind = ''; draw(); } }, 'Show every place'))
-        : empty('Save the clubs, halls, studios and rehearsal rooms you play and record in: capacity, stage, PA, curfew, load-in and a map. Shows there warn you when the set would run past curfew.',
+        : empty(moneyShown() ? 'Save the clubs, halls, studios and rehearsal rooms you play and record in: capacity, stage, PA, curfew, load-in and a map. Shows there warn you when the set would run past curfew.'
+          : `Save the rooms you go to: clubs, halls and festivals, with the capacity, the PA, the noise limit and a map. Each one lists the ${sectionName('bookings', 'Bookings').toLowerCase()} you’ve been to there.`,
           h('button', { type: 'button', class: 'btn primary', id: 'vn-first', onclick: () => editVenue({ kind: 'venue' }) }, 'Add a venue')),
   ];
 }
@@ -184,7 +188,7 @@ export function openVenue(id) {
     const details = [
       ['Capacity', num(v.capacity) > 0 ? String(num(v.capacity)) : ''], ['Stage', v.stage], ['PA & desk', v.pa], ['Backline provided', v.backline],
       ['Load-in', v.loadIn], ['Parking', v.parking], ['Curfew', isTime(v.curfew) ? v.curfew : ''], ['Noise limit', num(v.noiseLimit) > 0 ? `${num(v.noiseLimit)} dB` : ''],
-      ['Hospitality', v.hospitality], ['Rate', num(v.rate) > 0 ? `${fmtMoney(num(v.rate))} ${rateUnitLabel(v.rateUnit || 'hour')}` : ''],
+      ['Hospitality', v.hospitality], ['Rate', rateText(v)],
     ].filter(([, x]) => String(x || '').trim());
     const map = miniMap(v), buttons = mapButtons(v);
     body.replaceChildren(...nodes(
@@ -265,8 +269,10 @@ export function editVenue(v = {}, onSaved) {
 }
 
 /* ------------------------------- walkthroughs ------------------------------- */
-const PAGE_STEPS = [
-  { title: 'Places you play and record', text: 'Venues, studios, rehearsal rooms and festivals. + Add saves one with its capacity, stage, PA, curfew, load-in, contact and map.', target: ['.vn-head'] },
+// Read when the walkthrough runs, so its words follow the role: a role without money goes to shows rather than plays them.
+const PAGE_STEPS = () => [
+  moneyShown() ? { title: 'Places you play and record', text: 'Venues, studios, rehearsal rooms and festivals. + Add saves one with its capacity, stage, PA, curfew, load-in, contact and map.', target: ['.vn-head'] }
+    : { title: 'The rooms you go to', text: 'Clubs, halls and festivals. + Add saves one with its capacity, the PA, the noise limit, the contact and a map.', target: ['.vn-head'] },
   { title: 'Kinds of place', text: 'Show only venues, studios, rehearsal rooms or festivals.', target: ['.vn-kinds'] },
   { title: 'Find a place', text: 'Search by name, address, contact or what the stage and PA are.', target: ['#vn-search'] },
   { title: 'A place', text: 'How many it holds, the curfew and noise limit, and your next booking there. Tap it for the map, details and every booking there.', target: ['.vn-card'] },

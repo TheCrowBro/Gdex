@@ -15,15 +15,18 @@ import { meter, METER_STEPS } from '../tools-meter.js';
 import { setTimer, TIMER_STEPS } from '../tools-timer.js';
 import { sectionName, pageOpt } from '../roles.js';
 
-// called: the tool in a sentence ("Gdex opens tap tempo…").
+// called: the tool in a sentence ("Gdex opens tap tempo…"). tab: the name on its tab, where it differs from the label: a
+// soft hyphen lets "Metronome" break onto two lines on a narrow tab ("Metro-" / "nome") instead of being cut off.
 const TOOLS = [
   { id: 'tuner', label: 'Tuner', called: 'the tuner', icon: '🎸', make: tuner, steps: TUNER_STEPS },
-  { id: 'metronome', label: 'Metronome', called: 'the metronome', icon: '🥁', make: metronome, steps: METRONOME_STEPS },
+  { id: 'metronome', label: 'Metronome', tab: 'Metro\u00ADnome', called: 'the metronome', icon: '🥁', make: metronome, steps: METRONOME_STEPS },
   { id: 'tempo', label: 'Tempo', called: 'tap tempo', icon: '👆', make: tempo, steps: TEMPO_STEPS },
   { id: 'meter', label: 'Meter', called: 'the sound level meter', icon: '🔊', make: meter, steps: METER_STEPS },
   { id: 'timer', label: 'Set timer', called: 'the set timer', icon: '⏱️', make: setTimer, steps: TIMER_STEPS },
 ];
-const TOOL_KEY = 'gdex-tool';
+// Picks are kept under gdex-tool-pick. The build before roles wrote gdex-tool each time Tools was drawn, so that key
+// says only what was on screen, not what was picked: it is never read, so the role's first tool still applies there.
+const TOOL_KEY = 'gdex-tool-pick';
 const known = id => TOOLS.some(x => x.id === id);
 // tool: the one on screen (the walkthrough follows it). picked: the one the person last picked in this visit, which
 // also lasts the visit where storage is blocked.
@@ -52,7 +55,7 @@ export const tools = {
     const tabs = TOOLS.map(t => h('button', {
       type: 'button', role: 'tab', id: 'tl-tab-' + t.id, class: 'tl-tab', 'data-tool': t.id, 'aria-controls': 'tl-panel', 'aria-selected': 'false', tabindex: '-1',
       onclick: () => open(t.id, true),
-    }, h('span', { class: 'tl-tab-ico', 'aria-hidden': 'true' }, t.icon), h('span', { class: 'tl-tab-name' }, t.label)));
+    }, h('span', { class: 'tl-tab-ico', 'aria-hidden': 'true' }, t.icon), h('span', { class: 'tl-tab-name' }, t.tab || t.label)));
     const seg = h('div', { class: 'tl-seg', role: 'tablist', 'aria-label': 'Tools' }, tabs);
 
     // pick: the person chose this tool (remembered for next time); without it, the page is only opening on one.

@@ -10,7 +10,7 @@ import { openForm } from '../form.js';
 import { qrSvg, loadQR } from '../qr.js';
 import { saveFile, fileName } from '../print.js';
 import { sheetTutorial } from '../tour.js';
-import { sectionName, pageOpt } from '../roles.js';
+import { sectionName, pageOpt, actWord, moneyShown } from '../roles.js';
 
 /* ------------------------------- small helpers ------------------------------- */
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -21,6 +21,9 @@ const groupLabel = g => (PEOPLE_GROUPS.find(x => x[0] === g) || ['', 'Not sorted
 // contacts for a manager or a scout), else Band members.
 const newGroup = () => { const g = pageOpt('people', 'group', 'band'); return GROUP_IDS.includes(g) ? g : 'band'; };
 const ONE = { band: 'Band member', session: 'Session player', crew: 'Crew', contact: 'Industry contact' };
+// The role's words: acts as the role calls them ("Artists", "Bands", "Acts") and its bookings ("Shows", "Gigs").
+const actsTitle = () => { const w = actWord(); return w.charAt(0).toUpperCase() + w.slice(1) + 's'; };
+const bookingsWord = () => sectionName('bookings', 'Bookings');
 const SHORT = { band: 'Band', session: 'Session', crew: 'Crew', contact: 'Contacts' }; // the filter chips, so all fit a phone
 const unitLabel = u => (PERSON_RATE_UNITS.find(x => x[0] === u) || PERSON_RATE_UNITS[0])[1];
 const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
@@ -43,8 +46,9 @@ const asContact = p => {
   const mail = emailOf(p).toLowerCase(), name = String(p.name || '').trim().toLowerCase();
   return upcoming().filter(b => b.contact && !(b.people || []).includes(p.id) && ((mail && String(b.contact.email || '').trim().toLowerCase() === mail) || (!mail && name && String(b.contact.name || '').trim().toLowerCase() === name)));
 };
-// The rate as people say it: "$180 per day". '' when none is set.
-const rateText = p => (p && p.rate !== '' && p.rate != null && Number.isFinite(Number(p.rate)) ? (Number(p.rate) > 0 ? `${fmtMoney(Number(p.rate))} ${unitLabel(p.rateUnit)}` : 'No fee') : '');
+// The rate as people say it: "$180 per day". '' when none is set, and for a role without money (a scout, a gig-goer),
+// whose pages keep fees off (the form keeps the field).
+const rateText = p => (moneyShown() && p && p.rate !== '' && p.rate != null && Number.isFinite(Number(p.rate)) ? (Number(p.rate) > 0 ? `${fmtMoney(Number(p.rate))} ${unitLabel(p.rateUnit)}` : 'No fee') : '');
 const dateText = b => (!ISO.test(b.date || '') ? 'No date yet' : ISO.test(b.endDate || '') && b.endDate > b.date ? `${fmtShort(b.date)} – ${fmtShort(b.endDate)}` : fmtShort(b.date));
 const longDate = iso => parseISO(iso).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 // The times that matter on a list line: a show's load-in and stage time; a session's start to finish (past midnight too).
@@ -124,7 +128,18 @@ function edit(p = {}, onSaved, { actIds = null } = {}) {
       if (onSaved) onSaved(saved);
     },
     onDelete: stored ? () => deletePerson(p.id, { asked: true }) : null,
+    onReady: askHint,
   });
+}
+// Under Group, while Industry contacts is picked: the people Ask if they're free is for (their sheet has no Ask button).
+function askHint(form) {
+  const sel = form.querySelector('[data-key=group]'), field = sel && sel.closest('.field');
+  if (!field) return;
+  const note = h('small', { class: 'muted pp-group-hint', id: sel.id + '-hint' }, 'Crew, session players and band members get “🙋 Ask if they’re free”, to check a date with them. Industry contacts don’t.');
+  field.append(note);
+  const sync = () => { const on = sel.value === 'contact'; note.hidden = !on; if (on) sel.setAttribute('aria-describedby', note.id); else sel.removeAttribute('aria-describedby'); };
+  sel.addEventListener('change', sync);
+  sync();
 }
 // Edit form for a person (also used by the booking's line-up and the acts page). onSaved(record) after it saves.
 export function editPerson(p = {}, onSaved) { edit(p || {}, onSaved); }
@@ -153,14 +168,15 @@ function deletePerson(id, { asked = false } = {}) {
 }
 
 /* ------------------------------- the person sheet ------------------------------- */
-const personSteps = [
+const personSteps = () => [
   { title: 'Get in touch', text: 'Call, text or email them with the number and address saved here.', target: ['.pp-sheet .pp-quick'] },
   { title: 'Ask if they’re free', text: 'Pick a booking and send them a text or email with the date, the place and the times. The money is never in it.', target: ['#pp-ask'] },
   { title: 'Share their contact', text: 'A QR code another phone can scan, or a .vcf file to send.', target: ['#pp-share'] },
-  { title: 'Acts', text: 'The acts they play in. Tap one to open it.', target: ['.pp-acts-sec'] },
-  { title: 'Bookings', text: 'Their upcoming shows, sessions and rehearsals, with a warning when two land on the same day. Tap one to open it.', target: ['.pp-upcoming'] },
-  { title: 'Details and rate', text: 'Their usual rate is for you only: it never goes into a message or their contact card.', target: ['.pp-details'] },
-  { title: 'Edit', text: 'Change their details, group, rate and acts. Delete is at the bottom.', target: ['#pp-edit'] },
+  { title: actsTitle(), text: 'The acts they play in. Tap one to open it.', target: ['.pp-acts-sec'] },
+  { title: bookingsWord(), text: 'Their upcoming shows, sessions and rehearsals, with a warning when two land on the same day. Tap one to open it.', target: ['.pp-upcoming'] },
+  moneyShown() ? { title: 'Details and rate', text: 'Their usual rate is for you only: it never goes into a message or their contact card.', target: ['.pp-details'] }
+    : { title: 'Details', text: 'Their group, role, company, phone and email.', target: ['.pp-details'] },
+  { title: 'Edit', text: moneyShown() ? 'Change their details, group, rate and acts. Delete is at the bottom.' : 'Change their details, group and acts. Delete is at the bottom.', target: ['#pp-edit'] },
 ];
 const sec = (title, cls, ...kids) => h('section', { class: 'pp-sec ' + (cls || '') }, h('h3', null, title), ...kids);
 const kv = (k, v) => v && h('div', null, h('span', { class: 'muted' }, k), typeof v === 'string' ? h('span', { class: 'pp-val' }, v) : v);
@@ -193,7 +209,7 @@ function personView(p, close) {
       group !== 'contact' && h('button', { class: 'btn primary small', type: 'button', id: 'pp-ask', onclick: () => askFree(id) }, '🙋 Ask if they’re free'),
       h('button', { class: 'btn ghost small', type: 'button', id: 'pp-share', onclick: () => shareContact(id) }, '▦ Share contact')),
     // An industry contact is rarely in an act or on a line-up: those sections show for them only when there is something.
-    (acts.length > 0 || group !== 'contact') && sec('Acts', 'pp-acts-sec', acts.length
+    (acts.length > 0 || group !== 'contact') && sec(actsTitle(), 'pp-acts-sec', acts.length
       ? h('div', { class: 'pp-actlist' }, acts.map(a => h('button', { class: 'chip pp-actchip', type: 'button', 'data-fk': 'act-' + a.id, 'aria-label': `Open ${a.name}`, onclick: () => import('./acts.js').then(m => m.openAct(a.id)) }, dot(a), a.name)))
       : h('p', { class: 'muted small' }, 'Not in an act. Tap Edit to add them to one.')),
     (next.length > 0 || group !== 'contact' || !contactFor.length) && sec('Coming up', 'pp-upcoming', next.length
@@ -201,14 +217,14 @@ function personView(p, close) {
       : h('p', { class: 'muted small' }, group === 'contact' ? 'Nothing coming up with them.' : 'Nothing booked yet. Ask if they’re free for a show or session.')),
     contactFor.length > 0 && sec('They’re the contact for', 'pp-contact-for', h('div', { class: 'pp-bks' }, contactFor.map(b => bookingItem(b, '', close)))),
     past.length > 0 && h('details', { class: 'twirl pp-past' },
-      h('summary', null, h('span', { class: 'twirl-ico', 'aria-hidden': 'true' }, '🕘'), h('span', { class: 'twirl-name' }, 'Past bookings'), h('span', null, h('span', { class: 'tag' }, String(past.length)))),
+      h('summary', null, h('span', { class: 'twirl-ico', 'aria-hidden': 'true' }, '🕘'), h('span', { class: 'twirl-name' }, 'Past ' + bookingsWord().toLowerCase()), h('span', null, h('span', { class: 'tag' }, String(past.length)))),
       h('div', { class: 'twirl-body' }, past.slice(0, 12).map(b => bookingItem(b, '', close)), past.length > 12 && h('p', { class: 'muted small' }, `And ${past.length - 12} older.`))),
     sec('Details', 'pp-details', h('div', { class: 'kv pp-kv' },
       kv('Group', group ? groupLabel(group) : 'Not sorted yet'),
       kv('Role', p.role), kv('Instruments', p.instrument), kv('Company', p.company),
       tel && kv('Phone', h('a', { href: 'tel:' + tel }, p.phone)),
       mail && kv('Email', h('a', { href: 'mailto:' + mail }, mail)),
-      kv('Usual rate', rateText(p) || 'Not set'))),
+      moneyShown() && kv('Usual rate', rateText(p) || 'Not set'))),
     gear.length > 0 && sec('Their gear', 'pp-gear', h('ul', { class: 'pp-gearlist' }, gear.map(g => h('li', null, h('span', null, g.name || 'Item', Number(g.qty) > 1 ? ` ×${Math.floor(Number(g.qty))}` : ''), h('span', { class: 'muted' }, [g.make, g.model].filter(Boolean).join(' '))))),
       h('p', { class: 'muted small' }, `On your backline list, worth ${fmtMoney(gearValue)}.`)),
     p.notes && sec('Notes', 'pp-notes', h('p', { class: 'prewrap pp-notetext' }, p.notes)),
@@ -414,14 +430,16 @@ function draw(root) {
     const el = id && root.querySelector('#' + CSS.escape(id));
     if (el) { el.focus({ preventScroll: true }); if (caret != null) try { el.setSelectionRange(caret, caret); } catch { /* not a text box */ } }
   };
-  const add = () => edit({ group: S.group || newGroup() }, null, { actIds: S.act ? [S.act] : null }); // a group on show wins
+  // A group on show wins; with one act's people on show, + Add is adding a member of it (Band members); else the role's.
+  const add = () => edit({ group: S.group || (S.act ? 'band' : newGroup()) }, null, { actIds: S.act ? [S.act] : null });
   const chip = (id, on, onclick, ...kids) => h('button', { class: 'chip' + (on ? ' on' : ''), type: 'button', id, 'aria-pressed': String(on), onclick }, ...kids);
   const count = n => h('span', { class: 'pp-n' }, String(n));
   const groupChips = PEOPLE_GROUPS.filter(([g]) => counts[g] || S.group === g);
 
   let list;
   if (!all.length) {
-    list = empty('Add your band, the session players and crew you hire, and the promoters and agents you deal with. Then put them on bookings, and ask who’s free in a tap.',
+    list = empty(moneyShown() ? 'Add your band, the session players and crew you hire, and the promoters and agents you deal with. Then put them on bookings, and ask who’s free in a tap.'
+      : `Add the managers, agents, promoters and label contacts you deal with. Call, text or email them in a tap, and see the ${actWord()}s they’re with.`,
       h('button', { class: 'btn primary', type: 'button', id: 'pp-empty-add', onclick: add }, '+ Add a person'));
   } else if (!shown.length) {
     list = empty(S.group && !counts[S.group] && !words.length && !S.act ? `No ${groupLabel(S.group).toLowerCase()} yet.` : 'No one matches.',
@@ -443,7 +461,7 @@ function draw(root) {
       chip('pp-g-all', !S.group, () => { S.group = ''; again(); }, 'Everyone ', count(all.length)),
       groupChips.map(([g]) => { const el = chip('pp-g-' + g, S.group === g, () => { S.group = S.group === g ? '' : g; again(); }, SHORT[g] + ' ', count(counts[g])); el.setAttribute('aria-label', `${groupLabel(g)}, ${counts[g]}`); return el; })),
     actsWithPeople.length > 0 && h('div', { class: 'chips pp-actfilter', role: 'group', 'aria-label': 'Show the people in an act' },
-      chip('pp-a-all', !S.act, () => { S.act = ''; again(); }, 'All acts'),
+      chip('pp-a-all', !S.act, () => { S.act = ''; again(); }, `All ${actWord()}s`),
       actsWithPeople.map(a => chip('pp-a-' + a.id, S.act === a.id, () => { S.act = S.act === a.id ? '' : a.id; again(); }, dot(a), a.name))),
     filtered && shown.length > 0 && h('p', { class: 'muted small pp-showing', role: 'status' }, `Showing ${plural(shown.length, 'person', 'people')} of ${all.length}.`),
     list,
@@ -461,14 +479,15 @@ export const people = {
   id: 'people', label: 'People', icon: '👥',
   render(root) { draw(root); },
   tutorial: () => [
-    { title: 'People', text: 'Everyone you work with: your band, the session players and crew you hire, and the promoters, agents and labels you deal with. Tap + Add for someone new.', target: ['.pp-page .page-head'] },
+    { title: 'People', text: moneyShown() ? 'Everyone you work with: your band, the session players and crew you hire, and the promoters, agents and labels you deal with. Tap + Add for someone new.'
+      : 'The managers, agents, promoters and label contacts you deal with, with call, text and email one tap away. Tap + Add for someone new.', target: ['.pp-page .page-head'] },
     { title: 'Search', text: 'Find anyone by name, role, instrument, company or act.', target: ['#pp-search'] },
     { title: 'Groups', text: 'Show only band members, session players, crew or industry contacts.', target: ['.pp-groups'] },
-    { title: 'Acts', text: 'Show only the people in one act.', target: ['.pp-actfilter'] },
-    { title: 'A person', text: 'Their role, instruments, company, acts and next booking. Tap the card for their bookings, rate and notes, to ask if they’re free, or to share their contact.', target: ['.pp-card .pp-main'] },
+    { title: actsTitle(), text: 'Show only the people in one act.', target: ['.pp-actfilter'] },
+    { title: 'A person', text: 'Their role, instruments, company, acts and next booking. Tap the card for their ' + (moneyShown() ? 'bookings, rate and notes' : 'bookings and notes') + ', to ask if they’re free, or to share their contact.', target: ['.pp-card .pp-main'] },
     { title: 'Call, text or email', text: 'Straight from the card, with the number and address saved for them.', target: ['.pp-card .pp-quick'] },
     { title: 'Save as contacts', text: 'Save the people on screen as a contacts file (.vcf) your phone or computer can import.', target: ['#pp-export'] },
-    { title: 'Nobody here yet', text: FIRST_ADD[newGroup()] || FIRST_ADD.band, target: ['#pp-empty-add'] },
+    { title: 'Nobody here yet', text: FIRST_ADD[moneyShown() ? newGroup() : 'contact'] || FIRST_ADD.band, target: ['#pp-empty-add'] },
   ],
 };
 
