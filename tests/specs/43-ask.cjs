@@ -465,13 +465,13 @@ async function whoIsAsked() {
   await roleNow(page, 'band');
   P = await pref();
   ok('for a band the note says the role is not asked, and how to be', P.note === 'Your role is not asked. Choose Always ask to be asked anyway.' && P.on.startsWith('ac-ask-auto:true:true'), JSON.stringify(P));
+  ok('still nine sections, one group of role cards with seven choices, and no radio among the three buttons', (await page.locator('#page details.se-sec').count()) === 9 && (await page.locator('#se-role [role=radiogroup]').count()) === 1
+    && (await page.locator('#se-role [role=radio]').count()) === 7 && (await page.locator('.ac-ask-pref [role=radio]').count()) === 0);
   await roleNow(page, 'scout');
   await page.click('#ac-ask-off'); await sleep(150);
   P = await pref();
   ok('for a scout, who keeps ★ Score on a show’s own page whatever is chosen here, Never ask names that page too', P.note === 'Gdex never asks. You can still score a show from its own page or the act’s card.' && P.key === 'off', JSON.stringify(P));
   await page.click('#ac-ask-auto'); await sleep(150);
-  ok('still nine sections, one group of role cards with seven choices, and no radio among the three buttons', (await page.locator('#page details.se-sec').count()) === 9 && (await page.locator('#se-role [role=radiogroup]').count()) === 1
-    && (await page.locator('#se-role [role=radio]').count()) === 7 && (await page.locator('.ac-ask-pref [role=radio]').count()) === 0);
   await roleNow(page, 'all');
   await page.click('#ac-ask-off'); await sleep(150);
   ok('Never ask chosen in Settings: the next open asks nothing', (await loadQuiet(page)).length === 0 && (await waitingIds(page)).length === 2);

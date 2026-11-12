@@ -610,6 +610,8 @@ press that opened it, still down) does not.
 * Forms (`form.js`): the Save bar stays at the foot of the sheet, and `styles.css` gives every sheet with one a
   `scroll-padding-bottom`, so a control reached with Tab is scrolled clear of it (a tall notes box at least to its
   first line). At 340 px and narrower Delete, Cancel and Save share the row instead of forcing the form wider.
+* A toast (`util.js` `toast()`) sits at the foot of the screen for nearly three seconds and lets taps through to
+  what is under it (`pointer-events: none`): the next row's Yes and No in "Did you see them?", a card.
 * A name beside a status pill (a Coming up card, a Week row, a booking's header) lets the pill drop under it where
   the name would be squeezed, so no word is broken in two. The display choices (`.pref > .seg.wide`) do the same on a
   narrow phone with large text: a row that cannot hold every choice puts the last on a line of its own.
