@@ -77,12 +77,17 @@ function bookingOptions(currentId) {
 const defaultTitle = (song, b) => (song ? `${song.title} takes` : b ? `${bookingTitle(b)} takes` : `Takes ${fmtShort(todayISO())}`);
 
 /* ------------------------------- shared API ------------------------------- */
-// Go to the Studio log and open a log. Resolves once it is drawn.
+// Go to the Studio log and open a log. Resolves once it is drawn, at the top, with the focus on + Take (the next thing to
+// press) when the button that opened it went with the page it was on.
 export function openLog(id) {
   if (!id || !byId('logs', id)) { toast('That take log is no longer here.'); return Promise.resolve(); }
   setOpen(id);
   const go = window.logiPage && window.logiPage() === 'sessions' ? (redraw(), Promise.resolve()) : (window.logiGo ? window.logiGo('sessions') : Promise.resolve());
-  return Promise.resolve(go).then(() => { window.scrollTo(0, 0); });
+  return Promise.resolve(go).then(() => {
+    window.scrollTo(0, 0);
+    const now = document.activeElement, take = document.getElementById('sd-take');
+    if (take && !document.querySelector('.sheet') && (!now || now === document.body)) take.focus({ preventScroll: true });
+  });
 }
 // Create a log ({ bookingId, songId, title, date }) and open it. Returns the stored record.
 export function newLog(preset = {}) {

@@ -8,19 +8,21 @@ import * as model from '../model.js';
 import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { setDepositPaid } from './deal.js';
+import { moneyShown } from '../roles.js';
 
 const PLURAL = { show: 'show', session: 'studio session', rehearsal: 'rehearsal', other: 'booking' };
 const PREVIEW = new Set(); // bookings whose email preview is open (survives redraws)
 
+// A role without money (a scout, a gig-goer) gets the list without the deal, deposit, settlement and invoice lines.
 function progressOf(b) {
-  const lines = model.checklistFor(b.kind);
+  const lines = model.checklistFor(b.kind, { money: moneyShown() });
   return { lines, done: lines.filter(l => model.isChecked(b, l.id)).length };
 }
 
 // Tick or untick a line. "Deposit received" on a show goes through the deal, so the deal box, the settlement, the
-// invoice and the Money page all see the deposit as paid (or not) too.
+// invoice and the Money page all see the deposit as paid (or not) too. Never for a role without money: it has no deal.
 function tick(b, id, on) {
-  if (id === 'show-deposit' && b.kind === 'show') setDepositPaid(b, on);
+  if (id === 'show-deposit' && b.kind === 'show' && moneyShown()) setDepositPaid(b, on);
   else model.markCheck(b.id, id, on);
 }
 
@@ -68,7 +70,9 @@ function deleteLine(kind, line) {
 
 /* ------------------------------- the advance email ------------------------------- */
 // Subject and body: the facts already on the booking (and its venue), then a question for each thing still blank.
+// A role without money asks nothing about getting paid, the merch cut or the settlement.
 export function advanceEmail(b) {
+  const money = moneyShown();
   const v = model.venueOf(b);
   const act = model.actName(b.actId) || b.client || '';
   const c = b.contact || {};
@@ -86,7 +90,7 @@ export function advanceEmail(b) {
     if (v.backline) known.push(`On site: ${v.backline}`); else ask.push('Which instruments, amps and mics are on site?');
     if (v.parking || b.parking) known.push(`Parking: ${b.parking || v.parking}`); else ask.push('Where do we park and load in?');
     ask.push('How will the session files be handed over (format, drive or cloud)?');
-    ask.push('How and when would you like to be paid?');
+    if (money) ask.push('How and when would you like to be paid?');
   } else {
     if (b.loadIn) {
       known.push(`Load-in: ${b.loadIn}`);
@@ -108,8 +112,10 @@ export function advanceEmail(b) {
     const hosp = b.hospitality || v.hospitality;
     if (hosp) known.push(`Hospitality: ${hosp}`); else ask.push('Is there hospitality or a buyout?');
     if (Number(b.guestCap) > 0) known.push(`Guest list: ${Number(b.guestCap)}`); else ask.push('What is our guest list allowance?');
-    ask.push('Merch: who sells, and what is the venue’s cut?');
-    ask.push('Settlement: cash or transfer, and who settles with us on the night?');
+    if (money) {
+      ask.push('Merch: who sells, and what is the venue’s cut?');
+      ask.push('Settlement: cash or transfer, and who settles with us on the night?');
+    }
     ask.push('Is there Wi-Fi for the band?');
   }
   const first = String(c.name || '').trim().split(/\s+/)[0];
@@ -137,7 +143,7 @@ function emailPart(b) {
   preview.addEventListener('toggle', () => { if (preview.open) PREVIEW.add(b.id); else PREVIEW.delete(b.id); });
   return h('div', { class: 'bk-email' },
     h('h4', null, b.kind === 'show' ? 'The advance email' : 'Email the studio'),
-    h('p', { class: 'muted small' }, b.kind === 'show' ? 'What you know so far, and a question for everything still blank: load-in, parking, PA and backline, hospitality, guest list, merch, settlement, Wi-Fi.' : 'The date and times, and the questions to ask before the session.'),
+    h('p', { class: 'muted small' }, b.kind === 'show' ? `What you know so far, and a question for everything still blank: load-in, parking, PA and backline, hospitality, guest list, ${moneyShown() ? 'merch, settlement, ' : ''}Wi-Fi.` : 'The date and times, and the questions to ask before the session.'),
     h('div', { class: 'actions' },
       h('a', { class: 'btn primary small bk-mail', href: mailto(to, subject, body) }, b.kind === 'show' ? '✉ Email the promoter' : '✉ Email the studio'),
       h('button', { type: 'button', class: 'btn ghost small', onclick: () => copy(`Subject: ${subject}\n\n${body}`) }, '⧉ Copy the email')),
@@ -182,8 +188,8 @@ export default {
       h('p', { class: 'muted small bk-adv-hint' }, `Your own lines are added to every ${PLURAL[kind]}’s checklist.`),
       emailPart(b));
   },
-  tutorial: [
-    { title: 'Checklist', text: 'Tick each step as it is done. Some tick themselves: sending the day sheet or an invoice, settling the night.', target: ['#blk-advance .bk-progress'] },
+  tutorial: () => [
+    { title: 'Checklist', text: moneyShown() ? 'Tick each step as it is done. Some tick themselves: sending the day sheet or an invoice, settling the night.' : 'Tick each step as it is done. Sending the day sheet ticks its line for you.', target: ['#blk-advance .bk-progress'] },
     { title: 'Your own lines', text: 'Add a line you always need. It shows on every booking of this kind; ✎ renames it and ✕ removes it.', target: ['#blk-advance .bk-adv-add'] },
     { title: 'The advance email', text: 'Writes the email to the promoter: what you know, and a question for everything still blank. Read it first, copy it, or open it in your mail app.', target: ['#blk-advance .bk-email'] },
   ],

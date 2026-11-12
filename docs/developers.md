@@ -86,7 +86,7 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act). |
 | `blockShown(id)`, `blockFolded(id)`, `MONEY_BLOCKS` | A booking box shown, under More boxes, or (a money box for a role without money) neither. `blocksFor(kind)` already leaves the others out. |
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
-| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
+| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
 
 Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
 seen last), and "From a past show" offers shows up to today (holds and offers too when money is off). Tools writes
@@ -215,7 +215,8 @@ Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `actUpcomin
 `settle(b)`, `sessionFee(b, hours?)`, `sessionHoursPlanned(b)`, `bookingIncome(b)`.
 
 Checklists: `CHECKLISTS` (built-in lines per kind with stable ids such as `show-daysheet`, `show-invoice`,
-`show-paid`, `show-settled`, `ses-invoice`, `ses-paid`, `ses-deliver`), `checklistFor(kind)`, `isChecked(b, id)`,
+`show-paid`, `show-settled`, `ses-invoice`, `ses-paid`, `ses-deliver`), `MONEY_CHECKS` (the built-in money lines),
+`checklistFor(kind, { money })` (`money: false` leaves the money lines out; the person's own lines stay), `isChecked(b, id)`,
 `markCheck(bookingId, id, on)`. A feature that completes a step ticks it by id (sending the day sheet ticks
 `show-daysheet`; sending an invoice ticks `show-invoice`/`ses-invoice`; a paid invoice `show-paid`/`ses-paid`;
 settling the night `show-settled`). People's rate units: `PERSON_RATE_UNITS` (day, hour, show, song).
@@ -234,7 +235,13 @@ open set); `hiddenFor(kind)` is everything not shown, including money boxes, whi
 A role's `pages.bookings.open` opens some boxes the first time a booking is drawn in a visit. With money off, new and
 duplicated bookings start Confirmed and an act's members are not copied into the line-up. For a role with
 `pages.bookings.score`, a show with an act, dated today or earlier and not yet scored (`model.seenEntryFor`) has
-"★ Score <act>" in its header (`acts.js` `logSighting`), then "★ Scored 86/100" with Edit.
+"★ Score <act>" in its header (`acts.js` `logSighting`), then "★ Scored 86/100" with Edit; the focus moves to the new
+button after a save or a delete. Such a show with no act says "Pick the act you saw to score this show." with a button
+that opens its form on the act. With money off (`moneyShown()` false), the status choices leave out Paid / settled
+unless the booking already has it, a status change never writes or clears a settlement, the advance checklist leaves out
+the money lines (`model.MONEY_CHECKS`), the session clock shows no fee, the advance email asks nothing about pay or
+settling, and the Notes box, Delete sheet and walkthroughs speak of the person's own notes (the Notes words follow
+`blockShown('daysheet')`).
 
 ```js
 export default {

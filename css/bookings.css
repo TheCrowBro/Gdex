@@ -97,9 +97,20 @@
 .bk-contact { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .bk-contact-who { display: grid; min-width: 0; overflow-wrap: anywhere; }
 .bk-contact-btns { display: flex; flex-wrap: wrap; gap: 6px; }
-.bk-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
-.bk-actions .btn { flex-direction: column; justify-content: center; gap: 2px; min-height: 60px; padding: 6px 4px; font-size: .82rem; line-height: 1.15; text-align: center; white-space: normal; background: var(--bg2); }
+/* Duplicate, Add to calendar, Delete: three in a row while each one's longest word fits. A label wraps between words
+   only (never "Duplicat/e"), so on a narrow screen the buttons wrap onto another row instead, and with large text on a
+   phone each takes a row of its own, its icon beside the words. */
+.bk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.bk-actions .btn { flex: 1 1 0; min-width: min-content; overflow-wrap: normal; flex-direction: column; justify-content: center; gap: 2px; min-height: 60px; padding: 6px 4px; font-size: .82rem; line-height: 1.15; text-align: center; white-space: normal; background: var(--bg2); }
 .bk-actions .btn > span { font-size: 1.2rem; line-height: 1; }
+@media (max-width: 400px) {
+  html[data-text=large] .bk-actions { flex-direction: column; }
+  html[data-text=large] .bk-actions .btn { flex: none; flex-direction: row; justify-content: flex-start; gap: 10px; min-height: var(--hit); padding: 6px 14px; text-align: left; }
+}
+@media (max-width: 480px) {
+  html[data-text=xlarge] .bk-actions { flex-direction: column; }
+  html[data-text=xlarge] .bk-actions .btn { flex: none; flex-direction: row; justify-content: flex-start; gap: 10px; min-height: var(--hit); padding: 6px 14px; text-align: left; }
+}
 .bk-actions .bk-delete { color: var(--danger); }
 .bk-actions .bk-delete:hover { border-color: var(--danger); }
 
@@ -140,6 +151,11 @@
 .bk-status-opt.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
 .bk-status-opt .pill { justify-self: start; font-size: .8rem; }
 .bk-tick { color: var(--accent); font-weight: 800; }
+/* Where the pill's column would leave the help only a few words wide (a narrow phone, or large text), the help goes
+   under the pill, across the option, with the tick beside them. */
+@media (max-width: 340px) { .bk-status-opt { grid-template-columns: minmax(0, 1fr) 1.2rem; row-gap: 4px; } .bk-status-opt > .pill { grid-area: 1 / 1; } .bk-status-opt > .muted { grid-area: 2 / 1; } .bk-status-opt > .bk-tick { grid-area: 1 / 2 / 3 / 3; } }
+@media (max-width: 380px) { html[data-text=large] .bk-status-opt { grid-template-columns: minmax(0, 1fr) 1.2rem; row-gap: 4px; } html[data-text=large] .bk-status-opt > .pill { grid-area: 1 / 1; } html[data-text=large] .bk-status-opt > .muted { grid-area: 2 / 1; } html[data-text=large] .bk-status-opt > .bk-tick { grid-area: 1 / 2 / 3 / 3; } }
+@media (max-width: 480px) { html[data-text=xlarge] .bk-status-opt { grid-template-columns: minmax(0, 1fr) 1.2rem; row-gap: 4px; } html[data-text=xlarge] .bk-status-opt > .pill { grid-area: 1 / 1; } html[data-text=xlarge] .bk-status-opt > .muted { grid-area: 2 / 1; } html[data-text=xlarge] .bk-status-opt > .bk-tick { grid-area: 1 / 2 / 3 / 3; } }
 .bk-venue-note { display: block; margin-top: 2px; }
 .field .bk-bonus { justify-self: start; margin-top: 4px; }
 .bk-del-when { display: block; }

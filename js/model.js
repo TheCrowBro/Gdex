@@ -67,8 +67,12 @@ export const CHECKLISTS = {
   rehearsal: [['reh-room', 'Room booked'], ['reh-setlist', 'Setlist shared with the band'], ['reh-gear', 'Who brings what agreed']],
   other: [],
 };
-// Every line for a kind: the built-in ones, then the person's own. [{ id, t, own }]
-export const checklistFor = kind => [...(CHECKLISTS[kind] || []).map(([id, t]) => ({ id, t, own: false })), ...((db.templates && Array.isArray(db.templates[kind]) ? db.templates[kind] : []).filter(x => x && x.id).map(x => ({ id: x.id, t: x.t, own: true })))];
+// The built-in lines about money: the deal, the deposit, settling, the invoice and getting paid. A role without money
+// (js/roles.js moneyShown) leaves them off its checklists; their ticks stay on the booking.
+export const MONEY_CHECKS = ['show-offer', 'show-deposit', 'show-settled', 'show-invoice', 'show-paid', 'ses-invoice', 'ses-paid'];
+// Every line for a kind: the built-in ones, then the person's own. [{ id, t, own }]. { money: false } leaves out the
+// money lines (the person's own lines always stay).
+export const checklistFor = (kind, { money = true } = {}) => [...(CHECKLISTS[kind] || []).filter(([id]) => money || !MONEY_CHECKS.includes(id)).map(([id, t]) => ({ id, t, own: false })), ...((db.templates && Array.isArray(db.templates[kind]) ? db.templates[kind] : []).filter(x => x && x.id).map(x => ({ id: x.id, t: x.t, own: true })))];
 export const isChecked = (b, id) => !!(b && b.checks && b.checks[id]);
 // Tick (or untick) a line on a booking. Quiet: no toast. Returns nothing.
 export function markCheck(bookingId, id, on = true) {
