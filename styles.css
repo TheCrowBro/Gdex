@@ -52,7 +52,7 @@ a { color: var(--accent); }
 .cloud[data-state=synced] .cloud-ico { color: var(--ok); } .cloud[data-state=error] .cloud-ico, .cloud[data-state=needs-permission] .cloud-ico { color: var(--danger); } .cloud[data-state=saving] .cloud-ico { animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
 
-/* the section menu (js/deck.js): a record player or a tape deck, sticky at the top; tucks away while the page scrolls down */
+/* the section menu (js/deck.js): a record player, a tape deck or a digital player, sticky at the top; tucks away while the page scrolls down */
 .deckbar { position: sticky; top: 0; z-index: 20; margin: 0 calc(-1 * var(--pad)); padding: 6px var(--pad) 10px; background: var(--bg); border-bottom: 1px solid var(--line); box-shadow: 0 8px 20px #0004; transition: transform .28s ease, box-shadow .28s ease; }
 .deckbar.tucked { transform: translateY(-105%); box-shadow: none; pointer-events: none; }
 .deck { max-width: 560px; margin: 0 auto; padding: 10px; border-radius: 18px; background: var(--bg2); border: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
@@ -123,10 +123,36 @@ a { color: var(--accent); }
 .dk-track-name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
 .dk-jcard .dk-track { border-bottom: 1px dashed color-mix(in srgb, var(--paper-ink) 25%, transparent); }
 .dk-jcard .dk-track-name { font: 700 1.25rem/1.1 'Segoe Print', 'Bradley Hand', 'Marker Felt', 'Chalkboard SE', 'Comic Sans MS', cursive; }
+/* the digital player: a slim bar (cover art, Now playing, the three keys, a line showing how far through the menu you are) and a row of tabs that scrolls sideways */
+.deck[data-style=digital] { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; padding: 8px; overflow: hidden; } /* the row of tabs runs out under the rounded edge */
+.dk-player { --art: clamp(44px, calc(13.333vw - 4px), 52px); --gap: clamp(8px, calc(3.333vw - 4px), 10px); position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px var(--gap); padding-bottom: 8px; } /* the cover art is 52 px from 420 px wide, easing down to 44 px on a 360 px phone, and the gaps with it */
+.dk-now { flex: 999 1 calc(var(--art) + var(--gap) + 6rem); min-width: 0; display: flex; align-items: center; gap: var(--gap); padding: 0; border: 0; border-radius: 10px; background: transparent; color: inherit; font: inherit; text-align: left; }
+.dk-art { flex: none; width: var(--art); height: var(--art); border-radius: 10px; display: grid; place-items: center; font-size: 1.5rem; line-height: 1; background: radial-gradient(circle, color-mix(in srgb, var(--paper) 88%, transparent) 0 24%, transparent 70%), linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 35%, var(--card))); } /* the accent as a gradient, with a soft light behind the icon: a dark icon (the clef, the people) reads on every theme's accent, Mono's near-black one too */
+.dk-now-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.deck[data-style=digital] .dk-eyebrow { font-size: .64rem; letter-spacing: .12em; line-height: 1.3; }
+.deck[data-style=digital] .dk-eyebrow, .deck[data-style=digital] .dk-meta { color: color-mix(in srgb, var(--muted) 70%, var(--text)); } /* the two small lines: a little stronger than --muted, which on the deck's --bg2 is under 4.5:1 in the light Stage theme */
+.deck[data-style=digital] .dk-name { font-size: 1.1rem; line-height: 1.15; white-space: normal; overflow-wrap: anywhere; }
+/* one line, always: the count ("2 acts") shows after the track when there is room for it and is left out whole when there is not, so no word is cut and the bar keeps its height */
+.deck[data-style=digital] .dk-meta { display: flex; flex-wrap: wrap; column-gap: .35em; height: 1.4em; overflow: hidden; font: inherit; font-size: .78rem; line-height: 1.4; }
+.dk-meta-at, .dk-meta-n { flex: none; white-space: nowrap; }
+.dk-keys { flex: 1 0 auto; display: flex; gap: 6px; } /* beside the name, or on a line of their own (and then as wide as it) when they do not fit: a narrow phone with extra-large buttons */
+.dk-keys .dk-btn { flex: 1 0 var(--hit); }
+.dk-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.dk-fill { display: block; height: 100%; border-radius: 3px; background: var(--accent); transition: width .25s ease; }
+.dk-tabs { display: flex; gap: 6px; min-width: 0; margin: -5px -8px; padding: 5px 8px; overflow-x: auto; scroll-padding-inline: 28px; scrollbar-width: none; overscroll-behavior-inline: contain; } /* as wide as the deck, with room inside the scrolling row for a tab's focus ring */
+.dk-tabs::-webkit-scrollbar { display: none; }
+.dk-tab { flex: none; min-height: var(--hit); display: inline-flex; align-items: center; gap: 6px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--text); font: inherit; font-size: .84rem; white-space: nowrap; cursor: pointer; }
+@media (hover: hover) { .dk-tab:hover { border-color: var(--accent); } } /* not on a touch screen, where the edge would stay on the tab last tapped */
+.dk-tab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.dk-tab-ico { display: inline-grid; place-items: center; width: 1.7em; height: 1.7em; margin: 0 -.3em; } .dk-tab.on .dk-tab-ico { background: radial-gradient(circle, color-mix(in srgb, var(--paper) 90%, transparent) 0 34%, transparent 72%); } /* the same soft light behind the current tab's icon, which sits on the accent too */
+.dk-tab-name { display: inline-flex; flex-direction: column; } .dk-tab-name::after { content: attr(data-name); height: 0; overflow: hidden; visibility: hidden; font-weight: 700; } /* every tab keeps the width of its bold name, so the row does not shift when the current tab changes */
+.dk-queue .dk-jcard-title { font-family: inherit; font-size: 1.25rem; }
 @media (max-width: 370px) { .dk-record { zoom: .86; } }
+@media (max-width: 380px) { .dk-art { font-size: 1.3rem; } .dk-keys { gap: 4px; } } /* a small phone: with the cover art eased down to 44 px (--art, above), the three keys still fit beside the name */
 @media (max-width: 359px) { .dk-tracks-word, .dk-counter-of { display: none; } } /* the Tracks button keeps its name for screen readers; the counter keeps its number */
-/* Mono: no colour at all, the tape included */
+/* Mono: no colour at all, the tape and the digital player's icons included */
 html[data-palette=mono] .dk-pack, html[data-palette=mono] .dk-tape-run { background: #555; }
+html[data-palette=mono] .dk-art, html[data-palette=mono] .dk-tab-ico { filter: grayscale(1); }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 .page { outline: none; perspective: 1100px; }
@@ -254,16 +280,18 @@ button, .btn, a.btn, .chip, .check, .day, summary { touch-action: manipulation; 
 .form-actions .btn { min-width: 96px; }
 .page-head .btn { min-width: 88px; }
 :root[data-contrast=high], :root[data-contrast=high][data-palette][data-scheme] { --muted: color-mix(in srgb, var(--text) 82%, var(--bg)); --line: color-mix(in srgb, var(--text) 55%, var(--bg)); --focus: #ffd400; }
-html[data-contrast=high] .btn.ghost, html[data-contrast=high] .chip, html[data-contrast=high] .card, html[data-contrast=high] input, html[data-contrast=high] select, html[data-contrast=high] textarea, html[data-contrast=high] .deck, html[data-contrast=high] .dk-btn, html[data-contrast=high] .dk-cassette { border-width: 2px; }
+html[data-contrast=high] .btn.ghost, html[data-contrast=high] .chip, html[data-contrast=high] .card, html[data-contrast=high] input, html[data-contrast=high] select, html[data-contrast=high] textarea, html[data-contrast=high] .deck, html[data-contrast=high] .dk-btn, html[data-contrast=high] .dk-cassette, html[data-contrast=high] .dk-tab { border-width: 2px; }
 html[data-contrast=high] .pill { border-width: 2px; color: var(--text); }
-/* Motion. Default ("soft"): the Rolodex spins, page content fades in, and small touches below run.
-   "bar": only the Rolodex. "off": nothing. The device's reduce-motion setting wins over all of them. */
+@media (forced-colors: none) { html[data-contrast=high] .dk-progress { background: color-mix(in srgb, var(--text) 25%, var(--bg2)); } html[data-contrast=high] .dk-fill { background: var(--text); } } /* the digital player's line: on the stronger --line the accent is almost the same grey (under 2:1 in most themes), so with high contrast it is drawn in the text colour on a quiet track */
+/* Motion. Default ("soft"): the section menu moves (the record or the tape turns, the digital player's line slides), page
+   content fades in, and small touches below run. "bar": only the section menu. "off": nothing. The device's reduce-motion
+   setting wins over all of them. */
 .fade-in { animation: softIn .35s ease-out both; }
 @keyframes softIn { from { opacity: 0; } to { opacity: 1; } }
-html[data-motion=bar] *:not(.dk-disc):not(.dk-arm):not(.dk-band):not(.dk-reel):not(.dk-pack):not(.deckbar), html[data-motion=bar] *::before, html[data-motion=bar] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+html[data-motion=bar] *:not(.dk-disc):not(.dk-arm):not(.dk-band):not(.dk-reel):not(.dk-pack):not(.dk-fill):not(.deckbar), html[data-motion=bar] *::before, html[data-motion=bar] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 html[data-motion=off] *, html[data-motion=off] *::before, html[data-motion=off] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
-@media (forced-colors: active) { .btn, .chip, .card, .dk-btn, .dk-track { border: 1px solid CanvasText; } .dk-track.on { outline: 2px solid Highlight; } .dk-platter, .dk-disc, .dk-sheen, .dk-arm, .dk-arm-cap, .dk-arm-base, .dk-record > .dk-label, .dk-window { forced-color-adjust: none; } } /* the record and the tape window are pictures with their own colours */
+@media (forced-colors: active) { .btn, .chip, .card, .dk-btn, .dk-track, .dk-tab { border: 1px solid CanvasText; } .dk-track.on, .dk-tab.on { outline: 2px solid Highlight; } .dk-track.on:focus-visible, .dk-tab.on:focus-visible { outline-width: 4px; outline-offset: 2px; } .dk-art { border: 1px solid CanvasText; } .dk-fill { forced-color-adjust: none; } .dk-platter, .dk-disc, .dk-sheen, .dk-arm, .dk-arm-cap, .dk-arm-base, .dk-record > .dk-label, .dk-window { forced-color-adjust: none; } } /* the record and the tape window are pictures with their own colours */
 .cloud, .chip { min-width: var(--hit); justify-content: center; }
 .seg button { min-height: var(--hit); }
 .kv a { min-height: var(--hit); display: inline-flex; align-items: center; }

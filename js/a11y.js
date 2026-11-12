@@ -43,7 +43,7 @@ export function haptic(ms = 12) {
 }
 
 const GROUPS = [
-  ['menu', 'Section menu', [['record', 'Record player'], ['tape', 'Tape deck']]],
+  ['menu', 'Section menu', [['record', 'Record player'], ['tape', 'Tape deck'], ['digital', 'Digital player']]],
   ['text', 'Text size', [['normal', 'Standard'], ['large', 'Large'], ['xlarge', 'Extra large']]],
   ['targets', 'Button size', [['normal', 'Standard'], ['large', 'Extra large']]],
   ['contrast', 'Contrast', [['normal', 'Standard'], ['high', 'High']]],
@@ -52,7 +52,7 @@ const GROUPS = [
 ];
 
 export const themeSummary = () => `${(PALETTES.find(p => p.id === prefs.palette) || PALETTES[0]).name} · ${prefs.scheme === 'system' ? 'follows device' : prefs.scheme}`;
-export const prefsSummary = () => [prefs.palette !== 'stage' && (PALETTES.find(p => p.id === prefs.palette) || {}).name, prefs.scheme !== 'system' && prefs.scheme, prefs.text !== 'normal' && `${prefs.text === 'large' ? 'large' : 'extra large'} text`, prefs.targets === 'large' && 'big buttons', prefs.contrast === 'high' && 'high contrast', prefs.motion !== 'soft' && (prefs.motion === 'off' ? 'no animation' : 'menu animation only'), prefs.menu === 'tape' && 'tape deck'].filter(Boolean).join(' · ') || 'standard';
+export const prefsSummary = () => [prefs.palette !== 'stage' && (PALETTES.find(p => p.id === prefs.palette) || {}).name, prefs.scheme !== 'system' && prefs.scheme, prefs.text !== 'normal' && `${prefs.text === 'large' ? 'large' : 'extra large'} text`, prefs.targets === 'large' && 'big buttons', prefs.contrast === 'high' && 'high contrast', prefs.motion !== 'soft' && (prefs.motion === 'off' ? 'no animation' : 'menu animation only'), prefs.menu === 'tape' ? 'tape deck' : prefs.menu === 'digital' && 'digital player'].filter(Boolean).join(' · ') || 'standard';
 
 export function displayPanel({ onTour } = {}) {
   const groups = h('div', { class: 'stack' });
