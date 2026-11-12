@@ -408,7 +408,9 @@ function deleteSheet(b) {
   const { close } = sheet('Delete this booking?', h('div', { class: 'stack' },
     h('p', null, h('strong', null, model.bookingTitle(b)), h('span', { class: 'muted small bk-del-when' }, [dateRange(b, fmtShort), model.kindLabel(b.kind)].join(' · '))),
     h('p', { class: 'small muted' }, !moneyShown() // a role without money: only what it keeps on a booking
-      ? `Its notes and checklist ticks go with it. Your ${actWord()}, venue and people stay.${b.kind === 'session' ? ' Take logs stay in the Studio log, unlinked.' : ''} This cannot be undone.`
+      ? (b.kind === 'session'
+        ? `Its notes, checklist ticks and clocked hours go with it. Your ${actWord()}, venue and people stay. Take logs stay in the Studio log, unlinked. This cannot be undone.`
+        : `Its notes and checklist ticks go with it. Your ${actWord()}, venue and people stay. This cannot be undone.`)
       : b.kind === 'show'
         ? 'Its deal, running order, guest list, settlement, checklist ticks, quote and invoice go with it. Your act, venue, people and setlist stay. This cannot be undone.'
         : 'Its checklist ticks, notes, clocked hours, quote and invoice go with it. Take logs stay in the Studio log, unlinked. This cannot be undone.'),

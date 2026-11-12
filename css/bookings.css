@@ -94,6 +94,8 @@
 .bk-score .btn.primary { min-width: 0; }
 .bk-score-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .bk-score-text b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+/* "Pick the act you saw…" is a sentence: where it would be squeezed beside its button, the button goes under it. */
+.bk-score-noact .bk-score-text { flex: 1 1 9rem; }
 .bk-contact { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .bk-contact-who { display: grid; min-width: 0; overflow-wrap: anywhere; }
 .bk-contact-btns { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -286,6 +286,11 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     ok(`${r}: a session’s checklist has no invoice or paid lines`, (await page.locator('#blk-advance [data-line="ses-invoice"], #blk-advance [data-line="ses-paid"]').count()) === 0 && (await page.locator('#blk-advance [data-line="ses-deliver"]').count()) === 1);
     ok(`${r}: the studio email asks nothing about being paid`, !/paid/i.test(await page.locator('#blk-advance .bk-mail-text').textContent()));
     ok(`${r}: the walkthrough of those boxes has no money in it`, !/invoice|paid|settling/i.test(await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.bookings.tutorial().filter(s => /Hours|Checklist/.test(s.title)).map(s => s.text).join(' ')))));
+    await page.click('.bk-actions .bk-delete');
+    await sheetNamed(page, 'Delete this booking?').waitFor();
+    // The clock's shifts are deleted with the session, so the sheet says so (and still no quote or invoice).
+    ok(`${r}: deleting a session names its clocked hours, and no quote or invoice`, (await sheetNamed(page, 'Delete this booking?').locator('.stack > p.small').innerText()) === `Its notes, checklist ticks and clocked hours go with it. Your ${r === 'audiophile' ? 'band' : 'act'}, venue and people stay. Take logs stay in the Studio log, unlinked. This cannot be undone.`);
+    await page.keyboard.press('Escape'); await sleep(150);
     await page.evaluate(() => import('./js/store.js').then(s => s.patch('bookings', 's-sess0', { rate: '' }))); await sleep(300);
     ok(`${r}: with no rate, nothing about an hourly rate or the amount to bill`, !/rate|bill/i.test(await page.locator('#blk-clock .blk-body').innerText()));
     await page.evaluate(() => import('./js/store.js').then(s => s.patch('bookings', 's-sess0', { rate: 45 }))); await sleep(300);
@@ -347,6 +352,11 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await page.focus('#sd-start-log-s-sess1'); await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.logiPage() === 'sessions' && document.getElementById('sd-take')); await sleep(400);
   ok('producer: Start a take log opens the log with the focus on + Take, at the top', (await focused(page)) === 'sd-take' && (await page.evaluate(() => window.scrollY)) === 0, `${await focused(page)} ${await page.evaluate(() => window.scrollY)}`);
+  // Opening a log from the Studio log's own list does the same once the page has redrawn.
+  await page.click('#page .back-btn'); await page.waitForSelector('#page .sd-log'); await sleep(300);
+  await page.focus('#page .sd-log'); await page.keyboard.press('Enter');
+  await page.waitForSelector('#sd-take'); await sleep(300);
+  ok('producer: a log opened from the Studio log’s list has the focus on + Take', (await focused(page)) === 'sd-take', await focused(page));
   await go(page, 'bookings');
 
   await setRole(page, 'band');
@@ -485,6 +495,14 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
       ok(`${w}px, ${text} text, ${r}: the status help gets a readable width, with nothing running out of it and the ✓ beside it`, opts.every(o => o.help >= Math.min(150, o.opt * 0.4) && !o.over && o.tick), JSON.stringify(opts));
       await page.keyboard.press('Escape'); await sleep(150);
     }
+    // A scout's show with no act: "Pick the act you saw…" keeps a readable width; its button goes under it when narrow.
+    await setRole(page, 'scout');
+    const bare = await add(page, { kind: 'show', status: 'confirmed', date: dayIso(0), venueName: 'The Crown' });
+    await openB(page, bare);
+    const na = await page.evaluate(() => { const r = document.querySelector('.bk-score-noact'), t = r.querySelector('.bk-score-text').getBoundingClientRect(), b = r.querySelector('#bk-score-act').getBoundingClientRect(); return { row: Math.round(r.getBoundingClientRect().width), text: Math.round(t.width), beside: b.left >= t.right - 1 && Math.abs(b.top - t.top) < t.height }; });
+    ok(`${w}px, ${text} text: the no-act line gets a readable width`, na.text >= Math.min(140, na.row), JSON.stringify(na));
+    if (w === 420 && text === 'normal') ok(`${w}px, ${text} text: …with its button beside it`, na.beside, JSON.stringify(na));
+    await page.evaluate(id => import('./js/store.js').then(s => s.remove('bookings', id)), bare); await sleep(150);
     ok(`no errors in the console (${w}px, ${text} text)`, errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }

@@ -82,7 +82,8 @@ const defaultTitle = (song, b) => (song ? `${song.title} takes` : b ? `${booking
 export function openLog(id) {
   if (!id || !byId('logs', id)) { toast('That take log is no longer here.'); return Promise.resolve(); }
   setOpen(id);
-  const go = window.logiPage && window.logiPage() === 'sessions' ? (redraw(), Promise.resolve()) : (window.logiGo ? window.logiGo('sessions') : Promise.resolve());
+  // On this page the app redraws on its next turn (js/app.js), so wait for that before looking for + Take.
+  const go = window.logiPage && window.logiPage() === 'sessions' ? new Promise(r => { redraw(); setTimeout(r, 0); }) : (window.logiGo ? window.logiGo('sessions') : Promise.resolve());
   return Promise.resolve(go).then(() => {
     window.scrollTo(0, 0);
     const now = document.activeElement, take = document.getElementById('sd-take');

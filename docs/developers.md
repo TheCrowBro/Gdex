@@ -249,6 +249,7 @@ export default {
   summary(b) { return '$250 vs 70%'; },          // short text on the closed box ('' when nothing to say)
   render(b, ctx) { return node; },               // the open box's body
   tutorial: [ ...steps ],                         // optional: added to the booking page's walkthrough
+                                                  // (or (b) => steps, for words that follow the role)
 };
 ```
 
@@ -291,7 +292,7 @@ may call it.
 | `pages/people.js` `openPerson(id)` / `editPerson(p, onSaved)` | people | View sheet / edit form (it also edits which acts the person is in: `act.members`). |
 | `pages/songs.js` `openSong(id)` / `editSong(s, onSaved)` | songs | View sheet / edit form. |
 | `js/setlist.js` `openSetlist(id, { target, bookingId })` / `newSetlist(preset)` / `printSetlist(id, { bookingId })` / `setlistText(list)` | songs | Editor sheet (target = slot minutes) / create and return the record / print the big stage copy (with the show's date, venue and set time) / plain text. |
-| `pages/sessions.js` `openLog(id)` / `newLog(preset)` | studio | Go to Studio log and open that log / create one (`{ bookingId, songId, title }`) and open it. |
+| `pages/sessions.js` `openLog(id)` / `newLog(preset)` | studio | Go to Studio log and open that log / create one (`{ bookingId, songId, title }`) and open it. Resolves once drawn, at the top, with the focus on + Take when the opener went away. |
 | `pages/backline.js` `editGear(g, onSaved)` / `editKit(k, onSaved)` | backline | Edit forms. |
 | `pages/venues.js` `openVenue(id)` / `editVenue(v, onSaved)` / `venueWarnings(b)` | venues | View sheet / edit form / warnings for a booking at that venue (curfew before the set ends, noise limit, capacity < tickets…) as strings. |
 | `js/daysheet.js` `openDaySheet(bookingId)` / `printDaySheet(bookingId)` | daysheet | Preview sheet / print. |
