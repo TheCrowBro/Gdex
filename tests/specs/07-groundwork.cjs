@@ -5,12 +5,15 @@
 // no date can never blank the page. Every "is it over" sum uses a fixed now, never the clock.
 // Last, the seams the licence, the desktop app and Google Drive are built on (the build spec §3-§4): which roles and
 // sections need a licence, the store's write gate and its hooks, Replace everywhere, Erase keeping the licence, the
-// IndexedDB store, the service worker leaving the Worker's addresses alone, the owner's two switches still off in the
-// repository, and, with licences off, every answer "open" and nothing asked of a licence server.
+// IndexedDB store, the service worker leaving the Worker's addresses alone (its route test in Node, and once running in
+// Chromium), the owner's two switches still off in the repository, the licence code format made Gdex's, the test
+// server keeping off the desktop app's ports, and, with licences off, every answer "open" and nothing asked of a
+// licence server.
 const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const net = require('net');
 const { pathToFileURL } = require('url');
 // The repository itself, not the test's scratch copy: desktop/ is left out of that, and in the licence leg the test
 // server serves its own js/licence-config.js (the build spec [S-26], [S-34]).
@@ -447,6 +450,38 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     ok('the owner’s switches are off in the repository: LICENCE_SITES is [] and desktop/licence-on.json is { "on": false }', same(sites, []) && same(desk, { on: false }), JSON.stringify([sites, desk]));
     const ignored = read('.gitignore').split('\n').map(l => l.trim());
     ok('.gitignore keeps keys, ledgers and builds out of the repository', ['dist/', 'cloudflare/site/', 'cloudflare/.wrangler/', 'gdex-licence-key-*.json', '*ledger*.csv'].every(l => ignored.includes(l)), ignored.join(' '));
+    // desktop/licence-codes.cjs is Vdex's code format made Gdex's (the build spec §4 step 11): it loads as CommonJS, no
+    // Vdex name is left, and what it makes with a throw-away key is Gdex's; a Vdex code is not taken for one.
+    const codesText = read('desktop/licence-codes.cjs'), codes = require(path.join(REPO, 'desktop', 'licence-codes.cjs'));
+    const pair = await codes.newKeyPair(), keys = { 1: pair.publicKey };
+    const signer = await crypto.subtle.importKey('pkcs8', pair.pkcs8, { name: 'Ed25519' }, false, ['sign']);
+    const code = await codes.signCode(signer, 1, { name: 'Test', email: 'test@example.org' });
+    const checked = await codes.verifyCode(`Your code: ${code.toLowerCase()} Thanks!`, { keys });
+    const note = await codes.signNote('web', signer, 1, { ref: checked.licence.ref });
+    const made = {
+      code: code.slice(0, 5), status: checked.status, web: await codes.readNote('web', note, { keys }), active: await codes.readNote('active', note, { keys }),
+      vdex: await codes.verifyCode(code.replace(/^GDEX-/, 'VDEX-'), { keys }).then(() => 'taken', e => e.status),
+      type: (await codes.createKeyFile({ kid: 9, passphrase: 'a throw-away passphrase', iterations: 1000 })).type,
+    };
+    ok('desktop/licence-codes.cjs is Gdex’s own: no Vdex left, GDEX signing prefixes, and a code, a note and a key file made with a throw-away key are Gdex’s',
+      !/vdex/i.test(codesText) && codesText.includes("{ licence: 'GDEX-LICENCE\\0', active: 'GDEX-ACTIVE\\0', admin: 'GDEX-ADMIN\\0', web: 'GDEX-WEB\\0' }") && codesText.includes('`gdex-licence-key|${kid}|${pub}`')
+      && same(made, { code: 'GDEX-', status: 'valid', web: { ref: checked.licence.ref }, active: null, vdex: 'invalid', type: 'gdex-licence-signing-key' }), JSON.stringify(made));
+    // The test server keeps off the desktop app's ports, 47861-47880 (the build spec trap 25: a page there without the
+    // desktop's bridge is "the desktop's files in a browser"). The OS cannot be made to hand one out, so the address it
+    // reports is stood in for: handed one for port 0, serve() listens again; a port asked for by number is kept.
+    const { serve } = await import(pathToFileURL(path.join(REPO, 'tests', 'lib.mjs')).href);
+    const realAddress = net.Server.prototype.address, realListen = net.Server.prototype.listen;
+    const listened = async (port, handed) => {
+      let asked = 0, listens = 0;
+      net.Server.prototype.address = function () { const a = realAddress.call(this); return a && asked < handed.length ? { ...a, port: handed[asked++] } : a; };
+      net.Server.prototype.listen = function (...args) { listens++; return realListen.apply(this, args); };
+      try { const s = await serve(REPO, port); const kept = realAddress.call(s).port; await new Promise(r => s.close(() => r())); return { listens, kept }; }
+      finally { net.Server.prototype.address = realAddress; net.Server.prototype.listen = realListen; }
+    };
+    const desktopPort = n => n >= 47861 && n <= 47880;
+    const any = await listened(0, []);
+    const ports = { any, handed: await listened(0, [47861, 47880]), below: await listened(0, [47860]), above: await listened(0, [47881]), byNumber: await listened(any.kept, [47861]), thisRun: Number(new URL(process.env.GDEX_URL || 'http://localhost:8124/').port) };
+    ok('the test server keeps off the desktop app’s ports: handed 47861 then 47880 it listens again twice, 47860 and 47881 are kept, and so is a port asked for by number', ports.any.listens === 1 && ports.handed.listens === 3 && !desktopPort(ports.handed.kept) && ports.below.listens === 1 && ports.above.listens === 1 && same([ports.byNumber.listens, ports.byNumber.kept], [1, any.kept]) && !desktopPort(ports.thisRun), JSON.stringify(ports));
 
     /* ---------------- in the page ---------------- */
     const { browser, ctx, page, errors } = await open({ sample: true });
@@ -649,6 +684,29 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
         ok('…and the test server answers the status as on and the price, as JSON', await page.evaluate(() => Promise.all([fetch('/licence/web/status').then(r => r.json()), fetch('/licence/price').then(r => r.json())]).then(([st, pr]) => st.on === true && pr.price === '20.00' && pr.currency === 'USD')));
       }
       ok('no errors in the console (the licence as every module asks it)', errors.length === 0, errors.slice(0, 5).join(' | '));
+      await browser.close();
+    }
+
+    /* ---------------- the service worker, running ---------------- */
+    // Every other spec blocks service workers. Here sw.js runs as on an installed copy (registered from terms.html, a
+    // page without the app, so the licence leg changes nothing): the licence server's addresses are answered by the
+    // server, never by the offline copy, while the app's own files come from the service worker (the build spec trap 9).
+    {
+      const browser = await require('playwright').chromium.launch();
+      const ctx = await browser.newContext({ serviceWorkers: 'allow' });
+      const page = await ctx.newPage(), errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
+      await page.goto(new URL('terms.html', process.env.GDEX_URL || 'http://localhost:8124/').href);
+      await page.evaluate(() => navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => true));
+      await page.reload();
+      await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 15000 });
+      const answered = {};
+      page.on('response', r => { answered[new URL(r.url()).pathname] = r.fromServiceWorker(); });
+      const got = await page.evaluate(() => Promise.all(['licence/web/status', 'licence/price', 'js/util.js', 'terms.html'].map(p => fetch(p).then(r => r.status))));
+      await sleep(200);
+      ok('with the service worker running, /licence/… is answered by the server and the app’s own files by the service worker', same(got, [200, 200, 200, 200]) && same(['/licence/web/status', '/licence/price', '/js/util.js', '/terms.html'].map(p => answered[p]), [false, false, true, true]), JSON.stringify([got, answered]));
+      ok('no errors in the console (the service worker)', errors.length === 0, errors.slice(0, 5).join(' | '));
       await browser.close();
     }
   }
