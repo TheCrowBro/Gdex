@@ -35,9 +35,9 @@ is the first track on every menu:
 | 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Gdex asks if you saw them and takes your score; no fees or settlements. |
 | 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Gdex asks if you saw them and takes your score; Tools opens on the sound meter; no fees. |
 
-Nothing is ever deleted or out of reach: the sections a role doesn't use are **bonus tracks** on the sleeve (tap the
-record), and the booking boxes it doesn't use are under **More boxes**. Change role any time in **Settings → Your
-role**.
+Every menu ends with **My card** and **Settings**, whoever you are. Nothing is ever deleted or out of reach: the
+sections a role doesn't use are **bonus tracks** on the sleeve (tap the record), and the booking boxes it doesn't use
+are under **More boxes**. Change role any time in **Settings → Your role**.
 
 ## What the cards are
 
@@ -57,7 +57,8 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 | 💰 **Money** | What you've earned, what's unpaid, deposits due, settlements and each person's share. |
 | 🎚️ **Tools** | A tuner, a metronome, tap tempo with delay times, a sound level meter and a set timer. |
 | 🛡️ **Insurance** | Your policies and renewals, and whether your cover matches your backline. |
-| ⚙️ **Settings** | Your details, quotes and invoices, backups, display, and the tour again. |
+| 🪪 **My card** | Your contact card as a big QR code, with your name and details under it: someone scans it with their phone camera to save your number and email. **Show big** puts the code alone on a white screen, as big as it fits, and keeps the screen on; **Share** sends the card with your phone's share sheet; **Save as a file** gives you a .vcf; **Edit your details** changes them. |
+| ⚙️ **Settings** | Your details (and the way to My card), quotes and invoices, backups, display, and the tour again. |
 
 **A band that changes its name keeps the old one.** Change an act's name and Gdex asks whether it is a new name or a
 spelling fix, and since when. A new name leaves the old one in small type under it, "formerly The Night Owls", on the

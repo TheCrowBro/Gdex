@@ -4,10 +4,10 @@
 // shows. Changing role never deletes or hides data: a section that is not on a role's menu is a bonus track on the
 // sleeve, and any link to it opens it. The choice is kept on this device (like the display settings), under gdex-role.
 const KEY = 'gdex-role';
-export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'backline', 'venues', 'money', 'tools', 'insurance', 'settings'];
+export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'backline', 'venues', 'money', 'tools', 'insurance', 'card', 'settings'];
 
 // Each role, in the shape the app reads (docs/developers.md → Roles):
-//   sections   the menu in order (Settings is always added, last); start: the section Gdex opens on, every time. For
+//   sections   the menu in order (My card and then Settings are always added, last); start: the section Gdex opens on, every time. For
 //              every role that is 'bookings', the calendar, and it is the first track on the menu.
 //   names      a section's name for this role ({ acts: 'Roster' }): on the menu, as the page's heading, in the tour.
 //              Only Bookings and Acts are ever renamed, and never inside documents that go to other people.
@@ -117,8 +117,8 @@ const ALL = [...ROLES, EVERYTHING];
 
 const read = () => { try { const v = localStorage.getItem(KEY); return ALL.some(r => r.id === v) ? v : ''; } catch { return ''; } };
 let current = read();
-// The menu always ends with Settings, has no unknown or repeated ids, and keeps the start section on it.
-const clean = r => { const seen = new Set(); const list = (r.sections || []).filter(id => SECTIONS.includes(id) && id !== 'settings' && !seen.has(id) && seen.add(id)); return [...list, 'settings']; };
+// The menu always ends with My card and Settings (every role has both), has no unknown or repeated ids, and keeps the start section on it.
+const clean = r => { const seen = new Set(); const list = (r.sections || []).filter(id => SECTIONS.includes(id) && id !== 'settings' && id !== 'card' && !seen.has(id) && seen.add(id)); return [...list, 'card', 'settings']; };
 
 export const roleChosen = () => !!current;
 export const roleId = () => current || 'all';
@@ -130,6 +130,8 @@ export const startSection = (r = role()) => (clean(r).includes(r.start) ? r.star
 export const sectionName = (id, fallback) => role().names[id] || fallback;
 // One act in the role's words, for labels like "Artist" on the booking form: 'artist', 'band' or 'act'.
 export const actWord = () => ({ producer: 'artist', band: 'band', audiophile: 'band' })[roleId()] || 'act';
+// Who the person shows their contact card to (My card, js/pages/card.js), in the role's words.
+export const cardAudience = () => ({ producer: 'the artists you record, and the engineers and studios you work with', manager: 'promoters, agents and venues', band: 'promoters, venues and fans at the merch desk', solo: 'promoters, venues and fans at the merch table', scout: 'the acts you’re watching and the managers and agents around them', audiophile: 'the bands and people you meet at gigs' })[roleId()] || 'the artists, promoters, venues and crew you work with';
 // The boxes that never show for a role without money, whatever its hide list says.
 export const MONEY_BLOCKS = ['deal', 'settlement', 'money', 'budget'];
 const moneyOff = (rl = role()) => rl.money === false;

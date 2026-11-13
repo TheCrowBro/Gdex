@@ -61,7 +61,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   // Your details
   await openSec(page, 'profile');
   ok('an empty profile offers to add your details', (await text(page, '#se-edit-profile')).includes('Add your details') && (await page.locator('#se-profile .se-empty').count()) === 1);
-  ok('no contact card without a name and a way to reach you', await page.$eval('#se-vcf', b => b.disabled) && (await page.locator('#se-profile .se-qr-none').count()) === 1 && (await page.locator('#se-profile .se-qr').count()) === 0);
+  ok('no contact card without a name and a way to reach you: it says what to add, and where the card will be', await page.$eval('#se-vcf', b => b.disabled) && /Add your name and a phone number or email \(Edit your details\) to make your contact card\. It shows on My card as a big QR code to scan\./.test(await text(page, '#se-profile .se-card-line')) && (await page.locator('#se-profile .qr').count()) === 0, await text(page, '#se-profile .se-card-line'));
   await tap(page, '#se-edit-profile');
   await page.waitForSelector(sheetOf('Your details'));
   await page.click(`${sheetOf('Your details')} .sheet-help`);
@@ -81,9 +81,8 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   ok('the details show on the page', /Maya Brooks/.test(await text(page, '#se-profile .se-kv')) && /12 Quay Street/.test(await text(page, '#se-profile .se-kv')));
   ok('the section line shows the name and business', (await text(page, '#se-profile .se-sub')) === 'Maya Brooks · Night Owls, Ltd');
   ok('the edit button now says Edit', (await text(page, '#se-edit-profile')).includes('Edit your details'));
-  await page.waitForSelector('#se-profile .se-qr svg', { timeout: 15000 });
-  ok('the contact card shows as a QR code', (await page.locator('#se-profile .se-qr svg').count()) === 1);
-  ok('the QR code is labelled for screen readers', /Maya Brooks/.test(await page.getAttribute('#se-profile .se-qr', 'aria-label')));
+  // The QR code itself is on My card (49-my-card): here, a line and the way there.
+  ok('the contact card is a line and a button to My card, not a QR code', (await page.locator('#se-profile .qr, #se-profile svg').count()) === 0 && /^Your contact card is on My card, as a big QR code/.test(await text(page, '#se-profile .se-card-line')) && (await text(page, '#se-card')).includes('Open My card'), await text(page, '#se-profile .se-card-line'));
 
   // The currency on another page: every sum is formatted by model.fmtMoney.
   ok('the currency shows on other pages (fmtMoney)', (await run(page, () => import('./js/model.js').then(m => m.fmtMoney(1250)))) === '£1,250');
@@ -252,7 +251,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   await openSec(page, 'help');
   await tap(page, '#se-tutorials');
   await page.waitForSelector(sheetOf('Tutorials'), { timeout: 10000 });
-  ok('Help opens the tutorials chooser', (await page.locator(`${sheetOf('Tutorials')} .card.tap`).count()) === 11);
+  ok('Help opens the tutorials chooser', (await page.locator(`${sheetOf('Tutorials')} .card.tap`).count()) === 12);
   await page.keyboard.press('Escape');
   await sleep(200);
   await run(page, () => window.logiHelp());

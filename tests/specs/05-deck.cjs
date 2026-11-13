@@ -18,7 +18,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   ok('the tonearm moves in and the record turns a third of a turn', (await page.$eval('#deck .dk-arm', el => el.style.transform)) !== arm0 && (await page.$eval('#deck .dk-disc', el => el.style.transform)) === 'rotate(120deg)' && disc0 === 'rotate(0deg)');
   ok('the label words do not turn (they are outside the turning disc)', (await page.$eval('#deck .dk-label', el => !el.closest('.dk-disc'))));
   await page.click('#deck .dk-prev'); await page.click('#deck .dk-prev'); await sleep(500);
-  ok('⏮ from the first section wraps round to the last (B5 Settings)', (await page$(page)) === 'settings' && (await page.textContent('#deck .dk-label-id')) === 'B5' && (await page.textContent('#deck .dk-label-side')) === 'SIDE B');
+  ok('⏮ from the first section wraps round to the last (B6 Settings)', (await page$(page)) === 'settings' && (await page.textContent('#deck .dk-label-id')) === 'B6' && (await page.textContent('#deck .dk-label-side')) === 'SIDE B');
 
   // A swipe across the record changes section; a tap opens the sleeve.
   const box = await page.locator('#deck .dk-record').boundingBox();
@@ -27,7 +27,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   ok('…and does not also open the sleeve', (await page.locator('.sheet[aria-label="The sleeve"]').count()) === 0);
   await page.locator('#deck .dk-record').click(); await page.waitForSelector('.sheet[aria-label="The sleeve"]');
   const tracks = await page.$$eval('.dk-sleeve .dk-track', bs => bs.map(b => b.textContent));
-  ok('the sleeve lists all eleven sections on two sides', tracks.length === 11 && (await page.$$eval('.dk-sleeve .dk-side-head', hs => hs.map(h => h.textContent).join())) === 'Side A,Side B', tracks.join(' | '));
+  ok('the sleeve lists all twelve sections on two sides', tracks.length === 12 && (await page.$$eval('.dk-sleeve .dk-side-head', hs => hs.map(h => h.textContent).join())) === 'Side A,Side B', tracks.join(' | '));
   ok('…with each one’s count (Acts: 2)', tracks.some(t => t === 'A2Acts2'), tracks[1]);
   ok('…the current one marked', (await page.getAttribute('.dk-sleeve .dk-track.on', 'aria-current')) === 'true' && /Bookings/.test(await page.textContent('.dk-sleeve .dk-track.on')));
   await page.locator('.dk-sleeve .dk-track', { hasText: 'Songs' }).click(); await sleep(600);
@@ -60,7 +60,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   ok('⏩ winds on to the next section and the reels turn', (await page$(page)) === 'people' && (await page.$eval('#deck .dk-reel', el => el.style.transform)) !== reel0 && (await page.textContent('#deck .dk-counter-n')) === '094');
   ok('…tape moves from the left spool to the right', await page.$$eval('#deck .dk-pack', (ps, before) => parseFloat(ps[0].style.width) < parseFloat(before[0]) && parseFloat(ps[1].style.width) > parseFloat(before[1]), packs0));
   await page.click('#deck .dk-list'); await page.waitForSelector('.sheet[aria-label="Track list"]');
-  ok('Tracks opens the cassette’s track list', (await page.locator('.dk-jcard .dk-track').count()) === 11 && /People/.test(await page.textContent('.dk-jcard .dk-track.on')));
+  ok('Tracks opens the cassette’s track list', (await page.locator('.dk-jcard .dk-track').count()) === 12 && /People/.test(await page.textContent('.dk-jcard .dk-track.on')));
   await page.locator('.dk-jcard .dk-track', { hasText: 'Venues' }).click(); await sleep(500);
   ok('picking Venues goes to Side B', (await page$(page)) === 'venues' && (await page.textContent('#deck .dk-tape-side')) === 'SIDE B');
   await page.reload(); await page.waitForSelector('#deck .dk-next');
@@ -121,7 +121,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   const focusCut = () => page.evaluate(() => { const a = document.activeElement; if (!a || !a.classList.contains('dk-tab')) return ''; const row = document.querySelector('#deck .dk-tabs').getBoundingClientRect(), t = a.getBoundingClientRect(); return t.left >= row.left - 1 && t.right <= row.right + 1 ? '' : a.dataset.section; });
   // Tab (or Shift+Tab) pressed n times: the tabs the focus landed on that were not wholly in view.
   const tabAlong = async (key, n) => { const cut = []; for (let k = 0; k < n; k++) { await page.keyboard.press(key); const c = await focusCut(); if (c) cut.push(c); } return cut; };
-  const ALL = 'bookings,acts,people,songs,sessions,backline,venues,money,tools,insurance,settings';
+  const ALL = 'bookings,acts,people,songs,sessions,backline,venues,money,tools,insurance,card,settings';
 
   await page.evaluate(() => window.logiGo('acts')); await sleep(500);
   await page.click('#displayBtn'); await page.waitForSelector('[data-pref="menu:digital"]');
@@ -149,8 +149,8 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.keyboard.press('Escape'); await sleep(300);
 
-  ok('the bar names the section, its place among the tracks and its count', (await page.textContent('#deck .dk-eyebrow')) === 'Now playing' && (await page.textContent('#deck .dk-name')) === 'Acts' && /^Track 2 of 11 · \d+ acts$/.test(await page.textContent('#deck .dk-meta')), await page.textContent('#deck .dk-meta'));
-  ok('…and says so to a screen reader', (await page.getAttribute('#deck .dk-now', 'aria-label')) === 'Now playing track 2 of 11, Acts. Open the track list to pick any section', await page.getAttribute('#deck .dk-now', 'aria-label'));
+  ok('the bar names the section, its place among the tracks and its count', (await page.textContent('#deck .dk-eyebrow')) === 'Now playing' && (await page.textContent('#deck .dk-name')) === 'Acts' && /^Track 2 of 12 · \d+ acts$/.test(await page.textContent('#deck .dk-meta')), await page.textContent('#deck .dk-meta'));
+  ok('…and says so to a screen reader', (await page.getAttribute('#deck .dk-now', 'aria-label')) === 'Now playing track 2 of 12, Acts. Open the track list to pick any section', await page.getAttribute('#deck .dk-now', 'aria-label'));
   ok('⏭ is labelled with where it goes, and ☰ with what it opens', (await page.getAttribute('#deck .dk-next', 'aria-label')) === 'Next section: People' && (await page.getAttribute('#deck .dk-prev', 'aria-label')) === 'Previous section: Bookings' && (await page.getAttribute('#deck .dk-list', 'aria-label')) === 'Track list: every section' && (await page.getAttribute('#deck .dk-list', 'aria-haspopup')) === 'dialog');
   ok('the cover art is the section’s icon; it and the line are hidden from a screen reader', (await page.textContent('#deck .dk-art')) === '🎸' && (await page.getAttribute('#deck .dk-art', 'aria-hidden')) === 'true' && (await page.getAttribute('#deck .dk-progress', 'aria-hidden')) === 'true');
   const artBack = await page.$eval('#deck .dk-art', el => getComputedStyle(el).backgroundImage);
@@ -163,14 +163,14 @@ const page$ = page => page.evaluate(() => window.logiPage());
   // ⏭ and ⏮: one section at a time, round the ends; the line shows how far through the menu you are.
   const f0 = await fill();
   await page.click('#deck .dk-next'); await sleep(500);
-  ok('⏭ goes to the next section, and the line grows by one track', (await page$(page)) === 'people' && (await page.textContent('#deck .dk-name')) === 'People' && Math.abs((await fill()) - f0 - 100 / 11) < 0.01 && Math.abs(f0 - 200 / 11) < 0.01, `${f0} → ${await fill()}`);
-  ok('…as drawn: three elevenths of the bar', await page.evaluate(() => Math.abs(document.querySelector('#deck .dk-fill').getBoundingClientRect().width / document.querySelector('#deck .dk-progress').getBoundingClientRect().width - 3 / 11) < 0.01));
-  ok('…the move is announced with the track’s place', (await live()) === 'People, track 3 of 11', await live());
+  ok('⏭ goes to the next section, and the line grows by one track', (await page$(page)) === 'people' && (await page.textContent('#deck .dk-name')) === 'People' && Math.abs((await fill()) - f0 - 100 / 12) < 0.01 && Math.abs(f0 - 200 / 12) < 0.01, `${f0} → ${await fill()}`);
+  ok('…as drawn: three twelfths of the bar', await page.evaluate(() => Math.abs(document.querySelector('#deck .dk-fill').getBoundingClientRect().width / document.querySelector('#deck .dk-progress').getBoundingClientRect().width - 3 / 12) < 0.01));
+  ok('…the move is announced with the track’s place', (await live()) === 'People, track 3 of 12', await live());
   ok('…and ⏭ keeps the focus', (await focusOn()) === 'dk-next', await focusOn());
   await page.click('#deck .dk-prev'); await page.click('#deck .dk-prev'); await page.click('#deck .dk-prev'); await sleep(500);
-  ok('⏮ from the first section wraps round to the last: Track 11 of 11, the line full, its tab in view', (await page$(page)) === 'settings' && (await page.textContent('#deck .dk-meta')) === 'Track 11 of 11' && (await fill()) === 100 && await tabInView() && (await rowLeft()) > 0, `${await page.textContent('#deck .dk-meta')} · ${await fill()}`);
+  ok('⏮ from the first section wraps round to the last: Track 12 of 12, the line full, its tab in view', (await page$(page)) === 'settings' && (await page.textContent('#deck .dk-meta')) === 'Track 12 of 12' && (await fill()) === 100 && await tabInView() && (await rowLeft()) > 0, `${await page.textContent('#deck .dk-meta')} · ${await fill()}`);
   await page.click('#deck .dk-next'); await sleep(500);
-  ok('⏭ from the last wraps to the first, and the row is back at its start', (await page$(page)) === 'bookings' && Math.abs((await fill()) - 100 / 11) < 0.01 && (await rowLeft()) === 0 && await tabInView(), `${await fill()} · ${await rowLeft()}`);
+  ok('⏭ from the last wraps to the first, and the row is back at its start', (await page$(page)) === 'bookings' && Math.abs((await fill()) - 100 / 12) < 0.01 && (await rowLeft()) === 0 && await tabInView(), `${await fill()} · ${await rowLeft()}`);
 
   // A swipe across the bar changes section; a tap opens the track list.
   const bar = await page.locator('#deck .dk-now').boundingBox();
@@ -179,21 +179,21 @@ const page$ = page => page.evaluate(() => window.logiPage());
   ok('…and does not also open the track list', (await page.locator('.sheet').count()) === 0);
   await page.locator('#deck .dk-now').click(); await page.waitForSelector('.sheet[aria-label="Track list"]');
   const queue = await page.$$eval('.dk-queue .dk-sides .dk-track', bs => bs.map(b => [b.querySelector('.dk-track-id').textContent, b.dataset.section, b.querySelector('.dk-track-name').textContent]));
-  ok('a tap on the bar opens the track list: the eleven sections numbered 1 to 11 in one list', queue.length === 11 && queue.map(q => q[0]).join() === '1,2,3,4,5,6,7,8,9,10,11' && queue.map(q => q[1]).join() === ALL && (await page.$$eval('.dk-queue .dk-side-head', hs => hs.map(h => h.textContent).join())) === 'Tracks' && (await page.locator('.dk-queue .dk-sides .dk-side').count()) === 1, JSON.stringify(queue));
-  ok('…headed by the deck’s name and how many tracks', (await page.textContent('.dk-queue .dk-jcard-title')) === 'Gdex, the booking deck' && (await page.textContent('.dk-queue .muted')) === '11 tracks' && (await page.locator('.dk-queue .dk-bonus').count()) === 0, await page.textContent('.dk-queue .muted'));
+  ok('a tap on the bar opens the track list: the twelve sections numbered 1 to 12 in one list', queue.length === 12 && queue.map(q => q[0]).join() === '1,2,3,4,5,6,7,8,9,10,11,12' && queue.map(q => q[1]).join() === ALL && (await page.$$eval('.dk-queue .dk-side-head', hs => hs.map(h => h.textContent).join())) === 'Tracks' && (await page.locator('.dk-queue .dk-sides .dk-side').count()) === 1, JSON.stringify(queue));
+  ok('…headed by the deck’s name and how many tracks', (await page.textContent('.dk-queue .dk-jcard-title')) === 'Gdex, the booking deck' && (await page.textContent('.dk-queue .muted')) === '12 tracks' && (await page.locator('.dk-queue .dk-bonus').count()) === 0, await page.textContent('.dk-queue .muted'));
   ok('…with each one’s count, and the current one marked and focused', (await page.textContent('.dk-queue .dk-track.on')) === '2Acts3' && (await page.getAttribute('.dk-queue .dk-track.on', 'aria-current')) === 'true' && (await page.locator('.dk-queue .dk-track.on').count()) === 1 && await page.waitForFunction(() => document.activeElement && document.activeElement.matches('.dk-queue .dk-track.on'), null, { timeout: 2000 }).then(() => true, () => false), await page.textContent('.dk-queue .dk-track.on'));
   await page.locator('.dk-queue .dk-track', { hasText: 'Songs' }).click(); await sleep(600);
-  ok('picking a track goes there and closes the list', (await page$(page)) === 'songs' && (await page.locator('.sheet').count()) === 0 && /^Track 4 of 11 · /.test(await page.textContent('#deck .dk-meta')));
+  ok('picking a track goes there and closes the list', (await page$(page)) === 'songs' && (await page.locator('.sheet').count()) === 0 && /^Track 4 of 12 · /.test(await page.textContent('#deck .dk-meta')));
 
   // The row of tabs: every track one tap away.
   const tabsNow = await page.$$eval('#deck .dk-tab', bs => bs.map(b => ({ id: b.dataset.section, text: b.textContent, ico: b.firstElementChild.getAttribute('aria-hidden'), label: b.getAttribute('aria-label') })));
-  ok('the row under the bar has a tab for each of the eleven sections, in the menu’s order', tabsNow.map(t => t.id).join() === ALL, tabsNow.map(t => t.id).join());
+  ok('the row under the bar has a tab for each of the twelve sections, in the menu’s order', tabsNow.map(t => t.id).join() === ALL, tabsNow.map(t => t.id).join());
   ok('…each with its icon (not read out) and its name', tabsNow.every(t => t.ico === 'true' && t.label === null) && tabsNow[4].text === '🎙️Studio log' && tabsNow[0].text === '📅Bookings', JSON.stringify(tabsNow[4]));
   ok('…in a group called “Go to a section”, with no tab or tab-list roles', (await page.getAttribute('#deck .dk-tabs', 'role')) === 'group' && (await page.getAttribute('#deck .dk-tabs', 'aria-label')) === 'Go to a section' && (await page.locator('#deck [role=tab], #deck [role=tablist]').count()) === 0);
   ok('…and only the current tab marked, for the eye and for a screen reader', (await current()) === 'songs:page:true' && (await page.locator('#deck .dk-tab.on').count()) === 1, await current());
   ok('a tab is as tall as any button (44 px or more)', (await page.$$eval('#deck .dk-tab', bs => Math.min(...bs.map(b => b.getBoundingClientRect().height)))) >= 44);
   await page.click('#deck .dk-tab[data-section="people"]'); await sleep(500);
-  ok('a tap on a tab opens its section, marks it and keeps the focus on it', (await page$(page)) === 'people' && (await current()) === 'people:page:true' && (await focusOn()) === 'tab:people' && (await live()) === 'People, track 3 of 11', `${await current()} · ${await focusOn()} · ${await live()}`);
+  ok('a tap on a tab opens its section, marks it and keeps the focus on it', (await page$(page)) === 'people' && (await current()) === 'people:page:true' && (await focusOn()) === 'tab:people' && (await live()) === 'People, track 3 of 12', `${await current()} · ${await focusOn()} · ${await live()}`);
   await page.click('#deck .dk-tab[data-section="settings"]'); await sleep(500);
   ok('…the last one too, which the row scrolls to', (await page$(page)) === 'settings' && (await current()) === 'settings:page:true' && await tabInView() && (await focusOn()) === 'tab:settings');
   await page.click('#deck .dk-tab[data-section="settings"]'); await sleep(300);
@@ -210,7 +210,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.evaluate(() => import('./js/store.js').then(s => s.upsert('acts', { name: 'Row Stays' }))); await sleep(300);
   ok('a change to the data does not rebuild the row or move it under a finger', left40 > 0 && (await rowLeft()) === left40 && (await page.getAttribute('#deck .dk-tab', 'data-kept')) === '1', `${left40} → ${await rowLeft()}`);
   await page.click('#deck .dk-tab[data-section="acts"]'); await sleep(500);
-  ok('the count under the name follows the data (4 acts)', (await page.textContent('#deck .dk-meta')) === 'Track 2 of 11 · 4 acts' && await tabInView(), await page.textContent('#deck .dk-meta'));
+  ok('the count under the name follows the data (4 acts)', (await page.textContent('#deck .dk-meta')) === 'Track 2 of 12 · 4 acts' && await tabInView(), await page.textContent('#deck .dk-meta'));
 
   // The keyboard: Tab reaches the bar, the three keys, then each tab; the arrow keys change section from anywhere.
   await page.focus('#deck .dk-now');
@@ -236,12 +236,12 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.keyboard.press('Escape'); await page.waitForSelector('.sheet', { state: 'detached' });
   ok('…closing it puts the focus back on the bar', (await focusOn()) === 'dk-now', await focusOn());
   await page.keyboard.press('Space'); await page.waitForSelector('.sheet[aria-label="Track list"]');
-  ok('Space opens it too', (await page.locator('.dk-queue .dk-track').count()) === 11);
+  ok('Space opens it too', (await page.locator('.dk-queue .dk-track').count()) === 12);
   await page.keyboard.press('Escape'); await page.waitForSelector('.sheet', { state: 'detached' });
   // Tab along the row and back: every tab the keyboard lands on is wholly in view, also one that was only part hidden
   // (a browser left to itself does not scroll to those), and the section does not change.
   await page.focus('#deck .dk-next');
-  const cutOn = await tabAlong('Tab', 11), lastTab = await focusOn(), cutBack = await tabAlong('Shift+Tab', 11);
+  const cutOn = await tabAlong('Tab', 12), lastTab = await focusOn(), cutBack = await tabAlong('Shift+Tab', 12);
   ok('Tab along the row, then Shift+Tab back: each tab it lands on is wholly in view', cutOn.length === 0 && cutBack.length === 0 && lastTab === 'tab:settings' && (await focusOn()) === 'dk-next' && (await page$(page)) === 'venues', `cut off going on: ${cutOn.join() || 'none'}; coming back: ${cutBack.join() || 'none'}`);
   await page.evaluate(() => window.logiGo('songs')); await sleep(500);
   await page.locator('input[type=search]').first().focus(); await page.keyboard.press('ArrowRight'); await sleep(300);
@@ -270,7 +270,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.evaluate(() => window.scrollTo(0, 0)); await page.setViewportSize({ width: 420, height: 900 });
   await page.evaluate(() => window.logiGo('venues')); await sleep(500);
   await page.reload(); await page.waitForSelector('#deck .dk-next');
-  ok('after a reload the digital player is still the menu, and Gdex opens on the calendar', (await page.locator('#deck .dk-player').count()) === 1 && (await page$(page)) === 'bookings' && (await page.textContent('#deck .dk-name')) === 'Bookings' && (await current()) === 'bookings:page:true' && Math.abs((await fill()) - 100 / 11) < 0.01);
+  ok('after a reload the digital player is still the menu, and Gdex opens on the calendar', (await page.locator('#deck .dk-player').count()) === 1 && (await page$(page)) === 'bookings' && (await page.textContent('#deck .dk-name')) === 'Bookings' && (await current()) === 'bookings:page:true' && Math.abs((await fill()) - 100 / 12) < 0.01);
   await page.evaluate(() => window.logiGo('settings')); await sleep(500);
   await page.evaluate(() => { document.getElementById('se-display').open = true; });
   await page.click('#se-display [data-pref="menu:record"]'); await sleep(300);
@@ -312,7 +312,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   });
   ok('320px wide, extra-large: Studio log stays inside the bar, the three keys sit under it, and the tabs scroll inside their row with the current one in view', Object.values(narrow).every(Boolean), JSON.stringify(narrow));
   await page.focus('#deck .dk-next');
-  const cutNarrow = [...await tabAlong('Tab', 11), ...await tabAlong('Shift+Tab', 10)];
+  const cutNarrow = [...await tabAlong('Tab', 12), ...await tabAlong('Shift+Tab', 11)];
   ok('…and each tab the Tab key lands on is wholly in view there too', cutNarrow.length === 0 && (await focusOn()) === 'tab:bookings', `cut off: ${cutNarrow.join() || 'none'}`);
   // …and where the menu is chosen (Aa), at that size: no choice is broken inside a word (three choices do not fit side by
   // side there, so the row lets one drop to a line of its own), and the sheet does not scroll sideways.

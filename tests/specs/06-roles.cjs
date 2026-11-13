@@ -42,7 +42,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok('…in its menu order, and only sections on its menu', stops.length > 0 && stops.length <= 5, stops.join(', '));
     const s = await sleeve(page);
     ok('the menu is the producer’s', JSON.stringify(s.ids) === JSON.stringify(R.menus.producer), s.ids.join(','));
-    ok('the sections it leaves off are bonus tracks', s.bonus.length === 11 - R.menus.producer.length && s.bonus.every(id => !R.menus.producer.includes(id)), s.bonus.join(','));
+    ok('the sections it leaves off are bonus tracks', s.bonus.length === 12 - R.menus.producer.length && s.bonus.every(id => !R.menus.producer.includes(id)), s.bonus.join(','));
     // the profile's "What you do" started as the role
     ok('the tour’s details card filled What you do with the role', (await page.evaluate(() => import('./js/store.js').then(m => m.db.profile.role))) === 'Producer');
     await page.reload();
@@ -64,7 +64,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok('closing the question still runs the welcome tour', (await page.textContent('#tour-title')) === 'Welcome to Gdex');
     await page.click('.tour-actions .btn.ghost');
     const s = await sleeve(page);
-    ok('…with every section on the menu', s.ids.length === 11 && s.bonus.length === 0, s.ids.join(','));
+    ok('…with every section on the menu', s.ids.length === 12 && s.bonus.length === 0, s.ids.join(','));
     ok('…and no role saved', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === null);
     ok('closing the question counts as the answer: the role card is not offered later', (await page.evaluate(() => localStorage.getItem('gdex-role-nudged'))) === '1');
     await page.reload();
@@ -97,7 +97,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.click('#deck .dk-record');
     await page.waitForSelector('.dk-sheet');
     ok('a scout picked at the first-run question opens on the calendar', (await page.evaluate(() => window.logiPage())) === 'bookings' && (await page.locator('.bk-monthview').count()) === 1);
-    ok('the sleeve then lists the scout’s tracks, the calendar first', JSON.stringify(await menuIds(page)) === JSON.stringify(['bookings', 'acts', 'people', 'venues', 'settings']), (await menuIds(page)).join(','));
+    ok('the sleeve then lists the scout’s tracks, the calendar first', JSON.stringify(await menuIds(page)) === JSON.stringify(['bookings', 'acts', 'people', 'venues', 'card', 'settings']), (await menuIds(page)).join(','));
     await page.click('.dk-sheet .dk-bonus [data-section="insurance"]');
     await sleep(700);
     ok('…and Insurance on it opens Insurance', (await page.evaluate(() => window.logiPage())) === 'insurance');
@@ -224,7 +224,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await sleep(300);
     ok('…and back to the digital player, back again', /bonus tracks on the track list \(tap ☰\)/.test(await page.textContent('#se-role .rp-about')) && (await page.locator('#deck .dk-player').count()) === 1);
 
-    // A scout: four tracks and Settings as tabs; a bonus track that is open is one more tab, last, until they move on.
+    // A scout: four tracks, My card and Settings as tabs; a bonus track that is open is one more tab, last, until they move on.
     const tabs = () => page.$$eval('#deck .dk-tab', bs => bs.map(b => b.dataset.section));
     const marked = () => page.$$eval('#deck .dk-tab[aria-current]', bs => bs.map(b => `${b.dataset.section}:${b.getAttribute('aria-current')}`).join());
     const keyOn = cls => page.evaluate(c => !!document.activeElement && document.activeElement.classList.contains(c) && !!document.activeElement.closest('#deck'), cls);
@@ -233,45 +233,45 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     const bonusByKeyboard = async id => { await page.focus('#deck .dk-list'); await page.keyboard.press('Enter'); await page.waitForSelector('.dk-sheet'); await sleep(100); await page.focus(`.dk-sheet .dk-bonus [data-section="${id}"]`); await page.keyboard.press('Enter'); await sleep(600); };
     await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('scout')));
     await sleep(500);
-    ok('a scout has five tabs, the calendar first, in the role’s words', JSON.stringify(await tabs()) === JSON.stringify(R.menus.scout) && R.menus.scout.length === 5 && (await page.textContent('#deck .dk-tab')) === '📅Shows', (await tabs()).join(','));
-    ok('…and stays on Settings, the fifth of five tracks', (await at()) === 'settings' && (await page.textContent('#deck .dk-meta')) === 'Track 5 of 5' && (await marked()) === 'settings:page', `${await page.textContent('#deck .dk-meta')} · ${await marked()}`);
+    ok('a scout has six tabs, the calendar first, in the role’s words', JSON.stringify(await tabs()) === JSON.stringify(R.menus.scout) && R.menus.scout.length === 6 && (await page.textContent('#deck .dk-tab')) === '📅Shows', (await tabs()).join(','));
+    ok('…and stays on Settings, the sixth of six tracks', (await at()) === 'settings' && (await page.textContent('#deck .dk-meta')) === 'Track 6 of 6' && (await marked()) === 'settings:page', `${await page.textContent('#deck .dk-meta')} · ${await marked()}`);
     await page.click('#deck .dk-list');
     await page.waitForSelector('.dk-sheet');
-    ok('the track list’s tracks are the role’s menu, numbered 1 to 5, with the rest under Bonus tracks', JSON.stringify(await menuIds(page)) === JSON.stringify(R.menus.scout) && (await page.$$eval('.dk-queue .dk-sides .dk-track-id', xs => xs.map(x => x.textContent).join())) === '1,2,3,4,5' && (await page.locator('.dk-queue .dk-bonus .dk-track').count()) === 6 && (await page.textContent('.dk-queue .muted')) === '5 tracks · 6 bonus', await page.textContent('.dk-queue .muted'));
+    ok('the track list’s tracks are the role’s menu, numbered 1 to 6, with the rest under Bonus tracks', JSON.stringify(await menuIds(page)) === JSON.stringify(R.menus.scout) && (await page.$$eval('.dk-queue .dk-sides .dk-track-id', xs => xs.map(x => x.textContent).join())) === '1,2,3,4,5,6' && (await page.locator('.dk-queue .dk-bonus .dk-track').count()) === 6 && (await page.textContent('.dk-queue .muted')) === '6 tracks · 6 bonus', await page.textContent('.dk-queue .muted'));
     ok('…the bonus tracks after the list, not inside it', await page.evaluate(() => { const s = document.querySelector('.dk-queue .dk-sides'), b = document.querySelector('.dk-queue .dk-bonus'); return !s.contains(b) && !!(s.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING); }));
     await page.keyboard.press('Escape');
     await page.waitForSelector('.dk-sheet', { state: 'detached' });
     await bonusByKeyboard('insurance');
     const six = await tabs();
-    ok('opening Insurance from the track list adds a sixth tab, last and marked current', (await at()) === 'insurance' && six.length === 6 && six[5] === 'insurance' && (await marked()) === 'insurance:page' && JSON.stringify(six.slice(0, 5)) === JSON.stringify(R.menus.scout), six.join(','));
+    ok('opening Insurance from the track list adds a seventh tab, last and marked current', (await at()) === 'insurance' && six.length === 7 && six[6] === 'insurance' && (await marked()) === 'insurance:page' && JSON.stringify(six.slice(0, 6)) === JSON.stringify(R.menus.scout), six.join(','));
     ok('…with its ★, and called a bonus track for a screen reader', (await page.textContent('#deck .dk-tab[data-section="insurance"]')) === '🛡️★ Insurance' && (await page.getAttribute('#deck .dk-tab[data-section="insurance"]', 'aria-label')) === 'Insurance, bonus track', await page.textContent('#deck .dk-tab[data-section="insurance"]'));
     ok('…the bar says Bonus track, with the line full', /^Bonus track/.test(await page.textContent('#deck .dk-meta')) && (await page.$eval('#deck .dk-fill', el => el.style.width)) === '100%' && (await page.getAttribute('#deck .dk-now', 'aria-label')) === 'Now playing a bonus track, Insurance. Open the track list to pick any section', await page.textContent('#deck .dk-meta'));
     ok('…its tab is in view, and the move was announced', await page.evaluate(() => { const row = document.querySelector('#deck .dk-tabs').getBoundingClientRect(), t = document.querySelector('#deck .dk-tab.on').getBoundingClientRect(); return t.left >= row.left - 1 && t.right <= row.right + 1; }) && (await page.evaluate(() => document.getElementById('sr-live').textContent)) === 'Insurance, a bonus track');
     ok('keyboard: a bonus track picked from the track list leaves the focus on ☰', await keyOn('dk-list'));
     await page.click('#deck .dk-list');
     await page.waitForSelector('.dk-sheet');
-    ok('the track list marks it as the bonus track playing, and still lists the role’s five tracks', (await page.getAttribute('.dk-bonus .dk-track.on', 'data-section')) === 'insurance' && JSON.stringify(await menuIds(page)) === JSON.stringify(R.menus.scout) && (await page.locator('.dk-queue .dk-sides .dk-track.on').count()) === 0);
+    ok('the track list marks it as the bonus track playing, and still lists the role’s six tracks', (await page.getAttribute('.dk-bonus .dk-track.on', 'data-section')) === 'insurance' && JSON.stringify(await menuIds(page)) === JSON.stringify(R.menus.scout) && (await page.locator('.dk-queue .dk-sides .dk-track.on').count()) === 0);
     await page.keyboard.press('Escape');
     await page.waitForSelector('.dk-sheet', { state: 'detached' });
     await page.focus('#deck .dk-next'); await page.keyboard.press('Enter'); await sleep(600);
-    ok('⏭ from it moves on to the first track and drops the tab', (await at()) === R.menus.scout[0] && (await tabs()).length === 5 && (await marked()) === `${R.menus.scout[0]}:page` && /^Track 1 of 5/.test(await page.textContent('#deck .dk-meta')), (await tabs()).join(','));
+    ok('⏭ from it moves on to the first track and drops the tab', (await at()) === R.menus.scout[0] && (await tabs()).length === 6 && (await marked()) === `${R.menus.scout[0]}:page` && /^Track 1 of 6/.test(await page.textContent('#deck .dk-meta')), (await tabs()).join(','));
     ok('keyboard: …and the focus is still on ⏭', await keyOn('dk-next'));
     await bonusByKeyboard('money');
     await page.focus('#deck .dk-prev'); await page.keyboard.press('Enter'); await sleep(600);
-    ok('keyboard: ⏮ off a bonus track goes to the last track and keeps the focus on ⏮', (await at()) === 'settings' && (await tabs()).length === 5 && await keyOn('dk-prev'));
+    ok('keyboard: ⏮ off a bonus track goes to the last track and keeps the focus on ⏮', (await at()) === 'settings' && (await tabs()).length === 6 && await keyOn('dk-prev'));
     // From a tab: the focus stays with the section that was picked, or goes to the current tab when its own tab has gone.
     await bonusByKeyboard('songs');
     await page.focus('#deck .dk-tab[data-section="venues"]'); await page.keyboard.press('Enter'); await sleep(600);
-    ok('keyboard: a tab picked while a bonus track is open opens it, drops the bonus tab and keeps the focus on that tab', (await at()) === 'venues' && (await tabs()).length === 5 && (await tabFocus()) === 'venues' && (await marked()) === 'venues:page', `${await at()} · ${await tabFocus()}`);
+    ok('keyboard: a tab picked while a bonus track is open opens it, drops the bonus tab and keeps the focus on that tab', (await at()) === 'venues' && (await tabs()).length === 6 && (await tabFocus()) === 'venues' && (await marked()) === 'venues:page', `${await at()} · ${await tabFocus()}`);
     await bonusByKeyboard('songs');
     await page.focus('#deck .dk-tab[data-section="songs"]'); await page.keyboard.press('ArrowRight'); await sleep(600);
-    ok('keyboard: an arrow key on the bonus tab moves on, and the focus goes to the tab that is now current', (await at()) === R.menus.scout[0] && (await tabs()).length === 5 && (await tabFocus()) === R.menus.scout[0], `${await at()} · ${await tabFocus()}`);
+    ok('keyboard: an arrow key on the bonus tab moves on, and the focus goes to the tab that is now current', (await at()) === R.menus.scout[0] && (await tabs()).length === 6 && (await tabFocus()) === R.menus.scout[0], `${await at()} · ${await tabFocus()}`);
     await bonusByKeyboard('songs');
     await page.focus('#deck .dk-now'); await page.keyboard.press('ArrowLeft'); await sleep(600);
     ok('keyboard: an arrow key on the bar off a bonus track keeps the focus on the bar', (await at()) === 'settings' && await keyOn('dk-now'));
     await go(page, 'tools');
     await go(page, 'backline');
-    ok('one bonus track gives way to another: still six tabs, the new one last', (await at()) === 'backline' && JSON.stringify(await tabs()) === JSON.stringify([...R.menus.scout, 'backline']) && (await marked()) === 'backline:page');
+    ok('one bonus track gives way to another: still seven tabs, the new one last', (await at()) === 'backline' && JSON.stringify(await tabs()) === JSON.stringify([...R.menus.scout, 'backline']) && (await marked()) === 'backline:page');
     await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('producer')));
     await sleep(500);
     ok('a new role redraws the tabs: the producer’s menu, with Backline still open as its bonus tab', JSON.stringify(await tabs()) === JSON.stringify([...R.menus.producer, 'backline']) && !R.menus.producer.includes('backline') && (await at()) === 'backline' && (await marked()) === 'backline:page' && /^Bonus track/.test(await page.textContent('#deck .dk-meta')), (await tabs()).join(','));
@@ -282,7 +282,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.reload();
     await page.waitForSelector('#deck .dk-next');
     await sleep(600);
-    ok('with no role (Everything) there are eleven tabs and no bonus tracks on the track list', (await tabs()).length === 11 && (await page.textContent('#deck .dk-meta')).startsWith('Track 1 of 11') && (await sleeve(page)).bonus.length === 0);
+    ok('with no role (Everything) there are twelve tabs and no bonus tracks on the track list', (await tabs()).length === 12 && (await page.textContent('#deck .dk-meta')).startsWith('Track 1 of 12') && (await sleeve(page)).bonus.length === 0);
     ok('no errors in the console (the digital player and roles)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
@@ -324,7 +324,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     const { browser, page, errors } = await open({ init: "localStorage.setItem('gdex-role','scout')" });
     const steps = await page.evaluate(() => import('./js/tour.js').then(m => m.welcomeSteps().map(s => ({ title: s.title, text: s.text, body: !!s.body }))));
     ok('the scout’s tour opens with its own welcome', /scouting/.test(steps[0].text) && /Fees and settlements stay off/.test(steps[0].text));
-    ok('it counts the tracks and the sides', /5 tracks: 3 on Side A, 2 on Side B; the rest are bonus tracks/.test(steps[2].text), steps[2].text);
+    ok('it counts the tracks and the sides', /6 tracks: 3 on Side A, 3 on Side B; the rest are bonus tracks/.test(steps[2].text), steps[2].text);
     ok('its stops use the role’s names', steps.some(s => s.title === 'Shows') && !steps.some(s => s.title === 'Bookings'), steps.map(s => s.title).join(' › '));
     ok('the calendar is its first stop (after the search box), and says Gdex asks after a show', steps[4].title === 'Shows' && /by month, week or day/.test(steps[4].text) && /After a show Gdex asks if you saw them/.test(steps[4].text), `${steps[4].title}: ${steps[4].text}`);
     ok('the last card names the bonus tracks and leaves out quotes and invoices', /Not on your menu: Songs, Studio log, Backline, Money, Tools and Insurance/.test(steps[steps.length - 1].text) && !/quotes and invoices/.test(steps[steps.length - 1].text), steps[steps.length - 1].text);
@@ -423,7 +423,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok(`${id}: the choice is checked and keeps the focus`, (await page.getAttribute(`#se-role .rp-card[data-role="${id}"]`, 'aria-checked')) === 'true' && await page.evaluate(x => document.activeElement && document.activeElement.dataset.role === x, id));
     const s = await sleeve(page);
     ok(`${id}: the menu changes at once, and you stay on Settings`, JSON.stringify(s.ids) === JSON.stringify(R.menus[id]) && (await page.evaluate(() => window.logiPage())) === 'settings', s.ids.join(','));
-    ok(`${id}: the rest are bonus tracks`, s.bonus.length + s.ids.length === 11);
+    ok(`${id}: the rest are bonus tracks`, s.bonus.length + s.ids.length === 12);
     ok(`${id}: Settings is last on the menu`, s.ids[s.ids.length - 1] === 'settings');
     ok(`${id}: Your role lists its bonus tracks and writes nothing stray under the cards`, (await stray()).length === 0 && (await page.locator('#se-role .rp-bonus').count()) === 1 && !/null|undefined/.test(await page.textContent('#se-role .rp-panel')), (await stray()).join('|'));
   }
@@ -534,7 +534,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   await page.waitForSelector('#se-role .rp-card');
   await page.click('#se-role .rp-card[data-role="all"]');
   await sleep(400);
-  ok('Everything puts every section back on the menu', (await sleeve(page)).ids.length === 11);
+  ok('Everything puts every section back on the menu', (await sleeve(page)).ids.length === 12);
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 })().catch(e => { console.log('FAIL roles spec crashed — ' + e.message); process.exit(1); });

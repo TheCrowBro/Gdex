@@ -4,10 +4,10 @@ import { h, nodes, sheet, toast, announce } from './util.js';
 import { ROLES, EVERYTHING, roleId, roleChosen, roleOf, setRole, menuSections, offMenu, sectionName } from './roles.js';
 import { haptic, menuWords } from './a11y.js';
 
-const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', settings: 'Settings' };
+const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', card: 'My card', settings: 'Settings' };
 const nameIn = (r, id) => (r.names && r.names[id]) || NAMES[id] || id;
-// The role's menu as words: "Bookings · Studio log · Songs …" (Settings, always last, is left out).
-export const menuText = r => menuSections(r).filter(id => id !== 'settings').map(id => nameIn(r, id)).join(' · ');
+// The role's menu as words: "Bookings · Studio log · Songs …" (My card and Settings, last on every menu, are left out).
+export const menuText = r => menuSections(r).filter(id => id !== 'settings' && id !== 'card').map(id => nameIn(r, id)).join(' · ');
 
 function card(r, { on = false, radio = false, onPick }) {
   return h('button', {
