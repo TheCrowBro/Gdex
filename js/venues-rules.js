@@ -23,7 +23,8 @@ export function venueChip(v) {
 // inside a word), so a long first word, such as the start of a note, can still wrap where it must. Only the drawing
 // changes: the words are the same text.
 const ICON = /^\p{Extended_Pictographic}/u;
-const firstLetter = w => { try { return [...new Intl.Segmenter().segment(w)][0]?.segment || ''; } catch { return [...w][0] || ''; } };
+let letters = null; // one splitter into letters for every chip (a card list can draw thousands)
+const firstLetter = w => { try { letters = letters || new Intl.Segmenter(); for (const x of letters.segment(w)) return x.segment; return ''; } catch { return [...w][0] || ''; } };
 const keepTogether = label => {
   const words = String(label).split(' '), icon = words.length > 1 && ICON.test(words[0]) ? words.shift() : '', out = [];
   const plain = t => { if (!t) return; if (typeof out[out.length - 1] === 'string') out[out.length - 1] += t; else out.push(t); };
