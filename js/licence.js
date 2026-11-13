@@ -265,6 +265,8 @@ export function readOnlySheet({ form = false } = {}) {
       h('p', { class: 'small muted' }, `Nothing was changed${form ? ': what you typed is still in the form' : ''}.`),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'btn primary', id: 'lic-ro-terms', onclick: async () => { close(); if (await askTerms({ once: once() })) { termsAgreed(); if (await startFreeDays()) toastStarted(); } } }, 'Read and agree'),
+        // Read and agree takes Buy's place (§9.5); Sign in stays, for someone who has a licence already.
+        ...actions(s, { enter: true }, { sheetWords: true, after: close }),
         h('button', { type: 'button', class: 'btn ghost lic-carry', onclick: () => { close(); carryOnFree(); } }, 'Carry on free as an Audiophile'))));
   } else {
     const first = {

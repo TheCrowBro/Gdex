@@ -288,7 +288,7 @@ function aboutLine() {
     const s = licenceNow();
     line += s.mode === 'away' ? ' · the working roles only in the desktop app'
       : ['licensed', 'pending'].includes(s.mode) && s.canEdit ? ' · licensed'
-        : !s.canEdit ? ' · read-only: needs a licence'
+        : !s.canEdit ? (roleNeedsLicence(roleId()) ? ' · read-only: needs a licence' : ' · the working roles need a licence') // the Audiophile itself is never read-only
           : s.started ? ` · free days: ${s.trialLeft} left` : ' · Audiophile is free';
   }
   return line;

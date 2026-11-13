@@ -235,6 +235,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('#se-role .rp-card[data-role="producer"]'); await sleep(400);
       ok('the picker refuses Producer: the licence is offered, the role stays the Audiophile', (await sheets(page)).join() === 'Producer needs a licence' && (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile', (await sheets(page)).join());
       ok('…and Your role says the free days are over and the Audiophile is free', line === 'Your free days are over. Audiophile is free; the other roles need a licence.' && /· free$/.test(await page.textContent('#se-role .se-sub')), line);
+      ok('…and About’s line does not call the Audiophile read-only', /· the working roles need a licence$/.test(await page.textContent('#se-about .se-sub')), await page.textContent('#se-about .se-sub'));
       await closeTop(page);
       await ctx.close();
     }
@@ -341,7 +342,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.fill('[data-key="title"]', 'Typed, then saved');
       await page.click('.sheet .form-actions .btn.primary'); await sleep(600);
       const ro = await page.textContent('.sheet.licence-readonly').catch(() => '');
-      ok('…a refused change asks for the terms instead of a licence: Read and agree, no Buy, the form kept', (await sheets(page)).join() === 'Edit show,Read-only for now' && /To use them, please read and agree to Gdex’s terms\./.test(ro) && /what you typed is still in the form/.test(ro) && (await page.locator('.sheet.licence-readonly #lic-ro-terms').count()) === 1 && (await page.locator('.sheet.licence-readonly .lic-buy').count()) === 0 && (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 't-wait').title || ''))) === '', JSON.stringify({ sh: await sheets(page), ro }));
+      ok('…a refused change asks for the terms instead of a licence: Read and agree in Buy’s place, Sign in kept, the form kept', (await sheets(page)).join() === 'Edit show,Read-only for now' && /To use them, please read and agree to Gdex’s terms\./.test(ro) && /what you typed is still in the form/.test(ro) && (await page.locator('.sheet.licence-readonly #lic-ro-terms').count()) === 1 && (await page.locator('.sheet.licence-readonly .lic-buy').count()) === 0 && (await page.locator('.sheet.licence-readonly .lic-enter').textContent().catch(() => '')) === 'Sign in (I have one)' && (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 't-wait').title || ''))) === '', JSON.stringify({ sh: await sheets(page), ro }));
       await page.click('#lic-ro-terms');
       await page.waitForSelector('#lic-terms-ok'); await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); await sleep(900);
       st = await state(page);
