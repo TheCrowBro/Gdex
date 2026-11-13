@@ -50,7 +50,7 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 | 📅 **Bookings** | Shows, studio sessions and rehearsals on one calendar, by month, two weeks, week, three days or day. Open one for everything about it. |
 | 🎸 **Acts** | The bands and artists you work with, as drop-down cards grouped by main genre (Rock, Pop, Hip hop & rap…): how many times you have seen each one play, your scores out of 100 (average and latest), and their dates coming up on the calendar. Open a card for the log of each time seen. Each act keeps its members, links, press kit and tech rider with the input list and stage plot. |
 | 👥 **People** | Band members, session players, crew, promoters and agents, and how to reach them. |
-| 🎼 **Songs** | Keys, tempos and lengths; split sheets for the writers; setlists that add up to your slot. |
+| 🎼 **Songs** | Keys, tempos and lengths, folded by band and album; split sheets for the writers; setlists that add up to your slot. |
 | 🎙️ **Studio log** | A take log for recording: tap + Take, mark the keepers, note what to fix. |
 | 🎛️ **Backline** | Instruments, amps, mics and cables with serial numbers and values; stage packs for the gigs you do often. |
 | 📍 **Venues** | Venues, studios, rehearsal rooms and festivals: capacity, stage, PA, curfew, noise limit, load-in, map, and the house rules (cameras, age limit, bags…) that show on every show there. |
@@ -72,6 +72,14 @@ Gdex is open. You still type the genre as you like ("Indie rock", "Doom folk"): 
 (indie rock and folk rock are Rock, doom folk is Folk, the first of two genres decides), and an act's form has **Main
 genre: Automatic (Rock)** to set it by hand. The list's search opens the groups with a match, and both searches find a
 band by its main genre. The press kit keeps the genre as you typed it.
+
+**Songs folded by band, then by album.** Each song has an **Album or release** box, which offers the albums already
+typed for the same band. With songs of two or more bands (or some with no band), the songs list folds them under each
+band, A to Z, with **No act** (in your role's word: No artist, No band) last, and inside a band under each album, A to Z,
+with **Singles & unreleased** last for the songs with none; a band none of whose songs has an album lists its songs
+straight under its name. With songs of one band, only its album folds, once a song has an album. Folded at first; the ones you open stay open
+while Gdex is open. The list's search opens the folds with a match, and both searches find a song by its album. The
+setlists keep their band chips; the press kit and the printed setlists are unchanged.
 
 ## The calendar
 

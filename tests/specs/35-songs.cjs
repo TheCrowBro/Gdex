@@ -1,4 +1,4 @@
-// Songs, split sheets and setlists: the library (groups, act chips, search), the song form (a length typed as 3:45 is
+// Songs, split sheets and setlists: the library (folds by act, search), the song form (a length typed as 3:45 is
 // stored as 225 seconds; the split sheet and its 100% check), the printed split sheet, the setlist editor (songs from
 // the picker, a set break, a free item, moves by button, by keyboard and by dragging, segues, a slot to fit, totals
 // that match model.setlistLength, copy, print, duplicate, delete), and the Setlist box on a show and a rehearsal.
@@ -20,16 +20,17 @@ const { open, ok, sleep } = require('../helpers.cjs');
   const afterPrint = () => page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
 
   /* ------------------------------- the library ------------------------------- */
+  // The sample's songs are of two acts, so the list is in folds, one per act (48-song-folds checks them): open both.
+  await page.waitForSelector('.sg-fold-head', T);
+  for (const id of ['#sg-act-s-owls', '#sg-act-s-sablea']) { await page.click(id); await sleep(150); }
   await page.waitForSelector('.sg-song', T);
   ok('the songs page lists every sample song', (await page.locator('.sg-song').count()) === 10);
-  const heads = await page.locator('.sg-group h3').allTextContents();
+  const heads = await page.locator('.sg-fold-act .sg-fold-name').allTextContents();
   ok('songs are grouped by act', heads.some(t => t.includes('The Night Owls')) && heads.some(t => t.includes('Sable')), heads.join(' | '));
   const harbour = await page.locator('.sg-song[data-fk="pg-song-s-song1"]').textContent();
   ok('a song card shows title, key, BPM, length and status', ['Harbour Lights', 'A minor', '128 BPM', '3:34', 'Released'].every(x => harbour.includes(x)), harbour);
   ok('a song with no length says so', (await page.locator('.sg-song[data-fk="pg-song-s-sable2"] .sg-miss').count()) === 1);
-  await page.click('.sg-acts .chip:has-text("Sable")'); await sleep(200);
-  ok('the act chip shows only that act’s songs', (await page.locator('.sg-song').count()) === 2);
-  await page.click('.sg-acts .chip:has-text("All")'); await sleep(200);
+  ok('the act’s fold holds only that act’s songs', (await page.locator('#sg-act-s-sablea-list .sg-song').count()) === 2);
   await page.fill('#sg-q', 'ferry'); await sleep(250);
   ok('search finds a song by title', (await page.locator('.sg-song').count()) === 1 && (await page.locator('.sg-song').textContent()).includes('Last Ferry Home'));
   ok('the search box keeps the focus while typing', (await page.evaluate(() => document.activeElement && document.activeElement.id)) === 'sg-q');

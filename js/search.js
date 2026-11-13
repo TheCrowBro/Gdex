@@ -235,7 +235,7 @@ function buildOthers() {
   out.gear = someOf(db.gear).filter(g => g && g.id).map(g => { const owner = g.owner && byId('people', g.owner);
     return record('gear', g, g.name || 'Unnamed item', [g.name], gearText(g), [['Serial', g.serial], ['Where it is', g.location], ['Owner', owner && owner.name], ['Notes', g.notes]]); });
   if (MOD.songs) out.songs = someOf(db.songs).filter(s => s && s.id).map(s => record('songs', s, s.title || 'Untitled', [s.title], MOD.songs.songText(s),
-    [['Writers', someOf(s.splits).filter(Boolean).map(p => p.name).join(', ')], ['Tuning', s.tuning], ['ISRC', s.isrc], ['Earlier name', earlier(byId('acts', s.actId))], ['Notes', s.notes]]));
+    [['Album', model.albumOf(s)], ['Writers', someOf(s.splits).filter(Boolean).map(p => p.name).join(', ')], ['Tuning', s.tuning], ['ISRC', s.isrc], ['Earlier name', earlier(byId('acts', s.actId))], ['Notes', s.notes]]));
   if (MOD.logs) out.logs = someOf(db.logs).filter(l => l && l.id).map(l => { const d = MOD.logs.logDate(l), b = l.bookingId && byId('bookings', l.bookingId);
     return record('logs', l, l.title || 'Take log', [l.title], MOD.logs.logWords(l).join('\n'),
       [['Session', b && model.bookingTitle(b)], ['Notes', l.notes], ['Take notes', someOf(l.takes).filter(Boolean).map(t => clean(t.text)).filter(Boolean).join(' · ')]], [[d, d]]); });
@@ -745,7 +745,7 @@ const OPEN = {
   bands: el => openActCard(el.dataset.id),
   venues: el => openThere('venues', () => document.getElementById('vn-' + el.dataset.id), () => openVenue(el.dataset.id)),
   people: el => openThere('people', () => document.getElementById('pp-open-' + el.dataset.id), () => openPerson(el.dataset.id)),
-  songs: el => songsPage().then(m => { m.showSongs('songs'); return openThere('songs', () => byFk('pg-song-' + el.dataset.id), () => m.openSong(el.dataset.id), window.logiPage?.() === 'songs'); }),
+  songs: el => songsPage().then(m => { m.showSongs('songs', el.dataset.id); return openThere('songs', () => byFk('pg-song-' + el.dataset.id), () => m.openSong(el.dataset.id), window.logiPage?.() === 'songs'); }),
   setlists: el => songsPage().then(m => { m.showSongs('setlists'); return openThere('songs', () => byFk('pg-sl-' + el.dataset.id), () => openSetlist(el.dataset.id), window.logiPage?.() === 'songs'); }),
   gear: el => openThere('backline', () => document.getElementById('bl-item-' + el.dataset.id), () => openGear(el.dataset.id)),
   logs: el => MOD.logs.openLog(el.dataset.id),

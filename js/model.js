@@ -515,6 +515,22 @@ export const showRulesVenue = b => (b && b.kind === 'show' && isLive(b) && b.ven
 /* ------------------------------- songs ------------------------------- */
 export const SONG_STATUS = [['idea', 'Idea'], ['writing', 'Writing'], ['demo', 'Demo'], ['recording', 'Recording'], ['mixing', 'Mixing'], ['mastered', 'Mastered'], ['released', 'Released']];
 export const songStatusLabel = s => (SONG_STATUS.find(x => x[0] === s) || ['', ''])[1];
+// A song's album or release (song.album, typed in the song form): the songs list folds an act's songs under each one,
+// and NO_ALBUM is the fold for the rest. albumOf(s) is the album as typed, its spaces tidied, or '' for none: a key
+// that is absent or not text (a number is read as its digits, as a 1989 typed into a backup by hand), text with no
+// letter or digit, or words that say there is none ("Single", "n/a", "TBC", "Unreleased"…). Never throws.
+// albumKey(text) is what tells two albums apart: capitals, spaces and punctuation aside, as for an act's names.
+export const NO_ALBUM = 'Singles & unreleased';
+const NOT_AN_ALBUM = new Set(['none', 'no album', 'n a', 'na', 'tbc', 'tba', 'tbd', 'single', 'non album', 'non album single', 'unreleased', 'not released',
+  'singles unreleased', 'singles and unreleased', 'unknown']);
+export function albumOf(s) {
+  const v = s && typeof s === 'object' ? s.album : undefined;
+  const t = (typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : '').replace(/\s+/g, ' ').trim();
+  if (!/[\p{L}\p{N}]/u.test(t)) return '';
+  const words = t.normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).join(' ');
+  return NOT_AN_ALBUM.has(words) ? '' : t;
+}
+export const albumKey = text => nameKey(albumOf({ album: text }));
 export const NOTES = ['C', 'C♯/D♭', 'D', 'D♯/E♭', 'E', 'F', 'F♯/G♭', 'G', 'G♯/A♭', 'A', 'A♯/B♭', 'B'];
 export const KEYS = [...NOTES.map(n => n + ' major'), ...NOTES.map(n => n + ' minor')];
 export const SPLIT_ROLES = ['Writer', 'Composer', 'Lyricist', 'Producer', 'Publisher', 'Performer'];
