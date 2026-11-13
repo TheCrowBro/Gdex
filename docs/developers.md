@@ -548,8 +548,11 @@ buttons, ‹ title Today ›, the view's body, the legend under squares) and Com
   none). Blocks are placed by `playKey` (a show's times on the night clock); the hours run from the hour of the
   earliest block (05:00 for a 05:15 rehearsal, never before 00:00) to the latest end, 06:00 the next morning at most;
   lanes follow where the blocks are drawn, so a set too short for its
-  26 px minimum pushes the next one beside it rather than under it, and two that only touch share a lane. Past four
-  lanes in three days, or eight in one, a block gives up its side padding (`bk-block-slim`). Bookings with no time,
+  minimum height (26 px in three days; in the Day view a button's height, `var(--hit)`, which grows with Button size)
+  pushes the next one beside it rather than under it, and two that only touch share a lane. Each block then widens to
+  the right over the lanes that hold nothing at its height (blocks stay side by side only where sets really overlap).
+  A block narrower than a quarter of its column in three days, or an eighth in one, gives up its side padding
+  (`bk-block-slim`). Bookings with no time,
   and every booking over several days, are pills in the "any time" row; "No times set yet." shows only when no pill
   has a time. Three days with nothing on keep their three day names above "Nothing on these three days."; a Day with
   nothing on draws no grid. The walkthrough's "The calendar" step says what is drawn (`gridHelp`): hours when there

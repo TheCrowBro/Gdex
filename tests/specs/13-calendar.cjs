@@ -352,7 +352,8 @@ async function press(page, loc, ms) {
   const over = (a, b) => a.top < b.top + b.h && b.top < a.top + a.h;
   ok('two sets that overlap sit side by side', over(blk('c-E'), blk('c-A')) && blk('c-A').left >= blk('c-E').left + blk('c-E').w - 1 && Math.abs(blk('c-E').w - blk('c-A').w) <= 1 && blk('c-E').w < g.cols[0].w / 2, JSON.stringify([blk('c-E'), blk('c-A')]));
   ok('two sets that only touch (19:00 for an hour, then 20:00) share a lane, the whole width', blk('c-P').left === blk('c-Q').left && blk('c-P').w === blk('c-Q').w && blk('c-P').w > g.cols[0].w - 6 && blk('c-P').top + blk('c-P').h <= blk('c-Q').top + 0.5 && blk('c-Q').top + blk('c-Q').h <= blk('c-E').top + 0.5, JSON.stringify([blk('c-P'), blk('c-Q')]));
-  ok('a set with no length is an hour tall; a short one is never under 26 px', Math.abs(blk('c-Q').h - g.hh) < 0.6 && blk('c-X').h === 26 && blk('c-X').top === line('18:00'), JSON.stringify(blk('c-X')));
+  const hit = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')));
+  ok('a set with no length is an hour tall; in the Day view a short one is never under a button’s height (var(--hit))', Math.abs(blk('c-Q').h - g.hh) < 0.6 && hit >= 44 && blk('c-X').h === hit && blk('c-X').top === line('18:00'), JSON.stringify([hit, blk('c-X')]));
   ok('a 00:30 set is below the 23:00 one, half an hour under the 00:00 line', blk('c-C').top > blk('c-L').top + blk('c-L').h - 1 && Math.abs(blk('c-C').top - (line('00:00') + g.hh / 2)) < 0.6, JSON.stringify([blk('c-L'), blk('c-C')]));
   ok('a show with no time and a two-day booking are pills in the “any time” row, not blocks', g.anyLabel === 'any time' && same(g.any.map(a => a.id).sort(), ['bk-ev-c-D-any', 'bk-ev-c-W-any']) && !blk('c-D') && !blk('c-W'), JSON.stringify(g.any));
   ok('…the two-day one saying when it ends', (g.any.find(a => a.id === 'bk-ev-c-W-any') || {}).text.endsWith(`Weekender · to ${await fmt(T1)}`), JSON.stringify(g.any));
@@ -399,7 +400,7 @@ async function press(page, loc, ms) {
   // delete from the booking's page: back on its day
   await put(page, 'bookings', { id: 'c-Z', kind: 'show', status: 'confirmed', title: 'Throwaway', date: T, venueName: 'The Crown', setTime: '18:30', setLength: 20 }); await sleep(300);
   const shortOne = await page.evaluate(T => { const b = document.getElementById(`bk-ev-c-Z-${T}`), w = b.querySelector('.bk-block-where'), cs = getComputedStyle(w); return { h: b.offsetHeight, oneLine: getComputedStyle(b.querySelector('.bk-block-in')).display === 'flex', where: [w.textContent, cs.display !== 'none', w.getBoundingClientRect().width <= 1.5], time: b.querySelector('.bk-block-sub').getBoundingClientRect().width > 20 }; }, T);
-  ok('a short block puts its name and its time on one line; the venue is out of sight there, and still read out', shortOne.h === 26 && shortOne.oneLine && same(shortOne.where, [' · The Crown', true, true]) && shortOne.time, JSON.stringify(shortOne));
+  ok('in the Day view a 20-minute set’s block is a button tall, with room for its name and, under it, its time and where', shortOne.h === hit && !shortOne.oneLine && same(shortOne.where, [' · The Crown', true, false]) && shortOne.time, JSON.stringify(shortOne));
   await page.click(`#bk-ev-c-Z-${T}`); await page.waitForSelector('.bk-page .bk-hero');
   await page.locator('.bk-actions .bk-delete').click(); await sheetNamed(page, 'Delete this booking?').waitFor();
   await page.locator('.sheet button', { hasText: 'Delete booking' }).click(); await sleep(400);
@@ -464,6 +465,7 @@ async function press(page, loc, ms) {
   g = await geo();
   ok('three days: three columns from the day in view, 44 px to the hour, sharing the hours the widest day needs', g.hh === 44 && g.n === '3' && same(g.cols.map(c => c.day), [T, T1, T2]) && g.heads === 3 && g.hours[0][0] === '10:00' && g.hours[g.hours.length - 1][0] === '05:00+1' && g.cols.every(c => c.h === g.bodyH) && g.bodyH === 20 * 44, JSON.stringify(g.hours.map(h => h[0])));
   ok('…with the busy night’s blocks in its own column, overlapping sets side by side', same(g.cols[0].blocks.map(b => b.id), ['c-X', 'c-P', 'c-Q', 'c-E', 'c-A', 'c-L', 'c-C']) && blk('c-A').left > blk('c-E').left && blk('c-E').top === line('21:00') && Math.abs(blk('c-E').h - 55) < 0.6 && same(g.cols[1].blocks.map(b => b.id), ['c-S', 'c-B']) && same(g.cols[2].blocks.map(b => b.id), ['c-N']), JSON.stringify(g.cols.map(c => c.blocks.map(b => b.id))));
+  ok('…and three days keep a short block’s minimum of 26 px', blk('c-X').h === 26, JSON.stringify(blk('c-X')));
   nt = await nameTop('c-N');
   ok('…and a session eight hours long has its name at its top too (22:00), not at two in the morning', nt.h > 300 && nt.gap >= 0 && nt.gap <= 6, JSON.stringify(nt));
   const anyW = g.any.find(a => a.id === 'bk-ev-c-W-any'), anyD = g.any.find(a => a.id === 'bk-ev-c-D-any');
@@ -558,6 +560,30 @@ async function press(page, loc, ms) {
   ok('…its block reads its start, 05:15', amSaid.startsWith('05:15'), amSaid);
   await page.evaluate(() => import('./js/store.js').then(s => ['c-am', 'c-pm', 'c-ln'].forEach(id => s.remove('bookings', id)))); await sleep(300);
 
+  /* ---------------- the time grid: a block widens over lanes that hold nothing at its height ---------------- */
+  // A long set (20:00 to 23:00), two that start beside it (20:00 and 20:30, an hour each), and one at 22:00 that takes
+  // the second lane once the 20:00 hour is over: nothing is in the third lane at its height, so it widens over it.
+  const WD = await dayFromNow(page, 31);
+  for (const [id, setTime, setLength] of [['w-long', '20:00', 180], ['w-one', '20:00', 60], ['w-two', '20:30', 60], ['w-late', '22:00', 60]]) await put(page, 'bookings', { id, kind: 'show', status: 'confirmed', title: id, date: WD, venueName: 'Field', setTime, setLength });
+  await sleep(300);
+  await view(page, 'day'); await page.click('[aria-label="Today"]'); await sleep(150);
+  for (let i = 0; i < 40 && !(await page.locator(`.bk-col[data-day="${WD}"]`).count()); i++) { await page.click('[aria-label="Next day"]'); await sleep(80); }
+  const lanes = async () => { g = await geo(); const w = g.cols[0].w; return Object.fromEntries(['w-long', 'w-one', 'w-two', 'w-late'].map(id => [id, { thirds: Math.round(blk(id).w / (w / 3)), at: Math.round(blk(id).left / (w / 3)), top: blk(id).top, h: blk(id).h }])); };
+  let L = await lanes();
+  ok('Day: sets that really overlap sit side by side, a third of the column each', L['w-long'].thirds === 1 && L['w-one'].thirds === 1 && L['w-two'].thirds === 1 && L['w-long'].at === 0 && L['w-one'].at === 1 && L['w-two'].at === 2, JSON.stringify(L));
+  ok('…and the 22:00 set widens to the right over the lane that holds nothing at its height: two thirds wide, from the second lane', L['w-late'].at === 1 && L['w-late'].thirds === 2, JSON.stringify(L));
+  // Large buttons: a block is as tall as a large button.
+  await put(page, 'bookings', { id: 'w-short', kind: 'show', status: 'confirmed', title: 'w-short', date: WD, venueName: 'Field', setTime: '18:00', setLength: 20 });
+  await page.evaluate(() => { document.documentElement.dataset.targets = 'large'; }); await sleep(100);
+  await page.click('[aria-label="Previous day"]'); await sleep(150); await page.click('[aria-label="Next day"]'); await sleep(250);
+  g = await geo();
+  const big = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')));
+  ok('…a 20-minute set is as tall as a button, and grows with Button size (large buttons)', big > hit && blk('w-short').h === big, JSON.stringify([hit, big, blk('w-short')]));
+  await page.evaluate(() => { document.documentElement.dataset.targets = 'normal'; });
+  await view(page, 'three'); await sleep(150);
+  L = await lanes();
+  ok('three days: the same lanes, the 22:00 set widened the same way; a short set keeps 26 px', L['w-long'].thirds === 1 && L['w-one'].at === 1 && L['w-two'].at === 2 && L['w-late'].at === 1 && L['w-late'].thirds === 2 && blk('w-short').h === 26, JSON.stringify([L, blk('w-short')]));
+  await page.evaluate(() => import('./js/store.js').then(s => ['w-long', 'w-one', 'w-two', 'w-late', 'w-short'].forEach(id => s.remove('bookings', id)))); await sleep(300);
   await view(page, 'month');
 
   /* ---------------- a date that is no day at all ---------------- */
@@ -587,7 +613,7 @@ async function press(page, loc, ms) {
   ok('…written for the eye there; a screen reader has it from the hidden words, once', wb.said.startsWith('Done.') && wb.said.endsWith(' Didn’t go.') && wb.said === (await wantSaid(page, 'c-G', { went: true })), wb.said);
   await page.evaluate(() => import('./js/store.js').then(s => s.patch('bookings', 'c-G', { setLength: 30 }))); await sleep(300);
   wb = await wentBlock();
-  ok('a short set’s block has one line, and still shows it', wb.oneLine && wb.sub === '20:00 · Didn’t go' && same(wb.eye, ['true', true]), JSON.stringify(wb));
+  ok('a short set’s block (a button tall in the Day view) still shows it', wb.sub === '20:00 · Didn’t go' && same(wb.eye, ['true', true]), JSON.stringify(wb));
   await view(page, 'three');
   wb = await wentBlock();
   ok('in three days, where a block has no room for it, the hidden words carry it', wb.sub === '20:00' && wb.eye === null && wb.said === (await wantSaid(page, 'c-G', { went: true })), JSON.stringify(wb));
@@ -712,7 +738,8 @@ async function press(page, loc, ms) {
       return { id, h: b.offsetHeight, w: Math.round(r.width), twoLines: getComputedStyle(b.querySelector('.bk-block-in')).display !== 'flex' && s.top >= b.querySelector('.bk-block-title').getBoundingClientRect().bottom - 1, inside: s.bottom <= r.bottom + 0.5,
         timeWhole: t.width > 10 && t.left >= s.left - 0.5 && t.right <= s.right + 0.5, where: where ? where.getBoundingClientRect().width > 2 : null };
     }), D);
-    ok(`320 px, ${scheme}, day: an hour-long set has two lines (its name, then the time and where), inside its block`, hour[0].h === 52 && hour[0].twoLines && hour[0].inside && hour[0].timeWhole && hour[0].where === true, JSON.stringify(hour[0]));
+    const bigHit = await n.page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')));
+    ok(`320 px, ${scheme}, day: an hour-long set (52 px, or a large button’s height when that is more) has two lines (its name, then the time and where), inside its block`, hour[0].h === Math.max(52, bigHit) && hour[0].twoLines && hour[0].inside && hour[0].timeWhole && hour[0].where === true, JSON.stringify(hour[0]));
     ok(`320 px, ${scheme}, day: a set beside another keeps its time whole under its name`, hour[1].w < 140 && hour[1].twoLines && hour[1].inside && hour[1].timeWhole, JSON.stringify(hour[1]));
     // Six sets at once (a festival's stages), in three days on this narrow screen: each block keeps to its own lane,
     // inside its own day.

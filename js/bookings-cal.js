@@ -331,8 +331,10 @@ function weekRow(b, iso) {
 
 /* ------------------------------- three days and one day: the time grid ------------------------------- */
 const EVENING = [18 * 60, 26 * 60]; // the hours shown when nothing asks for more: 18:00 to 02:00
-const NIGHT = [6 * 60, 30 * 60];    // the night clock: 06:00 to 06:00 the next morning
-const MIN_BLOCK = 26;               // px: a block is never shorter, so its name can be read and tapped
+const NIGHT = [6 * 60, 30 * 60];    // the night clock: 06:00 to 06:00 the next morning (a session can start earlier: from 00:00)
+const MIN_BLOCK = 26;               // px: a block in three days is never shorter, so its name can be read and tapped
+// px: a block in the Day view is never shorter than a button (var(--hit), which grows with Button size).
+const hitPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')) || 44;
 // A block's span in night minutes. A show starts at the time it is sorted by and lasts its set length when that is
 // the on-stage time and a length is set, else an hour; anything else runs from its start to its finish (an hour with
 // no finish). What would run past 06:00 is cut there.
@@ -372,20 +374,26 @@ function timeGrid(mode, R, all, today) {
     const min = from + i * 60;
     return h('span', { class: 'bk-hour', style: `top:${i * hh}px` }, model.nightClock(min), min >= 1440 && h('small', { class: 'bk-next' }, '+1'));
   }));
+  const least = one ? Math.max(MIN_BLOCK, hitPx()) : MIN_BLOCK;
   const column = iso => {
     // In playing order, so Tab and a screen reader meet the blocks as the night runs.
     const items = timed.filter(b => b.date === iso).sort(byPlay).map(b => {
-      const s = spans.get(b), tall = Math.max(MIN_BLOCK, (s.end - s.start) / 60 * hh);
+      const s = spans.get(b), tall = Math.max(least, (s.end - s.start) / 60 * hh);
       return { b, top: Math.min((s.start - from) / 60 * hh, height - tall), tall }; // a short block at the very end stays inside the grid
     });
     // Blocks that overlap sit side by side: each takes the first free lane, and each run of overlapping blocks is as
     // wide as its own number of lanes. By where the blocks are drawn (their times; any kind, any status), so a block
-    // is never under another; two that only touch share a lane.
+    // is never under another; two that only touch share a lane. Then each block widens to the right over the lanes
+    // that hold nothing at its height (span), so one busy moment does not make every block of the run narrow.
     let run = [], runEnd = 0;
+    const meet = (p, q) => p.top < q.top + q.tall - 0.01 && q.top < p.top + p.tall - 0.01;
     const lay = () => {
       const lanes = [];
       for (const it of run) { let k = lanes.findIndex(end => end <= it.top + 0.01); if (k < 0) k = lanes.length; lanes[k] = it.top + it.tall; it.lane = k; }
-      for (const it of run) it.lanes = lanes.length;
+      for (const it of run) {
+        it.lanes = lanes.length; it.span = 1;
+        while (it.lane + it.span < lanes.length && !run.some(o => o.lane === it.lane + it.span && meet(it, o))) it.span++;
+      }
       run = [];
     };
     for (const it of [...items].sort((p, q) => p.top - q.top)) {
@@ -402,12 +410,12 @@ function timeGrid(mode, R, all, today) {
 const px = n => Math.round(n * 100) / 100;
 // A booking at the time the band plays. In the Day view there is room for where it is, or "Didn’t go" in its place
 // (written for the eye there: a screen reader has it from the hidden words, once, in every view).
-function block({ b, top, tall, lane, lanes }, iso, one) {
+function block({ b, top, tall, lane, lanes, span = 1 }, iso, one) {
   const by = fallBack(b), where = one && !didntGo(b) && venueLine(b);
-  const style = [actStyle(b), `top:${px(top)}px`, `height:${px(tall)}px`, `left:calc(${px(lane * 100 / lanes)}% + 1px)`, `width:calc(${px(100 / lanes)}% - 2px)`].filter(Boolean).join(';');
-  // Many sets at once (a festival's stages): past four side by side in three days, or eight in one, a block gives up
-  // its padding, so each stays in its own lane and none runs over the next day.
-  const el = h('button', { type: 'button', class: `bk-ev bk-block ${tone(b.status)}` + (lanes > (one ? 8 : 4) ? ' bk-block-slim' : ''), id: `bk-ev-${b.id}-${iso}`, 'data-id': b.id, style, title: 'Tap to open; press and hold to delete',
+  const style = [actStyle(b), `top:${px(top)}px`, `height:${px(tall)}px`, `left:calc(${px(lane * 100 / lanes)}% + 1px)`, `width:calc(${px(span * 100 / lanes)}% - 2px)`].filter(Boolean).join(';');
+  // Many sets at once (a festival's stages): narrower than a quarter of the column in three days, or an eighth in one,
+  // a block gives up its padding, so each stays in its own lane and none runs over the next day.
+  const el = h('button', { type: 'button', class: `bk-ev bk-block ${tone(b.status)}` + (lanes / span > (one ? 8 : 4) ? ' bk-block-slim' : ''), id: `bk-ev-${b.id}-${iso}`, 'data-id': b.id, style, title: 'Tap to open; press and hold to delete',
     onclick: () => { if (!wasHeld(el)) X.showBooking(b, iso); } },
     h('span', { class: 'bk-block-in' },
       h('strong', { class: 'bk-block-title' }, h('span', { class: 'bk-ico', 'aria-hidden': 'true' }, model.kindIcon(b.kind) + ' '), model.bookingTitle(b)),
