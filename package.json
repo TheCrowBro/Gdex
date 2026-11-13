@@ -5,13 +5,126 @@
   "description": "Booking deck for music producers and bands: shows, studio sessions, setlists, backline, settlements and invoices.",
   "private": true,
   "type": "module",
+  "main": "desktop/main.cjs",
+  "homepage": "https://gdex.crowmade.app/",
+  "author": "Gdex",
   "scripts": {
     "test": "node tests/run.mjs",
     "stamp": "node tools/stamp-build.mjs",
     "stamp:dev": "node tools/stamp-build.mjs --dev",
-    "serve": "node -e \"import('./tests/lib.mjs').then(async m => { const s = await m.serve('.', 8124); console.log('Gdex on http://localhost:' + s.address().port + '/'); })\""
+    "serve": "node -e \"import('./tests/lib.mjs').then(async m => { const s = await m.serve('.', 8124); console.log('Gdex on http://localhost:' + s.address().port + '/'); })\"",
+    "start": "node desktop/sync-version.mjs && electron .",
+    "dist": "node desktop/sync-version.mjs && electron-builder --publish never",
+    "test:desktop": "node tests/desktop.mjs"
   },
   "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
     "playwright": "^1.63.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  },
+  "build": {
+    "appId": "app.gdex.desktop",
+    "productName": "Gdex",
+    "copyright": "Gdex",
+    "directories": {
+      "buildResources": "desktop/build",
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "invoice.html",
+      "daysheet.html",
+      "privacy.html",
+      "terms.html",
+      "download.html",
+      "styles.css",
+      "manifest.webmanifest",
+      "sw.js",
+      "css/**",
+      "js/**",
+      "vendor/**",
+      "icons/**",
+      "desktop/main.cjs",
+      "desktop/preload.cjs",
+      "desktop/licence.cjs",
+      "desktop/licence-codes.cjs",
+      "desktop/licence-keys.json",
+      "desktop/licence-on.json",
+      "desktop/updater.cjs"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "desktop/build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Gdex-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gdex",
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "icon": "desktop/build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.music",
+      "artifactName": "Gdex-${version}.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Gdex uses the microphone for the tuner and the sound level meter, only while one is open. Nothing is recorded or sent.",
+        "NSLocationWhenInUseUsageDescription": "Gdex uses your location only when you ask it to fill in where a venue is."
+      },
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "desktop/build/entitlements.mac.plist",
+      "entitlementsInherit": "desktop/build/entitlements.mac.plist",
+      "notarize": false
+    },
+    "linux": {
+      "icon": "desktop/build/icon.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "AudioVideo;Audio",
+      "artifactName": "Gdex-${version}.${ext}",
+      "synopsis": "Booking deck for music producers and bands"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://gdex-download.crowmade.app/",
+        "channel": "latest",
+        "useMultipleRangeRequest": false
+      }
+    ]
   }
 }

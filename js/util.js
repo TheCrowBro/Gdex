@@ -70,6 +70,7 @@ export function announce(msg) {
 
 let openSheets = 0;
 const sheetStack = []; // open sheets, newest last: only the top one answers Escape and keeps Tab inside it
+const closers = new WeakMap(); // each open sheet's close
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select,textarea,[tabindex]:not([tabindex="-1"])';
 
 // Modal bottom sheet: traps focus, restores it on close, hides the page from assistive tech while open.
@@ -123,6 +124,7 @@ export function sheet(title, body, { onClose, dismissOnBackdrop = true } = {}) {
   document.addEventListener('keydown', keys);
   document.body.append(back);
   sheetStack.push(back);
+  closers.set(back, close);
   openSheets++;
   if (app) app.inert = true;
   // The focus goes into the sheet (making #app inert has just dropped it from the opener), so a screen reader says what
@@ -130,6 +132,11 @@ export function sheet(title, body, { onClose, dismissOnBackdrop = true } = {}) {
   // track list's current track, the question's first Yes), which keep their choice; never under a sheet opened over this one.
   setTimeout(() => { if (back.isConnected && sheetStack[sheetStack.length - 1] === back && !box.contains(document.activeElement)) box.focus({ preventScroll: true }); }, 100);
   return { el: box, close };
+}
+// Closes every open sheet, the newest first, but those keep(sheet) holds on to (js/licence-state.js: what a working role
+// left open goes when the working roles close; the licence's own sheets stay).
+export function closeSheets(keep = () => false) {
+  for (const back of [...sheetStack].reverse()) if (!keep(back.querySelector('.sheet'))) closers.get(back)?.();
 }
 
 export const mapsUrl = addr => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;

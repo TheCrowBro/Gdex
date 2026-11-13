@@ -39,7 +39,7 @@
 /* An act nothing is logged for, for a role that doesn't score its own acts: Open the act on a line of its own, the ways
    to log a time seen under it. */
 .ac-pnl-lead .btn.primary { flex-basis: 100%; }
-/* Sample work (js/acts-sample.js), at the head of an open card for a producer, a manager and Everything: a small QR
+/* Sample work (js/acts-sample.js), at the head of an open card for a producer, a manager and Jack of Trades: a small QR
    code (white, as every code, so it scans in the dark scheme too) beside the host in words; the words drop under the
    code when the card is too narrow for both (a phone with large text); Show big and Share link (and ✎ Edit while there
    is no sample work link) share a row under them. */

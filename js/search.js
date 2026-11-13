@@ -31,6 +31,7 @@ import { docOf, docTotals } from './money.js'; // loaded with the app too: a boo
 import { statusPill } from './blocks/money.js';
 import { venueChip } from './venues-rules.js';
 import { readDate } from './search-dates.js';
+import { mayOpen, LICENCE_EVENT } from './licence-state.js';
 
 const TITLE = 'Search';
 const STEP = 30;        // results drawn at first in a tab, and added by each Show more
@@ -44,9 +45,12 @@ const KIND_ORDER = model.KINDS.map(k => k[0]); // show, session, rehearsal, othe
 // looked for as words ("may" finds May Smith in People while it finds the bookings in May).
 export const SEARCH_KINDS = ['gigs', 'bands', 'venues', 'people', 'songs', 'setlists', 'gear', 'logs', 'money'];
 const DATED = new Set(['gigs', 'logs', 'money']);
-// The kinds the person may see, and so the tabs: the one place that decides it. Today Money only where money is shown
-// (js/roles.js moneyShown); the licence for the working roles will narrow it here too.
-export const searchKinds = () => SEARCH_KINDS.filter(k => k !== 'money' || moneyShown());
+// The kinds the person may see, and so the tabs: the one place that decides it, for All and the tabs alike. Money only
+// where money is shown (js/roles.js moneyShown), and a kind kept in a working section only while that section opens
+// (js/licence-state.js mayOpen, the build spec [S-33]): a free Audiophile without a licence finds no person, song,
+// setlist, gear, take log or invoice, and a search never starts the free days. Read here and nowhere else.
+const SECTION_OF = { songs: 'songs', setlists: 'songs', gear: 'backline', logs: 'sessions', money: 'money', people: 'people' };
+export const searchKinds = () => SEARCH_KINDS.filter(k => (k !== 'money' || moneyShown()) && mayOpen(SECTION_OF[k] || 'bookings') === 'open');
 
 // Two kinds live in files the app loads only when their section is opened: they are fetched the first time the box
 // takes the focus (or a search runs), and searched from then on.
@@ -525,6 +529,7 @@ export function initSearch(bar) {
     BOX = { bar, input, label, help };
     boxWords(); setEmpty();
     window.addEventListener('gdex-role', () => { boxWords(); if (UI) draw(); });
+    window.addEventListener(LICENCE_EVENT, () => { boxWords(); if (UI) draw(); }); // the licence decides kinds too (searchKinds)
     window.addEventListener('gdex-prefs', () => requestAnimationFrame(boxWords)); // a text size: the placeholder may need to be shorter, or may be longer
     let wide = window.innerWidth;
     window.addEventListener('resize', () => { if (window.innerWidth !== wide) { wide = window.innerWidth; boxWords(); } });
@@ -730,7 +735,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 // focus back to the card when it closes); when the card is not on the list (the section's own filters hide it), open
 // the record all the same.
 async function openThere(section, cardOf, open, again = false) {
-  await window.logiGo?.(section);
+  if ((await window.logiGo?.(section)) === false) return; // refused by the licence: its sheet says why, and nothing opens
   if (again) { redraw(); await tick(); } // a view picked for a section already on screen (Songs or Setlists)
   await tick();
   const card = cardOf();

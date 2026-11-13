@@ -1,6 +1,7 @@
-// The one database: a JSON object kept in this browser's localStorage, written once per burst of changes. Nothing is
-// sent anywhere; a backup file (js/backup.js) moves it between devices. Every change goes through update(), which
-// stamps the time, saves, and tells the page to redraw.
+// The one database: a JSON object kept in this browser's localStorage, written once per burst of changes. It is sent
+// nowhere by itself: a backup file (js/backup.js) moves it between devices, and Google Drive (js/sync.js) keeps it the
+// same on every device the person links. Every change goes through update(), which asks the licence's gate, stamps the
+// time, saves, and tells the page to redraw.
 import { uid, ymd } from './util.js';
 
 const KEY = 'gdex-db-v1';
@@ -34,6 +35,7 @@ export function normalise(raw) {
   out.deleted = Object.fromEntries(Object.entries(raw && raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {}).filter(([, t]) => Date.now() - t < 180 * 864e5));
   for (const k of ['templates', 'billing', 'priceList']) out[k] = raw && raw[k] && typeof raw[k] === 'object' ? raw[k] : b[k];
   out.app = 'gdex';
+  delete out.freeDaysFrom; // the Drive copy's earliest free day (js/sync.js): never part of the database
   return out;
 }
 
@@ -43,11 +45,21 @@ function load() {
 }
 
 export let db = load();
+// Another tab of Gdex on this device wrote the database (a change, a sync, an Erase): this tab takes in what it wrote,
+// so its own next change, which writes the database whole, does not put back what the other tab changed or erased.
+// Nothing is written or sent from here: the other tab has already saved it.
+try {
+  addEventListener('storage', e => {
+    if (e.key !== KEY && e.key !== null) return;
+    db = load();
+    emit('sync');
+  });
+} catch { /* no window */ }
 let rev = 0;
 export const revision = () => rev;
 export const serialize = () => JSON.stringify(db);
 const subs = new Set();
-// fn(reason): 'data' after a change. Returns an unsubscribe function.
+// fn(reason): 'data' after a change, 'sync' when a copy from Google Drive was adopted. Returns an unsubscribe function.
 export const subscribe = fn => { subs.add(fn); return () => subs.delete(fn); };
 const emit = (reason = 'data') => subs.forEach(fn => { try { fn(reason); } catch (e) { console.error(e); } });
 export const redraw = () => emit();
@@ -65,32 +77,49 @@ function writeNow() {
 }
 function persist() { rev++; if (sealed) { dirty = true; return; } if (!writeQueued) { writeQueued = true; queueMicrotask(writeNow); } }
 export function flush() { rev++; writeNow(); }
-// Every change is allowed: kept so shared code (forms) can ask.
-export const canChange = () => true;
+// The licence (js/licence-state.js) installs the one write gate: a paid role used after its free days is read-only.
+// fn({ form, quiet }) → true to allow. form: a form asks before closing (it stays open when refused); quiet: a side
+// effect of something allowed (a day sheet marked sent), skipped without a word when refused. canChange({ form: false })
+// for a change asked with no form (Load the sample, bringing a backup back), so the refusal says nothing about one.
+let gate = null;
+export const setGate = fn => { gate = typeof fn === 'function' ? fn : null; };
+export const canChange = ({ form = true } = {}) => !gate || gate({ form }) !== false;
+export const canChangeQuietly = () => !gate || gate({ quiet: true }) !== false;
 
-// Mutate the database inside fn(db). Saves and redraws. Returns true.
+// After every change made on this device (update, replaceAll, mergeIn), never after adopt(): js/sync.js copies the
+// data to Google Drive from here. Returns an unsubscribe function.
+const writeHooks = new Set();
+export const afterWrite = fn => { writeHooks.add(fn); return () => writeHooks.delete(fn); };
+const wrote = () => writeHooks.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+
+// Mutate the database inside fn(db). Saves and redraws. Returns true, or false when the licence refused the change
+// (nothing was changed or saved).
 export function update(fn, reason = 'data') {
+  if (gate && gate() === false) return false;
   fn(db);
   db.updatedAt = Date.now();
   persist();
   emit(reason);
+  wrote();
   return true;
 }
 
-// Insert or replace a record by id (a new id when it has none). Returns the stored record.
+// Insert or replace a record by id (a new id when it has none). Returns the stored record, or null when the licence
+// refused the change.
 export function upsert(list, item) {
-  let stored;
-  update(d => {
+  let stored = null;
+  const done = update(d => {
     const arr = d[list];
     stored = { ...item, id: item.id || uid(), updatedAt: Date.now() };
     if (!stored.createdAt) stored.createdAt = stored.updatedAt;
     const i = arr.findIndex(x => x.id === stored.id);
     if (i >= 0) arr[i] = stored; else arr.push(stored);
   });
-  return stored;
+  return done ? stored : null;
 }
 
-// Change some fields of a record. Returns the stored record, or null when there is no such record.
+// Change some fields of a record. Returns the stored record, or null when there is no such record or the licence
+// refused the change.
 export function patch(list, id, fields) {
   const cur = byId(list, id);
   if (!cur) return null;
@@ -208,39 +237,124 @@ export const gearClash = (booking, gearId) => {
 };
 
 /* ------------------------------- whole database ------------------------------- */
-export function replaceAll(data) { db = normalise(data); db.updatedAt = Date.now(); persist(); emit(); }
+// The ids of a database's times seen (acts[].seen[].id) and takes (logs[].takes[].id): entries inside a record, which
+// Google Drive's merge joins one by one, so a removed one needs a tombstone of its own in db.deleted.
+const entryIds = d => {
+  const ids = new Set();
+  for (const a of d.acts || []) for (const e of Array.isArray(a.seen) ? a.seen : []) if (e && e.id) ids.add(e.id);
+  for (const l of d.logs || []) for (const t of Array.isArray(l.takes) ? l.takes : []) if (t && t.id) ids.add(t.id);
+  return ids;
+};
+// This device's data becomes the backup's. With { everywhere: true } (Google Drive linked: "Replace this device's
+// data" from a file or a daily copy), every device connected follows: every record in the backup is stamped now, and
+// every record, time seen and take on this device that the backup lacks gets a tombstone, so the next sync does not
+// bring the old ones back from the other devices.
+export function replaceAll(data, { everywhere = false } = {}) {
+  const before = db;
+  db = normalise(data);
+  if (everywhere) {
+    const now = Date.now();
+    for (const c of COLLECTIONS) {
+      const kept = new Set(db[c].map(r => r.id));
+      for (const r of db[c]) r.updatedAt = now;
+      for (const r of before[c] || []) if (r && r.id && !kept.has(r.id)) db.deleted[r.id] = now;
+    }
+    const keptEntries = entryIds(db);
+    for (const id of entryIds(before)) if (!keptEntries.has(id)) db.deleted[id] = now;
+    for (const k of ['templates', 'billing', 'priceList', 'profile']) db[k] = { ...db[k], updatedAt: now };
+  }
+  db.updatedAt = Date.now(); persist(); emit(); wrote();
+}
 export const exportJSON = () => JSON.stringify(db, null, 2);
 
 const ts = r => Number(r && r.updatedAt) || 0;
-const newer = (x, y) => (ts(y) > ts(x) ? y : x);
-function mergeList(a, b, dead) {
+// The newer copy. Two copies of the same time that differ (changed in the same millisecond on two devices, or never
+// stamped) go the same way on every device, to the one whose JSON sorts last: otherwise each device keeps its own and
+// writes it back to Google Drive at every sync, for ever.
+const newer = (x, y) => {
+  const d = ts(y) - ts(x);
+  if (d) return d > 0 ? y : x;
+  if (x === y) return x;
+  return JSON.stringify(y) > JSON.stringify(x) ? y : x;
+};
+const buried = (dead, id) => Object.prototype.hasOwnProperty.call(dead, id);
+// The two lists people fill on two devices at once, an act's times seen and a take log's takes, are joined entry by
+// entry: the newer copy of the record wins, and gets every entry of the older copy that it lacks and that was not
+// deleted (a removed entry leaves a tombstone of its own in db.deleted). An entry of the newer copy deleted after that
+// copy's last change goes, as a record does. The records themselves are never changed in place: a joined one is new.
+const joinEntries = key => (x, y, dead) => {
+  const win = newer(x, y), lose = win === x ? y : x;
+  const own = Array.isArray(win[key]) ? win[key] : [];
+  const have = new Set(own.map(e => e && e.id).filter(Boolean));
+  const add = (Array.isArray(lose[key]) ? lose[key] : []).filter(e => e && e.id && !have.has(e.id) && !buried(dead, e.id));
+  const keep = own.filter(e => !(e && e.id && dead[e.id] > ts(win)));
+  return add.length || keep.length !== own.length ? { ...win, [key]: [...keep, ...add] } : win;
+};
+const JOIN = { acts: joinEntries('seen'), logs: joinEntries('takes') };
+function mergeList(a, b, dead, mergeOne = newer) {
   const m = new Map(); (a || []).forEach(x => m.set(x.id, x));
-  (b || []).forEach(y => { const x = m.get(y.id); m.set(y.id, x ? newer(x, y) : y); });
+  (b || []).forEach(y => { const x = m.get(y.id); m.set(y.id, x ? mergeOne(x, y, dead) : y); });
   return [...m.values()].filter(x => !(dead[x.id] > ts(x)));
 }
-// Two copies into one: each record follows its newer copy, and a deletion wins over an older copy of the record.
+// Two copies into one: each record follows its newer copy (times seen and takes joined entry by entry), and a deletion
+// wins over an older copy of the record.
 export function mergeDb(local, remote) {
   const a = normalise(local), b = normalise(remote);
   const dead = { ...a.deleted };
   for (const [id, t] of Object.entries(b.deleted || {})) dead[id] = Math.max(dead[id] || 0, t);
   const out = { ...a, deleted: dead };
-  for (const c of COLLECTIONS) out[c] = mergeList(a[c], b[c], dead);
-  for (const k of ['templates', 'billing', 'priceList']) out[k] = ts(b[k]) > ts(a[k]) ? b[k] : a[k];
+  for (const c of COLLECTIONS) out[c] = mergeList(a[c], b[c], dead, JOIN[c]);
+  for (const k of ['templates', 'billing', 'priceList']) out[k] = newer(a[k], b[k]);
   // A profile someone filled in always beats an empty one or the sample's stand-in, whatever their times; between two
-  // filled-in profiles the newer wins.
-  const standIn = p => !p || (p.name === SAMPLE_PROFILE.name && p.business === SAMPLE_PROFILE.business) || !['name', 'business', 'role', 'phone', 'email', 'website', 'address', 'location', 'bio'].some(k => String(p[k] || '').trim());
-  out.profile = standIn(a.profile) !== standIn(b.profile) ? (standIn(a.profile) ? b.profile : a.profile) : ts(b.profile) > ts(a.profile) ? b.profile : a.profile;
+  // filled-in profiles the newer wins. An empty one and the sample's stand-in carry no time of their own (the sample
+  // and Remove the sample leave it as it was), so between those two the stand-in stays while the sample does: on
+  // every device alike, and gone everywhere once the sample is removed.
+  const empty = p => !p || !['name', 'business', 'role', 'phone', 'email', 'website', 'address', 'location', 'bio'].some(k => String(p[k] || '').trim());
+  const standIn = p => empty(p) || (p.name === SAMPLE_PROFILE.name && p.business === SAMPLE_PROFILE.business);
+  const [pa, pb] = [a.profile, b.profile];
+  if (standIn(pa) !== standIn(pb)) out.profile = standIn(pa) ? pb : pa;
+  else if (standIn(pa) && ts(pa) === ts(pb) && empty(pa) !== empty(pb)) {
+    const sample = COLLECTIONS.some(c => out[c].some(r => r && r.sample));
+    out.profile = empty(pa) === !sample ? pa : pb;
+  } else out.profile = newer(pa, pb);
   out.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
   return out;
 }
-export function mergeIn(remote) { db = mergeDb(db, remote); db.updatedAt = Date.now(); persist(); emit(); }
+// The records a backup or a daily copy holds that were deleted on this device after that copy's version of them: a merge
+// leaves them out (the deletion is newer). [{ c, r }]
+export function deletedSince(data) {
+  const d = normalise(data), out = [];
+  for (const c of COLLECTIONS) for (const r of d[c]) if (db.deleted[r.id] > ts(r) && !db[c].some(x => x.id === r.id)) out.push({ c, r });
+  return out;
+}
+// A backup file or a daily copy merged into this device. With { revive: true } the records it holds that were deleted
+// here since (deletedSince) come back too: stamped now, so the other devices connected to Google Drive take them back
+// as well (their tombstones are older). Returns how many came back.
+export function mergeIn(remote, { revive = false } = {}) {
+  let src = remote, back = 0;
+  const dead = revive ? deletedSince(remote) : [];
+  if (dead.length) {
+    const ids = new Set(dead.map(x => x.r.id)), now = Date.now();
+    src = normalise(remote);
+    for (const c of COLLECTIONS) src[c] = src[c].map(r => (ids.has(r.id) ? { ...r, updatedAt: now } : r));
+    for (const id of ids) delete db.deleted[id];
+    back = ids.size;
+  }
+  db = mergeDb(db, src); db.updatedAt = Date.now(); persist(); emit(); wrote();
+  return back;
+}
+// A merged copy from Google Drive (js/sync.js) becomes this device's data as it is: no new updatedAt and no afterWrite,
+// so it is never pushed straight back. It does not ask the licence's gate: sync keeps flowing in a read-only role.
+export function adopt(data) { db = normalise(data); persist(); emit('sync'); }
 
 // Wipe this device's copy (preferences such as the theme stay).
 export function eraseAll() {
   db = blank(); db.updatedAt = Date.now();
   sealed = false; dirty = false;
   flush(); emit();
-  const KEEP = new Set(['gdex-prefs', 'gdex-cal-view']); // display preferences: the theme and the calendar's view
+  // Display preferences (the theme, the calendar's view), and the licence's own: the free-day count and the website
+  // sign-in (gdex-licence), and the terms agreed (gdex-terms). IndexedDB is not touched, so its licence-days copy stays.
+  const KEEP = new Set(['gdex-prefs', 'gdex-cal-view', 'gdex-licence', 'gdex-terms']);
   try { const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); keys.filter(k => k && k.startsWith('gdex-') && k !== KEY && !KEEP.has(k)).forEach(k => localStorage.removeItem(k)); } catch { /* blocked storage */ }
 }
 

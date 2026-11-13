@@ -10,9 +10,31 @@ a record player, a tape deck or a digital player, the person's choice. It was
 built in a folder of the Vdex repository and moved here with its history. It shares no code with Vdex at run time and
 keeps its own storage, cache and files.
 
-It is a plain web app: ES modules, no framework, no build step, no external libraries or CDNs (only
-`vendor/qrcode.js`). It works offline once opened, installs to a home screen, and keeps all data in the browser's
-`localStorage` under keys that start with `gdex-`. Nothing is sent to any server.
+It is a plain web app: ES modules, no framework, no build step, no external libraries or CDNs in the app (only
+`vendor/qrcode.js`; Google's sign-in script is loaded from Google only once someone taps Connect Google Drive…). It works
+offline once opened, installs to a home screen, and keeps all data in the browser's `localStorage` under keys that
+start with `gdex-` (and one IndexedDB database, `gdex`). A desktop app for Windows, Mac and Linux (`desktop/`,
+Electron) wraps the same files.
+
+**What leaves the device.** Nothing of the person's goes to a server except:
+
+* **Google Drive**, only when the person connects it (free for everyone): Google's sign-in script, loaded from Google
+  only once they tap Connect Google Drive… (as its sheet opens, so Google's window can open straight from the tap on
+  Continue with Google: Google sees the address even after Not now); the whole Gdex database and daily dated copies, in
+  a hidden Gdex folder of their own Drive, with the day their free days first started (`freeDaysFrom`). Nobody who never
+  taps Connect Google Drive… contacts Google.
+* **Gdex's licence server** at gdex.crowmade.app (`cloudflare/worker.mjs`), only once licences are live
+  (`LICENCE_SITES` in `js/licence-config.js`, `[]` until the owner publishes; `desktop/licence-on.json` for the
+  desktop app) and only for the licence: a status question with nothing in it (at most every 6 hours, and only from a
+  browser that uses a working role, has started its free days or is signed in), the price for the country (when a Buy
+  button shows, in the same cases), sign-in by email, a daily check when signed in, and the desktop app's code
+  activation, weekly check and release. An Audiophile who never used a working role sends it nothing; while licences
+  are off nothing at all goes to it.
+
+The only other network calls are OpenStreetMap's map tiles and address search, and the desktop app's update checks at
+the download address in `desktop/updater.cjs` (`https://gdex-download.crowmade.app/`). A day sheet never carries money.
+Gdex never shares a storage key, a licence key or prefix, a port, an app id, a download bucket or an update channel
+with Vdex.
 
 ## Running it
 
@@ -21,7 +43,13 @@ node tests/run.mjs              # every browser spec (Playwright + Chromium)
 node tests/run.mjs 30- songs    # only specs whose file name contains "30-" or "songs"
 node tools/stamp-build.mjs --dev  # after adding or removing a file: refreshes the offline file list in sw.js
 npm run serve                   # http://localhost:8124/
+GDEX_LICENCE=on node tests/run.mjs  # every spec with licences live on the test host (CI's second leg)
+npm ci --prefix cloudflare      # once: Wrangler and Miniflare, so the licence server's specs (79, 81) run
+npm start                       # the desktop app (after npm install; Electron is downloaded the first time)
+xvfb-run -a npm run test:desktop  # the desktop app's smoke test (tests/desktop.mjs)
 ```
+
+Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` before `npm ci` unless you need the desktop app.
 
 ## Folder layout
 
@@ -29,7 +57,8 @@ npm run serve                   # http://localhost:8124/
 |---|---|
 | `index.html` | The app. Links `styles.css` and every `css/*.css`. |
 | `invoice.html`, `daysheet.html` | Share pages: open a document packed into the link (no server). |
-| `privacy.html` | The privacy page. |
+| `privacy.html`, `terms.html` | The privacy policy and the terms of service: no script, their own policy (Part B of item 9; the owner reads them before anything is published). |
+| `download.html` | Gdex for computers: the desktop app's download page (not linked from the app until the owner publishes). |
 | `styles.css` | Core styles and themes (copied from Vdex, re-skinned). |
 | `css/<feature>.css` | One stylesheet per feature, owned by that feature. |
 | `js/app.js` | Boot, the section menu, sections, redraw on change. |
@@ -40,10 +69,16 @@ npm run serve                   # http://localhost:8124/
 | `js/bookings-cal.js`, `js/bookings-kit.js` | The calendar's views (drawn for `pages/bookings.js`), and the helpers the two share. |
 | `js/acts-ask.js`, `js/venues-rules.js`, `js/acts-sample.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn; an act's Sample work (its link on the act form, its QR code on the act's card). |
 | `js/search.js`, `js/search-dates.js` | The search: the box at the top of every page (in the section menu's bar), the `/` key and the results it opens over the page; the dates it reads. |
+| `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `js/licence-config.js`, `js/licence-keys.js`, `js/tax.js`, `css/licence.css` | The licence (below): the state every module asks, its sheets, panel and bar, the website's talk with the licence server, the sign-in's signature check, the one-time terms sheet, the owner's switch, the public keys (generated), the price with tax. |
+| `js/drive.js`, `js/sync.js`, `js/cloud-config.js`, `js/kv.js` | Google Drive (below): Google's sign-in and the Drive files, keeping this device and Drive the same, the owner's Google client id; the IndexedDB store both the backup file and the licence use. |
+| `cloudflare/` | The licence server: `worker.mjs` (the Worker at gdex.crowmade.app that also serves the site), `wrangler.jsonc`, its own `package.json` for Wrangler and Miniflare. `docs/licence-server.md`. |
+| `desktop/` | The desktop app (Electron, CommonJS `.cjs`): `main.cjs`, `preload.cjs` (the bridge), `licence.cjs`, `licence-codes.cjs` (the code format, shared with the Worker and the generator), `licence-keys.json`, `licence-on.json` (the desktop's switch), `updater.cjs`. `docs/desktop.md`. |
+| `docs/` | This file; `go-live.md` (the owner's list, in order), `licence-server.md`, `desktop.md`, `drive.md`. |
 | `js/blocks/*.js` | Boxes on a booking's page (deal, setlist, guest list…), listed in `js/blocks/index.js`. |
 | `js/*.js` | Shared modules (see below). |
 | `tests/` | `run.mjs`, `lib.mjs`, `helpers.cjs`, `specs/NN-name.cjs`. |
-| `tools/` | `stamp-build.mjs`, `site-files.mjs`, `prune-css.mjs` (reports the rules of `styles.css` nothing uses). |
+| `tools/` | `stamp-build.mjs`, `site-files.mjs`, `prune-css.mjs` (reports the rules of `styles.css` nothing uses), `stage-site.mjs` (copies the site's files into `cloudflare/site/` for a publish; it refuses to empty a folder that is not new, empty or an earlier stage), `licence-keys.mjs` (writes `js/licence-keys.js` from `desktop/licence-keys.json`), `build-generator.mjs` and `licence-generator*.html` (the owner's key and code generator, opened from a file). |
+| `.github/workflows/` | `tests.yml` (both legs, and the desktop smoke test), `publish.yml` (by hand only, in the protected Environment `gdex-live`, behind a config guard), `desktop.yml` (builds installers by hand; uploads nothing). |
 
 ## The sections (tracks on the section menu)
 
@@ -150,6 +185,10 @@ Kept in `localStorage` on the device, never in the database, so backups do not c
 | `gdex-cal-view` | The calendar's view: `month`, `two`, `week`, `three` or `day`. Read and written only through `calMode()` / `saveCalMode()` (`js/bookings-kit.js`); only the calendar's view buttons save it. | kept |
 | `gdex-role` | The role (`setRole`). | cleared |
 | `gdex-ask-seen` | "Did you see them?" on or off (`setAskSetting`). | cleared |
+| `gdex-licence` | The website's licence (`js/licence-state.js`, `js/licence-web.js`): `{ on?, statusAt?, first?, seen?, token?, licence?, via?, checked?, tried?, cancelled?, expired? }`. Its second copy of the free days is IndexedDB `gdex` / `kv` / `licence-days` (`{ first, seen }`), which Erase does not touch either. | **kept** |
+| `gdex-terms` | The terms agreed at the first working use: `{ v: TERMS_VERSION, at }` (`js/terms.js`). | **kept** |
+| `gdex-licence-cache` | The desktop app only: the bridge's last licence state, to draw the menu before the bridge answers. | cleared |
+| `gdex-drive`, `gdex-drive-file`, `gdex-google-tokens`, `gdex-google-email`, `gdex-drive-who`, `gdex-sync-at`, `gdex-backup-cloud` | Google Drive (`js/drive.js`, `js/sync.js`): linked, the file id of `gdex-db.json`, the hour's token (`drive.appdata` only), the account's address (Google's `login_hint` only), "Name · address" for Signed in as, the last good sync, the last daily copy. | cleared, after Drive is disconnected |
 
 `gdex-tour`, `gdex-role-nudged`, `gdex-settings-open`, `gdex-tool-pick` and the like are cleared too.
 
@@ -186,6 +225,23 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 ```
 
 * `db` is a live binding: read `db.venues` etc. at render time; never keep it across `await`.
+* **Other tabs.** Each tab keeps the database in memory and writes it whole. When another tab of Gdex on the device
+  writes `gdex-db-v1` (or clears storage), this tab takes in what it wrote (the `storage` event; redrawn with reason
+  `'sync'`, nothing written or synced), so an Erase or a change in one tab is not undone by the next change in another.
+  `js/sync.js` follows `gdex-drive` the same way: Drive disconnected (or connected) in another tab is disconnected (or
+  connected) here too.
+* **The licence's gate.** `update` returns `false` and changes nothing when the licence refuses the change (a working
+  role after its free days); `upsert` and `patch` return `null` then, `remove` `false`. Every caller that uses the
+  returned record stops on `null` (a form stays open with what was typed: `form.js` asks `canChange()` before it closes).
+  `canChange()` asks the gate as a form would (the read-only sheet explains, and says what was typed stays in the form);
+  `canChange({ form: false })` for a change asked with no form (Load the sample, bringing a backup back), whose
+  read-only sheet says only that nothing was changed; `canChangeQuietly()` for a side effect
+  that is skipped without a word when refused (a day sheet marked sent). `setGate(fn)` is the licence's alone.
+* **Google Drive's seams.** `afterWrite(fn)` runs after `update`, `replaceAll` and `mergeIn`, never after
+  `adopt(data)`, which takes in a merged copy from Drive without a new `updatedAt`, without `afterWrite` and without
+  asking the gate (it redraws with reason `'sync'`). `replaceAll(data, { everywhere: true })` restamps and tombstones
+  so every connected device follows (below). `normalise` drops a top-level `freeDaysFrom`. Removing an act's time seen
+  or a take writes `db.deleted[entryId]`.
 * **Every change goes through the store**: `upsert(list, record)` (new id if none; stamps `updatedAt`, `createdAt`;
   returns the stored record), `patch(list, id, fields)`, `remove(list, id)` (also removes references elsewhere: see the
   code), or `update(d => { …mutate d…; rec.updatedAt = Date.now(); })` for anything else. A change saves and redraws.
@@ -219,7 +275,9 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   `personBookings(id)`, `gearBookings(id)`, `personClash(b, personId)`, `gearClash(b, gearId)` (other overlapping bookings
   when together they need more than are owned; both in playing order, `byDayPlay`, so a clash line names them as the day runs), `gearShort(b, gearId)` (this booking alone needs more than are owned), `qtyOf(g)`,
   `usedQty(booking, gearId)` (counts in `booking.gearQty`), `packQty(kit, gearId)` (counts in `kit.qty`; applying a pack
-  to a booking copies them into `gearQty`), `totalValue(g)`, `exportJSON()`, `replaceAll(data)`, `mergeIn(data)`, `eraseAll()`.
+  to a booking copies them into `gearQty`), `totalValue(g)`, `exportJSON()`, `replaceAll(data)`, `mergeIn(data, { revive })` (with `revive`, the records the
+  file holds that were deleted here since, `deletedSince(data)`, come back stamped now so every device takes them back;
+  returns how many), `eraseAll()`.
 
 ### Records
 
@@ -524,7 +582,7 @@ may call it.
 | `pages/bookings.js` `openBooking(id, { box })` | bookings | Go to Bookings and show that booking's page. Returns a promise. `box`: a box to open there and bring into view, with the focus on its heading (`'money'`: the search opens an invoice or a quote this way); one under More boxes opens the fold too. |
 | `js/bookings-cal.js` `calendarView(ctx)` / `calendarSteps(ctx)` | calendar | The page while no booking is open (every view, with Coming up under it) / its walkthrough as drawn now. `ctx` is built once in `pages/bookings.js`: `{ S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }`. The calendar never imports the page. |
 | `js/bookings-cal.js` `bookingCard(b)` | calendar | Coming up's card for a list outside the calendar (the search): drawn by the same code, without press-and-hold to delete or its title. Its own tap would open the booking inside the calendar's page, so the list it goes in takes the click in the capture phase. A card for a booking that is over says nothing where Coming up says "On now". |
-| `js/search.js` `initSearch(bar)` / `openSearch()` / `searchKinds()` / `actNames(a)` / `fold(s)` / `searchReady()` / `searchFor(q)` / `searchAll(q)` / `searchStats()` | search | Fill `#srch-bar` with the box and wire the `/` key (`app.js`, once) / jump into the box (its words selected) / the kinds the person may see, in tab order: **the one place that decides them** (Money only with `moneyShown()`; the licence will narrow it here) / every name an act is known by: its name now, then its earlier names, the latest first (`model.earlierNames`; the one place the search reads a band's names) / text as the search compares it (no capitals, no accents) / for checks: a promise once the songs and the studio log (loaded with their sections) are searched too, what the bookings tab finds, what every tab finds, and how long it took (below). |
+| `js/search.js` `initSearch(bar)` / `openSearch()` / `searchKinds()` / `actNames(a)` / `fold(s)` / `searchReady()` / `searchFor(q)` / `searchAll(q)` / `searchStats()` | search | Fill `#srch-bar` with the box and wire the `/` key (`app.js`, once) / jump into the box (its words selected) / the kinds the person may see, in tab order: **the one place that decides them** (Money only with `moneyShown()`; a working section's kinds only while it opens, `mayOpen`) / every name an act is known by: its name now, then its earlier names, the latest first (`model.earlierNames`; the one place the search reads a band's names) / text as the search compares it (no capitals, no accents) / for checks: a promise once the songs and the studio log (loaded with their sections) are searched too, what the bookings tab finds, what every tab finds, and how long it took (below). |
 | `js/search-dates.js` `readDate(words, today, order)` / `dateOrder(locale)` | search | Pure: the first date in the words typed (`{ date: { from, to, start, len, words } \| null, rest }`), with today and the order of a day and a month given / that order in the device's language (`'dm'` or `'md'`). |
 | `pages/acts.js` `openActCard(id)` / `actSearchText(a)` (its words include the act's main genre: "rock" finds a doom folk band set to Rock by hand); `pages/venues.js` `venueText(v)` / `venueMatches(v, q)`; `pages/people.js` `personText(p)`; `pages/backline.js` `gearText(g)` (with every name of the act the item is for); `pages/songs.js` `songText(s)`; `js/setlist.js` `setlistWords(list)`; `pages/sessions.js` `logWords(l)` / `logDate(l)` | each section | The acts list with the act's card dropped open and the focus on it (`openSeen(id, null)`) / the words each section's own search reads (the acts list's, Venues' with the house rules, People's, Backline's, Songs', the Studio log's), which the search at the top of every page reads too, so the two never disagree; a setlist's words (its name, act, songs and notes) / a log's day. |
 | `js/blocks/money.js` `statusPill(b, kind, doc)` | money | A quote's or an invoice's status as its box says it (Draft, Sent, Part paid, Paid, Overdue…), for the search's Money tab. |
@@ -542,7 +600,7 @@ may call it.
 | `pages/songs.js` `openSong(id)` / `editSong(s, onSaved)` | songs | View sheet / edit form. |
 | `js/setlist.js` `openSetlist(id, { target, bookingId })` / `newSetlist(preset)` / `printSetlist(id, { bookingId })` / `setlistText(list)` | songs | Editor sheet (target = slot minutes) / create and return the record / print the big stage copy (with the show's date, venue and set time) / plain text. |
 | `pages/sessions.js` `openLog(id)` / `newLog(preset)` | studio | Go to Studio log and open that log / create one (`{ bookingId, songId, title }`) and open it. Resolves once drawn, at the top, with the focus on + Take when the opener went away. |
-| `pages/backline.js` `openGear(id)` / `editGear(g, onSaved)` / `editKit(k, onSaved)` / `gearCard(id)` | backline | The item's sheet / edit forms / the item's card on the Backline page with its act's fold opened first (`null` when the page is not drawn or its own filter leaves the item out): the search presses it there. |
+| `pages/backline.js` `openGear(id)` / `editGear(g, onSaved)` / `editKit(k, onSaved)` / `gearCard(id)` | backline | The item's sheet / edit forms / the item's card on the Backline page with its act's fold opened first (`null` when the page is not drawn, its own filter leaves the item out, or the licence keeps Backline shut: gated as `openGear` is): the search presses it there. |
 | `pages/venues.js` `openVenue(id)` / `editVenue(v, onSaved)` / `venueWarnings(b)` | venues | View sheet / edit form / warnings for a booking at that venue (curfew before the set ends, noise limit, capacity < tickets…) as strings. |
 | `js/daysheet.js` `openDaySheet(bookingId)` / `printDaySheet(bookingId)` | daysheet | Preview sheet / print. |
 | `js/money.js` `docOf(b, 'quote'|'invoice')` / `docTotals(doc)` / `isOverdue(b)` | money | The document or null / `{ net, tax, total, paid, due }` / unpaid past due. |
@@ -552,6 +610,9 @@ may call it.
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
 | `pages/settings.js` `vcard(p?)` / `hasCard(p)` / `qrFor(text)` / `saveCard()` / `editProfile()` | settings | The profile as a vCard 3.0 / whether it makes a card (a name or business, and a phone, an email or a website that is a web address, as `vcard()` keeps it) / the QR code's SVG for a text (UTF-8, the last one kept) / save the card as a .vcf (`print.js` `saveFile`) / the Your details form. My card uses them, so the card is the same everywhere. |
 | `js/tools-ui.js` `keepAwake()` / `letSleep()` | tools | Keep the screen on (the Screen Wake Lock) / let it sleep: the set timer, and My card's Show big. |
+| `js/backup.js` `driveBehind()` / `beforeErase()` / `backupLine()` | drive | Erase this device asks it first: with Drive linked, a last sync from the tap; null, or what Drive still lacks, in words / Erase this device calls it next: Google Drive is disconnected (its copy stays) and the linked file let go, so nothing linked is written over by the empty database / Settings → Backups' closed line, which names Google Drive's state. |
+| `js/licence-state.js` (the whole API is under "The licence" below) | licence | `mayOpen`, `mayWork`, `mayPickRole`, `gateWork`, `canWrite`, `licenceNow`, `onLicenceChange` / the window event `gdex-licence`… |
+| `js/update.js` `desktop()` / `js/version.js` `shareBase()` / `publicHref()` | desktop | The desktop bridge when it has the update controls, else `null` / where share links and a calendar entry point: **an address someone else will open comes from `shareBase()` or `publicHref()`, never `location.href`**: in the desktop app they give `https://gdex.crowmade.app/` (`PUBLIC_SITE`). |
 | `js/tour.js` `sheetTutorial(title, steps)` / `setSearchStep(step)` | core | Register walkthrough steps for a sheet by its title / the welcome tour's stop for the search box, just after the section menu (`js/search.js` gives it; the tour cannot import the search). |
 | `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. |
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
@@ -1052,8 +1113,11 @@ showing).
   place; one narrowed or widened keeps them. The tab picked is kept whatever is typed.
 * **What is found**, kind by kind, in the order of the tabs (`SEARCH_KINDS`): `gigs` (the bookings tab, below), `bands`,
   `venues`, `people`, `songs`, `setlists`, `gear`, `logs` (the Studio log) and `money` (quotes and invoices).
-  `searchKinds()` is the one place that decides which the person may see: Money only with `moneyShown()`; the licence
-  for the working roles narrows it there. Each kind's words are those its own section's search reads, from the function
+  `searchKinds()` is the one place that decides which the person may see, All included: Money only with `moneyShown()`,
+  and a kind kept in a working section only while `mayOpen(section) === 'open'` (`SECTION_OF`: people → People, songs
+  and setlists → Songs, gear → Backline, logs → Studio log, money → Money; the build spec [S-33]), so a free Audiophile
+  without a licence finds none of them and a search never starts the free days. The open results redraw on the
+  licence's `gdex-licence` event, and a tap stops when `logiGo` resolves `false` (`openThere`). Each kind's words are those its own section's search reads, from the function
   the section exports (`actSearchText`, `venueText` and `venueMatches` with the house rules, `personText`, `gearText`,
   `songText` (with the song's album), `logWords`; `setlistWords` for setlists, which have no search of their own), so the two never disagree; a
   band is found by every name it has had, and so are its members, songs, setlists, take logs and invoices. Money is
@@ -1223,6 +1287,137 @@ no kind for it). The card is Settings' own: `vcard()`, `hasCard()`, `qrFor()`, `
   line leaves out My card and Settings, which every menu has.
 * **With the licence** (item 9): My card is free in every role, the free Audiophile too; it is never gated.
 
+## The licence (`js/licence-state.js`, `js/licence.js`, `js/licence-web.js`; decisions §9)
+
+The Audiophile is free for good. Every other role, Jack of Trades included, has **30 free days on each device** from the
+first time a working role is used there, then needs a licence: 20 USD once plus the tax where the buyer lives, for up
+to 3 of their devices. Without one a working role is **read-only** and the Audiophile keeps its own sections (the
+calendar, Bands, Venues, Tools, My card, Settings: `FREE_SECTIONS` in `js/roles.js`; My card is free in every role); nothing is ever deleted. A licence covers
+every role on its device. Google Drive is free for everyone, licence or not.
+
+**The two switches, and what "off" means.** The website's licence is on only where `LICENCE_SITES`
+(`js/licence-config.js`) lists the page's host name (`[]` in the repository); the desktop app's only while
+`desktop/licence-on.json` is `{ "on": true }` **and** `desktop/licence-keys.json` holds key 1. Off, every answer is
+"open", nothing about a licence is shown or asked, and **no request at all goes to the licence server**; every spec
+passes unchanged (the off leg). Only the publish and the release the owner approves flip them (`docs/go-live.md`);
+`07-groundwork` fails while either is flipped without its expectation. Once live, only a fresh JSON `{ on: false }`
+from `GET /licence/web/status` (less than 12 hours old) pauses the licence (the owner's emergency switch,
+`WEB_SIGN_IN`); no answer, a blocked request, an HTML page or an error counts as on, and a pause never moves the free
+days. Never write code that treats "no answer" as off.
+
+**The state** (`licenceNow()`, synchronous, never throws): `{ kind: 'web' | 'desktop', mode, canEdit, started, first,
+trialLeft, trialEnds, licence, seats }`, with `mode` one of `off`, `unstarted`, `trial`, `ended`, `clock`, `licensed`,
+`pending`, `released`, `cancelled`, `expired`, `offline`, `away`. The website computes it from `gdex-licence`; the
+desktop app's comes over the bridge (`desktop/licence.cjs`, kept as `gdex-licence-cache` to draw the menu before the
+bridge answers). `licenceReady()` resolves once the IndexedDB copy is joined in and the sign-in's signature checked;
+the sheets at opening and `startFreeDays()` wait for it.
+
+| Export | What it answers |
+|---|---|
+| `mayOpen(sectionId)` / `mayWork()` / `mayPickRole(roleId)` | `'open'`, `'start'` (an Audiophile before its free days: opening starts them, the terms sheet first) or `'locked'` (the offer), for a section, for any working box or paid record, for a role in the picker. A working role in use always gets `'open'` (read-only after its free days: the store's gate refuses the change). |
+| `gateWork(fn)` | **The one line for every opener of a working box or a paid record** reached from a free section (the More boxes fold, a band's member card and + Add member, the song, setlist, gear, stage pack and take log sheets, the session clock's strip): `fn()` at once while it may open, after the free days start on `'start'`, never on `'locked'` (the offer, or the away sheet). `FREE_KEEPS_WORK = false` is the owner's answer to question 6. `gateWork(fn, kind)` with a booking's kind `'session'` or `'rehearsal'` when the tap is on that booking itself (its Edit, Delete, Duplicate or status): the offer is then "Studio sessions need a licence" or "Rehearsals need a licence", in the page note's words. |
+| `canWrite()` | The store gate's answer: a working role after its free days, or after this visit's terms sheet was closed (`termsDeclined()`, only while the terms are still due), may not change things; the Audiophile's own writes always pass. |
+| `workMark()` / `sectionMark(id)` / `roleBadge(id)` | The marks and words of §9.2-9.3 ("30 days free", "🔒 Licence"), `null` or `''` while off. |
+| `startFreeDays()` / `toastStarted()` | Starts the free days (after the status, so a pause is respected; the terms sheet first) / says so once per start. Once they have started, or with a licence, it asks the terms again of a working role in use while they are due (changed since they were agreed: "The terms have changed"); the role picker asks them before a working role is set. Not now: read-only for the visit. |
+| `freeDaysFrom()` / `adoptFreeDaysFrom(t)` | This device's start, for Google Drive / an earlier start from Drive, taken without asking the terms ([S-39]); they are asked at the next opening in a working role. |
+| `serverTime(ms)` / `refreshLicence()` / `onLicenceChange(fn)` / `LICENCE_EVENT` | The licence server's time from a JSON answer's `Date` header / recompute now / every change, also as the window event `gdex-licence`. |
+
+Rules: a page never compares `roleId()` to decide the licence: it asks these. `window.logiGo(id)` resolves `true` once
+the section is drawn and `false` when the licence refused it (callers that went on to open a record stop). A role
+change or the free days ending leaves a locked section for the calendar, and when the working boxes close for the role
+in use (Carry on free as an Audiophile, the free days running out, a pause ending) every sheet still open goes too but
+the licence's own (`util.closeSheets`), so a working form left open cannot save. Without the working roles
+(`workMark()` set) an Audiophile adds only shows (+ New, a day's, a venue's or a link's, and Duplicate), keeps sessions
+and rehearsals to look at, sees no Fee on a diary entry, and a show it duplicates carries nothing of the working boxes
+or the money (`copyOf`). Erase this device keeps `gdex-licence`,
+`gdex-terms` and the IndexedDB copy. The free-days-over sheet comes at every opening (and after 3 hours out of sight)
+while a working role is read-only, before "Did you see them?", which is not asked then.
+
+**The guards.** The free days are kept in two places on the website (`gdex-licence` and IndexedDB `gdex` / `kv` /
+`licence-days`; joined as the earlier `first` and the later `seen`), and on the desktop in `licence.json` and its
+mirror in `desktop-state.json`, so deleting one starts nothing again ([S-27]). The website never takes a later start
+than one it has known in a visit (a start only ever moves earlier), so emptying or editing `gdex-licence` with Gdex open
+starts nothing either, and its writes to the IndexedDB copy keep the earlier start. A device whose clock puts the start more
+than a day ahead, or has seen a time more than two days ahead, counts its days as over (`clock`) until the clock is
+right; the `Date` header of the licence server's JSON answers puts the stored values right, keeping the days used
+([S-38]). A website sign-in counts only once `readWebNote(token)` (`js/licence-note.js`: Ed25519, prefix `GDEX-WEB\0`,
+key 2 from `js/licence-keys.js`) verifies it and its `ref` and email match; one that fails is removed ([S-40]). A page
+on `localhost` at a port in 47861-47880 without `window.gdexDesktop` is the desktop app's files in a browser: mode
+`away`, every working section and role locked, Google Drive refused ([S-42]).
+
+**When the licence server is asked** ([S-43]), and only where licences are live: the status at most every 6 hours, and
+only while a working role is in use, the free days have started, or the browser is signed in; the price only where a
+Buy button is drawn in those same cases (an Audiophile who never used a working role sees "20 USD" and sends nothing);
+the daily check only when signed in; sign-in and Delete my licence records when the person asks. The service worker
+never answers `/buy` or `/licence/*` (`WORKER_ROUTES`, the same in `sw.js` and `tools/site-files.mjs`). The server's
+contract is in `docs/licence-server.md` (for the developer).
+
+## Google Drive (`js/drive.js`, `js/sync.js`; `docs/drive.md`)
+
+* Free for every role, licence or not. Off until the owner's client id is in `js/cloud-config.js`
+  (`CLOUD_APPS.google`); until then the Backups panel's Drive card says "Not set up yet" and nothing about Google
+  loads. Google's sign-in script is loaded only when the connect sheet opens or Drive is already linked; the desktop
+  app never loads it (`window.gdexDesktop.googleSignIn` opens the sign-in in the web browser).
+* One scope, `drive.appdata` (the desktop app accepts no other). Files in the hidden app folder: `gdex-db.json` (the
+  shared copy: the database plus one top-level field `freeDaysFrom`, the earliest free-days start of any device on that
+  Drive) and the daily copies `gdex-backup-<mon…sun>.json` and `gdex-backup-YYYY-MM.json` (the last 12 months). A
+  shared copy Gdex can't read stops the sync but not the daily copy (written from this device); Put this device's copy
+  in its place keeps the bad one as `gdex-db-unreadable-YYYY-MM-DD.json` (`replaceUnreadable()` in `js/sync.js`).
+* `store.afterWrite(fn)` runs after `update`, `replaceAll` and `mergeIn` (never after `adopt`): `js/sync.js` syncs
+  800 ms after the last change. A sync reads Drive's copy, merges it (`store.mergeDb`), takes in what changed with
+  `store.adopt(data)` (no new `updatedAt`, no `afterWrite`, never asks the licence's gate: Drive keeps flowing in a
+  read-only role; it redraws with reason `'sync'`) and writes only when Drive lacks something. The two copies are
+  compared after `normalise`, with records, times seen and takes in id order.
+* The merge: each record follows its newer copy, so **every edit stamps `updatedAt`: with Drive it decides which
+  device wins**; a tie goes the same way on every device (the copy whose JSON sorts last). A tombstone in `db.deleted`
+  later than a record's `updatedAt` removes it. An act's `seen` and a log's `takes` are joined entry by entry; removing
+  one writes a tombstone for its id. `replaceAll(data, { everywhere: true })` (Replace with Drive linked) stamps every
+  restored record now and tombstones every record, time seen and take the backup lacks, so every connected device
+  follows. The chooser syncs first, from the tap, so the records other devices have put in Drive are tombstoned too;
+  when Drive can't be read it replaces nothing and says why. A record another device has not copied to Drive yet stays.
+* `freeDaysFrom` is taken out of every copy read and handed to `adoptFreeDaysFrom`; it is written back as the earliest
+  known; `normalise` drops it, so it never enters the database, a backup file or a restore.
+* Drive's state goes to `onDriveChange(fn)` listeners only (`js/backup.js`: the ☁ button and the panels), never
+  through the store's redraw, so a sync never redraws the page or moves the focus.
+* Erase this device first syncs from the tap (`driveBehind()` in `js/backup.js`: `syncNow({ ask: true })`, so a sign-in
+  opens when Google's hour is up). When Drive still lacks a change made here (not synced, and `db.updatedAt` after
+  `gdex-sync-at`), nothing is erased: the section says so with Try again or Sign in again and Save a backup, and the
+  button becomes Erase anyway. Then `beforeErase` disconnects Drive; the copy in Drive stays.
+
+## The desktop app (`desktop/`; `docs/desktop.md`)
+
+The same files in an Electron window. `desktop/main.cjs` serves them from a small server at `http://localhost:47861`
+(47862-47880 when another program holds it, with Google's sign-in refused there), an address fixed for good at the
+first release: it is where Chromium keeps the data and one of the Google client's JavaScript origins. Each run makes
+a random `X-Gdex-App` value that the main process adds to every request of the window
+(`session.webRequest.onBeforeSendHeaders`); the server answers 403 to anything without it, except Google's sign-in page
+`/__gdex/google` (its own one-time keys), so the same address in a web browser loads nothing, and `/licence/…` is a JSON
+404 there. The window gets the microphone (audio only), the File System Access API, clipboard writing, full screen and
+the screen wake lock (`'screen-wake-lock'`, as Electron names it); location only on a Mac (on Windows and Linux Chromium
+would ask Google's location service, so there the venue form's "📡 I’m here now" says to use Find from address or a
+map link, `js/form.js`); the camera and everything else are refused. The spellchecker is the Mac's own on
+a Mac and off with no languages on Windows and Linux, where Electron would otherwise download Hunspell dictionaries
+from Google at every start. `tests/desktop.mjs` runs the app behind a recording proxy and fails on any host but
+`localhost` and `127.0.0.1`.
+
+**The bridge** (`window.gdexDesktop`, `desktop/preload.cjs`; every IPC handler answers only Gdex's own page, and each
+caller tests for the member it uses, because specs stand in for parts of it):
+
+| Member | Answers |
+|---|---|
+| `platform` | `'win32'`, `'darwin'` or `'linux'` |
+| `checkForUpdates()`, `updateState()`, `installUpdate()`, `openDownload()`, `onStatus(cb)` | the update state `{ status, version, available, progress, url, error }` (`js/update.js` `desktop()`) |
+| `googleSignIn({ client, scope, hint })` | Google's token answer, or `{ error: 'access_denied' \| 'popup_closed' \| 'timed_out' \| 'replaced' \| 'address_taken' \| 'failed' \| 'refused' }`; only `drive.appdata` with a `….apps.googleusercontent.com` client |
+| `licence.state()` | the state with `kind: 'desktop'`, `enabled`, `buyUrl`, `os`, `seats`, `mode`, `canEdit`, `started`, `first`, `trialLeft`, `trialEnds` and `licence` (null without a code, else with `issued`); a pending state adds `daysLeft`; `'off'` has `started: false`, `first: 0`; in mode `clock`, decide by the mode, not `trialLeft` |
+| `licence.start()`, `licence.adopt(t)` | start the free days / take an earlier start from Drive: the new state, also sent as `licence:changed` |
+| `licence.enter(code, { release })` | the state (with `offline: true` when the server did not answer), `{ error }`, `{ error: 'expired', expires }` (an ended code: the page writes the date as About does), or `{ error: 'full', computers, swapsLeft, seats }`; while off `{ error: 'This version of Gdex does not use licence codes yet: every role is free.' }` |
+| `licence.recheck()`, `licence.release()`, `licence.code()`, `licence.buy()`, `licence.localPrice()`, `licence.onChange(cb)` | as Vdex's; `localPrice()` is `null` while off and asks nothing; `release()` while off keeps the code and asks nothing |
+
+The desktop app contacts nothing while its licence is off and Google Drive is not linked, but for OpenStreetMap when a
+venue's map or Find from address is used, and its update checks once installed (`desktop/updater.cjs`, `https://gdex-download.crowmade.app/`, Gdex's own bucket; the same address in
+`package.json`'s `build.publish`, `download.html` and the feed, kept equal by `86-download-page`). It is built by hand
+(`.github/workflows/desktop.yml`) and uploads nothing.
+
 ## Shared modules (core)
 
 * `util.js`: `h(tag, attrs, ...kids)` (attrs: `class`, `onclick`…, `aria-*`, `data-*`, `html` for trusted markup
@@ -1308,14 +1503,33 @@ backline, take, comp, stems, split sheet.
   `open({ ask: true })`, which leaves the key alone; it seeds its shows, then reloads.
 * Gdex opens on the calendar on every load: after `page.reload()`, `go(page, id)` to be anywhere else. `toMonth(page)`
   goes from a booking's page or any calendar view to the Month view.
-* The whole suite takes about 25 minutes on one machine (`13-calendar`, `43-ask` and `56-rules` open several
-  browsers each). `43-ask` has `clockKit(page)` for a page whose clock is set by hand (coming back after hours).
+* The whole suite takes about 30 minutes on one machine for each leg; CI runs the two side by side (`13-calendar`,
+  `43-ask` and `56-rules` open several browsers each). `43-ask` has `clockKit(page)` for a page whose clock is set by hand (coming back after hours).
 * **Dates.** The test browser is `en-US` (`fmtShort` gives `Thu, Nov 12`). A check never hard-codes a month or weekday
   name or the order of day and month: it compares with the same formatter run in the page, or reads `data-date`.
 * **The hour of the run.** No check may depend on the hour it runs. Seed past shows at least two days back and coming
   ones at least two days on, stepping a `Date` with `setDate` (never `Date.now() ± n × 864e5`), and test "is it over"
   through `model.showOver(b, now)` with a fixed `now`. A check that must use today's date gives the same result at
   00:10 and at 23:50.
+* **Both legs.** CI runs the suite twice: as the repository is (licences off) and with `GDEX_LICENCE=on`, where the
+  test server serves `js/licence-config.js` with `localhost` live and the status `{ on: true }`, sends no `Date` header
+  on `/licence/*` (a spec's clock is its own), and `open()` seeds, before the first page, free days already under way
+  and the terms agreed (only when absent). A context a spec makes itself takes `licenceLeg(ctx)`; a page whose clock a
+  spec moved years on takes `licenceAt(page, sel)`, which seeds them in the page's own time and loads the page again, since
+  an open Gdex never takes a later start than one it has known (both from `tests/helpers.cjs`; nothing in the off leg). The specs
+  that read differently in the on leg, and why:
+
+  | Spec | In the on leg |
+  |---|---|
+  | `06-roles`, `43-ask`, `47-genres`, `70-settings` | their own contexts take `licenceLeg` |
+  | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
+  | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
+  | `90-drive` | its own contexts take the same seed |
+  | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92` | set their own state, or none: the same in both legs |
+
+* The licence's own specs stand the licence server in with Playwright routes (75-78, with a `Date` header and a
+  throw-away Ed25519 key), or run the real one in Miniflare (79, 81: `npm ci --prefix cloudflare`; SKIP without it,
+  FAIL under CI). Specs that read `cloudflare/` or `desktop/` read them from the repository, never the scratch copy.
 * Spec files by owner: `00-smoke` (core), `05-deck` and `06-roles` (core), `07-groundwork` (core: the model and the
   contracts under the calendar, the question, the menus and house rules), `08-sheets` (core: a sheet's dim backdrop,
   tapped with a finger and clicked), `10-bookings`, `11-order` (same-day order and
@@ -1325,7 +1539,12 @@ backline, take, comp, stems, split sheet.
   and the songs list in folds), `49-my-card`, `50-backline`, `50-sample-qr` (an act's sample work: the model's
   reading of the link, the form, the card's code, Show big, Share link, every role, 320 px), `51-band-gear` (each
   band's gear in a fold, with your investment: the model's sums, the form, the folds, every role, 320 px), `55-venues`,
-  `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
+  `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`; the licence's `75-licence-off`,
+  `76-licence-roles`, `77-licence-web`, `78-licence-desktop-ui`, `79-licence-e2e` (the real Worker under the real page,
+  and the real desktop licence against it); the server's `80-licence-codes`, `81-licence-worker`, `82-site-publish`,
+  `83-legal-pages`; the desktop's `85-desktop-licence`, `86-download-page` and `tests/desktop.mjs` (Electron under
+  xvfb, behind a recording proxy that fails on any outside host); Drive's `90-drive`, `91-drive-merge`,
+  `92-drive-desktop`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
   meter, timer, wake lock): a spec can check that leaving a page leaves nothing listening.
@@ -1354,5 +1573,9 @@ need a change there, describe it in your report instead.
 | settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs` |
 | search | `js/search.js`, `css/search.css`, `tests/specs/46-search.cjs` |
 | card | `js/pages/card.js`, `css/card.css`, `tests/specs/49-my-card.cjs` |
+| licence | `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `css/licence.css`, and the licence's lines in the pages it gates; `tests/specs/75`–`79`. Nobody but the owner's publish changes `js/licence-config.js` or `desktop/licence-on.json`. |
+| server | `cloudflare/*`, `tools/stage-site.mjs`, `tools/build-generator.mjs`, `tools/licence-generator*.html`, `docs/licence-server.md`, `docs/go-live.md`, `.github/workflows/publish.yml`, `terms.html`, `privacy.html`; `tests/specs/80`–`83` |
+| desktop | `desktop/*`, `.github/workflows/desktop.yml` and the tests workflow's `desktop` job, `package.json`, `package-lock.json`, `js/version.js`, `js/update.js`, `js/install.js`, `js/daysheet-page.js`, `download.html`, `docs/desktop.md`, `tests/desktop.mjs`; `tests/specs/85`, `86` |
+| drive | `js/drive.js`, `js/sync.js`, `js/cloud-config.js`, the Drive parts of `js/backup.js` and `css/settings.css` (`.se-bk-drive*`, `.se-bk-connect*`, `.se-bk-copy*`), `store.mergeDb`, `docs/drive.md`; `tests/specs/90`–`92` |
 
 A feature may add new files of its own under `js/` (named after the feature) if it needs them.

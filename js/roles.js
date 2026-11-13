@@ -119,6 +119,13 @@ export const ROLES = [
 // (what is stored under gdex-role), and EVERYTHING stays its name in the code. sub: a line read under the name on its
 // card (and with it, by a screen reader); only this profile has one.
 export const EVERYTHING = { id: 'all', label: 'Jack of Trades', sub: 'Master of None', icon: '🧰', what: '', blurb: 'A bit of all of it: every section on the menu, and every box on a booking’s page.', sections: SECTIONS.slice(), start: 'bookings', names: {}, newKind: 'show', hide: [], money: true, pages: {} };
+// The licence (decisions §9): the Audiophile is free for ever; every other role, Jack of Trades included, needs a licence
+// after 30 free days. FREE_SECTIONS are the Audiophile's own sections (07-groundwork checks they match its menu), My card
+// among them: it is free in every role (item 14).
+export const FREE_ROLE = 'audiophile';
+export const FREE_SECTIONS = ['bookings', 'acts', 'venues', 'tools', 'card', 'settings'];
+export const roleNeedsLicence = id => (id || 'all') !== FREE_ROLE;
+export const sectionNeedsLicence = id => SECTIONS.includes(id) && !FREE_SECTIONS.includes(id);
 const ALL = [...ROLES, EVERYTHING];
 
 const read = () => { try { const v = localStorage.getItem(KEY); return ALL.some(r => r.id === v) ? v : ''; } catch { return ''; } };

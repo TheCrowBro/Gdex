@@ -1,0 +1,50 @@
+/* The licence (js/licence.js, js/terms.js, js/licence-state.js's marks): the bar at the foot of the screen, the sheets'
+   bits, the role picker's badge and the lock on a bonus track or the More boxes fold. Nothing here shows while licences
+   are off. Colours only from the theme's tokens. */
+
+/* The bar (adapted from Vdex's): above the update bar when both show, never over a sheet's buttons. styles.css already
+   pads the page for body.has-licence-bar. */
+.licence-bar { left: 16px; right: 16px; transform: none; width: fit-content; margin-inline: auto; flex-wrap: wrap; justify-content: center; }
+.licence-bar.urgent { border-color: var(--danger); }
+body:has(.sheet-back) .licence-bar { display: none; }
+body.has-update-bar .licence-bar { bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 64px); }
+@media (max-width: 560px) {
+  .licence-bar { gap: 6px 8px; padding: 8px 10px; border-radius: 16px; }
+  .licence-bar > span { flex: 1 1 100%; text-align: center; line-height: 1.3; padding: 0 28px; }
+  .licence-bar > .icon-btn { position: absolute; top: 2px; right: 2px; }
+}
+
+/* Settings → About & licence, and the sheets. */
+.licence-title { font-size: 1rem; margin: 4px 0 0; }
+.licence-warn { color: var(--danger); }
+.licence-panel .licence-line { margin: 0; }
+.licence-buy-note { margin: 0; }
+.licence-code { width: 100%; font: .95rem/1.5 ui-monospace, Menlo, Consolas, monospace; word-break: break-all; }
+.licence-digits { font: 1.3rem/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .2em; max-width: 12ch; }
+.lic-computers { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
+.lic-computers li { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.lic-offer p, .lic-over p, .lic-ro p, .lic-away p { margin: 0; }
+.lic-over .actions, .lic-ro .actions, .lic-offer .actions { flex-wrap: wrap; }
+
+/* The terms sheet: its points, its links and the tick box. */
+.lic-terms p { margin: 0; }
+.lic-terms-points { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.lic-terms-points li { line-height: 1.4; }
+.lic-terms-links { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.lic-terms-check { display: flex; gap: 12px; align-items: flex-start; padding: 8px 4px; min-height: var(--hit); cursor: pointer; font-weight: 600; }
+.lic-terms-check input { width: 26px; height: 26px; accent-color: var(--accent); flex: none; margin: 0; }
+
+/* The role picker's badge: free, the free days, licensed, or needs a licence. */
+.rp-licence { display: inline-block; justify-self: start; align-self: flex-start; margin-top: 4px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); font-weight: 600; line-height: 1.5; }
+.rp-licence-line p { margin: 0; }
+
+/* A bonus track's mark ("30 days free", "🔒 Licence"), the same on the More boxes fold of a booking. */
+.dk-track-lock { flex: none; align-self: center; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); font-size: .72rem; font-weight: 700; line-height: 1.5; white-space: nowrap; }
+.dk-track-name .dk-track-lock { display: inline-block; margin-left: 6px; vertical-align: .1em; } /* after the name, wrapping with it */
+.dk-track.on .dk-track-lock { background: transparent; border-color: currentColor; color: inherit; }
+.bk-more > summary:has(.dk-track-lock) { grid-template-columns: auto minmax(0, 1fr) auto auto; } /* the fold's mark between its words and its › */
+.card.tap > .dk-track-lock { margin-left: 8px; vertical-align: .1em; } /* the tutorials chooser */
+
+/* A studio session or a rehearsal a free Audiophile can see but not change (the owner's answer 1). */
+.lic-work-note { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+.lic-work-note p { margin: 0; flex: 1 1 14rem; }

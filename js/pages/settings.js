@@ -3,7 +3,7 @@
 // accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here.
 // A role without money (scout, audiophile: moneyShown() false) has no Quotes & invoices section, and its details
 // are not said to go on quotes and invoices; the section comes back with a role that uses money.
-import { h, toast, announce, safeUrl, telUrl } from '../util.js';
+import { h, toast, announce, safeUrl, telUrl, nodes } from '../util.js';
 import * as store from '../store.js';
 import { db, update } from '../store.js';
 import { fmtMoney, currency } from '../model.js';
@@ -15,14 +15,18 @@ import { startTour, sheetTutorial } from '../tour.js';
 import { VERSION, BUILD, BUILT } from '../version.js';
 import { updatePanel } from '../update.js';
 import { installState, openInstallHelp } from '../install.js';
-import { backupPanel, health, fileState, onBackupChange, unlinkFile } from '../backup.js';
+import { backupPanel, onBackupChange, beforeErase, backupLine, driveBehind, exportBackup } from '../backup.js';
 import { role, roleChosen, menuSections, sectionName, moneyShown } from '../roles.js';
 import { rolePanel } from '../role-pick.js';
 import { askPref } from '../acts-ask.js';
+// The licence (decisions §9): About becomes About & licence while licences are on, Your role says the free days left, and
+// a read-only role cannot load the sample. Nothing of it shows while licences are off.
+import { licenceOn, licenceNow } from '../licence-state.js';
+import { roleNeedsLicence, roleId } from '../roles.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
-const S = { erase: '' }; // what is typed in the erase box survives the redraw after every change
+const S = { erase: '', behind: null, busy: false }; // what is typed in the erase box (and what Drive lacks) survives the redraw after every change
 
 /* ------------------------------- open sections ------------------------------- */
 const OPEN_KEY = 'gdex-settings-open';
@@ -218,18 +222,20 @@ function billingBody() {
 }
 const billingSummary = () => { const list = db.priceList && Array.isArray(db.priceList.list) ? db.priceList.list.length : 0; return list ? `${plural(list, 'price')} on your list · numbering, tax, payment details` : 'Numbering, tax, payment details and your prices'; };
 
-/* ------------------------------- backups ------------------------------- */
-function backupSummary() {
-  const hl = health(), f = fileState();
-  const bits = [hl.level === 'ok' ? `Last backup ${hl.when}` : hl.level === 'old' ? `⚠ Last backup ${hl.when}` : hl.level === 'none' ? '⚠ No backup yet' : 'Nothing to back up yet'];
-  if (f.linked) bits.push(f.status === 'needs-permission' ? '⚠ the file copy needs your OK' : f.status === 'error' ? '⚠ the file copy wasn’t saved' : `copy in ${f.name}`);
-  return bits.join(' · ');
-}
-
 /* ------------------------------- the sample ------------------------------- */
-const roleSummary = () => { const r = role(); return roleChosen() ? `${r.label} · ${plural(menuSections(r).length, 'section')} on the menu` : 'Not chosen: every section is on the menu'; };
+// While licences are on, the role's line also says where its licence stands: free (the Audiophile), the free days left, or read-only.
+const licenceBit = () => {
+  if (!licenceOn()) return '';
+  const s = licenceNow();
+  if (!roleNeedsLicence(roleId())) return ' · free';
+  if (s.mode === 'away' || !s.canEdit) return ' · read-only';
+  if (['licensed', 'pending'].includes(s.mode)) return ' · licensed';
+  return s.started ? ` · ${plural(s.trialLeft, 'free day')} left` : '';
+};
+const roleSummary = () => { const r = role(); return (roleChosen() ? `${r.label} · ${plural(menuSections(r).length, 'section')} on the menu` : 'Not chosen: every section is on the menu') + licenceBit(); };
 const sampleCount = () => store.COLLECTIONS.reduce((n, c) => n + db[c].filter(r => r && r.sample).length, 0);
 function loadSample() {
+  if (!store.canChange({ form: false })) return; // a read-only role: the licence's sheet says why
   const before = sampleCount();
   store.loadSample();
   const added = sampleCount() - before;
@@ -275,43 +281,99 @@ function install() {
   const b = document.getElementById('installBtn');
   if (b && !b.hidden) b.click(); else openInstallHelp();
 }
-function aboutBody(up) {
+// Google Drive is linked on this device (js/sync.js keeps gdex-drive; read here directly, as that module loads later).
+const driveLinked = () => { try { return localStorage.getItem('gdex-drive') === '1'; } catch { return false; } };
+// About's closed line: where the data is, and while licences are on, the licence in a few words (§9.6, §9.10).
+function aboutLine() {
+  let line = `Version ${VERSION}${BUILD !== 'dev' ? ' · ' + BUILD : ''} · your data stays on this device${driveLinked() ? ' and your Google Drive' : ''}`;
+  if (licenceOn()) {
+    const s = licenceNow();
+    line += s.mode === 'away' ? ' · the working roles only in the desktop app'
+      : ['licensed', 'pending'].includes(s.mode) && s.canEdit ? ' · licensed'
+        : !s.canEdit ? (roleNeedsLicence(roleId()) ? ' · read-only: needs a licence' : ' · the working roles need a licence') // the Audiophile itself is never read-only
+          : s.started ? ` · free days: ${s.trialLeft} left` : ' · Audiophile is free';
+  }
+  return line;
+}
+// Where the data is kept, in words true where Gdex runs (§9.10): in a web browser, or in the desktop app, which keeps it
+// in its own window on this computer and looks for new versions at its download address (desktop/updater.cjs).
+function whereWords() {
+  const desk = !!window.gdexDesktop;
+  return `Everything you enter stays ${desk ? 'in this app, on this computer' : 'in this browser, on this device'}. Your bookings, contacts and fees are never sent to a Gdex server. If you connect Google Drive, Gdex also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Gdex’s licence server at gdex.crowmade.app only ever hears about your licence, and only once you use a working role.' : ''}${desk ? ' The desktop app also looks for new versions at gdex-download.crowmade.app.' : ''} A backup file keeps it all safe and moves it to another device.`;
+}
+function aboutBody(up, done) {
   let size = 0; try { size = new Blob([store.serialize()]).size; } catch { /* ignore */ }
+  // The licence's panel comes first while licences are on (js/licence.js, loaded then).
+  const slot = licenceOn() ? h('div', { class: 'se-licence' }) : null;
+  if (slot) import('../licence.js').then(m => { const p = m.licencePanel(); slot.replaceChildren(p.el); done.push(() => p.destroy && p.destroy()); }).catch(e => console.error(e));
   return [
+    slot,
     h('p', null, h('strong', null, `Gdex ${VERSION}`), BUILD !== 'dev' ? ` · build ${BUILD}${BUILT ? ` (${BUILT})` : ''}` : '', h('br'),
       h('span', { class: 'small muted' }, 'The booking deck for music producers and their bands.')),
     h('div', { class: 'card se-where' },
       h('strong', null, 'Where your data is kept'),
-      h('p', { class: 'small muted' }, 'Everything you enter stays in this browser, on this device. There is no account, and nothing is sent to a server: not your bookings, your contacts or your fees. A backup file keeps it safe and moves it to another device.'),
+      h('p', { class: 'small muted' }, whereWords()),
       h('p', { class: 'small muted' }, `It takes about ${sizeText(size)} here.`),
       isApple() && !installState().standalone && h('p', { class: 'small muted' }, 'On iPhone and iPad, Safari can clear a website’s data when it hasn’t been opened for a week or so. Add Gdex to the Home Screen to keep it, and save a backup now and then.')),
     up.el,
     h('div', { class: 'actions' },
       h('a', { class: 'btn ghost', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy'),
+      licenceOn() && h('a', { class: 'btn ghost', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms'),
       !installState().standalone && h('button', { type: 'button', class: 'btn ghost', id: 'se-install', onclick: install }, '⤓ Install Gdex')),
   ];
 }
 
 /* ------------------------------- erase ------------------------------- */
 const eraseArmed = () => S.erase.trim().toUpperCase() === 'ERASE';
+// With Google Drive linked, a tap on Erase first copies this device's last changes to Drive (backup.js driveBehind).
+// When Drive still lacks some, nothing is erased: S.behind holds what it lacks, the section says so with Try again (or
+// Sign in again) and Save a backup, and the button becomes Erase anyway. S.busy: that last sync is running.
 async function eraseDevice() {
-  if (!eraseArmed()) return;
-  S.erase = '';
-  try { await unlinkFile(); } catch { /* nothing linked */ } // first, so the empty database is never written over the copy
+  if (!eraseArmed() || S.busy) return;
+  if (!S.behind && driveLinked()) {
+    if (await lastSync() || !eraseArmed()) return;
+  }
+  S.erase = ''; S.behind = null;
+  try { await beforeErase(); } catch { /* nothing linked */ } // first, so the empty database is never written over the copy
   store.eraseAll();
   try { localStorage.removeItem(OPEN_KEY); } catch { /* ignore */ }
   toast('Everything on this device was erased');
   setTimeout(() => location.reload(), 400);
 }
+// The last sync before an erase (and its Try again): resolves what Drive still lacks, or null.
+async function lastSync() {
+  S.busy = true; paintErase();
+  try { S.behind = await driveBehind(); } catch { S.behind = null; } finally { S.busy = false; }
+  paintErase();
+  return S.behind;
+}
+async function eraseRetry() {
+  if (S.busy) return;
+  if (!(await lastSync())) { toast('Google Drive has everything from this device now.'); announce('Google Drive has everything from this device now'); }
+}
+// Redraw the erase section's body in place (the page itself may have been redrawn meanwhile). The focus, when it was
+// in the section or was lost with a redraw, goes to the erase button.
+function paintErase() {
+  const box = document.querySelector('#se-erase .se-body');
+  if (!box) return;
+  const a = document.activeElement, keep = !a || a === document.body || !a.isConnected || box.contains(a);
+  box.replaceChildren(...nodes(eraseBody()));
+  if (keep) { const el = document.getElementById('se-erase-go'); if (el) el.focus({ preventScroll: true }); }
+}
 function eraseBody() {
-  const go = h('button', { type: 'button', class: 'btn danger', id: 'se-erase-go', disabled: !eraseArmed(), onclick: eraseDevice }, 'Erase this device');
+  const go = h('button', { type: 'button', class: 'btn danger', id: 'se-erase-go', disabled: !eraseArmed(), 'aria-busy': S.busy ? 'true' : null, onclick: eraseDevice }, S.busy ? 'Copying to Google Drive…' : S.behind ? 'Erase anyway' : 'Erase this device');
   const input = h('input', { type: 'text', id: 'se-erase-input', value: S.erase, autocomplete: 'off', autocapitalize: 'characters', 'aria-describedby': 'se-erase-warn',
     oninput: e => { S.erase = e.target.value; go.disabled = !eraseArmed(); },
     onkeydown: e => { if (e.key === 'Enter' && eraseArmed()) { e.preventDefault(); eraseDevice(); } } });
   input.spellcheck = false;
   return [
-    h('p', { class: 'warn small', id: 'se-erase-warn' }, 'This removes everything Gdex keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings, and your role (Gdex asks again when it next opens). Backup files, and a copy kept in a file, stay as they are. There is no undo.'),
+    h('p', { class: 'warn small', id: 'se-erase-warn' }, `This removes everything Gdex keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings, and your role (Gdex asks again when it next opens).${driveLinked() ? ' Google Drive gets this device’s last changes first (Gdex tells you if it can’t), then is disconnected here; the copy in your Drive stays.' : ''} Backup files, and a copy kept in a file, stay as they are.${licenceOn() ? ' Your licence sign-in and free-day count stay on this device.' : ''} There is no undo.`),
     h('div', { class: 'field' }, h('label', { for: 'se-erase-input' }, 'Type ERASE to confirm'), input),
+    S.behind && h('div', { class: 'stack se-erase-behind', role: 'alert' },
+      h('p', { class: 'warn small' }, S.behind.text),
+      h('div', { class: 'actions' },
+        h('button', { type: 'button', class: 'btn primary se-erase-sync', disabled: !!S.busy, onclick: eraseRetry }, S.behind.status === 'needs-permission' ? 'Sign in again' : 'Try again'),
+        h('button', { type: 'button', class: 'btn ghost se-erase-save', onclick: () => exportBackup() }, '⤓ Save a backup'))),
     h('div', { class: 'actions' }, go),
   ];
 }
@@ -322,11 +384,11 @@ const SECTIONS = [
   ['role', 'Your role', 'Producer, manager, band, solo artist, scout, audiophile or Jack of Trades: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
   ['profile', 'Your details', () => (moneyShown() ? `Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.` : `Your name and contact details: they go on day sheets. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.`)],
   ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
-  ['backups', 'Backups', 'Save a backup file, bring one back, or keep a copy in a file in a synced folder. Everything else lives on this device only.'],
+  ['backups', 'Backups', 'Save a backup file, bring one back, keep a copy in a file in a synced folder, or connect Google Drive to share Gdex between your devices with a dated copy each day.'],
   ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
   ['help', 'Help', 'A walkthrough for any page, and the welcome tour.'],
   ['sample', 'Sample data', 'Load a sample band and a few weeks of bookings to try things out, and remove it again in one go.'],
-  ['about', 'About', 'The version and updates, privacy, and where your data is kept.'],
+  ['about', () => (licenceOn() ? 'About & licence' : 'About'), () => (licenceOn() ? 'The version and updates, your licence, privacy and terms, and where your data is kept.' : 'The version and updates, privacy, and where your data is kept.')],
   ['erase', 'Erase this device', 'Wipes everything Gdex keeps on this device. You type ERASE first, so it can’t happen by accident.'],
 ];
 
@@ -343,7 +405,7 @@ export const settings = {
       role: section('role', '🎭', 'Your role', roleSummary(), [rolePanel(), askPref()]), // askPref: the “Did you see them?” question, on or off
       profile: section('profile', '🪪', 'Your details', profileSummary(), profile.body),
       billing: moneyShown() ? section('billing', '🧾', 'Quotes & invoices', billingSummary(), billingBody()) : null,
-      backups: section('backups', '☁️', 'Backups', backupSummary(), backupPanel()),
+      backups: section('backups', '☁️', 'Backups', backupLine(), backupPanel()),
       display: section('display', '🔆', 'Display & accessibility', cap(prefsSummary()), display.el),
       help: section('help', '🧭', 'Help', 'Page tutorials and the welcome tour', [
         h('p', { class: 'small muted' }, 'Every page has a short walkthrough: tap ? at the top of any page, or pick one here. The welcome tour shows the whole app in about a minute.'),
@@ -352,11 +414,11 @@ export const settings = {
           h('button', { type: 'button', class: 'btn ghost', id: 'se-tour', onclick: () => startTour() }, '🧭 Take the welcome tour')),
       ]),
       sample: section('sample', '🧪', 'Sample data', sampleCount() ? `${plural(sampleCount(), 'sample record')} loaded` : 'Not loaded', sampleBody()),
-      about: section('about', 'ℹ️', 'About', `Version ${VERSION}${BUILD !== 'dev' ? ' · ' + BUILD : ''} · your data stays on this device`, aboutBody(up)),
+      about: section('about', 'ℹ️', licenceOn() ? 'About & licence' : 'About', aboutLine(), aboutBody(up, done)),
       erase: section('erase', '🗑️', 'Erase this device', 'Remove everything Gdex keeps here', eraseBody()),
     };
     // A backup saved or the file copy written is not a change to the data, so the page is not redrawn: its line is.
-    done.push(onBackupChange(() => { sec.backups.sub.textContent = backupSummary(); }));
+    done.push(onBackupChange(() => { sec.backups.sub.textContent = backupLine(); }));
     // The display choices are kept on the device, not in the data: their line follows every change, made in the panel or in Aa.
     const onPrefs = () => { sec.display.sub.textContent = cap(prefsSummary()); };
     window.addEventListener('gdex-prefs', onPrefs); done.push(() => window.removeEventListener('gdex-prefs', onPrefs));
@@ -366,12 +428,12 @@ export const settings = {
       h('div', { class: 'se-list' }, Object.values(sec).filter(Boolean).map(s => s.el)));
     return () => {
       done.forEach(f => { try { f(); } catch { /* already gone */ } });
-      if (window.logiPage && window.logiPage() !== 'settings') S.erase = ''; // leaving Settings disarms the erase button
+      if (window.logiPage && window.logiPage() !== 'settings') { S.erase = ''; S.behind = null; } // leaving Settings disarms the erase button
     };
   },
   tutorial: () => [
     { title: 'Settings', text: 'Everything that isn’t a booking or a record. Tap a section to open it; each one says where it stands on its closed line.', target: ['#page .page-head'] },
-    ...SECTIONS.filter(([id]) => id !== 'billing' || moneyShown()).map(([id, title, text]) => ({ title, text: typeof text === 'function' ? text() : text, target: [`#se-${id} > summary`] })),
+    ...SECTIONS.filter(([id]) => id !== 'billing' || moneyShown()).map(([id, title, text]) => ({ title: typeof title === 'function' ? title() : title, text: typeof text === 'function' ? text() : text, target: [`#se-${id} > summary`] })),
   ],
 };
 

@@ -1,6 +1,7 @@
 // Schema-driven edit form shown in a sheet.
 import { h, sheet, groupBy, toast } from './util.js';
 import { parseMapLink, geocode } from './map.js';
+import { canChange } from './store.js';
 
 /*
  fields: [{ key, label, type, options, required, placeholder, list, rows, columns, empty, hint }]
@@ -53,6 +54,9 @@ export function openForm({ title, fields, values = {}, onSave, onDelete, saveLab
             e.target.disabled = false;
           } }, '🔎 Find from address'),
           h('button', { type: 'button', class: 'btn ghost small', onclick: () => {
+            // The desktop app allows location only on a Mac (desktop/main.cjs: elsewhere Chromium would ask Google).
+            const desk = window.gdexDesktop;
+            if (desk && desk.platform && desk.platform !== 'darwin') return toast('Location isn’t available in the desktop app on Windows and Linux: use Find from address, or paste a map link.');
             if (!navigator.geolocation) return toast('Location is not available here');
             navigator.geolocation.getCurrentPosition(p => { set({ lat: +p.coords.latitude.toFixed(6), lon: +p.coords.longitude.toFixed(6) }); toast('Using your current location'); }, () => toast('Could not get your location'), { timeout: 10000 });
           } }, '📡 I’m here now')));
@@ -140,6 +144,9 @@ export function openForm({ title, fields, values = {}, onSave, onDelete, saveLab
   form.append(actions);
   form.addEventListener('submit', e => {
     e.preventDefault();
+    // A read-only role (the licence: js/licence-state.js) keeps the form open with what was typed; the licence's sheet
+    // opens over it and says why.
+    if (!canChange()) return;
     const out = { ...values };
     readers.forEach(r => { const [k, v] = r(); out[k] = v; });
     close();

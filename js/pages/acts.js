@@ -18,6 +18,7 @@ import { parseLinks, ACT_COLORS, colorOf, stripeStyle, roleOf, membersOf, initia
   inputTable, inputRows, dupChannels, saveInputCsv, plotOf, saveRider, printRider as printRiderDoc, bigQr } from '../acts-docs.js';
 import { openInputList, openRiders, stagePlot } from '../acts-rider.js';
 import { sectionName, pageOpt, moneyShown, newKind } from '../roles.js';
+import { gateWork } from '../licence-state.js'; // + Add member makes People's records: it comes with the working roles
 // An act's earlier names ("formerly The Night Owls"): every reading of them is the model's.
 import { earlierNames, earlierSpans, formerName, nameSince, formerlyOn, formerlyOf, cleanFormer, sameName } from '../model.js';
 // Main genres (the list's fold-down groups, the form's Main genre): every reading of them is the model's too.
@@ -146,6 +147,7 @@ export function editAct(a = {}, onSaved) {
       const kept = pick && pick.kind === 'new' && typeof latest.name === 'string' && latest.name.trim() ? { name: latest.name.trim(), until: pick.since } : null;
       const former = cleanFormer([...(names ? names.read() : earlierNames(latest)), kept], fields.name); // no editor (it failed to draw): the stored names stay
       const rec = upsert('acts', withMainGenre({ members: [], inputList: [], stagePlot: [], riderTech: '', riderHospitality: '', ...cur, ...latest, ...fields, ...(former.length || 'formerNames' in latest ? { formerNames: former } : {}) }, v.mainGenre));
+      if (!rec) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       toast(isNew ? `${rec.name} added` : kept ? `Saved. ${kept.name} is kept as an earlier name.` : 'Saved');
       if (onSaved) onSaved(rec);
     },
@@ -441,7 +443,7 @@ export function logSighting(a, s = {}) { // shared: bookings.js offers it as Sco
       toast(editing ? 'Saved' : `Logged: ${rating}/100`);
       refocus(a.id);
     },
-    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (Array.isArray(x.seen) ? x.seen : []).filter(e => e && e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
+    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (Array.isArray(x.seen) ? x.seen : []).filter(e => e && e.id !== s.id); d.deleted[s.id] = Date.now(); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
     confirmDelete: `Remove the time you saw ${a.name || 'them'} on ${s.date ? seenDate(s.date) : 'this date'}?`,
   });
 }
@@ -590,7 +592,7 @@ function aboutTab(a) {
         h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Take ${p.name} out of ${a.name}`, onclick: () => removeMember(a.id, p.id) }, '✕'))))
         : h('p', { class: 'muted ac-none' }, 'No members yet. Add the people who play in this act: they come from People.'),
       h('div', { class: 'actions' },
-        h('button', { type: 'button', class: 'btn ghost small', id: 'ac-addm', onclick: () => openAddMembers(a.id) }, '+ Add member'),
+        h('button', { type: 'button', class: 'btn ghost small', id: 'ac-addm', onclick: () => gateWork(() => openAddMembers(a.id)) }, '+ Add member'), // People's records: with the working roles (the licence)
         emails.length > 1 && h('a', { class: 'btn ghost small', id: 'ac-mailband', href: `mailto:${emails.join(',')}?subject=${encodeURIComponent(a.name || '')}` }, '✉ Email the band'))),
     h('section', { class: 'ac-sec', id: 'ac-songs', 'aria-labelledby': 'ac-h-songs' },
       h('h3', { id: 'ac-h-songs' }, 'Songs & setlists'),

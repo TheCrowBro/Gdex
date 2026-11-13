@@ -8,6 +8,12 @@ your guitar, counts you in and times your set. Afterwards it settles the night, 
 
 It works on a phone and on a computer, in the browser or installed like an app, and keeps working with no signal. There
 is no account: your information stays on your own phone or computer unless you choose to save a backup or send a link.
+If you connect your own Google Drive (free, for everyone), Gdex keeps your phone and computer the same through a private
+Gdex folder there, with a dated copy each day. The **Audiophile** role is free for good; the working roles (producer,
+manager, band, solo artist, scout, and Jack of Trades) are free for 30 days on each device, then need a licence: 20 US
+dollars once, for up to 3 of your devices. The licence is built but switched off: until it is switched on, every role is
+free and nothing is asked. A desktop app for Windows, Mac and Linux is built too (`docs/desktop.md`); neither it nor the
+licence is published yet.
 
 Gdex is a sibling of Vdex, the app for videographers, and shares its look and the way it works.
 
@@ -178,8 +184,15 @@ found somewhere, in any order; capitals and accents don't matter.
 
 ## Keep your things safe
 
-- **Everything stays on this device.** Nothing is sent anywhere by itself. The [privacy page](privacy.html) says in
-  plain words what leaves your device and when.
+- **Everything stays on this device.** Nothing else leaves it but what you turn on or use: a venue's map and address
+  search (OpenStreetMap), Google Drive once you connect it (it then syncs by itself), and, once licences are switched
+  on, a working role's licence checks. The [privacy page](privacy.html) says in plain words what leaves your device and
+  when.
+- **Google Drive** (☁ → Backups → Connect Google Drive…) keeps every phone and computer you connect the same, with a
+  dated copy each day for the last week and the last 12 months, in a hidden Gdex folder of your own Drive that only Gdex
+  can open. It is free, whatever your role. Nothing goes to a Gdex server.
+- **The licence**, once it is switched on, is all that Gdex's own server (gdex.crowmade.app) ever hears about, and
+  only once you use a working role: an Audiophile who never does sends it nothing.
 - **Save a backup now and then:** tap ☁ at the top → **Save a backup**. Keep the file somewhere safe. To move to a new
   phone or computer, open Gdex there and import the file. On a computer with Chrome or Edge you can also have Gdex
   keep a copy in a file inside your Dropbox, Google Drive, OneDrive or iCloud Drive folder.
@@ -194,4 +207,9 @@ found somewhere, in any order; capitals and accents don't matter.
 - Before publishing a new version, run `node tools/stamp-build.mjs` so installed copies notice the update.
 - The browser tests: `node tests/run.mjs` (needs Playwright and Chromium).
 - [How it is built](docs/developers.md): the data, the sections, the booking boxes and who owns which file.
-- Gdex does not share anything with Vdex: its own storage (`gdex-…` keys), its own offline cache, its own files.
+- Gdex does not share anything with Vdex: its own storage (`gdex-…` keys), its own offline cache, its own files, its
+  own licence server, keys, Stripe link, Google project, desktop app id, port and download bucket.
+- The licence server (`cloudflare/`), the desktop app (`desktop/`) and Google Drive are built and tested, switched off.
+  [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing is published until the
+  owner says so. `GDEX_LICENCE=on node tests/run.mjs` runs the tests with the licence live; `npm ci --prefix cloudflare`
+  first lets the licence server's tests run.

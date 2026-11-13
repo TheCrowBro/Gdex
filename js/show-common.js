@@ -60,8 +60,11 @@ export function rowsSheet({ title, intro, columns, rows, blank = () => ({}), add
         h('button', { type: 'button', class: 'icon-btn sh-row-del', 'aria-label': `Remove ${name || 'this line'}`, onclick: () => { state.splice(ri, 1); dirty = true; draw(Math.min(ri, state.length - 1)); } }, '✕'),
         derive && note);
     }) : [h('p', { class: 'muted small sh-rows-empty' }, emptyText)]));
-    if (focus != null && focus >= 0 && state[focus]) setTimeout(() => list.querySelector(`#${cellId(focus, columns[0].key)}`)?.focus(), 0);
-    else if (focus === -1) setTimeout(() => add.focus(), 0);
+    // The cursor goes to the new (or next) line just after the tap, only while the focus is still where the tap left it:
+    // a box chosen meanwhile keeps it, so what is typed there stays there.
+    const was = document.activeElement, put = el => setTimeout(() => { if (document.activeElement === was) el?.focus(); }, 0);
+    if (focus != null && focus >= 0 && state[focus]) put(list.querySelector(`#${cellId(focus, columns[0].key)}`));
+    else if (focus === -1) put(add);
   };
   const add = h('button', { type: 'button', class: 'btn ghost small', onclick: () => { state.push({ ...blank() }); dirty = true; draw(state.length - 1); } }, addLabel);
   draw();

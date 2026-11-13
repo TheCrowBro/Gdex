@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="color-scheme" content="dark light">
+<title>Gdex for Windows, Mac and Linux</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<style>
+  :root { --bg: #120f1a; --card: #231d33; --line: #382f50; --text: #efe9fb; --muted: #a59dbb; --accent: #ff5c8a; --ink: #2a0612; --focus: #4aa3ff; color-scheme: dark; }
+  @media (prefers-color-scheme: light) { :root { --bg: #efecf5; --card: #fcfbff; --line: #d5cee5; --text: #1f1830; --muted: #6c6484; --accent: #c3265a; --ink: #ffffff; --focus: #0b57d0; color-scheme: light; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; overflow-wrap: break-word; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  header img { width: 56px; height: 56px; border-radius: 14px; flex: none; }
+  h1 { font-size: 1.7rem; line-height: 1.2; margin: 0; }
+  h2 { font-size: 1.2rem; margin: 32px 0 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+  p, li { max-width: 68ch; }
+  li { margin: 6px 0; }
+  a { color: var(--accent); }
+  a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  .lead { font-size: 1.05rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px; margin: 18px 0; }
+  .dl { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-height: 44px; text-decoration: none; color: var(--text); }
+  .dl:hover, .dl:focus-visible { border-color: var(--accent); }
+  .dl b { display: block; font-size: 1.1rem; } .dl span { color: var(--muted); font-size: .9rem; }
+  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 14px 0; padding: 0; list-style: none; }
+  .roles li { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin: 0; max-width: none; }
+  .roles b { display: block; }
+  .buy { display: inline-block; background: var(--accent); color: var(--ink); font-weight: 700; padding: 12px 22px; min-height: 44px; border-radius: 12px; text-decoration: none; margin: 4px 12px 4px 0; }
+  .muted { color: var(--muted); }
+  .prices { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(172px, 100%), 1fr)); gap: 0 14px; font-size: .95rem; }
+  .prices.wide { grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); font-size: 1rem; }
+  .prices li { margin: 3px 0; }
+  .prices span { white-space: nowrap; }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: .92em; overflow-wrap: anywhere; }
+  .back { display: inline-block; margin-top: 32px; }
+  /* A phone with its browser zoomed in: the title keeps beside a smaller icon instead of running off the side. */
+  @media (max-width: 260px) { header img { width: 40px; height: 40px; border-radius: 10px; } h1 { font-size: 1.35rem; overflow-wrap: anywhere; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icons/icon.svg" alt="">
+    <h1>Gdex for Windows, Mac and Linux</h1>
+  </header>
+  <p class="lead">The same Gdex as the website, in its own window, with your work kept on your computer. Audiophile, the role for going to shows and keeping track of the bands you like, is free for good. The working roles are free for 30 days on each computer, counted from the first time you use one there. Then a licence is 20 US dollars once plus any tax where you live (<a href="#price">the price with tax</a>), for up to 3 of your own devices. No subscription.</p>
+
+  <div class="grid">
+    <a class="dl" href="https://gdex-download.crowmade.app/Gdex-Setup.exe"><b>Windows</b><span>Windows 10 or 11 · Gdex-Setup.exe</span></a>
+    <a class="dl" href="https://gdex-download.crowmade.app/Gdex.dmg"><b>Mac</b><span>macOS 12 or later, Apple or Intel · Gdex.dmg</span></a>
+    <a class="dl" href="https://gdex-download.crowmade.app/Gdex.AppImage"><b>Linux</b><span>64-bit · Gdex.AppImage</span></a>
+  </div>
+
+  <h2>Which roles need a licence</h2>
+  <ul class="roles">
+    <li><b>Audiophile: free</b><span class="muted">Your gigs on the calendar, the bands you like (scores, the times you saw them), venues with their house rules, notes and the tools. Free for good, with no licence and no free days to count.</span></li>
+    <li><b>Producer, Manager, Band, Solo artist, Scout and Jack of Trades: a licence</b><span class="muted">Sessions, rehearsals, people, songs and setlists, backline, money and insurance, and the working boxes on a booking. Free for 30 days on each device, then with a licence.</span></li>
+  </ul>
+  <p>A licence covers every role on the devices it is used on. When the free days are over without one, nothing is deleted: the working roles can still be opened, searched, printed and shared, and they can change things again once there is a licence. Or carry on free as an Audiophile.</p>
+
+  <h2 id="price">Price</h2>
+  <p>20 US dollars once, for up to 3 of your own devices. The checkout adds any tax due where you live. In the UK, the EU and Australia, where the law asks shops to show the whole price first, the price with tax is, in US dollars:</p>
+  <ul class="prices wide">
+    <li data-c="GB">United Kingdom <b>24.00</b> <span class="muted">20% VAT</span></li>
+    <li data-c="AU">Australia <b>22.00</b> <span class="muted">10% GST</span></li>
+  </ul>
+  <p>In the European Union, with your country’s VAT:</p>
+  <ul class="prices">
+    <li data-c="AT">Austria <b>24.00</b> <span class="muted">20%</span></li>
+    <li data-c="BE">Belgium <b>24.20</b> <span class="muted">21%</span></li>
+    <li data-c="BG">Bulgaria <b>24.00</b> <span class="muted">20%</span></li>
+    <li data-c="HR">Croatia <b>25.00</b> <span class="muted">25%</span></li>
+    <li data-c="CY">Cyprus <b>23.80</b> <span class="muted">19%</span></li>
+    <li data-c="CZ">Czechia <b>24.20</b> <span class="muted">21%</span></li>
+    <li data-c="DK">Denmark <b>25.00</b> <span class="muted">25%</span></li>
+    <li data-c="EE">Estonia <b>24.80</b> <span class="muted">24%</span></li>
+    <li data-c="FI">Finland <b>25.10</b> <span class="muted">25.5%</span></li>
+    <li data-c="FR">France <b>24.00</b> <span class="muted">20%</span></li>
+    <li data-c="DE">Germany <b>23.80</b> <span class="muted">19%</span></li>
+    <li data-c="GR">Greece <b>24.80</b> <span class="muted">24%</span></li>
+    <li data-c="HU">Hungary <b>25.40</b> <span class="muted">27%</span></li>
+    <li data-c="IE">Ireland <b>24.60</b> <span class="muted">23%</span></li>
+    <li data-c="IT">Italy <b>24.40</b> <span class="muted">22%</span></li>
+    <li data-c="LV">Latvia <b>24.20</b> <span class="muted">21%</span></li>
+    <li data-c="LT">Lithuania <b>24.20</b> <span class="muted">21%</span></li>
+    <li data-c="LU">Luxembourg <b>23.40</b> <span class="muted">17%</span></li>
+    <li data-c="MT">Malta <b>23.60</b> <span class="muted">18%</span></li>
+    <li data-c="NL">Netherlands <b>24.20</b> <span class="muted">21%</span></li>
+    <li data-c="PL">Poland <b>24.60</b> <span class="muted">23%</span></li>
+    <li data-c="PT">Portugal <b>24.60</b> <span class="muted">23%</span></li>
+    <li data-c="RO">Romania <b>24.20</b> <span class="muted">21%</span></li>
+    <li data-c="SK">Slovakia <b>24.60</b> <span class="muted">23%</span></li>
+    <li data-c="SI">Slovenia <b>24.40</b> <span class="muted">22%</span></li>
+    <li data-c="ES">Spain <b>24.20</b> <span class="muted">21%</span></li>
+    <li data-c="SE">Sweden <b>25.00</b> <span class="muted">25%</span></li>
+  </ul>
+  <p class="muted">At checkout you can pay in US dollars, or in your own currency at Stripe’s exchange rate (2 to 4% more).</p>
+  <p><a class="buy" href="/buy">Buy a licence</a> <span class="muted">You can also buy from inside Gdex, at any time during the free days or after them.</span></p>
+  <p class="muted">You are buying a licence to use Gdex, not ownership of a copy of it. It can be cancelled in the cases the <a href="terms.html#paid">terms</a> describe.</p>
+
+  <h2>Already have a licence code?</h2>
+  <ol>
+    <li>Download Gdex above and open it.</li>
+    <li>Go to <b>Settings → About &amp; licence → Enter licence code</b>.</li>
+    <li>Paste the whole code from your email (it starts with <code>GDEX-</code>) and press <b>Activate</b>. Gdex needs the internet for this, once.</li>
+  </ol>
+  <p>One licence works on up to 3 of your computers with the desktop app. To move it to a new one, use <b>Release this computer</b> on the old one, or choose which computer to move it from when you activate the new one. On the website, choose <b>Sign in</b> in Settings → About &amp; licence and use the email address you bought with; Gdex emails you a 6-digit code. Signing in on the website doesn’t use one of your 3 places.</p>
+  <p class="muted">A Vdex licence code doesn’t work in Gdex: the two apps have licences of their own.</p>
+
+  <h2>Installing</h2>
+  <ul>
+    <li><b>Windows:</b> open Gdex-Setup.exe. While Gdex is new, Windows may show “Windows protected your PC” or say the app is not commonly downloaded: choose <b>More info</b>, check the publisher, then <b>Run anyway</b>. Gdex updates itself after that.</li>
+    <li><b>Mac:</b> open Gdex.dmg and drag Gdex into Applications. If macOS says it cannot check the app, open <b>System Settings → Privacy &amp; Security</b>, scroll down and choose <b>Open Anyway</b>.</li>
+    <li><b>Linux:</b> make the file runnable (<code>chmod +x Gdex.AppImage</code>, or tick “Allow executing file as program” in its properties) and open it. On Ubuntu 22.04 and later, install <code>libfuse2</code> first (<code>libfuse2t64</code> on 24.04).</li>
+  </ul>
+  <p class="muted">Uninstalling keeps your work on the computer, so installing Gdex again brings it back.</p>
+
+  <h2>Bringing your work from the website</h2>
+  <p>The website and the desktop app keep their own copies. To share one Gdex between them, connect the same Google Drive in both (☁ at the top of Gdex, then <b>Connect Google Drive…</b>): free, for every role. Or, on the website, save a backup file (☁, then <b>Save a backup</b>) and bring it back in the desktop app.</p>
+
+  <p class="muted">Buying is covered by the <a href="terms.html#paid">terms of service</a> (including refunds within 14 days), and the <a href="privacy.html">privacy policy</a> explains what the licence check sends.</p>
+  <a class="back" href="./">← Back to Gdex</a>
+</main>
+</body>
+</html>

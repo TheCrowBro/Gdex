@@ -310,6 +310,19 @@ const money = (page, n) => page.evaluate(v => import('./js/model.js').then(m => 
   sh = topSheet(page);
   await sh.locator('#sh-r-0-desc').waitFor();
   await sh.getByRole('button', { name: '+ Add a cost' }).click();
+  ok('costs sheet: + Add a cost puts the cursor in the new line', await until(page, () => document.activeElement && document.activeElement.id === 'sh-r-1-desc'));
+  // The new line's cursor moves there just after the tap, and only when nothing else has the focus by then. Moved
+  // later (a check under load), it took the focus from the next box as it was typed in, and what was typed went into
+  // the new line's first box ("Taxi25", no amount). Here a box is chosen in the same moment as a second tap: it keeps it.
+  const kept = await page.evaluate(() => new Promise(res => {
+    const box = [...document.querySelectorAll('.sheet')].pop();
+    [...box.querySelectorAll('button')].find(b => b.textContent === '+ Add a cost').click();
+    document.getElementById('sh-r-1-desc').focus();
+    setTimeout(() => res(document.activeElement && document.activeElement.id), 120);
+  }));
+  ok('costs sheet: a box chosen as a line is added keeps the cursor (the new line does not take it)', kept === 'sh-r-1-desc' && (await sh.locator('#sh-r-2-desc').count()) === 1, kept);
+  await sh.locator('.sh-row').nth(2).locator('.sh-row-del').click();
+  ok('costs sheet: ✕ removes the line and puts the cursor in the line before it', await until(page, () => document.activeElement && document.activeElement.id === 'sh-r-1-desc') && (await sh.locator('.sh-row').count()) === 2);
   await sh.locator('#sh-r-1-desc').fill('Taxi');
   await sh.locator('#sh-r-1-amount').fill('25');
   await sh.locator('button[type=submit]').click();

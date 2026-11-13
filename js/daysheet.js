@@ -8,7 +8,7 @@
 // band" on a show's checklist and remembers what was sent on the booking (booking.daySheet = { sentAt, sig }), so the
 // booking can say when the sheet has changed since.
 import { h, toast, sheet, fmtShort, empty, pad } from './util.js';
-import { db, byId, patch, subscribe, redraw, usedQty } from './store.js';
+import { db, byId, patch, subscribe, redraw, usedQty, canChangeQuietly } from './store.js';
 import { bookingTitle, actName, venueOf, addMinutes, fmtMin, fmtDur, setlistLength, itemTitle, isChecked, markCheck } from './model.js';
 import { printElement, docPage, saveFile, fileName } from './print.js';
 import { pack } from './link-pack.js';
@@ -156,7 +156,7 @@ export function sentState(b) {
 }
 export function markSent(bookingId) {
   const b = byId('bookings', bookingId);
-  if (!b) return;
+  if (!b || !canChangeQuietly()) return; // a read-only role (the licence): the day sheet goes out all the same, and is not marked sent
   if (b.kind === 'show') markCheck(bookingId, 'show-daysheet', true);
   patch('bookings', bookingId, { daySheet: { sentAt: Date.now(), sig: sigOf(byId('bookings', bookingId)) } });
 }
