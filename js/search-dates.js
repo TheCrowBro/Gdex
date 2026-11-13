@@ -8,7 +8,8 @@
 //   a span   "nov", "november" (the nearest November: this year's, or next year's or last year's when that is nearer),
 //            "november 2025", "2026-11", "2025", "this week", "next week", "last week" (weeks start on Monday, as the
 //            calendar's do), "this month", "next month", "last month", "this year", "next year", "last year".
-// A day with no year is the nearest one: "20 jan" typed in November is next January's.
+// A day with no year is the nearest one: "20 jan" typed in November is next January's. A day that is not in its month
+// ("30 feb", "feb 30", "31 april 2025", "29 feb" with no leap year near) is no date: its words are only words.
 // The words are those the search compares (folded: no capitals, no accents, no punctuation around them). The first
 // date found wins; any other word is left for the search to look for.
 const MONTH = { jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
@@ -54,7 +55,8 @@ export function dateOrder(locale) {
   } catch { return 'dm'; }
 }
 
-// One date phrase starting at words[i]: { from, to, len } (len: how many words it took), or null.
+// One date phrase starting at words[i]: { from, to, len } (len: how many words it took); { none: len } for a day and a
+// month that make no date ("30 feb", "31 april 2025"), whose words are then only words; or null.
 function phraseAt(words, i, today, order) {
   const w = words[i], next = words[i + 1], third = words[i + 2];
   // today, tonight, tomorrow, yesterday
@@ -78,22 +80,23 @@ function phraseAt(words, i, today, order) {
   // "fri 20 nov": a weekday before a day is only words
   const wd = weekdayNum(w);
   if (wd >= 0) {
-    const after = phraseAt(words, i + 1, today, order);
-    if (after && +after.from === +after.to && (/^\d/.test(next || '') || monthNum(next) >= 0)) return { ...after, len: after.len + 1 };
+    const after = /^\d/.test(next || '') || monthNum(next) >= 0 ? phraseAt(words, i + 1, today, order) : null;
+    if (after && after.none) return { none: after.none + 1 }; // "fri 30 feb"
+    if (after && +after.from === +after.to) return { ...after, len: after.len + 1 };
     return { ...dayOf(plus(today, (wd - today.getDay() + 7) % 7)), len: 1 };
   }
-  // "20 nov", "20th of november", "20 nov 2025"
+  // "20 nov", "20th of november", "20 nov 2025"; "30 feb" is no date, and its month is not read on its own either
   const d = dayNum(w);
   if (d) {
     const of = next === 'of' ? 1 : 0, m = monthNum(words[i + 1 + of]);
-    if (m >= 0) { const y = yearNum(words[i + 2 + of]); const s = dayMonth(d, m, y, today); if (s) return { ...s, len: 2 + of + (y ? 1 : 0) }; }
+    if (m >= 0) { const y = yearNum(words[i + 2 + of]), len = 2 + of + (y ? 1 : 0), s = dayMonth(d, m, y, today); return s ? { ...s, len } : { none: len }; }
     return null;
   }
   // "nov 20", "nov 20 2025", "november 2025", "nov"
   const m = monthNum(w);
   if (m >= 0) {
     const dn = dayNum(next);
-    if (dn) { const y = yearNum(third); const s = dayMonth(dn, m, y, today); return s ? { ...s, len: 2 + (y ? 1 : 0) } : null; } // "feb 30" is no date
+    if (dn) { const y = yearNum(third), len = 2 + (y ? 1 : 0), s = dayMonth(dn, m, y, today); return s ? { ...s, len } : { none: len }; } // "feb 30" is no date
     const y = yearNum(next);
     if (y) return { ...monthOf(y, m), len: 2 };
     return { ...nearest(year => monthOf(year, m), today), len: 1 };
@@ -127,6 +130,7 @@ export function readDate(words, today = new Date(), order = dateOrder()) {
   const now = at(today.getFullYear(), today.getMonth(), today.getDate());
   for (let i = 0; i < list.length; i++) {
     const p = phraseAt(list, i, now, order);
+    if (p && p.none) { i += p.none - 1; continue; }
     if (p) return { date: { ...out(p), start: i, len: p.len, words: list.slice(i, i + p.len) }, rest: [...list.slice(0, i), ...list.slice(i + p.len)] };
   }
   return { date: null, rest: list };

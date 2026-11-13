@@ -826,6 +826,11 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
           if (JSON.stringify(w.rest) !== '["church"]' || !w.date) out.push('church <year>: ' + JSON.stringify(w));
           const none = ['church', 'chelsea', 'wolfe', '20', 'week', 'next', '31/31', `${en(new Date(y, 1, 1), { month: 'short' })} 30`, `${y}-02-30`].filter(x => m.readDate(x.split(' '), new Date()).date);
           if (none.length) out.push('read as a date: ' + none.join(', '));
+          // A day that is not in its month is no date whichever way round it is typed, and its month is not read alone
+          // either: its words stay words.
+          const feb = en(new Date(y, 1, 1), { month: 'short' }), apr = en(new Date(y, 3, 1), { month: 'long' });
+          const kept = [`30 ${feb}`, `30th of ${feb}`, `${en(now, { weekday: 'short' })} 30 ${feb}`, `31 ${apr} ${y}`, `${apr} 31`].filter(x => { const r = m.readDate(x.split(' '), new Date()); return r.date || r.rest.join(' ') !== x; });
+          if (kept.length) out.push('a day not in its month read as a date: ' + kept.join(', '));
           return { at: iso(now) + ' ' + now.toTimeString().slice(0, 5), day: now.getDay(), out };
         }));
         if (res.out.length) bad.push(`${zone} ${res.at}: ${res.out.slice(0, 4).join(' | ')}`);
@@ -939,5 +944,86 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
     await closeSearch(c.page);
     ok('no errors in the console (the small hours)', c.errors.length === 0, c.errors.slice(0, 5).join(' | '));
     await c.browser.close();
+  }
+
+  /* ------------------------------ a name that holds a date, All with a date, house rules, the tab in sight ------------------------------ */
+  // Found by the check of the widened search. A band or a place whose name holds a date's words keeps every one of its
+  // bookings: "<Month> Wine", "<Weekday> Night Lights", "The <year>" and "The <Weekday> Club" are names as well as dates.
+  // All puts a name that starts with what was typed first when what was typed is a date too. House rules typed as words
+  // find only the venues that have that rule, as Venues' own search does. The tab picked stays in sight along its row as
+  // the person types on. The line of help does not come up over the menu when the box only has the focus back from
+  // results closed by a touch. The names are made from the page's clock (the month three months on, so it is the nearest
+  // one of its name; tomorrow's weekday; the year fifty years back) and every booking but one is within six weeks of today,
+  // never in that month, so nothing here depends on the day, the hour or the time zone of the run.
+  {
+    const v = await open();
+    const N = await v.page.evaluate(() => { const now = new Date(), en = (dt, o) => new Intl.DateTimeFormat('en', o).format(dt), pad = n => String(n).padStart(2, '0');
+      const m3 = new Date(now.getFullYear(), now.getMonth() + 3, 15), tom = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      return { month: en(m3, { month: 'long' }), inMonth: `${m3.getFullYear()}-${pad(m3.getMonth() + 1)}-15`, weekday: en(tom, { weekday: 'long' }), year: String(now.getFullYear() - 50) }; });
+    await store(v.page, (s, x) => s.update(d => {
+      d.acts.push({ id: 'a-mw', name: `${x.N.month} Wine` }, { id: 'a-yr', name: `The ${x.N.year}` }, { id: 'a-wd', name: `${x.N.weekday} Night Lights` }, { id: 'a-pl', name: 'Plain Band' },
+        { id: 'a-zz', name: 'Zephyr', genre: 'Drone' });
+      d.venues.push({ id: 'v-wd', kind: 'venue', name: `The ${x.N.weekday} Club` }, { id: 'v-pl', kind: 'venue', name: 'Plain Hall' },
+        { id: 'v-r1', kind: 'venue', name: 'Hall One', rules: { proCameras: 'no', phones: 'yes' } }, { id: 'v-r2', kind: 'venue', name: 'Hall Two', notes: 'Dogs allowed.', rules: { proCameras: 'yes', phones: 'no' } },
+        { id: 'v-zz', kind: 'venue', name: 'Zephyr Rooms' });
+      d.people.push({ id: 'p-mo', name: `${x.N.month} Okafor` }, { id: 'p-an', name: `Ann ${x.N.month}field` }, { id: 'p-zz', name: 'Zephyr Jones' });
+      const show = (id, actId, date, venueId) => ({ id, kind: 'show', status: 'confirmed', actId, date, venueId, setTime: '21:00' });
+      d.bookings.push(show('m1', 'a-mw', x.D.m1, 'v-pl'), show('m2', 'a-mw', x.D.m2, 'v-pl'), show('m3', 'a-mw', x.D.m3, 'v-pl'), show('mm', 'a-pl', x.N.inMonth, 'v-pl'),
+        show('y1', 'a-yr', x.D.m1, 'v-pl'), show('w1', 'a-wd', x.D.w1, 'v-pl'), show('w2', 'a-wd', x.D.m2, 'v-pl'), show('c1', 'a-pl', x.D.w1, 'v-wd'), show('z1', 'a-zz', x.D.m2, 'v-zz'),
+        { ...show('z2', 'a-zz', x.D.w1, 'v-zz'), invoice: { number: 'INV-0777', status: 'draft', issued: x.D.w1, lines: [{ id: 'l', desc: 'Fee', qty: 1, unit: 'show', price: 100 }], taxRate: 0, payments: [] } });
+      d.songs.push({ id: 'g-zz', title: 'Zephyr Song', actId: 'a-zz' });
+      d.setlists.push({ id: 'l-zz', name: 'Zephyr set', actId: 'a-zz', items: [] });
+      d.gear.push({ id: 'q-zz', name: 'Zephyr amp', qty: 1 });
+    }), { N, D: { m1: day(-40), m2: day(10), m3: day(30), w1: day(-9) } });
+    await sleep(300);
+    const lw = s => s.toLowerCase();
+    const R = {};
+    for (const q of [`${lw(N.month)} wine`, `the ${N.year}`, `${lw(N.weekday)} night lights`, `${lw(N.weekday)} club`, lw(N.month)]) R[q] = await every(v.page, q);
+    const g = q => [...R[q].gigs].sort();
+    ok('a band whose name holds a month keeps all its bookings, on any day: “<Month> Wine”', same(g(`${lw(N.month)} wine`), ['m1', 'm2', 'm3']) && same(R[`${lw(N.month)} wine`].bands, ['a-mw']), JSON.stringify(R[`${lw(N.month)} wine`]));
+    ok('…and so does one whose name holds a year (“The <year>”) or a weekday (“<Weekday> Night Lights”)', same(g(`the ${N.year}`), ['y1']) && same(g(`${lw(N.weekday)} night lights`), ['w1', 'w2']), JSON.stringify([g(`the ${N.year}`), g(`${lw(N.weekday)} night lights`)]));
+    ok('…and a place whose name holds a weekday keeps the bookings there: “The <Weekday> Club”', same(g(`${lw(N.weekday)} club`), ['c1']) && R[`${lw(N.weekday)} club`].venues.includes('v-wd'), JSON.stringify(R[`${lw(N.weekday)} club`]));
+    ok('…while the month typed alone is still the month (and that band’s bookings, by its name)', same(g(lw(N.month)), ['m1', 'm2', 'm3', 'mm']), JSON.stringify(g(lw(N.month))));
+    await type(v.page, lw(N.month));
+    const best = await v.page.$$eval('.srch-all .srch-rec', els => els.map(e => e.dataset.id));
+    ok('All, with a date typed: a name that starts with it comes before one that only has a word starting with it, and both before what is only on that date', best.indexOf('p-mo') >= 0 && best.indexOf('p-mo') < best.indexOf('p-an') && best.indexOf('p-an') < best.indexOf('mm') && best[0] === 'a-mw', JSON.stringify(best));
+    const whenShown = async q => { await type(v.page, q); return !!(await v.page.$('.srch-when')); };
+    const wMonth = await whenShown(lw(N.month)), wBand = await whenShown(`${lw(N.month)} wine`);
+    ok('…the line saying how the date was read is there for the month, and left out when all that is dated was found by its name, not by the date', wMonth && !wBand, JSON.stringify([wMonth, wBand]));
+    await closeSearch(v.page);
+    // House rules: Hall One has no pro cameras and allows phones; Hall Two the other way round (and its notes say "Dogs
+    // allowed", which does not make its phones allowed).
+    const rule = async q => { const r = (await every(v.page, q)).venues.filter(id => /^v-r/.test(id)).sort(); const own = await v.page.evaluate(q => Promise.all([import('./js/pages/venues.js'), import('./js/store.js')]).then(([m, st]) => ['v-r1', 'v-r2'].filter(id => m.venueMatches(st.byId('venues', id), q))), q); return [r, own]; };
+    const H = {};
+    for (const q of ['pro cameras allowed', 'phones allowed', 'no phones', 'no pro cameras', 'phones not allowed', 'phones', 'hall one no phones', 'hall one phones allowed']) H[q] = await rule(q);
+    ok('house rules typed as words find only the venues that have that rule, as Venues’ own search does: a word of one rule and a word of another make no rule',
+      ['pro cameras allowed', 'phones allowed', 'no phones', 'no pro cameras', 'phones not allowed', 'phones'].every(q => same(H[q][0], H[q][1])) && same(H['pro cameras allowed'][0], ['v-r2']) && same(H['no phones'][0], ['v-r2']) && same(H.phones[0], ['v-r1', 'v-r2']), JSON.stringify(H));
+    ok('…and with the venue’s name too', same(H['hall one no phones'][0], []) && same(H['hall one phones allowed'][0], ['v-r1']), JSON.stringify([H['hall one no phones'], H['hall one phones allowed']]));
+    // The tab picked, far along the row on a phone, stays in sight as the person types on, when the results come back
+    // and when the data changes under them.
+    await v.page.setViewportSize({ width: 320, height: 700 });
+    await type(v.page, 'zephyr');
+    await v.page.focus('#srch-tab-all'); await v.page.keyboard.press('End'); await sleep(200);
+    const sight = () => v.page.evaluate(() => { const t = document.querySelector('.srch-tab[aria-selected="true"]'), row = t.parentElement.getBoundingClientRect(), r = t.getBoundingClientRect(); return { tab: t.dataset.tab, seen: r.left >= row.left - 0.5 && r.right <= row.right + 0.5 }; });
+    const s0 = await sight();
+    await v.page.focus('#srch-q'); await v.page.keyboard.press('End'); await v.page.keyboard.type(' '); await sleep(250);
+    const s1 = await sight();
+    await closeSearch(v.page); await v.page.click('#srch-box'); await v.page.waitForSelector('#srch-q'); await sleep(200);
+    const s2 = await sight();
+    await store(v.page, st => st.update(d => { d.acts.find(a => a.id === 'a-zz').genre = 'Ambient'; })); await sleep(400);
+    const s3 = await sight();
+    ok('the tab picked far along the row stays in sight as the person types on, when the results come back and when the data changes', s0.tab === 'money' && [s0, s1, s2, s3].every(x => x.tab === 'money' && x.seen), JSON.stringify([s0, s1, s2, s3]));
+    // Results emptied and closed by a touch: the box has the focus back with no keyboard, and no line of help over the
+    // menu; a tap on it brings both.
+    await v.page.fill('#srch-q', ''); await sleep(150);
+    await v.page.evaluate(() => { const x = document.querySelector('.srch-sheet .sheet-head button[aria-label="Close"]'); x.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch', isPrimary: true })); x.click(); });
+    await sleep(250);
+    const helpShown = () => v.page.evaluate(() => { const b = document.getElementById('srch-box'); return { focus: document.activeElement === b, keys: b.getAttribute('inputmode'), help: getComputedStyle(document.getElementById('srch-box-help')).display !== 'none' }; });
+    const t1 = await helpShown();
+    await v.page.click('#srch-box'); await sleep(150);
+    const t2 = await helpShown();
+    ok('closed by a touch with nothing typed: the box has the focus back, no keyboard and no line of help over the menu; a tap on it brings the help', t1.focus && t1.keys === 'none' && !t1.help && t2.focus && t2.keys === null && t2.help, JSON.stringify([t1, t2]));
+    ok('no errors in the console (names with dates, house rules, the tab in sight)', v.errors.length === 0, v.errors.slice(0, 5).join(' | '));
+    await v.browser.close();
   }
 })().catch(e => { console.log('FAIL search spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });

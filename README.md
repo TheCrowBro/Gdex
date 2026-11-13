@@ -101,7 +101,8 @@ found somewhere, in any order; capitals and accents don't matter.
 - **Dates:** type a day ("20 nov", "nov 20", "20/11", "2026-11-20", "friday", "today", "tomorrow") or a span ("nov",
   "november 2025", "2025", "this week", "next week", "last month") and everything dated then comes up: bookings on those
   days, logged times, studio logs, invoices and quotes. A date and words narrow each other: "church 2025" is the shows at
-  The Church that year. The results say how the date was read.
+  The Church that year. A band or a place whose name holds a date ("April Wine", "The Saturday Club") still finds all its
+  bookings. The results say how the date was read.
 - **Bookings** are the calendar's own cards, newest first, with today marked between what is still to come and what is
   over. A band is found by any name it has had, and a card from before it changed its name says "formerly …". A band you
   logged as the support act at a show on the calendar is part of that show's card, with its score. Tap a place to see

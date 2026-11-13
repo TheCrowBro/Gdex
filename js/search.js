@@ -205,14 +205,17 @@ function describe(it) {
   it.front = fold(front.filter(Boolean).join('\n'));
   it.text = fold([...front, ...it.earlier, ...rest, ...it.notes].filter(Boolean).join('\n'));
   it.names = own.filter(Boolean).map(fold);
+  it.called = new Set(wordsOf([...front, ...it.earlier].filter(Boolean).join(' '))); // the words of its names and its place
   it.spans = [[it.date, it.last]];
 }
 
 /* ------------------------------- every other kind ------------------------------- */
 // A record of any other kind: { rec, id, x (the record), title, names (what ranks it on All, folded), text (everything
 // searched, folded: the words the section's own search reads, from the function it exports), fields (labelled words
-// that say why a row was found when its own words do not show it), spans (its days, for a date typed) }.
-const record = (rec, x, title, names, text, fields = [], spans = null) => ({ rec, id: x.id, x, title: clean(title), names: names.map(n => fold(clean(n))).filter(Boolean), text: fold(text), fields: fields.filter(f => clean(f[1])), spans });
+// that say why a row was found when its own words do not show it), spans (its days, for a date typed), called (the words
+// of its names) }.
+const record = (rec, x, title, names, text, fields = [], spans = null) => ({ rec, id: x.id, x, title: clean(title), names: names.map(n => fold(clean(n))).filter(Boolean), text: fold(text), fields: fields.filter(f => clean(f[1])), spans,
+  called: new Set(wordsOf(names.filter(Boolean).join(' '))) });
 const someOf = list => (Array.isArray(list) ? list : []);
 function buildOthers() {
   const out = {};
@@ -262,13 +265,24 @@ function buildIndex() {
 subscribe(() => { INDEX = null; if (UI) { clearTimeout(UI.again); UI.again = setTimeout(draw, 0); } });
 
 /* ------------------------------- finding ------------------------------- */
-// A record has a word when its words hold it; a venue also when its ticked house rules say it, read as Venues' own
-// search reads them ("no phones", "cash only", "21+").
-const has = (r, w) => r.text.includes(w) || (r.rec === 'venues' && venueMatches(r.x, w));
+// A record has the words typed when its words hold every one. A venue also has them when its ticked house rules say
+// them, read as Venues' own search reads a rule (js/pages/venues.js venueMatches): what was typed as one phrase ("phones
+// allowed", "no pro cameras", "21+"), or the words its own words do not hold, with any "no", "not" or "allowed" typed,
+// read together in the order typed ("church no phones"). A word of one rule and a word of another never make a rule it
+// does not have: "pro cameras allowed" does not find a venue that allows phones but not pro cameras.
+const SAYS = new Set(['no', 'not', 'allowed']); // what a rule says of its subject, even where the venue's own words hold it
+const has = (r, words) => {
+  const loose = words.filter(w => !r.text.includes(w));
+  if (!loose.length) return true;
+  if (r.rec !== 'venues') return false;
+  return venueMatches(r.x, words.join(' ')) || venueMatches(r.x, words.filter(w => SAYS.has(w) || loose.includes(w)).join(' '));
+};
 const inSpan = (r, d) => !!r.spans && r.spans.some(([from, to]) => !!from && from <= d.to && (to || from) >= d.from);
 // What was typed, read: its words, the date in it (js/search-dates.js) and the words left, and what each kind the
-// person may see holds for them; null when nothing was typed. A kind with dates needs every word left and the date;
-// any other kind every word left, or with only a date typed, its words.
+// person may see holds for them; null when nothing was typed. A kind with dates needs every word left and the date, or
+// the date's own words as words of its name (its band by any name, its title, its client, its place): "April Wine",
+// "Sun Ra", "The 1975" and "The Saturday Club" find their bookings on every day, as they would with no date read. Any
+// other kind needs every word left, or with only a date typed, its words.
 function find(q) {
   const words = wordsOf(q);
   if (!words.length) return null;
@@ -276,10 +290,11 @@ function find(q) {
   const t0 = performance.now();
   const { date, rest } = readDate(words, new Date());
   const idx = INDEX || (INDEX = buildIndex()), found = {};
+  const named = r => !!date && !!r.called && date.words.every(w => r.called.has(w));
   for (const k of searchKinds()) {
     const list = idx[k] || [];
-    if (DATED.has(k)) found[k] = list.filter(r => rest.every(w => has(r, w)) && (!date || inSpan(r, date)));
-    else { const need = rest.length ? rest : words; found[k] = list.filter(r => need.every(w => has(r, w))); }
+    if (DATED.has(k)) found[k] = list.filter(r => has(r, rest) && (!date || inSpan(r, date) || named(r)));
+    else { const need = rest.length ? rest : words; found[k] = list.filter(r => has(r, need)); }
   }
   STATS.findMs = performance.now() - t0;
   return { q, words, rest, date, found };
@@ -297,22 +312,25 @@ export const searchStats = () => ({ ...STATS, records: INDEX ? Object.values(IND
 const isAhead = (it, today, tonight) => (it.type === 'b' ? it.last >= today || tonight.has(it.b) : it.date > today);
 
 // All: one list, best match first. A record whose name starts with what was typed, then one with a word of its name
-// starting each word typed, then one whose name holds them, then the rest; within each, bands, venues, people, songs,
-// setlists and gear (by name), then bookings still to come (soonest first), then those that are over, take logs and
-// money (newest first).
+// starting each word typed, then one whose name holds them (what was typed: every word, or with a date read, the words
+// left beside it, whichever ranks it higher, so "may" puts May Okafor first), then one on the date typed, then the
+// rest; within each, bands, venues, people, songs, setlists and gear (by name), then bookings still to come (soonest
+// first), then those that are over, take logs and money (newest first).
 const GROUP = { bands: 0, venues: 1, people: 2, songs: 3, setlists: 4, gear: 5, ahead: 6, over: 7, logs: 8, money: 9 };
 const startsWord = (name, w) => name.startsWith(w) || name.includes(' ' + w);
-function tierOf(r, words) {
-  if (!words.length) return 3;
+const OTHER = 4; // no word typed in its name, and not on the date typed
+function nameTier(r, words) {
+  if (!words.length) return OTHER;
   const typed = words.join(' ');
-  return r.names.some(n => n.startsWith(typed)) ? 0 : r.names.some(n => words.every(w => startsWord(n, w))) ? 1 : r.names.some(n => words.every(w => n.includes(w))) ? 2 : 3;
+  return r.names.some(n => n.startsWith(typed)) ? 0 : r.names.some(n => words.every(w => startsWord(n, w))) ? 1 : r.names.some(n => words.every(w => n.includes(w))) ? 2 : OTHER;
 }
+const tierOf = (r, F) => Math.min(nameTier(r, F.rest), F.date ? nameTier(r, F.words) : OTHER, F.date && inSpan(r, F.date) ? 3 : OTHER);
 function ranked(F) {
   const today = todayISO(), tonight = new Set(model.tonightShows()), list = [];
   for (const [k, recs] of Object.entries(F.found)) for (const r of recs) {
     const group = k === 'gigs' ? (isAhead(r, today, tonight) ? GROUP.ahead : GROUP.over) : GROUP[k];
     const when = k === 'gigs' ? r.date : k === 'logs' || k === 'money' ? (r.spans && r.spans[0] ? r.spans[0][0] : '') : '';
-    list.push({ r, tier: tierOf(r, F.rest), group, when, name: r.title || '' });
+    list.push({ r, tier: tierOf(r, F), group, when, name: r.title || '' });
   }
   return list.sort((x, y) => x.tier - y.tier || x.group - y.group
     || (x.group === GROUP.ahead ? x.when.localeCompare(y.when) : y.when.localeCompare(x.when))
@@ -607,11 +625,14 @@ const moreButton = left => left > 0 && h('div', { class: 'actions srch-more' }, 
 function draw() {
   if (!UI) return;
   const t0 = performance.now(), { out, tabs } = UI, F = find(clean(S.q));
-  // A draw that follows a change to the data gives the focus back to the same card, chip or tab, else to the box.
+  // A draw that follows a change to the data gives the focus back to the same card, chip or tab, else to the box. The
+  // row of tabs keeps where it was scrolled to, and the tab picked in sight (a phone shows a few at a time).
   const done = (bar, ...kids) => {
     const at = document.activeElement, mine = at && at !== out && (out.contains(at) || tabs.contains(at)), key = mine ? focusKey(at) : null;
+    const was = tabs.querySelector('.srch-tabs'), left = was ? was.scrollLeft : 0;
     tabs.replaceChildren(...[bar].filter(Boolean));
     out.replaceChildren(...kids.flat().filter(Boolean));
+    if (bar) { bar.scrollLeft = left; inSight(bar, bar.querySelector('[aria-selected="true"]')); }
     if (key !== null) ((key && UI.el.querySelector(key)) || UI.input).focus({ preventScroll: true });
     UI.scroll.style.scrollPaddingTop = UI.top.offsetHeight + 8 + 'px'; // a result reached with Tab is never left under the box and the tabs
     STATS.drawMs = performance.now() - t0;
@@ -633,7 +654,10 @@ function draw() {
       h('span', { class: 'srch-tab-name', 'data-name': tabName(k) }, tabName(k)), h('span', { class: 'srch-n' }, String(n[k])))));
   out.setAttribute('role', 'tabpanel'); out.setAttribute('aria-labelledby', 'srch-tab-' + tab);
   const miss = tab !== wanted && h('span', { class: 'srch-miss' }, `No ${tabName(wanted).toLowerCase()} found. `);
-  const when = F.date && (tab === 'all' || DATED.has(tab)) && h('p', { class: 'srch-when muted small' }, whenText(F.date));
+  // How the date was read, on All and on a tab with dates; not when all that is dated there was found by its name rather
+  // than by the date (the shows of April Wine in November are not "In April 2027").
+  const dated = tab === 'all' ? [...DATED].flatMap(k => F.found[k] || []) : DATED.has(tab) ? F.found[tab] : null;
+  const when = F.date && dated && (!dated.length || dated.some(r => inSpan(r, F.date))) && h('p', { class: 'srch-when muted small' }, whenText(F.date));
   let kids, spoken;
   if (tab === 'gigs') [kids, spoken] = gigsPanel(F.found.gigs, F.rest);
   else if (tab === 'all') {
@@ -652,6 +676,13 @@ function draw() {
   }
   say(plural(spoken, 'result'));
   done(bar, when, kids);
+}
+// A tab scrolled into sight along its row, clear of the row’s ends (its scroll-padding), and nothing else moved.
+function inSight(row, tab) {
+  if (!tab) return;
+  const r = row.getBoundingClientRect(), t = tab.getBoundingClientRect(), pad = parseFloat(getComputedStyle(row).scrollPaddingInlineStart) || 0;
+  if (t.left < r.left + pad) row.scrollLeft -= r.left + pad - t.left;
+  else if (t.right > r.right - pad) row.scrollLeft += Math.min(t.right - (r.right - pad), t.left - (r.left + pad));
 }
 // The tabs are one control: ← → (and Home, End) move along them and show each one, as a tap does.
 function tabKeys(e) {
@@ -704,13 +735,16 @@ async function openThere(section, cardOf, open, again = false) {
   if (card && card.isConnected) { card.focus({ preventScroll: true }); card.scrollIntoView({ block: 'center' }); card.click(); } else open();
 }
 const byFk = fk => document.querySelector(`#page [data-fk="${CSS.escape(fk)}"]`);
+// The Songs page's module: a setlist is found before it has loaded (js/setlist.js loads with the app), so a tap that
+// quick waits for it.
+const songsPage = () => (MOD.songs ? Promise.resolve(MOD.songs) : LAZY.songs().then(m => (MOD.songs = m)));
 const OPEN = {
   gigs: el => (el.dataset.seen ? openSeen(el.dataset.act, el.dataset.seen).then(row => { if (!row) return; row.classList.add('srch-hit'); setTimeout(() => row.classList.remove('srch-hit'), 2600); }) : openBooking(el.dataset.id)),
   bands: el => openActCard(el.dataset.id),
   venues: el => openThere('venues', () => document.getElementById('vn-' + el.dataset.id), () => openVenue(el.dataset.id)),
   people: el => openThere('people', () => document.getElementById('pp-open-' + el.dataset.id), () => openPerson(el.dataset.id)),
-  songs: el => { MOD.songs.showSongs('songs'); return openThere('songs', () => byFk('pg-song-' + el.dataset.id), () => MOD.songs.openSong(el.dataset.id), window.logiPage?.() === 'songs'); },
-  setlists: el => { MOD.songs.showSongs('setlists'); return openThere('songs', () => byFk('pg-sl-' + el.dataset.id), () => openSetlist(el.dataset.id), window.logiPage?.() === 'songs'); },
+  songs: el => songsPage().then(m => { m.showSongs('songs'); return openThere('songs', () => byFk('pg-song-' + el.dataset.id), () => m.openSong(el.dataset.id), window.logiPage?.() === 'songs'); }),
+  setlists: el => songsPage().then(m => { m.showSongs('setlists'); return openThere('songs', () => byFk('pg-sl-' + el.dataset.id), () => openSetlist(el.dataset.id), window.logiPage?.() === 'songs'); }),
   gear: el => openThere('backline', () => document.getElementById('bl-item-' + el.dataset.id), () => openGear(el.dataset.id)),
   logs: el => MOD.logs.openLog(el.dataset.id),
   money: el => { const [, id] = el.dataset.id.split(':'); return openBooking(id, { box: 'money' }); },

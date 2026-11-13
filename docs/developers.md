@@ -741,7 +741,8 @@ deck or the digital player, and tucks away with the menu when the page scrolls d
 own `tucked`; a focus inside it brings it back). `initSearch(bar)` fills it: `label.sr-only`, a magnifying glass
 (`span.srch-ico`, hidden from a screen reader), `input#srch-box.srch-box[type=search]` (`aria-keyshortcuts="/"`,
 `aria-haspopup="dialog"`, described by `p#srch-box-help.srch-pop`) and that line of help, which shows under the box over
-the menu while the box has the focus and holds nothing (`.srch-bar.srch-empty:focus-within`). The box is plain page text
+the menu while the box has the focus and holds nothing (`.srch-bar.srch-empty`), but not while it only has the focus back
+from results closed by a touch (`inputmode="none"`, until the next tap or key on it). The box is plain page text
 (16 px, as every box on a page). `/` jumps into it (the menu comes back if it was tucked away; its words are selected),
 unless the focus is in a field or a sheet, form or tour is up. While a sheet is up (the track list, a form, "Did you see
 them?") `#app` is inert, so the box cannot be reached and `/` does nothing: the question at opening always wins.
@@ -777,7 +778,11 @@ showing).
   way (1234, 1234.00, $1,234.00). Songs and the Studio log live in files loaded with their sections: `searchReady()`
   fetches them the first time the box takes the focus (or a search runs) and draws again. The words are built once per
   change of the data (any store change drops them; the next search builds them). Every word typed, without the
-  punctuation around it, must be found somewhere in a record's words (`fold`: no capitals, no accents).
+  punctuation around it, must be found somewhere in a record's words (`fold`: no capitals, no accents). A venue also
+  has words its house rules say, read as Venues' own search reads a rule (`venueMatches`): what was typed as one phrase,
+  or the words its own words do not hold, with any "no", "not" or "allowed" typed, together in the order typed ("phones allowed",
+  "church no phones"), so a word of one rule and a word of another never make a rule it does not have ("pro cameras
+  allowed" does not find a venue that allows phones but not pro cameras).
 * **Dates** (`js/search-dates.js` `readDate(words, today, order)`, pure: today and the order of a day and a month are
   given to it). It reads the first date in the words, in English, short or long: a day ("20 nov", "nov 20", "20th of
   november", "fri 20 nov", "20 nov 2025", "20/11" and "11/20" in the device's order (`dateOrder()`, from
@@ -786,23 +791,30 @@ showing).
   a span ("nov" and "november": the nearest one, this year's, next year's or last year's; "november 2025", "2026-11",
   "2025", "this week", "next week", "last week" (Monday to Sunday, as the calendar's weeks), "this month", "next
   month", "last month", "this year", "next year", "last year"). A day with no year is the nearest one ("20 jan" typed in
-  November is next January's); "feb 30" is no date. The kinds with dates are found by it and by every other word:
+  November is next January's). The kinds with dates are found by it and by every other word:
   bookings by the days they cover, times seen, take logs by their day, quotes and invoices by the day issued (or the
-  booking's, with none) and the day due. The other kinds leave a date out when other words were typed ("church 2025"
-  finds The Church in Venues), and look for a date typed alone as words ("may" finds May Okafor in People, and the
-  bookings in May). `p.srch-when` says how it was read: "On Friday, November 20, 2026", "In November 2026", "In 2025",
-  "From Mon, Nov 9, 2026 to Sun, Nov 15, 2026".
+  booking's, with none) and the day due; or, whatever their day, when the date's own words are words of their name (a
+  booking's band by any name, its title, its client and its place; a time seen's band and place; a take log's title; a
+  quote's or invoice's number and client: "April Wine", "Friday Night Lights", "The 1975", "The Saturday Club"). The
+  other kinds leave a date out when other words were typed ("church 2025" finds The Church in Venues), and look for a
+  date typed alone as words ("may" finds May Okafor in People, and the bookings in May). A day that is not in its month
+  ("30 feb", "feb 30", "31 april 2025") is no date, and its words are only words. `p.srch-when` says how it was read:
+  "On Friday, November 20, 2026", "In November 2026", "In 2025", "From Mon, Nov 9, 2026 to Sun, Nov 15, 2026"; it is
+  left out when all that is dated on the tab was found by its name rather than by the date ("april wine").
 * **The tabs.** `div.srch-tabs[role=tablist][aria-label="What was found"]` in `.srch-top`: All, then each kind that found
   something, `button.srch-tab[role=tab][data-tab][aria-selected][aria-controls=srch-panel]#srch-tab-<kind>` with its
   name (the role's name for the calendar: Bookings, Shows or Gigs; its word for an act: Acts, Artists or Bands; Venues,
   People, Songs, Setlists, Gear, Studio log, Money) and its count (`.srch-n`). Only the tab on show takes Tab; ← → Home
   End move along them and show each (round from the last to the first). The row scrolls sideways on a phone. The list is
   `div#srch-panel.srch-out[role=tabpanel]`, labelled by its tab. The results open on All; a tab that finds nothing for new
-  words shows All, with "No venues found." before its line.
+  words shows All, with "No venues found." before its line. As the list is drawn again (a key typed, the results back, a
+  change to the data) the row keeps where it was scrolled to and the tab picked in sight.
 * **All**: `p.srch-found` ("19 results"), then `ul.srch-list.srch-all` of the best eight matches of every kind, then
   `div.srch-seeall` with "See all in Bookings (12)" (`[data-see]`) for each kind that holds more than All shows (it
   shows that tab with the focus on its first result). Best first: a record whose name starts with what was typed, then
-  one with a word of its name starting each word typed, then one whose name holds them, then the rest; within each,
+  one with a word of its name starting each word typed, then one whose name holds them (with a date read: every word
+  typed, or the words left beside it, whichever ranks it higher, so "may" puts May Okafor first), then one on the date
+  typed, then the rest; within each,
   bands, venues, people, songs, setlists and gear (by name), then bookings still to come (soonest first), then those that
   are over, take logs and money (newest first). A booking's "name" is its band (every name it has had), its title and
   its client, never its place.

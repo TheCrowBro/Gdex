@@ -10,10 +10,11 @@
 .srch-bar .srch-box { display: block; margin: 0; padding-left: 34px; padding-right: 8px; border-radius: 999px; text-overflow: ellipsis; }
 .srch-ico { position: absolute; left: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; color: var(--muted); pointer-events: none; }
 .srch-ico svg { display: block; width: 100%; height: 100%; }
-/* Its line of help, under it while it has the focus and nothing is typed in it, over the section menu. */
+/* Its line of help, under it while it has the focus and nothing is typed in it, over the section menu; not while the
+   box only has the focus back from results closed by a touch (inputmode none, no keyboard: the person is not typing). */
 .srch-pop { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; margin: 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--card); color: var(--text); box-shadow: 0 10px 24px #0005; font-size: .9rem; line-height: 1.4; overflow-wrap: anywhere; }
-.srch-bar.srch-empty:focus-within .srch-pop { display: block; }
+.srch-bar.srch-empty .srch-box:focus:not([inputmode="none"]) ~ .srch-pop { display: block; }
 
 /* The sheet is as tall as a sheet may be whatever is in it, so it does not jump as the results come and go, and the
    box stays near the top of the screen, clear of a phone's keyboard. */
