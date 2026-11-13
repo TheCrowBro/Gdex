@@ -248,7 +248,7 @@ const DAY = 864e5;
     ok('the working roles are the five and Everything', working.length === 6 && working.every(id => COUNTRY[id]), working.join());
     let kept = null;
     for (const id of working) {
-      const L = label(id), [country, tag] = COUNTRY[id], email = `${id}.e2e@example.com`;
+      const L = label(id), As = id === 'all' ? `in the ${L} role` : `as ${L}`, [country, tag] = COUNTRY[id], email = `${id}.e2e@example.com`;
       const lic = await buy(L + ' Buyer', email);
       const box = newBox(country);
       const { ctx, page } = await open(box, { seed: { 'gdex-role': id } });
@@ -260,7 +260,7 @@ const DAY = 864e5;
       await later(page, box, 31);
       await page.waitForSelector('.sheet.licence-over', { timeout: 8000 }); await sleep(900);
       const words = await page.textContent('.sheet.licence-over');
-      ok(`${L}: 31 days on, the free days are over: read-only as ${L}, Buy at the price where the buyer is (${country}: ${tag})`, new RegExp(`Gdex is read-only as ${L} on this device until there is a licence`).test(words) && words.includes('Buy a licence · ' + tag) && box.asked.includes('/licence/price'), words.slice(0, 160));
+      ok(`${L}: 31 days on, the free days are over: read-only ${As}, Buy at the price where the buyer is (${country}: ${tag})`, words.includes(`Gdex is read-only ${As} on this device until there is a licence`) && words.includes('Buy a licence · ' + tag) && box.asked.includes('/licence/price'), words.slice(0, 160));
       const pin = await signIn(page, '.sheet.licence-over', email);
       const st2 = await state(page), rec = await stored(page);
       ok(`${L}: …signed in with the emailed code: licensed, the token the server signed checked in the browser`, /^\d{6}$/.test(pin || '') && st2.mode === 'licensed' && st2.licence.email === email && st2.licence.ref === lic.ref && rec.token && rec.token.kid === 2 && !(await sheets(page)).length, JSON.stringify(st2));

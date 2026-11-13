@@ -660,6 +660,28 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // The Everything role ('all', also what closing "Who's using Gdex?" leaves) in a sentence is "the Everything role", so
+      // the words never read "Everything needs a licence" or "Everything can't change things" (nothing can change).
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'all', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+      const E = await page.evaluate(() => import('./js/roles.js').then(r => r.EVERYTHING.label));
+      await page.waitForSelector('.sheet.licence-over', { timeout: 8000 });
+      const over = await page.textContent('.sheet.licence-over');
+      await closeTop(page); await sleep(400);
+      const bar = await page.textContent('.licence-bar span').catch(() => '');
+      await go(page, 'settings'); await sleep(300); await page.evaluate(() => { for (let d = document.getElementById('se-sample-load').closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true; }); await page.click('#se-sample-load'); await sleep(600);
+      const ro = await page.textContent('.sheet.licence-readonly .lic-ro p').catch(() => '');
+      await closeTop(page);
+      await page.evaluate(() => import('./js/licence.js').then(m => m.offerRole('all'))); await sleep(400);
+      const offerTitle = (await sheets(page)).join(), offerWords = await page.textContent('.sheet.licence-needed').catch(() => '');
+      ok(`the ${E} role in a sentence: read-only in the ${E} role at opening, on the bar and after a refused change, and the offer is titled "The ${E} role needs a licence"`,
+        over.includes(`Gdex is read-only in the ${E} role on this device until there is a licence`) && !over.includes(`as ${E}`)
+        && bar.startsWith(`Read-only: the ${E} role needs a licence`)
+        && ro.startsWith(`Your free days are over, so the ${E} role can’t change things on this device.`)
+        && offerTitle === `The ${E} role needs a licence` && offerWords.includes(`The ${E} role comes with a licence.`),
+        JSON.stringify({ over: over.slice(0, 120), bar, ro: ro.slice(0, 90), offerTitle }));
+      await ctx.close();
+    }
+    {
       // The terms changed since they were agreed ([S-37], §9.4), the free days under way: the terms sheet comes again at
       // opening ("The terms have changed"). Not now: read-only for this visit, a refused change asks for the updated terms;
       // agreed there, the form that stayed open saves.

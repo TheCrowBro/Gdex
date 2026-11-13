@@ -5,7 +5,7 @@
 // to js/licence-web.js (the website) or window.gdexDesktop.licence (the desktop app), and each answer is handed back to
 // js/licence-state.js (setLicenceState), which tells the page.
 import { h, sheet, toast, announce } from './util.js';
-import { roleId, roleOf, setRole, roleNeedsLicence, sectionName, FREE_ROLE } from './roles.js';
+import { roleId, roleOf, setRole, roleNeedsLicence, sectionName, FREE_ROLE, EVERYTHING } from './roles.js';
 import { licenceNow, licenceOn, licenceReady, setLicenceState, onLicenceChange, startFreeDays, termsAgreed, termsDeclined, toastStarted, mayOpen, mayWork, mayPickRole, canWrite } from './licence-state.js';
 import { askTerms, termsChanged } from './terms.js';
 
@@ -31,7 +31,11 @@ const PAID_LIST = 'People, Songs, Studio log, Backline, Money and Insurance';
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const day = (iso, year = true) => { const d = new Date(String(iso || '') + (String(iso || '').length === 10 ? 'T12:00:00' : '')); return Number.isNaN(+d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}) }); };
 const who = l => (l ? [l.name, l.email && l.name ? `(${l.email})` : l.email].filter(Boolean).join(' ') : '');
-const roleLabel = (id = roleId()) => (roleOf(id) || { label: 'Everything' }).label;
+const roleLabel = (id = roleId()) => (roleOf(id) || EVERYTHING).label;
+// A role in a sentence: "Producer", but "the Everything role", since "Everything needs a licence" or "Everything can't
+// change things" reads as if nothing could change. roleAs: "as Producer", "in the Everything role".
+const roleWords = (id = roleId()) => ((roleOf(id) || EVERYTHING) === EVERYTHING ? `the ${EVERYTHING.label} role` : roleLabel(id));
+const roleAs = (id = roleId()) => ((roleOf(id) || EVERYTHING) === EVERYTHING ? `in ${roleWords(id)}` : `as ${roleLabel(id)}`);
 // The Audiophile's own sections in its own words: "your gigs, bands, venues and tools".
 const freeWords = () => { const n = (roleOf(FREE_ROLE) || {}).names || {}; return `your ${[(n.bookings || 'Bookings'), (n.acts || 'Acts'), 'Venues', 'Tools'].map(x => x.toLowerCase()).join(', ').replace(/, (?=[^,]*$)/, ' and ')}`; };
 const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -184,7 +188,7 @@ export function offerSection(id) {
 // A role that needs a licence, offered (§9.4).
 export function offerRole(id) {
   const s = licenceNow(), name = roleLabel(id);
-  return offer(`${name} needs a licence`, `The ${name} role comes with a licence. ${whyNot(s, 'working roles')}`, () => mayPickRole(id) === 'open');
+  return offer(`${capFirst(roleWords(id))} needs a licence`, `The ${name} role comes with a licence. ${whyNot(s, 'working roles')}`, () => mayPickRole(id) === 'open');
 }
 
 /* ------------------------------ free days over, at opening ------------------------------ */
@@ -199,16 +203,16 @@ export function overSheetIfDue() {
     const s = licenceNow();
     if (s.mode === 'away') return awaySheet().done;
     overOpen = new Promise(resolve => {
-      const role = roleLabel(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, with everything you already have.'];
-      const readOnly = `Gdex is read-only as ${role} on this device until there is a licence: you can open, search, print and share everything, but not change it. Nothing has been deleted.`;
+      const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, with everything you already have.'];
+      const readOnly = `Gdex is read-only ${role} on this device until there is a licence: you can open, search, print and share everything, but not change it. Nothing has been deleted.`;
       const text = {
         ended: ['Your 30 free days are over', [readOnly, ' ', ...how]],
         cancelled: ['Your licence has been cancelled', ['This can happen after a refund. If you think that’s a mistake, reply to the email your licence came in. ', readOnly.replace('until there is a licence', 'until there is a licence again'), ' ', ...how]],
         expired: [`Your licence ended on ${day(s.licence && s.licence.expires)}`, [readOnly, ' ', ...how]],
-        offline: ['Gdex needs to check your licence', [`It hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again. Until then Gdex is read-only as ${role}. Nothing has been deleted.`]],
-        released: ['This computer is no longer on your licence', [`It’s in use on 3 other devices. Activate it here again to choose which one to take off. Until then Gdex is read-only as ${role}. Nothing has been deleted.`]],
-        pending: ['Gdex needs to activate your licence', [`It hasn’t been able to reach the licence server since the code was entered. Connect to the internet and tap Try again. Until then Gdex is read-only as ${role}. Nothing has been deleted.`]],
-        clock: ['Your device’s clock looks wrong', [`Gdex can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Gdex again. Nothing has been deleted. Until then Gdex is read-only as ${role}.`]],
+        offline: ['Gdex needs to check your licence', [`It hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
+        released: ['This computer is no longer on your licence', [`It’s in use on 3 other devices. Activate it here again to choose which one to take off. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
+        pending: ['Gdex needs to activate your licence', [`It hasn’t been able to reach the licence server since the code was entered. Connect to the internet and tap Try again. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
+        clock: ['Your device’s clock looks wrong', [`Gdex can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Gdex again. Nothing has been deleted. Until then Gdex is read-only ${role}.`]],
       }[s.mode] || ['Gdex is read-only here', [readOnly, ' ', ...how]];
       let sh = null;
       const close = () => sh && sh.close();
@@ -254,7 +258,7 @@ export function carryOnFree() {
 // The store's gate refused a change the person asked for (js/licence-state.js). The focus goes to the sheet itself.
 export function readOnlySheet({ form = false } = {}) {
   if (document.querySelector('.sheet.licence-readonly')) { announce('Read-only: nothing was changed.'); return null; }
-  const s = licenceNow(), role = roleLabel();
+  const s = licenceNow(), role = roleWords();
   if (s.mode === 'away') return awaySheet();
   let sh = null;
   const close = () => sh && sh.close();
@@ -344,7 +348,7 @@ function paintBar() {
   const key = s.mode + (urgent ? '!' : '') + roleId();
   const gone = () => { if (B.bar) { B.bar.remove(); B.bar = null; document.body.classList.remove('has-licence-bar'); } };
   if (!show || B.hide === key) return gone();
-  const role = roleLabel(), small = (label, onclick, primary) => h('button', { type: 'button', class: `btn ${primary ? 'primary' : 'ghost'} small`, onclick }, label);
+  const role = roleWords(), small = (label, onclick, primary) => h('button', { type: 'button', class: `btn ${primary ? 'primary' : 'ghost'} small`, onclick }, label);
   const d = describe(s) || {};
   let text, buttons;
   if (urgent) {
