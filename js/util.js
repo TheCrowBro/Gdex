@@ -96,10 +96,11 @@ export function sheet(title, body, { onClose, dismissOnBackdrop = true } = {}) {
     const items = [...box.querySelectorAll(FOCUSABLE)].filter(el => el.offsetParent !== null);
     if (!items.length) return;
     const first = items[0], last = items[items.length - 1];
+    if (document.activeElement === box) { e.preventDefault(); (e.shiftKey ? last : first).focus(); return; } // the sheet itself holds the focus (it took it on opening)
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   };
-  const box = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+  const box = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title, tabindex: '-1' },
     h('div', { class: 'sheet-head' }, h('h2', null, title), h('div', { class: 'sheet-tools' }, window.logiHelp && h('button', { class: 'icon-btn sheet-help', 'aria-label': 'Tutorial for this', title: 'Tutorial', onclick: () => window.logiHelp() }, '?'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, '✕'))),
     h('div', { class: 'sheet-body' }, body));
   back.append(box);
@@ -109,6 +110,10 @@ export function sheet(title, body, { onClose, dismissOnBackdrop = true } = {}) {
   sheetStack.push(back);
   openSheets++;
   if (app) app.inert = true;
+  // The focus goes into the sheet (making #app inert has just dropped it from the opener), so a screen reader says what
+  // opened and the next Tab starts inside it. Later than the sheets that place it themselves (a form's first box, the
+  // track list's current track, the question's first Yes), which keep their choice; never under a sheet opened over this one.
+  setTimeout(() => { if (back.isConnected && sheetStack[sheetStack.length - 1] === back && !box.contains(document.activeElement)) box.focus({ preventScroll: true }); }, 100);
   return { el: box, close };
 }
 

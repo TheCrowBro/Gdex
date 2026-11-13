@@ -520,6 +520,7 @@ body.has-licence-bar.has-update-bar #page { padding-bottom: 180px; }
 
 .sheet-tools { display: flex; gap: 4px; align-items: center; }
 .sheet-help { font-weight: 800; }
+.sheet:focus { outline: none; } /* the sheet itself takes the focus when it opens (util.js sheet()): its heading says where you are */
 
 /* Getting paid: Pay buttons, bank QR and payments on the Money page and inside the document */
 .cs-paper .pay-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }

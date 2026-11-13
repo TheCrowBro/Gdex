@@ -596,7 +596,9 @@ press that opened it, still down) does not.
 
 * `util.js`: `h(tag, attrs, ...kids)` (attrs: `class`, `onclick`…, `aria-*`, `data-*`, `html` for trusted markup
   only), `nodes`, `uid`, `pad`, `ymd`, `todayISO`, `parseISO`, `fmtLong`, `fmtShort`, `fmtTime`, `daysUntil`,
-  `groupBy`, `toast(msg)`, `announce(msg)`, `sheet(title, body, { onClose })` → `{ el, close }`, `mapsUrl`, `telUrl`,
+  `groupBy`, `toast(msg)`, `announce(msg)`, `sheet(title, body, { onClose })` → `{ el, close }` (a dialog that takes
+  the focus itself 100 ms after it opens, unless something in it already has it: place your own focus sooner, as
+  forms do at 50 ms and the track list at 60 ms; Escape or ✕ gives it back to the opener), `mapsUrl`, `telUrl`,
   `safeUrl` (always use it for user-typed links), `empty(msg, action)`, `backBtn(label, fn)`, `hold(el, ms, fn)` /
   `wasHeld(el)` (press and hold), `rateText(c, sym)`, `personRate(c)`.
 * `form.js` `openForm({ title, fields, values, onSave(values), onDelete, saveLabel, confirmDelete, onReady(formEl) })`. Field `type`s: `text` (default),
@@ -628,7 +630,7 @@ press that opened it, still down) does not.
   `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance).
 * The keyboard's focus ring is a 3 px outline in `--focus`: a light blue on dark pages and a dark blue on light ones;
   with high contrast yellow on dark and navy on light. It stands out 3:1 or better from `--bg`, `--bg2` and `--card`
-  in every theme (`05-deck` measures all forty).
+  in every theme (`05-deck` measures all forty). A sheet itself has no ring when it holds the focus.
 * Phone first (360–430px wide), and it must also look right on a laptop (the page widens past 900px).
 * Forms (`form.js`): the Save bar stays at the foot of the sheet, and `styles.css` gives every sheet with one a
   `scroll-padding-bottom`, so a control reached with Tab is scrolled clear of it (a tall notes box at least to its

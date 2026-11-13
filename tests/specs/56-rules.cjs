@@ -718,6 +718,8 @@ const all = []; // every console error of every browser below
     const focused = () => page.evaluate(() => { const a = document.activeElement; return { id: a.id || a.tagName, sheet: (a.closest('.sheet') || { getAttribute: () => '' }).getAttribute('aria-label') }; });
     await page.focus('#vn-s-lantern'); await page.keyboard.press('Enter');
     await page.waitForSelector('.vn-sheet'); await sleep(250);
+    const opened = await focused();
+    ok('Enter on a venue’s card opens its sheet with the focus in it (a screen reader is told the sheet’s name)', opened.sheet === 'The Lantern Rooms', JSON.stringify(opened));
     await page.focus('#vn-edit'); await page.keyboard.press('Enter');
     await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250);
     const order = await page.evaluate(() => window.__m.HOUSE_RULES.flatMap(r => (r.kind === 'pick' ? ['vn-rule-' + r.id] : [`vn-rule-${r.id}-yes`, `vn-rule-${r.id}-no`])));
@@ -743,6 +745,8 @@ const all = []; // every console error of every browser below
     await openB(page, 's-show1');
     await page.focus('.bk-venue [data-fk="bk-venue-details"]'); await page.keyboard.press('Enter');
     await page.waitForSelector('.vn-sheet'); await sleep(250);
+    const fromShow = await focused();
+    ok('Enter on Details on a show’s page opens the venue’s sheet with the focus in it', fromShow.sheet === 'The Lantern Rooms', JSON.stringify(fromShow));
     await page.focus('#vn-edit'); await page.keyboard.press('Enter');
     await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250);
     await page.focus('#vn-rule-bags-no'); await page.keyboard.press('Space');

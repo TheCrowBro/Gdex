@@ -92,6 +92,14 @@ const page$ = page => page.evaluate(() => window.logiPage());
   ok('Backline’s count is pieces, as the Backline page counts them (4 SM58s, 3 SM57s, 4 DI boxes and 7 more: 18)', /18 items$/.test(await page.textContent('#deck .dk-meta')), await page.textContent('#deck .dk-meta'));
   ok('the rim print fits its circle exactly', (await page.getAttribute('#deck .dk-rim textPath', 'textLength')) === '146');
   ok('the page is a main landmark, not a tab panel of a tab list that no longer exists', (await page.getAttribute('#page', 'role')) === null);
+  // Opened from the keyboard, the Aa sheet takes the focus: a screen reader is told the sheet's name, and Tab carries on inside it.
+  await page.focus('#displayBtn'); await page.keyboard.press('Enter'); await page.waitForSelector('.sheet[aria-label="Display & accessibility"]'); await sleep(250);
+  const inAa = await page.evaluate(() => { const a = document.activeElement; return { tag: a.tagName, dialog: (a.closest('[role=dialog]') || { getAttribute: () => '' }).getAttribute('aria-label') }; });
+  ok('Aa opened with Enter puts the focus in its sheet', inAa.dialog === 'Display & accessibility', JSON.stringify(inAa));
+  await page.keyboard.press('Tab');
+  ok('…and Tab goes on to the sheet’s first button', await page.evaluate(() => { const a = document.activeElement, first = document.querySelector('.sheet[aria-label="Display & accessibility"] button'); return a === first; }));
+  await page.keyboard.press('Escape'); await sleep(300);
+  ok('…and Escape gives the focus back to Aa', await page.evaluate(() => document.activeElement && document.activeElement.id === 'displayBtn'));
   // Choosing a display option keeps the keyboard focus on it.
   await page.click('#displayBtn'); await page.waitForSelector('[data-pref="menu:tape"]');
   await page.focus('[data-pref="menu:tape"]'); await page.keyboard.press('Enter'); await sleep(300);
