@@ -249,6 +249,13 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   });
   ok('the sample loaded again gives its rules to a sample venue that never had any, and stamps it', again.back === JSON.stringify({ proCameras: 'yes', compacts: 'yes', phones: 'yes', age: 'all', reentry: 'yes' }) && again.stamped && again.name === 'Harbour Hall', JSON.stringify(again));
   ok('…and leaves alone a venue whose rules were cleared by hand, and the person’s own venues', again.cleared === '{}' && again.own === false);
+  // Remove the sample… counts a record as changed by the person when it changed more than 2 s after it was loaded. The
+  // rules are the sample's own change: loading it again keeps the gap as it was, none or a minute.
+  const gaps = await store(page, s => {
+    const load = (created, updated) => { s.update(d => { const hb = d.venues.find(v => v.id === 's-harbour'); delete hb.rules; hb.createdAt = created; hb.updatedAt = updated; }); s.loadSample(); const hb = s.byId('venues', 's-harbour'); return [hb.updatedAt > updated, hb.updatedAt - hb.createdAt]; };
+    return [load(1000, 1000), load(1000, 61000)];
+  });
+  ok('…so it counts as changed by the person only when they had changed it', same(gaps, [[true, 0], [true, 60000]]), JSON.stringify(gaps));
   const amber = await page.evaluate(() => { const r = document.documentElement, was = { ...r.dataset }, read = () => getComputedStyle(r).getPropertyValue('--amber').trim(); const out = []; r.dataset.scheme = 'dark'; out.push(read()); r.dataset.scheme = 'light'; out.push(read()); r.dataset.palette = 'mono'; out.push(read()); r.dataset.scheme = 'dark'; out.push(read()); r.dataset.scheme = was.scheme; r.dataset.palette = was.palette; return out; });
   ok('the amber token is set for dark and for light, in every theme', same(amber, ['#e0a43a', '#9a6200', '#9a6200', '#e0a43a']), amber.join(' '));
 

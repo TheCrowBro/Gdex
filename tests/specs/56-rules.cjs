@@ -568,7 +568,13 @@ const all = []; // every console error of every browser below
     if (!(await page.$eval('#se-sample', d => d.open))) { await page.evaluate(() => document.getElementById('se-sample-sum').scrollIntoView({ block: 'center' })); await page.click('#se-sample-sum'); await sleep(200); }
     await page.evaluate(() => document.getElementById('se-sample-load').scrollIntoView({ block: 'center' })); await sleep(80);
     ok('Settings offers to load the sample again', (await page.locator('#se-sample-load').innerText()) === 'Load it again');
+    // How many sample records Remove the sample… says the person changed: its question read, then answered No.
+    const changedSaid = () => page.evaluate(() => { const real = window.confirm; let said = ''; window.confirm = m => { said = m; return false; }; try { document.getElementById('se-sample-remove').click(); } finally { window.confirm = real; } return said; })
+      .then(m => ({ said: m, n: Number((/ (\d+) of them changed after loading/.exec(m) || [0, 0])[1]) }));
+    const changedBefore = await changedSaid();
     await page.click('#se-sample-load'); await sleep(400);
+    const changedAfter = await changedSaid();
+    ok('…and loading it again counts as no change of the person’s when Remove the sample… asks (the rules are the sample’s own)', /^Remove the \d+ sample records\?/.test(changedAfter.said) && changedAfter.n === changedBefore.n, `${changedBefore.said} → ${changedAfter.said}`);
     const again = await rec(page, 'venues', 's-lantern'), fresh = await rec(page, 'venues', 's-harbour');
     ok('loading the sample again leaves the rules cleared by hand cleared', same(again.rules, {}) && again.rulesNote === '' && again.rulesTone === '', JSON.stringify(again.rules));
     ok('…and gives its rules to the sample venue that never had any', same(fresh.rules, { proCameras: 'yes', compacts: 'yes', phones: 'yes', age: 'all', reentry: 'yes' }), JSON.stringify(fresh.rules));

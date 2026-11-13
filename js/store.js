@@ -356,10 +356,15 @@ export function loadSample() {
   update(d => {
     for (const [list, recs] of Object.entries(S)) for (const r of recs) if (!d[list].some(x => x.id === r.id)) d[list].push({ ...r, sample: true, createdAt: now, updatedAt: now });
     // House rules came to the sample later. A sample venue already on the device gets them when it never had the
-    // fields (the venue form always stores all three, so a venue whose rules were cleared by hand is left alone).
+    // fields (the venue form always stores all three, so a venue whose rules were cleared by hand is left alone). It is
+    // stamped, and its loading time moves on with it: the rules are the sample's own change, and Remove the sample…
+    // counts only the person's (a record changed more than 2 s after it was loaded).
     for (const r of S.venues) {
       const x = r.rules && d.venues.find(v => v.id === r.id);
-      if (x && x.sample && x.rules === undefined && x.rulesNote === undefined && x.rulesTone === undefined) { x.rules = { ...r.rules }; x.updatedAt = now; }
+      if (x && x.sample && x.rules === undefined && x.rulesNote === undefined && x.rulesTone === undefined) {
+        const gap = Number(x.updatedAt) - Number(x.createdAt);
+        x.rules = { ...r.rules }; x.updatedAt = now; x.createdAt = now - (gap > 0 ? gap : 0);
+      }
     }
     if (!d.profile.name) d.profile = { ...d.profile, ...SAMPLE_PROFILE }; // its time is left as it was, so it never wins a merge with a real profile
   });
