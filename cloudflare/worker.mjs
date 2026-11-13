@@ -290,9 +290,10 @@ const CODE_TTL = 15 * 60e3, CODE_TRIES = 5, CODES_PER_HOUR = 5, CODES_PER_DAY = 
 // may share) so purchase emails always have room. SIGN_IN_EMAILS_PER_DAY raises it on a paid Resend plan.
 const emailsPerDay = env => Math.max(1, Number(env.SIGN_IN_EMAILS_PER_DAY) || 30);
 // The website's licence is live only when everything a buyer and a signed-in person need is set: the owner's switch
-// (WEB_SIGN_IN), the store, the emails, a shop key matching key 2, and the shop itself (Stripe and its payment link). So
-// a website published before the shop is ready pauses itself, and every role stays open.
-async function webReady(env) { return env.WEB_SIGN_IN === 'on' && !!env.LICENCES && !!env.RESEND_API_KEY && selling(env) && !!buyUrl(env) && !!(await shopKey(env)); }
+// (WEB_SIGN_IN), the store and the sign-in codes' objects, the emails, a shop key matching key 2, and the shop itself
+// (Stripe and its payment link). So a website published before the shop is ready pauses itself, and every role stays
+// open.
+async function webReady(env) { return env.WEB_SIGN_IN === 'on' && !!env.LICENCES && !!env.SIGNIN && !!env.RESEND_API_KEY && selling(env) && !!buyUrl(env) && !!(await shopKey(env)); }
 // A sign-in token names who signed in: the email address a licence belongs to.
 const identityKey = v => 'e:' + v.email;
 const identityOf = v => ({ email: v.email });
@@ -319,7 +320,7 @@ async function webForget(request, env) {
   const emails = new Set([v.email, ...list.map(l => l.email)].map(cleanEmail).filter(Boolean));
   const refs = new Set([String(v.ref), ...list.map(l => String(l.ref))].filter(r => /^\d{1,3}:\d{1,10}$/.test(r)));
   for (const ref of refs) { const s = await seats(env, ref); await env.LICENCES.put('c:' + ref, JSON.stringify({ computers: [], swaps: s.swaps })); }
-  for (const e of emails) { await env.LICENCES.delete('e:' + e); await env.LICENCES.delete('w:' + e); }
+  for (const e of emails) { await env.LICENCES.delete('e:' + e); await signIn(env, e, { op: 'forget' }); }
   await env.LICENCES.delete(ikey);
   await env.LICENCES.put(await forgotKey(ikey), JSON.stringify({ at: Date.now() }), { expirationTtl: 400 * 86400 });
   return json(200, { ok: true });
@@ -346,34 +347,54 @@ async function webStart(request, env) {
   // read it anyway).
   return json(200, { ok: true, ...(fromCode ? { email } : {}) });
 }
-// A 6-digit code to an address. At most 5 an hour and 4 a day to one address (so nobody can flood an inbox, or use up
-// the day's emails alone): past that, 'limited' and no email, and outside the same answer as 'ok'. The day's limit is
-// the caller's to check first.
+// Whether one more code may go to an address that was sent codes at these times: at most 5 an hour and 4 a day (so
+// nobody can flood an inbox, or use up the day's emails alone).
+const codeLeft = (sent, now) => sent.filter(t => now - t < 3600e3).length < CODES_PER_HOUR && sent.filter(t => today(t) === today(now)).length < CODES_PER_DAY;
+// An email address's sign-in code (scrambled), its tries, and when codes were sent to it, kept by a Durable Object of
+// its own (SIGNIN in wrangler.jsonc, one per address) rather than in KV. KV cannot change a value without a race: each
+// of many guesses sent at the same moment read the tries before any other wrote them back, so all of them reached the
+// code. A Durable Object takes its requests one at a time, so every guess and every code asked for is counted. What it
+// keeps goes a day after the last code was sent.
+export class SignInCodes {
+  constructor(ctx) { this.ctx = ctx; }
+  async fetch(request) {
+    const b = await request.json().catch(() => ({}));
+    return Response.json(await this.ctx.blockConcurrencyWhile(() => this.answer(b))); // the next request waits for this one
+  }
+  async answer(b) {
+    const store = this.ctx.storage, now = Date.now(), rec = (await store.get('rec')) || {};
+    const sent = (Array.isArray(rec.sent) ? rec.sent : []).filter(t => Number.isFinite(t) && now - t < DAY);
+    if (b.op === 'issue') { // { h, salt }: a new code in place of the last one, if the address has one left today
+      if (!codeLeft(sent, now)) return { limited: true };
+      await store.put('rec', { h: b.h, salt: b.salt, exp: now + CODE_TTL, tries: 0, sent: [...sent, now] });
+      await store.setAlarm(now + DAY);
+      return { ok: true };
+    }
+    if (b.op === 'check') { // { email, code }: right, wrong or no code to check, each try counted
+      if (!rec.h || now > rec.exp || (rec.tries || 0) >= CODE_TRIES) return { ok: false };
+      const right = hex(await sha256(`${rec.salt}|${b.email}|${b.code}`)) === rec.h;
+      await store.put('rec', right ? { sent } : { ...rec, tries: (rec.tries || 0) + 1 }); // a code works once
+      return { ok: right };
+    }
+    if (b.op === 'forget') { await store.deleteAll(); return { ok: true }; }
+    return { error: 'op' };
+  }
+  async alarm() { await this.ctx.storage.deleteAll(); }
+}
+const signIn = async (env, email, body) => (await env.SIGNIN.get(env.SIGNIN.idFromName(email)).fetch('https://sign-in/', { method: 'POST', body: JSON.stringify(body) })).json();
+// A 6-digit code to an address, if it has one left (codeLeft): otherwise 'limited' and no email, and outside the same
+// answer as 'ok'. The day's limit for everyone is the caller's to check first.
 async function sendCodeTo(env, email, usedToday) {
-  const key = 'w:' + email, now = Date.now();
-  const rec = (await env.LICENCES.get(key, 'json').catch(() => null)) || {};
-  const sent = (Array.isArray(rec.sent) ? rec.sent : []).filter(t => now - t < 86400e3);
-  const lastHour = sent.filter(t => now - t < 3600e3).length, sameDay = sent.filter(t => today(t) === today(now)).length;
-  if (!(lastHour < CODES_PER_HOUR && sameDay < CODES_PER_DAY)) return 'limited';
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   const salt = codes.b64u.enc(crypto.getRandomValues(new Uint8Array(12)));
-  await env.LICENCES.put(key, JSON.stringify({ h: hex(await sha256(`${salt}|${email}|${code}`)), salt, exp: now + CODE_TTL, tries: 0, sent: [...sent, now] }), { expirationTtl: 86400 });
+  if (!(await signIn(env, email, { op: 'issue', h: hex(await sha256(`${salt}|${email}|${code}`)), salt })).ok) return 'limited';
   if (!(await sendSignIn(env, email, code))) return 'email-failed';
   await env.LICENCES.put('m:' + today(), String(usedToday + 1), { expirationTtl: 2 * 86400 }).catch(e => console.error('Could not count a sign-in email: ' + e.message)); // a count, not a lock
   return 'ok';
 }
 // Is this the code sent to the address? One answer for every failure (no code sent, run out, wrong, too many tries),
-// so it says nothing about who has a licence. A code works once.
-async function checkCode(env, email, code) {
-  const key = 'w:' + email, rec = await env.LICENCES.get(key, 'json').catch(() => null);
-  if (!rec || !rec.h || Date.now() > rec.exp || (rec.tries || 0) >= CODE_TRIES) return false;
-  if (hex(await sha256(`${rec.salt}|${email}|${code}`)) !== rec.h) {
-    rec.tries = (rec.tries || 0) + 1; await env.LICENCES.put(key, JSON.stringify(rec), { expirationTtl: 86400 });
-    return false;
-  }
-  await env.LICENCES.put(key, JSON.stringify({ sent: rec.sent || [] }), { expirationTtl: 86400 });
-  return true;
-}
+// so it says nothing about who has a licence. A code works once, and for 5 tries.
+const checkCode = async (env, email, code) => (await signIn(env, email, { op: 'check', email, code })).ok === true;
 async function webVerify(request, env) {
   if (!(await webReady(env))) return json(503, { error: 'not-ready' });
   const b = await readJson(request), email = cleanEmail(b && b.email), code = String((b && b.code) || '').replace(/\D/g, '');
@@ -465,4 +486,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-export { licenceForSession, refForSession, tagOf, cleanEmail, esc, plain };
+export { licenceForSession, refForSession, tagOf, cleanEmail, esc, plain, codeLeft };

@@ -20,6 +20,11 @@
   // The computers on each licence code, which email addresses belong to which licences, and the cancelled codes. No
   // id: Wrangler creates the namespace (gdex-licences) on the first publish and keeps using it.
   "kv_namespaces": [{ "binding": "LICENCES" }],
+  // Each email address's sign-in code, its tries and when codes were sent to it: a Durable Object per address
+  // (SignInCodes in worker.mjs), which takes one request at a time, so guesses sent together cannot get round the 5
+  // tries (KV cannot count them). Gdex's own class in this Worker; Wrangler creates it on the first publish.
+  "durable_objects": { "bindings": [{ "name": "SIGNIN", "class_name": "SignInCodes" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SignInCodes"] }],
   "assets": {
     "directory": "./site",
     "binding": "ASSETS",

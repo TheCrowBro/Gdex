@@ -24,8 +24,8 @@ every Worker in that account, Vdex's included** (Cloudflare cannot limit a token
 repository on GitHub: **Settings → Environments → New environment `gdex-live`**, required reviewer: you, deployment
 branches: `main` only; put `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` there, **not** as repository secrets.
 Every run of the publish workflow then waits for your approval, and it refuses any configuration but Gdex's own. The
-first publish creates the Worker `gdex`, the address gdex.crowmade.app and the licence store `gdex-licences`; nothing of
-Vdex's changes. Steps: `docs/licence-server.md`, Part 1.
+first publish creates the Worker `gdex`, the address gdex.crowmade.app, the licence store `gdex-licences` and the
+Worker's own Durable Object for sign-in codes (`SignInCodes`); nothing of Vdex's changes. Steps: `docs/licence-server.md`, Part 1.
 
 ## 3. Licence keys (15 minutes, on your own computer)
 

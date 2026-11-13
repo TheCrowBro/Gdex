@@ -64,7 +64,7 @@ address. So a site published before the shop is ready never locks anyone out.
 |---|---|
 | Stripe with Managed Payments (Link is the seller, and handles sales tax and VAT) | about 1.58 USD of each 20 USD US card sale, about 1.88 USD on a non-US card. No monthly fee. |
 | Resend (emails the codes) | free up to 3,000 emails a month (100 a day), **shared with Vdex if it is the same Resend account**. A second sending domain may need a paid plan. |
-| Cloudflare (the website, the shop, the licence store) | free within the allowances, **shared with Vdex in the same account**: 100,000 Worker requests a day, and 1,000 writes a day to the licence stores together (a sign-in uses about three). Workers Paid (5 USD a month) raises it to a million. |
+| Cloudflare (the website, the shop, the licence store) | free within the allowances, **shared with Vdex in the same account**: 100,000 Worker requests a day, 1,000 writes a day to the licence stores together (a sign-in uses about one), and the free plan's daily Durable Object requests (Gdex's sign-in codes: about two per sign-in). Workers Paid (5 USD a month) raises them. |
 
 Gdex sends at most **30** sign-in emails a day (Vdex 60), so the two together stay under Resend's free 100 a day and
 purchase emails always have room. On a paid Resend plan, raise it with the setting `SIGN_IN_EMAILS_PER_DAY`.
@@ -298,8 +298,14 @@ developer straight away.
   `desktop/licence-keys.json` (the public keys) and `js/tax.js` (the price with tax per country).
 - The licence store (KV `LICENCES`, created by Wrangler on the first deploy as `gdex-licences`, no id in the config):
   `c:<ref>` the computers on a code and the recent moves; `x:<ref>` a cancelled code (refund, dispute, owner);
-  `e:<email>` the licences an email can sign in with; `w:<email>` a scrambled sign-in code with its tries and send times
-  (a day); `m:<date>` the day's count of sign-in emails (two days); `z:<hash>` a "records deleted" mark (400 days).
+  `e:<email>` the licences an email can sign in with; `m:<date>` the day's count of sign-in emails (two days); `z:<hash>`
+  a "records deleted" mark (400 days).
+- Each email address's sign-in code (scrambled), its tries and the times codes were sent to it (for 5 an hour and 4 a
+  day) are kept by a Durable Object of its own, `SignInCodes` in `worker.mjs` (binding `SIGNIN`, one object per address,
+  created by Wrangler on the first deploy from the migration in `wrangler.jsonc`), and go a day after the last code was
+  sent. Not KV: KV cannot change a value without a race, so guesses sent at the same moment each read the tries before
+  any other wrote them back, and all of them reached the code. A Durable Object takes one request at a time, so every
+  guess and every code asked for is counted (spec 81 sends 20 guesses and 10 requests for a code at once).
   A ref is `<key>:<serial>`: `2:` for shop codes (the serial from `sha256('gdex-order|' + Checkout Session id)`, so the
   page, a reload and the email show the same code), `1:` or `9:` for codes you make.
 - The website's status (`GET /licence/web/status`) is `{ on: true }` only with `WEB_SIGN_IN = on`, the store, Resend,
@@ -314,5 +320,6 @@ developer straight away.
   guard, the staged site, `wrangler deploy --config wrangler.jsonc` (the only Wrangler command in any workflow), then
   live checks. The guard refuses any other Wrangler configuration in the repository (`wrangler.json`, `wrangler.toml`, a
   `.wrangler/deploy/config.json` redirect: Wrangler would take them before the guarded file) and any key of
-  `cloudflare/wrangler.jsonc` beyond Gdex's own Worker, its licence store and its files (no binding to another Worker,
-  bucket or database); spec 82 tries each on a tampered copy.
+  `cloudflare/wrangler.jsonc` beyond Gdex's own Worker, its licence store, its sign-in codes' Durable Object (exactly
+  `SignInCodes` in this Worker, with its one migration) and its files (no binding to another Worker, bucket or
+  database); spec 82 tries each on a tampered copy.

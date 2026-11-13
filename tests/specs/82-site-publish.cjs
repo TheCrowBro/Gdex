@@ -120,6 +120,8 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
       ['someone else\'s storage by id', /only storage is LICENCES/, { wr: t => t.replace('[{ "binding": "LICENCES" }]', '[{ "binding": "LICENCES", "id": "0123456789abcdef" }]') }],
       ['a binding to another Worker (Vdex\'s)', /may not add services/, { wr: t => t.replace('"main": "worker.mjs",', '"main": "worker.mjs", "services": [{ "binding": "V", "service": "vdex" }],') }],
       ['someone else\'s bucket', /may not add r2_buckets/, { wr: t => t.replace('"main": "worker.mjs",', '"main": "worker.mjs", "r2_buckets": [{ "binding": "B", "bucket_name": "vdex-downloads" }],') }],
+      ['another Worker\'s Durable Object (Vdex\'s)', /only Durable Object/, { wr: t => t.replace('"class_name": "SignInCodes" }', '"class_name": "SignInCodes", "script_name": "vdex" }') }],
+      ['a migration that deletes the sign-in codes', /only Durable Object/, { wr: t => t.replace('"new_sqlite_classes": ["SignInCodes"] }]', '"new_sqlite_classes": ["SignInCodes"] }, { "tag": "v2", "deleted_classes": ["SignInCodes"] }]') }],
       ['the whole repository as the website\'s files', /staged website/, { wr: t => t.replace('"directory": "./site"', '"directory": ".."') }],
       ['a script of its own', /cloudflare\/worker\.mjs/, { wr: t => t.replace('"main": "worker.mjs"', '"main": "other.mjs"') }],
       ['licences live with no keys built in', /no shop key/, { cfg: "export const LICENCE_SITES = ['gdex.crowmade.app'];\n" }],

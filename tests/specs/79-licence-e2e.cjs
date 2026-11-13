@@ -68,7 +68,7 @@ const DAY = 864e5;
     };
     const env = { LICENCE_SHOP_KEY: codes.b64u.enc(shop.pkcs8), STRIPE_SECRET_KEY: 'rk_test_key', STRIPE_WEBHOOK_SECRET: 'whsec_e2esecret', STRIPE_PAYMENT_LINK: 'plink_gdex', BUY_URL: 'https://buy.stripe.com/test_gdex', RESEND_API_KEY: 're_test', WEB_SIGN_IN: 'on' };
     // cf: false: Miniflare never fetches Cloudflare's sample request details (each request here names its country).
-    const make = bindings => { const m = new Miniflare(convertV4MiniflareOptions({ modules: true, script, compatibilityDate: '2026-10-01', cf: false, kvNamespaces: ['LICENCES'], bindings, outboundService: outbound, serviceBindings: { ASSETS: req => new Response('static file ' + new URL(req.url).pathname) } })); workers.push(m); return m; };
+    const make = bindings => { const m = new Miniflare(convertV4MiniflareOptions({ modules: true, script, compatibilityDate: '2026-10-01', cf: false, kvNamespaces: ['LICENCES'], durableObjects: { SIGNIN: { className: 'SignInCodes', useSQLite: true } }, bindings, outboundService: outbound, serviceBindings: { ASSETS: req => new Response('static file ' + new URL(req.url).pathname) } })); workers.push(m); return m; };
     const live = make(env), paused = make({ ...env, WEB_SIGN_IN: 'off' }); // paused: the owner's emergency switch
     const mails = () => calls.filter(c => c.url === 'https://api.resend.com/emails').map(c => JSON.parse(c.body));
     const lastCode = to => { const x = mails().filter(e => e.to[0] === to).at(-1); return x && (x.subject.match(/^(\d{6}) is your Gdex sign-in code$/) || [])[1]; };

@@ -62,11 +62,12 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const env = { LICENCE_SHOP_KEY: codes.b64u.enc(shop.pkcs8), STRIPE_SECRET_KEY: 'rk_test_key', STRIPE_WEBHOOK_SECRET: 'whsec_testsecret', STRIPE_PAYMENT_LINK: 'plink_gdex', BUY_URL: 'https://buy.stripe.com/test_gdex', RESEND_API_KEY: 're_test', REPLY_TO: 'help@example.com', WEB_SIGN_IN: 'on' };
     // cf: false: Miniflare's own request details, never fetched from Cloudflare (it would otherwise download a sample
     // from workers.cloudflare.com and keep it in .wrangler/). Each test request names its own country.
-    const opts = bindings => convertV4MiniflareOptions({ modules: true, script, compatibilityDate: '2026-10-01', cf: false, kvNamespaces: ['LICENCES'], bindings, outboundService: outbound,
+    const opts = bindings => convertV4MiniflareOptions({ modules: true, script, compatibilityDate: '2026-10-01', cf: false, kvNamespaces: ['LICENCES'], durableObjects: { SIGNIN: { className: 'SignInCodes', useSQLite: true } }, bindings, outboundService: outbound,
       serviceBindings: { ASSETS: req => new Response('static file ' + new URL(req.url).pathname) } });
     const make = bindings => { const m = new Miniflare(opts(bindings)); open.push(m); return m; };
     const drop = async m => { open.splice(open.indexOf(m), 1); await m.dispose(); };
     const mf = make(env);
+    const kv = await mf.getKVNamespace('LICENCES');
     const SITE = 'https://gdex.crowmade.app';
     const answers = []; // every answer of the main Worker, for the header checks at the end
     const fetchIn = async (m, p, init) => { const r = await m.dispatchFetch(SITE + p, { redirect: 'manual', ...init }); if (m === mf) answers.push({ p, r }); return r; };
@@ -216,17 +217,25 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     await web('start', { email: 'pat@example.com' });
     for (let i = 0; i < 5; i++) await web('verify', { email: 'pat@example.com', code: lastCode('pat@example.com') === '999999' ? '888888' : '999999' });
     ok('after 5 wrong tries even the right code is refused until a new one is sent', (await web('verify', { email: 'pat@example.com', code: lastCode('pat@example.com') })).error === 'wrong-code');
+    // Guesses sent at the same moment are each counted (KV could not count them: each request read the tries before any
+    // other wrote them back, so 200 guesses at once all reached the code), and so are codes asked for at the same moment.
+    const racer = await codes.signCode(ownerKey, 1, { name: 'Race Target', email: 'race@example.com', comp: true, issued: '2026-11-02', serial: 43 });
+    await adm('link', '1:43', { code: racer });
+    await web('start', { email: 'race@example.com' });
+    const rightRace = lastCode('race@example.com'), wrongRace = Array.from({ length: 20 }, (_, i) => String(100000 + (Number(rightRace) - 100000 + 1 + i) % 900000));
+    const raced = await Promise.all(wrongRace.map(c => web('verify', { email: 'race@example.com', code: c })));
+    ok('20 wrong guesses sent at the same moment all count: the right code is refused after them, until a new one is sent', raced.every(r => r.status === 400 && r.error === 'wrong-code') && (await web('verify', { email: 'race@example.com', code: rightRace })).error === 'wrong-code');
+    const rush = await codes.signCode(ownerKey, 1, { name: 'Rush', email: 'rush@example.com', comp: true, issued: '2026-11-02', serial: 44 });
+    await adm('link', '1:44', { code: rush });
+    const rushAnswers = await Promise.all(Array.from({ length: 10 }, () => web('start', { email: 'rush@example.com' })));
+    const rushSent = mails().filter(x => x.to[0] === 'rush@example.com').length;
+    ok('10 sign-in codes asked for at the same moment: only 4 are emailed (the day\'s limit for one address), the answer always the same', rushSent === 4 && rushAnswers.every(r => r.status === 200 && r.ok), `${rushSent} sent`);
+    await kv.put('m:' + today(), '0'); // the day's count for everyone, back to nothing for the checks below
     const fresh = await codes.signCode(ownerKey, 1, { name: 'Lee Daily', email: 'lee@example.com', comp: true, issued: '2026-11-02', serial: 41 });
     await adm('link', '1:41', { code: fresh });
     const leeBefore = mails().filter(x => x.to[0] === 'lee@example.com').length, leeAnswers = [];
     for (let i = 0; i < 6; i++) leeAnswers.push(JSON.stringify(await web('start', { email: 'lee@example.com' })));
     ok('no more than 4 codes a day go to one address, and the answer never changes', mails().filter(x => x.to[0] === 'lee@example.com').length - leeBefore === 4 && new Set(leeAnswers).size === 1, `${mails().filter(x => x.to[0] === 'lee@example.com').length - leeBefore} sent`);
-    const hour = await codes.signCode(ownerKey, 1, { name: 'Hour', email: 'hour@example.com', comp: true, issued: '2026-11-02', serial: 42 });
-    await adm('link', '1:42', { code: hour });
-    const kv = await mf.getKVNamespace('LICENCES');
-    await kv.put('w:hour@example.com', JSON.stringify({ sent: [1, 2, 3, 4, 5].map(n => Date.now() - n * 60e3) }));
-    await web('start', { email: 'hour@example.com' });
-    ok('an address that had 5 codes in the last hour gets no more', !lastCode('hour@example.com'));
     // A licence code instead of an email.
     const freeCode = await codes.signCode(ownerKey, 1, { name: 'Robin Free', email: 'robin@example.com', comp: true, issued: '2026-11-02' });
     const viaCode = await web('start', { code: freeCode });
@@ -311,6 +320,13 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     fs.writeFileSync(modFile, script);
     const mod = await import(pathToFileURL(modFile).href);
     ok('a subject built from a value with a line break has none (plain)', mod.plain('Line one\r\nBcc: someone@example.com\nthree') === 'Line one Bcc: someone@example.com three' && mod.plain('x'.repeat(300)).length === 120 && mod.esc('<a href="x">\'') === '&lt;a href=&quot;x&quot;&gt;&#39;');
+    // The limits the sign-in codes' Durable Object keeps (its storage is its own, so they are checked here as a rule;
+    // 4 a day is checked above through the Worker): 5 an hour, which matters around midnight, and 4 a day.
+    const at = (d, hm) => Date.parse(`${d}T${hm}:00Z`), noon = at('2026-11-13', '12:00'), halfPast = at('2026-11-13', '00:30');
+    ok('an address that had 5 codes in the last hour gets no more, even if only 3 were today; 4 today, none more; 4 yesterday, one more', !mod.codeLeft([at('2026-11-12', '23:40'), at('2026-11-12', '23:50'), at('2026-11-13', '00:05'), at('2026-11-13', '00:10'), at('2026-11-13', '00:20')], halfPast)
+      && mod.codeLeft([at('2026-11-12', '23:50'), at('2026-11-13', '00:05'), at('2026-11-13', '00:10'), at('2026-11-13', '00:20')], halfPast)
+      && !mod.codeLeft(['01:00', '02:00', '03:00', '04:00'].map(t => at('2026-11-13', t)), noon) && mod.codeLeft(['01:00', '02:00', '03:00'].map(t => at('2026-11-13', t)), noon)
+      && mod.codeLeft(['20:00', '21:00', '22:00', '23:00'].map(t => at('2026-11-12', t)), noon));
     fs.rmSync(tmp, { recursive: true, force: true });
 
     /* -------------------------- addresses left out -------------------------- */
