@@ -63,6 +63,11 @@ jobs:
           GUARD: |
             const fs = require('fs');
             const fail = m => { console.error('::error::' + m + ' Nothing was published.'); process.exit(1); };
+            // Wrangler looks for wrangler.json, then wrangler.jsonc, then wrangler.toml, in its folder and every folder
+            // above it, and follows a .wrangler/deploy/config.json beside them: the deploy names its file
+            // (--config wrangler.jsonc), and no other Wrangler configuration may be in the repository at all.
+            const others = ['wrangler.json', 'wrangler.jsonc', 'wrangler.toml', '.wrangler/deploy/config.json', 'cloudflare/wrangler.json', 'cloudflare/wrangler.toml', 'cloudflare/.wrangler/deploy/config.json'].filter(f => fs.existsSync(f));
+            if (others.length) fail('Only cloudflare/wrangler.jsonc may configure Wrangler; remove ' + others.join(', ') + '.');
             let wr;
             try { wr = JSON.parse(fs.readFileSync('cloudflare/wrangler.jsonc', 'utf8').replace(/^\s*\/\/.*$/gm, '')); } catch (e) { fail('cloudflare/wrangler.jsonc could not be read: ' + e.message + '.'); }
             if (wr.name !== 'gdex') fail('The Worker in cloudflare/wrangler.jsonc is "' + wr.name + '", not "gdex".');
@@ -70,6 +75,13 @@ jobs:
             if ('route' in wr || 'env' in wr) fail('cloudflare/wrangler.jsonc may not add a "route" or an "env" of its own.');
             if (wr.workers_dev !== false || wr.preview_urls !== false) fail('workers_dev and preview_urls must be false.');
             if (!Array.isArray(wr.kv_namespaces) || wr.kv_namespaces.some(k => k.binding !== 'LICENCES' || 'id' in k || 'preview_id' in k)) fail('The only storage is LICENCES, with no id: Wrangler makes Gdex\'s own (gdex-licences).');
+            // Nothing else: no binding to another Worker, bucket, database or queue (Vdex's among them), and only the
+            // staged website as the files.
+            const KNOWN = ['$schema', 'name', 'compatibility_date', 'compatibility_flags', 'workers_dev', 'preview_urls', 'routes', 'main', 'keep_vars', 'kv_namespaces', 'assets', 'observability'];
+            const extra = Object.keys(wr).filter(k => !KNOWN.includes(k));
+            if (extra.length) fail('cloudflare/wrangler.jsonc may not add ' + extra.join(', ') + ' (only Gdex\'s own Worker, its licence store and its files).');
+            if (wr.main !== 'worker.mjs') fail('The Worker\'s script must be cloudflare/worker.mjs.');
+            if (JSON.stringify(wr.assets) !== JSON.stringify({ directory: './site', binding: 'ASSETS', html_handling: 'none', not_found_handling: 'none', run_worker_first: ['/buy', '/licence/*'] })) fail('The Worker\'s files must be the staged website (cloudflare/site), with only /buy and /licence/* run by the script.');
             const sites = fs.readFileSync('js/licence-config.js', 'utf8').match(/export const LICENCE_SITES = (\[[^\]]*\]);/);
             if (!sites) fail('LICENCE_SITES could not be read in js/licence-config.js.');
             const live = JSON.parse(sites[1].replace(/'/g, '"'));
@@ -85,7 +97,7 @@ jobs:
         run: node tools/stage-site.mjs cloudflare/site --cloudflare
       - name: Deploy the Worker gdex (the only Wrangler command in any workflow)
         working-directory: cloudflare
-        run: npx wrangler deploy
+        run: npx wrangler deploy --config wrangler.jsonc
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

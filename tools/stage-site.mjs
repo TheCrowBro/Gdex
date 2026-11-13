@@ -18,6 +18,11 @@ const [dest, flag] = process.argv.slice(2);
 if (!dest) { console.error('Usage: node tools/stage-site.mjs <folder> [--cloudflare]'); process.exit(2); }
 const out = path.resolve(root, dest);
 if (out === root || !out.startsWith(root + path.sep)) { console.error('The folder must be inside the repository, and not the repository itself'); process.exit(2); }
+// The folder is emptied first, so only a new or empty folder, or an earlier copy made by this script, is used: never
+// one of the repository's own (a slip such as "cloudflare" for "cloudflare/site" would delete the licence server).
+if (existsSync(out) && readdirSync(out).length && !(existsSync(path.join(out, 'index.html')) && existsSync(path.join(out, 'sw.js')) && !existsSync(path.join(out, '.git')))) {
+  console.error(`${path.relative(root, out)} already holds files that are not an earlier staged copy: name a new folder (cloudflare/site for Cloudflare)`); process.exit(2);
+}
 const FILES = [...PAGES, ...ROOT_FILES, 'sw.js'];
 // A page at the top of the repository that is not in tools/site-files.mjs would silently never be published.
 const unlisted = readdirSync(root).filter(f => f.endsWith('.html') && !PAGES.includes(f));

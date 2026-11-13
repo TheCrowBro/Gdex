@@ -105,6 +105,32 @@ becomes
 ok('the owner’s switches: the website’s licence is live on gdex.crowmade.app, the desktop app’s is off', same(sites, ['gdex.crowmade.app']) && same(desk, { on: false }), JSON.stringify([sites, desk]));
 ```
 
+and, further down the same file, the line
+
+```js
+        ok('…the site is not a licence site, and nothing about a licence is kept on the device', same(L.sites, []) && L.licence === null && L.terms === null, JSON.stringify(L));
+```
+
+becomes (the tests' own address is still not a licence site)
+
+```js
+        ok('…the site is not a licence site, and nothing about a licence is kept on the device', same(L.sites, ['gdex.crowmade.app']) && L.licence === null && L.terms === null, JSON.stringify(L));
+```
+
+and the same in `tests/specs/75-licence-off.cjs`, whose line
+
+```js
+    ok('the repository’s switch is off: LICENCE_SITES is []', /export const LICENCE_SITES = \[\];/.test(repo));
+```
+
+becomes
+
+```js
+    ok('the repository’s switch: the website’s licence is live on gdex.crowmade.app', /export const LICENCE_SITES = \['gdex\.crowmade\.app'\];/.test(repo));
+```
+
+(the publish runs every test first, so a commit that changes one without the others is never published).
+
 The public keys must already be in `desktop/licence-keys.json` and `js/licence-keys.js` (step 3): the publish workflow's
 guard refuses to publish live licences without them. Then publish as in (a). From then on every browser at
 gdex.crowmade.app has the licence: the working roles have 30 free days from their first use on each browser, then need a
@@ -152,5 +178,5 @@ Asked again before anything goes live (the build goes ahead with these defaults 
    and bring the backup back there. Accept that, or make a backup file carry the free-days start too? *Default: accept
    it.*
 6. **Where the website is published from:** GitHub with the protected Environment `gdex-live` (step 2), or your own
-   computer (`npx wrangler deploy` after signing in to Cloudflare, no token in GitHub at all)? *Default: GitHub with the
-   protected Environment.*
+   computer (`npx wrangler deploy --config wrangler.jsonc` after signing in to Cloudflare, no token in GitHub at all)?
+   *Default: GitHub with the protected Environment.*

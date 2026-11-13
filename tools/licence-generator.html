@@ -335,7 +335,9 @@ const SITE = 'https://gdex.crowmade.app';
   let key = null, ledger = [], unsaved = 0;
   (async () => { try { await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign']); } catch { $('support').hidden = false; } })();
   window.addEventListener('beforeunload', e => { if (unsaved) { e.preventDefault(); e.returnValue = ''; } });
-  const draw = () => $('rows').replaceChildren(...ledger.slice().reverse().map(r => { const tr = document.createElement('tr'); for (const k of HEAD.slice(0, 7)) { const td = document.createElement('td'); td.textContent = r[k] || ''; tr.append(td); } return tr; }));
+  // The table's columns (the heading's seven); the ledger file also keeps each code's computers and the code itself.
+  const SHOWN = ['issued', 'ref', 'type', 'name', 'email', 'expires', 'note'];
+  const draw = () => $('rows').replaceChildren(...ledger.slice().reverse().map(r => { const tr = document.createElement('tr'); for (const k of SHOWN) { const td = document.createElement('td'); td.textContent = r[k] || ''; tr.append(td); } return tr; }));
 
   $('open').onclick = async () => {
     try {
@@ -379,9 +381,10 @@ const SITE = 'https://gdex.crowmade.app';
     try {
       const rows = parseCsv(await readFile($('ledgerfile'))), head = (rows.shift() || []).map(x => x.trim());
       if (!head.includes('ref') || !head.includes('code')) throw new Error('That is not a Gdex ledger');
-      if (rows.some(r => r.some(c => /VDEX-[0-9A-Z]/i.test(c)))) throw new Error('That is a Vdex ledger, not Gdex’s. Keep the two apart: open gdex-ledger.csv here.');
+      // A Vdex ledger has VDEX- codes in its code column (a note or a name that mentions Vdex is not one).
+      if (rows.some(r => /^\s*VDEX-/i.test(r[head.indexOf('code')] || ''))) throw new Error('That is a Vdex ledger, not Gdex’s. Keep the two apart: open gdex-ledger.csv here.');
       const old = rows.filter(r => r.length > 1).map(r => Object.fromEntries(head.map((k, i) => [k, String(r[i] || '').replace(/^'(?=[=+\-@])/, '')])));
-      const known = new Set(old.map(r => r.ref)); ledger = old.concat(ledger.filter(r => !known.has(r.ref))); draw(); say(`Ledger opened: ${ledger.length} codes.`);
+      const known = new Set(old.map(r => r.ref)); ledger = old.concat(ledger.filter(r => !known.has(r.ref))); draw(); say(`Ledger opened: ${ledger.length} code${ledger.length === 1 ? '' : 's'}.`);
     } catch (e) { say(e.message, true); }
   };
   $('saveledger').onclick = () => { download(LEDGER, [HEAD.join(','), ...ledger.map(r => HEAD.map(k => csvCell(k === 'code' || k === 'ref' ? r[k] || '' : safeCell(r[k] || ''))).join(','))].join('\r\n') + '\r\n', 'text/csv'); unsaved = 0; say(`Ledger saved to your Downloads as ${LEDGER}. Keep it with your Gdex key files.`); };

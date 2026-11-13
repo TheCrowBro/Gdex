@@ -90,7 +90,9 @@ purchase emails always have room. On a paid Resend plan, raise it with the setti
 
 (If you would rather publish from your own computer, with no token in GitHub at all: `npx wrangler login`, then in the
 repository `node tools/stamp-build.mjs`, `node tools/stage-site.mjs cloudflare/site --cloudflare`, and in `cloudflare/`,
-`npx wrangler deploy`. Say so and the guide changes; nothing in Gdex depends on which.)
+`npx wrangler deploy --config wrangler.jsonc`. Always name the file: without it, Wrangler takes the first
+`wrangler.json`, `wrangler.jsonc` or `wrangler.toml` it finds in that folder or any folder above it. Say so and the guide
+changes; nothing in Gdex depends on which.)
 
 ## Part 2. Make Gdex's licence keys (15 minutes, on your own computer)
 
@@ -165,7 +167,9 @@ so a Vdex purchase on the same account never makes a Gdex code, and a Vdex refun
    **Reveal** the signing secret and add the value starting `whsec_` in Cloudflare as `STRIPE_WEBHOOK_SECRET`.
 
 Stripe's test mode ("Sandbox") has its own link, keys and webhook: you can do steps 4 to 8 there first and try a test
-card, then do them again in live mode and replace the four Cloudflare secrets with the live ones.
+card, then do them again in live mode and replace the four Cloudflare secrets with the live ones. **A test purchase's
+code is a real Gdex licence**, signed by the same shop key, and its email stays linked for website sign-in: refund each
+test purchase in Stripe's test mode before you switch (or cancel its code in the generator afterwards, Part 8).
 
 **Changing the price later:** a Stripe price can't be edited. In the product, **Add another price**; make a new payment
 link with it exactly as in step 5; in Cloudflare set `BUY_URL` to the new link's address and `STRIPE_PAYMENT_LINK` to
@@ -203,7 +207,7 @@ Do Parts 1 to 5 first, and try the shop (Part 7). Then, in this order:
    working role sends nothing to the licence server.
 3. **Try it:** in a private browser window open https://gdex.crowmade.app, pick a working role, then Settings → About &
    licence → **Sign in**, with a licence that is live: for example a free code you made for your own email address
-   (Part 8; the generator links it). A refunded test purchase, or one made in Stripe's test mode, cannot sign in.
+   (Part 8; the generator links it). A refunded or cancelled purchase, test or not, cannot sign in.
 
 A browser asks the server whether licences are live at most every 6 hours, and the server's answer is kept by caches for
 5 minutes, so a change of `WEB_SIGN_IN` reaches everyone within about 6 hours.
@@ -307,4 +311,8 @@ developer straight away.
 - To run its specs locally: `npm ci --prefix cloudflare` once (the Wrangler version is pinned in
   `cloudflare/package-lock.json`), then `node tests/run.mjs 81-`. Without it, spec 81 says SKIP (FAIL in CI).
 - Publishing: `.github/workflows/publish.yml`, by hand only (`docs/go-live.md`): the tests in both legs, the stamp, the
-  guard, the staged site, `wrangler deploy` (the only Wrangler command in any workflow), then live checks.
+  guard, the staged site, `wrangler deploy --config wrangler.jsonc` (the only Wrangler command in any workflow), then
+  live checks. The guard refuses any other Wrangler configuration in the repository (`wrangler.json`, `wrangler.toml`, a
+  `.wrangler/deploy/config.json` redirect: Wrangler would take them before the guarded file) and any key of
+  `cloudflare/wrangler.jsonc` beyond Gdex's own Worker, its licence store and its files (no binding to another Worker,
+  bucket or database); spec 82 tries each on a tampered copy.

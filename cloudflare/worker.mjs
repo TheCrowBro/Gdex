@@ -123,9 +123,11 @@ async function licenceForSession(s, env) {
 
 async function thanks(url, env) {
   const id = url.searchParams.get('session_id') || '';
-  if (!selling(env)) return page(503, 'The shop is not open yet', '<h1>The shop is not open yet</h1><p>If you have paid, reply to your receipt email and we’ll send your licence code.</p>');
+  const closed = () => page(503, 'The shop is not open yet', '<h1>The shop is not open yet</h1><p>If you have paid, reply to your receipt email and we’ll send your licence code.</p>');
+  if (!selling(env)) return closed();
   const s = /^cs_(live|test)_[A-Za-z0-9]{10,250}$/.test(id) ? await stripeGet(env, 'checkout/sessions/' + encodeURIComponent(id)) : null;
   const r = await licenceForSession(s, env);
+  if (r.error === 'not-ready') return closed(); // a paid order, but no shop key (or not the one built into Gdex)
   if (r.error === 'not-paid') return page(202, 'Your payment is on its way', `<h1>Your payment is on its way</h1><p>Some ways of paying take a little while to confirm. <a href="/licence/thanks?session_id=${esc(encodeURIComponent(id))}">Reload this page</a> in a minute.${env.RESEND_API_KEY ? ' We’ll also email your licence as soon as the payment is confirmed.' : ''}</p>`);
   if (r.error) return page(404, 'We couldn’t find that order', '<h1>We couldn’t find that order</h1><p>If you have just paid, wait a minute and reload this page. If it still doesn’t work, reply to your receipt email and we’ll send your licence code.</p>');
   const who = r.name || r.email, web = await webReady(env), mailed = !!(env.RESEND_API_KEY && r.email);
@@ -134,7 +136,7 @@ async function thanks(url, env) {
 <div class="card"><label for="code" class="muted">Your licence code</label><textarea id="code" rows="8" readonly>${esc(r.code)}</textarea><button id="copy" type="button">Copy the code</button> <span id="copied" class="muted" role="status"></span></div>
 ${web ? `<p><b>On the website:</b> Settings → About &amp; licence → Sign in, with ${r.email ? `<b>${esc(r.email)}</b>` : 'the email address you paid with'}. Gdex emails you a 6-digit code to type in.</p>
 ` : ''}<p><b>In the desktop app:</b> Settings → About &amp; licence → Enter licence code, and paste the code. <a href="/download.html">Download Gdex for your computer</a> if you haven’t yet.</p>
-<p class="muted">Audiophile stays free for everyone, licence or not. The receipt from Stripe is your proof of purchase. Questions? Reply to the email your licence comes in.</p>`,
+<p class="muted">Audiophile stays free for everyone, licence or not. The receipt from Stripe is your proof of purchase. Questions? Reply to ${mailed && env.REPLY_TO ? 'the email your licence comes in' : 'your receipt email'}.</p>`,
   "document.getElementById('copy').onclick=async()=>{const t=document.getElementById('code'),m=document.getElementById('copied');try{await navigator.clipboard.writeText(t.value);m.textContent='Copied.'}catch(e){t.select();m.textContent='Press Ctrl+C (Cmd+C on a Mac) to copy.'}}");
 }
 

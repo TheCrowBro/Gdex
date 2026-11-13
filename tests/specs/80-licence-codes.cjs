@@ -140,7 +140,15 @@ const throws = async fn => { try { await fn(); return null; } catch (e) { return
     ok('a ledger holding a VDEX- code is refused: "That is a Vdex ledger, not Gdex’s"', /^That is a Vdex ledger, not Gdex’s/.test(await page.textContent('#msg')) && (await page.getAttribute('#msg', 'class')) === 'bad' && (await page.locator('#rows tr').count()) === 1);
     await page.setInputFiles('#ledgerfile', { name: 'gdex-ledger.csv', mimeType: 'text/csv', buffer: Buffer.from(ledger) });
     await page.waitForFunction(() => /Ledger opened/.test(document.getElementById('msg').textContent));
-    ok('its own ledger opens again', /Ledger opened: 1 codes/.test(await page.textContent('#msg')) && (await page.locator('#rows tr').count()) === 1);
+    ok('its own ledger opens again', /Ledger opened: 1 code\./.test(await page.textContent('#msg')) && (await page.locator('#rows tr').count()) === 1);
+    const cells = await page.$$eval('#rows tr:first-child td', tds => tds.map(td => td.textContent));
+    ok('the ledger\'s table shows each column under its own heading (Ends is the end date, Note the note)', cells.length === 7 && cells[1] === mr.licence.ref && cells[3] === 'Riley Free' && cells[5] === '' && cells[6] === '=HYPERLINK("x")', JSON.stringify(cells));
+    // Only the code column tells a Vdex ledger: Gdex's own, with a name or a note that mentions a Vdex licence, opens.
+    const mentions = ledger.trimEnd() + '\r\n2026-11-03,1:78,free,Vdex-2 user,vdex-fan@example.com,,3,"Moved from VDEX-ABCDE, a Vdex licence",' + made + '\r\n';
+    await page.evaluate(() => { document.getElementById('msg').textContent = ''; });
+    await page.setInputFiles('#ledgerfile', { name: 'gdex-ledger.csv', mimeType: 'text/csv', buffer: Buffer.from(mentions) });
+    await page.waitForFunction(() => /Vdex ledger|Ledger opened/.test(document.getElementById('msg').textContent));
+    ok('…even when a name, an email or a note in it mentions Vdex (only VDEX- codes make a Vdex ledger)', /^Ledger opened: 2 codes/.test(await page.textContent('#msg')), await page.textContent('#msg'));
     await page.waitForTimeout(300);
     const linkNote = linked[0] && (await codes.readNote('admin', linked[0], { keys: genKeys, signers: codes.OWNER_KIDS }));
     ok('making keys and codes contacts nothing except, for a code with an email, one signed request to gdex.crowmade.app to link it', requests.length > 0 && requests.every(u => u === 'https://gdex.crowmade.app/licence/admin') && linked.length === 1 && linkNote && linkNote.op === 'link' && linkNote.code === made && linkNote.ref === mr.licence.ref, requests.join(', '));

@@ -349,6 +349,13 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
       const t2 = Math.floor(Date.now() / 1000), raw2 = JSON.stringify(done), sig2 = crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(`${t2}.${raw2}`).digest('hex');
       await m.dispatchFetch(SITE + '/licence/stripe-webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Stripe-Signature': `t=${t2},v1=${sig2}` }, body: raw2 });
       const offMail = mails().at(-1);
+      ok('the thank-you page sends questions to the email the licence comes in only when that email has a reply address', /Questions\? Reply to the email your licence comes in\./.test(html) && /Questions\? Reply to the email your licence comes in\./.test(offPage));
+      {
+        const quiet = make({ ...env, RESEND_API_KEY: '' }), noReply = make({ ...env, REPLY_TO: '' });
+        const qp = await (await quiet.dispatchFetch(SITE + '/licence/thanks?session_id=' + sid)).text(), np = await (await noReply.dispatchFetch(SITE + '/licence/thanks?session_id=' + sid)).text();
+        ok('…and otherwise to the receipt email (no Resend: the page is the only place the code is shown)', /this page is the only place it is shown/.test(qp) && /Questions\? Reply to your receipt email\./.test(qp) && !/the email your licence comes in/.test(qp) && /We’ve emailed it to you too/.test(np) && /Questions\? Reply to your receipt email\./.test(np));
+        await drop(quiet); await drop(noReply);
+      }
       ok('with the website\'s sign-in off, neither the thank-you page nor the email tells buyers to sign in there', offPage.includes(code) && !/On the website/.test(offPage) && /Enter licence code/.test(offPage) && offMail && offMail.text.includes(code) && !/Sign in, with this email/.test(offMail.text));
       await drop(m);
     }
@@ -366,7 +373,8 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
       const m = make({ ...env, LICENCE_SHOP_KEY: codes.b64u.enc(stranger.pkcs8) });
       const t3 = Math.floor(Date.now() / 1000), raw3 = JSON.stringify(done), sig3 = crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(`${t3}.${raw3}`).digest('hex');
       const wh3 = await m.dispatchFetch(SITE + '/licence/stripe-webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Stripe-Signature': `t=${t3},v1=${sig3}` }, body: raw3 });
-      ok('a shop key that is not the one built into Gdex keeps the shop closed instead of selling codes nobody can use', (await m.dispatchFetch(SITE + '/licence/activate', { method: 'POST', body: JSON.stringify({ code, install: id(1) }) })).status === 503 && (await m.dispatchFetch(SITE + '/licence/thanks?session_id=' + sid)).status === 404 && wh3.status === 503 && (await (await m.dispatchFetch(SITE + '/licence/web/status')).json()).on === false);
+      const th3 = await m.dispatchFetch(SITE + '/licence/thanks?session_id=' + sid), th3t = await th3.text();
+      ok('a shop key that is not the one built into Gdex keeps the shop closed instead of selling codes nobody can use', (await m.dispatchFetch(SITE + '/licence/activate', { method: 'POST', body: JSON.stringify({ code, install: id(1) }) })).status === 503 && th3.status === 503 && /The shop is not open yet/.test(th3t) && /reply to your receipt email/.test(th3t) && !/GDEX-/.test(th3t) && wh3.status === 503 && (await (await m.dispatchFetch(SITE + '/licence/web/status')).json()).on === false);
       await drop(m);
     }
 
