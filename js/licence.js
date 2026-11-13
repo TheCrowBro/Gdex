@@ -7,7 +7,7 @@
 import { h, sheet, toast, announce } from './util.js';
 import { roleId, roleOf, setRole, roleNeedsLicence, sectionName, FREE_ROLE } from './roles.js';
 import { licenceNow, licenceOn, licenceReady, setLicenceState, onLicenceChange, startFreeDays, termsAgreed, termsDeclined, toastStarted, mayOpen, mayWork, mayPickRole, canWrite } from './licence-state.js';
-import { askTerms } from './terms.js';
+import { askTerms, termsChanged } from './terms.js';
 
 const desk = () => (window.gdexDesktop && window.gdexDesktop.licence) || null;
 const web = () => !desk();
@@ -259,14 +259,17 @@ export function readOnlySheet({ form = false } = {}) {
   let sh = null;
   const close = () => sh && sh.close();
   if (s.canEdit && termsDeclined()) {
-    // The terms sheet was closed with Not now this visit: agreeing to them starts the free days.
+    // The terms sheet was closed with Not now this visit: agreeing to them starts the free days (or, the terms having
+    // changed since they were agreed, lets the working role change things again).
+    const has = ['licensed', 'pending'].includes(s.mode);
     sh = sheet('Read-only for now', h('div', { class: 'stack lic-ro' },
-      h('p', null, 'Gdex’s working roles and sections are free for 30 days on this device, then need a licence: ', onceEl(), ', for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Gdex’s terms.'),
+      termsChanged(true) ? h('p', null, 'Please read and agree to the updated terms to keep using the working roles. Your information is safe and stays where it is.')
+        : h('p', null, 'Gdex’s working roles and sections are free for 30 days on this device, then need a licence: ', onceEl(), ', for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Gdex’s terms.'),
       h('p', { class: 'small muted' }, `Nothing was changed${form ? ': what you typed is still in the form' : ''}.`),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'btn primary', id: 'lic-ro-terms', onclick: async () => { close(); if (await askTerms({ once: once() })) { termsAgreed(); if (await startFreeDays()) toastStarted(); } } }, 'Read and agree'),
-        // Read and agree takes Buy's place (§9.5); Sign in stays, for someone who has a licence already.
-        ...actions(s, { enter: true }, { sheetWords: true, after: close }),
+        // Read and agree takes Buy's place (§9.5); Sign in stays, for someone who has a licence already (not signed in here).
+        ...(has ? [] : actions(s, { enter: true }, { sheetWords: true, after: close })),
         h('button', { type: 'button', class: 'btn ghost lic-carry', onclick: () => { close(); carryOnFree(); } }, 'Carry on free as an Audiophile'))));
   } else {
     const first = {

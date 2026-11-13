@@ -623,6 +623,45 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // The terms changed since they were agreed ([S-37], §9.4), the free days under way: the terms sheet comes again at
+      // opening ("The terms have changed"). Not now: read-only for this visit, a refused change asks for the updated terms;
+      // agreed there, the form that stayed open saves.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': { v: '2026-01-01', at: Date.now() - 30 * DAY }, 'gdex-licence': trialFrom(Date.now() - 3 * DAY) } });
+      const asked = await page.waitForSelector('.sheet[aria-label="The terms have changed"]', { timeout: 8000 }).then(() => true).catch(() => false);
+      ok('the terms changed, the free days under way: the terms sheet comes again at opening, in its changed words', asked && /^Please read and agree to the updated terms to keep using the working roles\. Your information is safe and stays where it is\./.test(await page.textContent('.lic-terms p').catch(() => '')), (await sheets(page)).join(' | '));
+      if (asked) {
+        await sampleIn(page); // written while the sheet is up (nothing refused yet)
+        await page.click('#lic-terms-later'); await sleep(800);
+        const st = await state(page);
+        ok('…Not now: Producer kept, its free days running, but read-only for this visit', st.mode === 'trial' && (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'producer' && !(await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()))) && (await sheets(page)).length === 0, JSON.stringify({ st, sh: await sheets(page) }));
+        await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1'))); await sleep(500);
+        await page.click('.bk-edit'); await page.waitForSelector('.sheet form.form');
+        await page.fill('[data-key="title"]', 'Saved once the terms are agreed');
+        await page.click('.sheet .form-actions .btn.primary'); await sleep(600);
+        const ro = await page.textContent('.sheet.licence-readonly').catch(() => '');
+        ok('…a refused change asks for the updated terms (Read and agree), with nothing about free days, and the form is kept', (await sheets(page)).join() === 'Edit show,Read-only for now' && /Please read and agree to the updated terms to keep using the working roles\./.test(ro) && !/free for 30 days/.test(ro) && (await page.locator('.sheet.licence-readonly #lic-ro-terms').count()) === 1, ro);
+        await page.click('#lic-ro-terms');
+        await page.waitForSelector('#lic-terms-ok'); await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); await sleep(800);
+        await page.click('.sheet .form-actions .btn.primary'); await sleep(500);
+        ok('…agreed there: the terms kept in their new version, and the form saves', (await page.evaluate(() => JSON.parse(localStorage.getItem('gdex-terms')).v)) === TERMS_V && (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 's-show1').title || ''))) === 'Saved once the terms are agreed');
+      }
+      await ctx.close();
+    }
+    {
+      // The same for an Audiophile whose free days are under way: picking a working role asks the updated terms first.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': { v: '2026-01-01', at: Date.now() - 30 * DAY }, 'gdex-licence': trialFrom(Date.now() - 3 * DAY) } });
+      await sleep(1200);
+      const atOpening = await sheets(page);
+      await go(page, 'settings'); await sleep(300);
+      await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
+      await page.click('#se-role .rp-card[data-role="band"]');
+      const asked = await page.waitForSelector('.sheet[aria-label="The terms have changed"]', { timeout: 5000 }).then(() => true).catch(() => false);
+      if (asked) await page.click('#lic-terms-later'); await sleep(400);
+      const kept = await page.evaluate(() => localStorage.getItem('gdex-role'));
+      ok('an Audiophile in its free days, the terms changed: nothing at opening; picking Band asks the updated terms first, and Not now keeps the Audiophile', atOpening.length === 0 && asked && kept === 'audiophile', JSON.stringify({ atOpening, asked, kept }));
+      await ctx.close();
+    }
+    {
       const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' } });
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
       await page.click('#lic-terms-later'); await sleep(400);

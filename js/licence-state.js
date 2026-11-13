@@ -222,7 +222,7 @@ export const termsDeclined = () => declined && termsDue(true);
 export function canWrite() {
   const s = licenceNow(), paid = roleNeedsLicence(roleId());
   if (s.mode === 'off') return true; // switched off, or paused by the licence server: everything as before
-  if (s.canEdit) return !(termsDeclined() && paid && !s.started && !hasLicence(s));
+  if (s.canEdit) return !(termsDeclined() && paid);
   if (paid) return false;
   let page = 'bookings'; try { page = (window.logiPage && window.logiPage()) || 'bookings'; } catch { /* not drawn yet */ }
   return !sectionNeedsLicence(page);
@@ -301,7 +301,14 @@ export function startFreeDays() {
       if (!num(s.statusAt) || t - num(s.statusAt) > STATUS_FRESH || t < num(s.statusAt)) { try { await (await import('./licence-web.js')).status(true); } catch { /* offline: on */ } }
     }
     const st = licenceNow();
-    if (st.mode === 'off' || st.mode === 'away' || st.started || ['licensed', 'pending', 'offline'].includes(st.mode)) return false;
+    if (st.mode === 'off' || st.mode === 'away') return false;
+    if (st.started || ['licensed', 'pending', 'offline'].includes(st.mode)) {
+      // Nothing to start. The terms are asked again of a working role that can use them when they have changed since
+      // they were agreed (or were never agreed here: a start taken from Google Drive) ([S-37]); Not now makes it
+      // read-only for this visit, as before the start.
+      if (st.canEdit && roleNeedsLicence(roleId()) && termsDue(true) && !(await askTerms())) { declined = true; fire(); }
+      return false;
+    }
     if (termsDue(true) && !(await askTerms())) { declined = true; fire(); return false; }
     declined = false;
     const now = Date.now();

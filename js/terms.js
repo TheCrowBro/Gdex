@@ -13,6 +13,8 @@ const read = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); retu
 let agreedNow = false; // agreed this visit where storage could not keep it
 
 export const termsDue = on => !!(TERMS_SHEET && on && !agreedNow && (read() || {}).v !== TERMS_VERSION);
+// Due because they changed since this device agreed to them (the sheet then says "The terms have changed").
+export const termsChanged = on => termsDue(on) && !!read();
 
 let asking = null;
 // The sheet of §9.4. Resolves true once agreed (after writing gdex-terms), false when closed without agreeing.

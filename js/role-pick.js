@@ -1,7 +1,7 @@
 // "Who's using Gdex?": the first-run question (askRole) and Settings → Your role (rolePanel). Each choice shows the
 // menu it gives; choosing changes the menu at once (js/roles.js, js/app.js) and nothing in the data.
 import { h, nodes, sheet, toast, announce } from './util.js';
-import { ROLES, EVERYTHING, roleId, roleChosen, roleOf, setRole, menuSections, offMenu, sectionName } from './roles.js';
+import { ROLES, EVERYTHING, roleId, roleChosen, roleOf, setRole, menuSections, offMenu, sectionName, roleNeedsLicence } from './roles.js';
 import { haptic, menuWords } from './a11y.js';
 // The licence (decisions §9): which roles are free, which need a licence, and the free days left. All of it says nothing
 // while licences are off.
@@ -26,12 +26,13 @@ function card(r, { on = false, radio = false, onPick }) {
   radio && h('span', { class: 'rp-check', 'aria-hidden': 'true' }, on ? '✓' : ''));
 }
 // Before a role is set: a role that needs a licence the free days are over for is offered one instead (nothing changes);
-// one whose free days have not started asks the terms first, the first time (Not now: nothing changes). Resolves true
-// when the role may be set now; the free days then start as it is used (js/app.js).
+// any other working role asks the terms first while they are due: the first time, and again when they have changed
+// (Not now: nothing changes). Resolves true when the role may be set now; the free days then start as it is used
+// (js/app.js).
 async function mayPick(id) {
   const may = mayPickRole(id);
   if (may === 'locked') { import('./licence.js').then(m => m.offerRole(id)).catch(e => console.error(e)); return false; }
-  if (may === 'start' && termsDue(licenceOn()) && !(await askTerms())) return false;
+  if (may !== 'locked' && roleNeedsLicence(id) && termsDue(licenceOn()) && !(await askTerms())) return false;
   return true;
 }
 // The first-run question's added sentence while licences are on (§9.2).
