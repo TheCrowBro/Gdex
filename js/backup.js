@@ -1,13 +1,18 @@
-// Backups. Gdex keeps everything in this browser only, so this is the safety net: a backup file saved and brought
-// back (merged into this device or replacing it), optionally locked with a passphrase; a copy kept in a file in a
-// synced folder (Chrome or Edge on a computer), written a moment after every change; how recent the last copy is; and
-// an occasional reminder. The ☁ button at the top opens openBackupSheet(); Settings → Backups shows backupPanel().
-import { h, sheet, toast, announce, todayISO, nodes } from './util.js';
+// Backups. Gdex keeps everything in this browser unless the person connects Google Drive, so this is the safety net:
+// Google Drive (free for everyone: js/sync.js keeps every connected device the same and saves a dated copy each day;
+// its card is at the top of the panel); a backup file saved and brought back (merged into this device or replacing
+// it), optionally locked with a passphrase; a copy kept in a file in a synced folder (Chrome or Edge on a computer),
+// written a moment after every change; how recent the last copy is; and an occasional reminder. The ☁ button at the
+// top opens openBackupSheet() and shows the worse of Drive's and the file copy's states; Settings → Backups shows
+// backupPanel().
+import { h, sheet, toast, announce, todayISO, nodes, fmtTime } from './util.js';
 import * as store from './store.js';
 import { saveFile } from './print.js';
 import { sheetTutorial } from './tour.js';
 import * as C from './crypto.js';
 import { kv } from './kv.js';
+import * as drive from './sync.js';
+import { loadGIS, WORDS as DRIVE_WORDS } from './drive.js';
 
 const ls = {
   get: k => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -59,9 +64,11 @@ const ownRecords = () => store.COLLECTIONS.reduce((n, c) => n + store.db[c].filt
 const lastSaved = () => Number(ls.get(KEY.saved)) || 0;
 const lastFiled = () => Number(ls.get(KEY.file)) || 0;
 
-// { level: 'ok' | 'old' | 'none' | 'empty', at, days, when, via, text }
+// { level: 'ok' | 'old' | 'none' | 'empty', at, days, when, via, text, copyFailed }. Google Drive counts as a backup
+// (its last good sync, and the last daily copy); today's daily copy failing makes a good level warn (copyFailed).
 export function health() {
-  const copies = [[lastSaved(), 'backup file'], [lastFiled(), 'copy in a file']].filter(([t]) => t > 0).sort((a, b) => b[0] - a[0]);
+  const d = drive.driveState();
+  const copies = [[lastSaved(), 'backup file'], [lastFiled(), 'copy in a file'], [d.at, 'Google Drive'], [d.backupAt, 'Google Drive']].filter(([t]) => t > 0).sort((a, b) => b[0] - a[0]);
   const own = ownRecords();
   if (!copies.length) {
     const sample = store.COLLECTIONS.some(c => store.db[c].length);
@@ -69,16 +76,18 @@ export function health() {
   }
   const [at, via] = copies[0], days = daysSince(at), when = ago(at);
   const old = days >= STALE_DAYS && own > 0;
+  if (!old && d.linked && d.backupError) return { level: 'old', at, days, when, via, copyFailed: true, text: `Last backup ${when} (${via}), but today’s daily copy in Google Drive wasn’t saved.` };
   return { level: old ? 'old' : 'ok', at, days, when, via, text: old ? `Your last backup was ${when} (${via}). Save a new one.` : `Last backup ${when} (${via}).` };
 }
 
 // A reminder now and then: at most once every 14 days, when there are bookings of the person's own (older than a day)
-// and nothing has been backed up or copied to a file in the last 14 days. Returns true when it reminded.
+// and nothing has been backed up, copied to a file or synced to Google Drive in the last 14 days. Returns true when it
+// reminded.
 export function nudgeIfStale() {
   const own = store.db.bookings.filter(b => !b.sample);
   if (!own.length) return false;
   const hl = health();
-  if (hl.level === 'ok') return false;
+  if (hl.level === 'ok' || hl.copyFailed) return false; // a daily copy that failed shows in the panel; it is not stale
   if (Date.now() - (Number(ls.get(KEY.nudge)) || 0) < STALE_DAYS * DAY) return false;
   const first = Math.min(...own.map(b => Number(b.createdAt) || Date.now()));
   if (Date.now() - first < DAY) return false; // a first day's work: no reminder yet
@@ -185,7 +194,7 @@ export async function importBackup(file) {
   if (isLocked(data)) { data = await unlock(data); if (!data) return null; }
   if (isVdex(data)) return refuse('This is a Vdex backup, not a Gdex one. Vdex and Gdex keep separate data: open this file in Vdex instead.');
   if (!isGdex(data)) return refuse('That file is not a Gdex backup. Pick a file Gdex saved: its name starts with gdex-backup and ends in .json.');
-  return chooseHow(data, file.name || 'backup');
+  return chooseHow(data, file.name || 'backup', { drive: drive.driveState().linked });
 }
 
 // Every record's id and time, to say what a merge did.
@@ -201,33 +210,44 @@ function merge(data) {
   toast(msg); announce(msg);
 }
 
-function chooseHow(data, name) {
+// The chooser for a backup file and for a daily copy from Google Drive (copy: true). With Drive linked (drive: true),
+// Replace reaches every connected device: the restored records are stamped now and everything the backup lacks gets a
+// tombstone (store.replaceAll everywhere), so the next syncs follow it instead of bringing the old ones back.
+function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
   return new Promise(resolve => {
     let done = false;
     const finish = v => { if (!done) { done = true; resolve(v); } };
     const inFile = countsOf(data), here = countsOf(store.db);
     const nFile = totalOf(inFile), nHere = totalOf(here);
     const at = Number(data.updatedAt) || 0;
+    const what = copy ? 'copy' : 'backup', where = copy ? 'in the copy' : 'in the file';
     const go = how => {
       if (!store.canChange()) return; // bringing a backup back is a change: the chooser stays open and the licence's sheet explains
-      if (how === 'replace' && !confirm(`Replace everything on this device with this backup? The ${plural(nHere, 'record')} here now are replaced by the ${plural(nFile, 'record')} in the file. This can’t be undone.`)) return;
+      if (how === 'replace' && !confirm(linked
+        ? `Replace everything on this device, and on every device connected to this Google Drive, with this ${what}? The ${plural(nHere, 'record')} here now are replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`
+        : `Replace everything on this device with this ${what}? The ${plural(nHere, 'record')} here now are replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`)) return;
       finish(how); s.close();
-      if (how === 'replace') { store.replaceAll(data); const msg = `Backup brought back: ${plural(nFile, 'record')}.`; toast(msg); announce(msg); }
-      else merge(data);
+      if (how === 'replace') {
+        store.replaceAll(data, { everywhere: linked });
+        const msg = `${copy ? 'Daily copy' : 'Backup'} brought back: ${plural(nFile, 'record')}.${linked ? ' Every device connected to this Google Drive follows at its next sync.' : ''}`;
+        toast(msg); announce(msg);
+      } else merge(data);
     };
     const body = h('div', { class: 'stack se-imp' },
       h('div', { class: 'card se-imp-file' },
         h('strong', { class: 'se-imp-name' }, name),
         at > 0 && h('div', { class: 'small muted' }, 'Up to date as of ' + new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })),
-        h('p', { class: 'small se-imp-counts' }, h('b', null, 'In the file: '), countText(inFile)),
+        h('p', { class: 'small se-imp-counts' }, h('b', null, copy ? 'In the copy: ' : 'In the file: '), countText(inFile)),
         h('p', { class: 'small muted' }, h('b', null, 'On this device now: '), countText(here))),
       nHere
         ? [h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Merge into this device'),
           h('p', { class: 'small muted' }, 'Keeps everything on both. Where a record is in both, the copy changed last wins. Nothing here is lost.'),
           h('button', { type: 'button', class: 'btn danger se-imp-replace', onclick: () => go('replace') }, 'Replace this device’s data'),
-          h('p', { class: 'small muted' }, 'This device ends up exactly like the file, and anything added here since that backup is gone. Save a backup of this device first if you might want it back.')]
+          h('p', { class: 'small muted se-imp-replace-note' }, linked
+            ? `Every device connected to this Google Drive ends up exactly like this ${what}, and anything added since is gone from all of them. Save a backup of this device first if you might want it back.`
+            : `This device ends up exactly like the ${copy ? 'copy' : 'file'}, and anything added here since that ${what} is gone. Save a backup of this device first if you might want it back.`)]
         : [h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Bring it in'),
-          h('p', { class: 'small muted' }, 'This device has nothing of its own yet, so everything in the file comes in as it is.')],
+          h('p', { class: 'small muted' }, `This device has nothing of its own yet, so everything ${where} comes in as it is.`)],
       h('button', { type: 'button', class: 'btn ghost', onclick: () => s.close() }, 'Cancel'));
     const s = sheet('Bring back a backup', body, { onClose: () => finish(null) });
   });
@@ -317,13 +337,15 @@ export async function unlinkFile() {
   changed();
   return had;
 }
-// Erase this device (Settings) calls this first, so nothing linked is written over by the empty database: the copy in
-// a file, and Google Drive once js/sync.js is linked (Part D adds that line here).
-export async function beforeErase() { await unlinkFile(); }
+// Erase this device (Settings) calls this first, so nothing linked is written over by the empty database: Google Drive
+// is disconnected (its copy stays as it is), then the copy in a file is let go.
+export async function beforeErase() { await drive.disconnectDrive(); await unlinkFile(); }
 // Settings → Backups' closed line (moved here from js/pages/settings.js so Drive can add to it).
 export function backupLine() {
-  const hl = health(), f = fileState();
-  const bits = [hl.level === 'ok' ? `Last backup ${hl.when}` : hl.level === 'old' ? `⚠ Last backup ${hl.when}` : hl.level === 'none' ? '⚠ No backup yet' : 'Nothing to back up yet'];
+  const hl = health(), f = fileState(), d = drive.driveState();
+  const bits = [hl.level === 'ok' || hl.copyFailed ? `Last backup ${hl.when}` : hl.level === 'old' ? `⚠ Last backup ${hl.when}` : hl.level === 'none' ? '⚠ No backup yet' : 'Nothing to back up yet'];
+  if (d.linked) bits.push({ synced: `Google Drive: synced ${d.at ? ago(d.at) : 'just now'}`, saving: 'Google Drive: saving…', 'needs-permission': '⚠ Google Drive needs you to sign in again', error: '⚠ Google Drive: not synced' }[d.status] || 'Google Drive: connected');
+  if (d.linked && d.backupError) bits.push('⚠ today’s daily copy wasn’t saved');
   if (f.linked) bits.push(f.status === 'needs-permission' ? '⚠ the file copy needs your OK' : f.status === 'error' ? '⚠ the file copy wasn’t saved' : `copy in ${f.name}`);
   return bits.join(' · ');
 }
@@ -339,26 +361,166 @@ async function initFile() {
   else setStatus('needs-permission');
 }
 
-// The ☁ button at the top says how the copy in a file is doing (it says Backup when there is none).
+// The ☁ button at the top says how Google Drive and the copy in a file are doing, the worse of the two first (it says
+// Backup when neither is on). [state, label, spoken, how bad]
+const FILE_LOOK = { saved: ['synced', 'Saved', 'copy in a file is up to date', 1], saving: ['saving', 'Saving…', 'saving the copy in a file', 2], 'needs-permission': ['needs-permission', 'Allow', 'the copy in a file needs your OK', 3], error: ['error', 'Not saved', 'the copy in a file could not be saved', 4] };
+const DRIVE_LOOK = { synced: ['synced', 'Synced', 'Google Drive is up to date', 1], saving: ['saving', 'Saving…', 'saving to Google Drive', 2], 'needs-permission': ['needs-permission', 'Sign in', 'Google Drive needs you to sign in again', 3], error: ['error', 'Not synced', 'Google Drive is not synced', 4] };
 function paintButton() {
   const btn = document.getElementById('cloudBtn');
   if (!btn) return;
   const label = document.getElementById('cloudLabel');
-  const st = FILE.handle ? FILE.status : 'off';
-  const [state, text, said] = { saved: ['synced', 'Saved', 'copy in a file is up to date'], saving: ['saving', 'Saving…', 'saving the copy in a file'], 'needs-permission': ['needs-permission', 'Allow', 'the copy in a file needs your OK'], error: ['error', 'Not saved', 'the copy in a file could not be saved'] }[st] || ['', 'Backup', ''];
+  const d = drive.driveState();
+  const looks = [d.linked && DRIVE_LOOK[d.status], FILE.handle && FILE_LOOK[FILE.status]].filter(Boolean);
+  const [state, text] = looks.reduce((w, x) => (!w || x[3] > w[3] ? x : w), null) || ['', 'Backup'];
   if (state) btn.dataset.state = state; else delete btn.dataset.state;
   if (label) label.textContent = text;
-  btn.setAttribute('aria-label', 'Backups' + (said ? ': ' + said : ''));
+  btn.setAttribute('aria-label', 'Backups' + (looks.length ? ': ' + looks.map(x => x[2]).join('; ') : ''));
+}
+
+/* ------------------------------- Google Drive ------------------------------- */
+// A failure in words: a whole sentence is said as it is, a short reason after "Couldn’t reach Google Drive:".
+const isSentence = e => /[.!?]$/.test(e);
+const driveProblem = e => (isSentence(e) ? e : `Couldn’t reach Google Drive: ${e}.`) + ' Your changes are safe on this device.';
+const notCopied = e => (isSentence(e) ? e : `Not copied yet: ${e}.`) + ' Your changes are safe on this device.';
+const copyFailed = e => (isSentence(e) ? `⚠ Today’s copy wasn’t saved. ${e}` : `⚠ Today’s copy wasn’t saved: ${e}.`);
+const clock = t => fmtTime(new Date(t));
+const isToday = t => !!t && new Date(t).toDateString() === new Date().toDateString();
+const savedWhen = t => (t ? `saved ${new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}, ${clock(t)}` : 'saved at a time Drive didn’t say');
+
+// After a tap: say what really happened (only "up to date" when the copy really was made).
+async function driveRun(fn, done) {
+  try {
+    const st = await fn();
+    if (!st || !st.linked) return;
+    if (st.status === 'synced') toast(done);
+    else if (st.status === 'needs-permission') toast(DRIVE_WORDS.again);
+    else if (st.error) toast(notCopied(st.error));
+  } catch (e) { if (e.name !== 'AbortError') toast(e.message); }
+}
+
+// Connect: what Drive does, in a sheet, then Google's sign-in from the tap on Continue. Google's script is loaded when
+// this sheet opens, so its window can open straight from that tap (browsers block one that opens later). The desktop
+// app loads nothing here: its sign-in opens in the web browser.
+function openConnectSheet(panel = null) {
+  const d = drive.driveState();
+  if (d.away) { toast(DRIVE_WORDS.away); return; }
+  const desktop = d.desktop;
+  const go = h('button', { type: 'button', class: 'btn primary se-bk-drive-go', disabled: !desktop }, 'Continue with Google');
+  const note = h('p', { class: 'small muted se-bk-drive-load', role: 'status', hidden: desktop }, desktop ? '' : 'Loading Google’s sign-in…');
+  const err = h('p', { class: 'warn small se-bk-drive-err', role: 'alert', hidden: true });
+  const retry = h('button', { type: 'button', class: 'btn ghost se-bk-drive-retry', hidden: true }, 'Try again');
+  // While it loads a quiet line says so; failing, the warning box says why (as a sign-in that did not finish does).
+  const load = () => {
+    retry.hidden = true; err.hidden = true; note.hidden = false; note.textContent = 'Loading Google’s sign-in…'; go.disabled = true;
+    const done = () => { note.hidden = true; note.textContent = ''; };
+    loadGIS().then(() => { done(); go.disabled = false; }, e => { done(); err.textContent = e.message || DRIVE_WORDS.noLoad; err.hidden = false; retry.hidden = false; });
+  };
+  retry.onclick = load;
+  go.onclick = async () => {
+    go.disabled = true; err.hidden = true;
+    try { await drive.connectDrive(); s.close(); toast('Connected to Google Drive. Up to date.'); announce('Connected to Google Drive'); }
+    catch (e) { if (e.name !== 'AbortError') { err.textContent = e.message; err.hidden = false; } go.disabled = false; }
+  };
+  const body = h('div', { class: 'stack se-bk-connect' },
+    h('p', null, 'Gdex keeps one copy of everything in a hidden folder of your Google Drive that only Gdex can open, and a dated copy each day you use it (the last 7 days and the last 12 months). Every phone or computer you connect with the same Google account shares the same Gdex. Google asks you to sign in again about once an hour while you use Gdex: one tap. Nothing goes to a Gdex server.'),
+    desktop && h('p', null, 'Google’s sign-in opens in your web browser; come back to Gdex when it says so.'),
+    note, err,
+    h('div', { class: 'actions se-bk-connect-actions' }, go, retry, h('button', { type: 'button', class: 'btn ghost', onclick: () => s.close() }, 'Not now')));
+  const s = sheet('Connect Google Drive', body, { onClose: backToCard(panel, '.se-bk-drive-connect') });
+  if (!desktop) load();
+}
+
+// The daily copies in Drive, newest first; one tap opens the same chooser as a backup file (merge, or replace on
+// every connected device).
+async function openDailyCopies(panel = null) {
+  const box = h('div', { class: 'stack se-bk-copies' }, h('p', { class: 'small muted', role: 'status' }, 'Looking for the daily copies in your Google Drive…'));
+  const s = sheet('Bring back a daily copy', box, { onClose: backToCard(panel, '.se-bk-drive-restore') });
+  const done = h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost', onclick: () => s.close() }, 'Close'));
+  let copies;
+  try { copies = await drive.listDailyCopies({ ask: true }); }
+  catch (e) {
+    if (e.name === 'AbortError') { s.close(); return; }
+    box.replaceChildren(...nodes(h('p', { class: 'warn small', role: 'alert' }, e.name === 'NotAllowedError' ? 'Google Drive wants you to sign in again before the daily copies can be listed: tap Sign in again, then try once more.' : e.message), done));
+    return;
+  }
+  const pick = async (c, btn) => {
+    btn.disabled = true;
+    let data;
+    try { data = await drive.readDailyCopy(c.name); } catch (e) { btn.disabled = false; toast(e.message); return; }
+    s.close();
+    chooseHow(data, `${c.label} · ${savedWhen(c.at)}`, { drive: drive.driveState().linked, copy: true });
+  };
+  box.replaceChildren(...nodes(
+    copies.length
+      ? h('div', { class: 'list se-bk-copy-list' }, ...copies.map(c => { const b = h('button', { type: 'button', class: 'card tap se-bk-copy', onclick: () => pick(c, b) }, h('strong', null, c.label), h('span', { class: 'small muted' }, ` · ${savedWhen(c.at)}`)); return b; }))
+      : h('p', { class: 'small muted' }, 'No daily copies yet. Gdex saves one the first time it syncs each day.'),
+    h('p', { class: 'small muted' }, 'Gdex keeps a copy for each day of the last week and one for each of the last 12 months, so a mistake can be undone for about a week, or a month.'),
+    done));
+}
+
+async function deleteDriveCopy() {
+  if (!confirm('Delete Gdex’s copy and every daily copy from your Google Drive? This device keeps its own data. Other devices still connected will put their copy back the next time they sync: disconnect them first.')) return;
+  try { await drive.deleteDriveCopy(); toast('Gdex’s copy was deleted from your Google Drive, and Drive is disconnected here. Everything is still on this device.'); }
+  catch (e) { if (e.name !== 'AbortError') toast(e.message); }
+}
+
+function driveCard() {
+  const d = drive.driveState();
+  const card = (state, ...kids) => h('div', { class: 'card stack se-bk-drive', 'data-state': state }, ...kids);
+  const title = h('strong', null, '☁ Google Drive');
+  if (!d.linked && !d.configured) return card('unset', title, h('p', { class: 'small muted' }, 'Not set up yet: Google Drive will work here once Gdex’s Google sign-in is switched on.'));
+  if (!d.linked && d.away) return card('away', title, h('p', { class: 'small muted' }, DRIVE_WORDS.away));
+  if (!d.linked) {
+    return card('off', title,
+      h('p', { class: 'small muted' }, 'Keep Gdex the same on your phone and computer, with a dated copy each day, in a private Gdex folder of your own Google Drive. Free. Only Gdex can open that folder.'),
+      h('button', { type: 'button', class: 'btn primary se-bk-drive-connect', onclick: e => openConnectSheet(e.currentTarget.closest('.se-bk')) }, 'Connect Google Drive…'));
+  }
+  const needs = d.status === 'needs-permission';
+  const line = {
+    synced: `✅ Up to date (${d.at ? ago(d.at) : 'just now'})`,
+    saving: 'Saving…',
+    'needs-permission': '⚠ Needs you to sign in again',
+    error: '⚠ ' + driveProblem(d.error || 'something went wrong'),
+  }[d.status] || 'Checking Google Drive…';
+  const copy = d.backupError ? copyFailed(d.backupError)
+    : isToday(d.backupAt) ? `Today’s copy: saved at ${clock(d.backupAt)}`
+    : d.backupAt ? `Today’s copy: not saved yet (the last one was ${ago(d.backupAt)})` : 'Today’s copy: not saved yet';
+  return card(d.status || 'off',
+    h('div', { class: 'se-bk-drive-head' }, h('strong', null, '☁ Connected to Google Drive'), d.who && h('span', { class: 'small muted se-bk-drive-who' }, 'Signed in as ' + d.who)),
+    h('p', { class: 'small se-bk-drive-line', 'data-state': d.status }, line),
+    h('p', { class: 'small se-bk-drive-copy', 'data-state': d.backupError ? 'error' : 'ok' }, copy),
+    h('div', { class: 'actions se-bk-drive-actions' },
+      needs && h('button', { type: 'button', class: 'btn primary se-bk-drive-again', onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Signed in again. Up to date.') }, 'Sign in again'),
+      h('button', { type: 'button', class: `btn ${needs ? 'ghost' : 'primary'} se-bk-drive-sync`, onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Google Drive is up to date.') }, 'Sync now'),
+      h('button', { type: 'button', class: 'btn ghost se-bk-drive-restore', onclick: e => openDailyCopies(e.currentTarget.closest('.se-bk')) }, 'Bring back a daily copy…'),
+      h('button', { type: 'button', class: 'btn ghost se-bk-drive-off', onclick: async () => { if (await drive.disconnectDrive()) toast('Google Drive is disconnected on this device. Both copies stay.'); } }, 'Disconnect')),
+    h('p', { class: 'small muted' }, 'Disconnect stops syncing on this device. Both copies stay: this device’s and the one in your Drive. To take Gdex’s access away completely, remove Gdex in your Google Account under third-party connections.'),
+    h('button', { type: 'button', class: 'btn ghost small se-bk-drive-delete', onclick: () => deleteDriveCopy() }, 'Delete Gdex’s copy from Google Drive…'));
 }
 
 /* ------------------------------- the panel ------------------------------- */
-// Redraw a box and give the focus back to the same control (by its label), so a tap does not lose the place.
+// Redraw a box and give the focus back to the same control (by its label), so a tap does not lose the place. When the
+// tap made that control go (Disconnect, Sign in again, Stop), the focus goes to the first button of the same card.
 const keyOf = el => (el && (el.getAttribute('aria-label') || el.textContent || '').trim()) || '';
+const CARDS = ['.se-bk-drive', '.se-bk-file'];
 function redraw(box, kids) {
   const a = document.activeElement, k = a && box.contains(a) ? keyOf(a) : '';
+  const card = k ? CARDS.find(c => a.closest(c)) : '';
   box.replaceChildren(...nodes(kids));
-  if (k) { const again = [...box.querySelectorAll('button, a[href], input, select, textarea')].find(x => keyOf(x) === k); if (again) again.focus({ preventScroll: true }); }
+  if (k) {
+    const again = [...box.querySelectorAll('button, a[href], input, select, textarea')].find(x => keyOf(x) === k) || (card && box.querySelector(`${card} button`));
+    if (again) again.focus({ preventScroll: true });
+  }
 }
+// A sheet opened from the Drive card gives the focus back to it when it closes, even when the card was redrawn
+// meanwhile (connected, or a sign-in undone): to the control that opened it, or the card's first button.
+const backToCard = (panel, sel) => () => {
+  const a = document.activeElement;
+  if (a && a !== document.body && a.isConnected) return;
+  const card = panel && panel.isConnected ? panel.querySelector('.se-bk-drive') : null;
+  const b = card && (card.querySelector(sel) || card.querySelector('button'));
+  if (b) b.focus({ preventScroll: true });
+};
 
 function statusLine() {
   const hl = health();
@@ -404,7 +566,8 @@ export function backupPanel() {
   const body = h('div', { class: 'stack' });
   const draw = () => redraw(body, [
     statusLine(),
-    h('p', { class: 'small muted' }, 'Gdex keeps everything on this device only. A backup file holds all of it: bookings, acts, people, songs, setlists, backline, venues, your details and money settings. Keep it in your cloud drive or email it to yourself; it also moves Gdex to a new phone or computer.'),
+    driveCard(),
+    h('p', { class: 'small muted' }, 'Gdex keeps everything on this device unless you connect Google Drive. A backup file holds all of it: bookings, acts, people, songs, setlists, backline, venues, your details and money settings. Keep it in your cloud drive or email it to yourself; it also moves Gdex to a new phone or computer.'),
     h('div', { class: 'se-bk-actions' },
       h('button', { type: 'button', class: 'btn primary se-bk-save', onclick: () => exportBackup() }, '⤓ Save a backup'),
       h('button', { type: 'button', class: 'btn ghost se-bk-open', onclick: () => input.click() }, '📂 Bring back a backup…'),
@@ -427,7 +590,8 @@ export function openBackupSheet() { sheet('Backups', backupPanel()); }
 
 /* ------------------------------- walkthroughs ------------------------------- */
 const STEPS = [
-  { title: 'How safe your data is', text: 'When the last backup was made. Gdex keeps everything on this device only, so a backup is your safety net if the phone is lost or the browser is cleared.', target: ['.se-bk-status'] },
+  { title: 'How safe your data is', text: 'When the last backup was made. Gdex keeps everything on this device unless you connect Google Drive, so a backup is your safety net if the phone is lost or the browser is cleared.', target: ['.se-bk-status'] },
+  { title: 'Google Drive', text: 'Free for everyone: connect your own Google Drive and Gdex keeps your phone and computer the same, with a dated copy each day, in a private folder only Gdex can open.', target: ['.se-bk-drive'] },
   { title: 'Save a backup', text: 'One file with everything in it. Keep it in your cloud drive or email it to yourself. On a phone the share sheet lets you pick where it goes.', target: ['.se-bk-save'] },
   { title: 'Bring back a backup', text: 'Pick a backup file, then merge it into this device (nothing here is lost) or replace what is here. This is also how Gdex moves to a new phone or computer.', target: ['.se-bk-open'] },
   { title: 'With a passphrase', text: 'The same backup, locked: it opens only with the passphrase you choose. Good for a file you keep online.', target: ['.se-bk-lock'] },
@@ -443,6 +607,17 @@ sheetTutorial('Bring back a backup', [
 sheetTutorial('Save with a passphrase', [
   { title: 'Your passphrase', text: 'At least 8 characters, typed twice. Gdex never keeps it: without it, nobody can open the file, not even you.', target: ['#se-pass-1'] },
 ]);
+sheetTutorial('Connect Google Drive', [
+  { title: 'What Drive does', text: 'One copy of everything in a hidden folder of your own Google Drive, shared by every phone or computer you connect, and a dated copy each day. Only Gdex can open that folder.', target: ['.se-bk-connect > p'] },
+  { title: 'Continue with Google', text: 'Google asks you to sign in and allow Gdex its own folder. Nothing else in your Drive is touched.', target: ['.se-bk-drive-go'] },
+]);
+sheetTutorial('Bring back a daily copy', [
+  { title: 'The daily copies', text: 'One for each day of the last week and one for each of the last 12 months. Pick one to merge it into this device, or to make every connected device exactly like it.', target: ['.se-bk-copy', '.se-bk-copies > p'] },
+]);
 
 paintButton();
 initFile().catch(() => {});
+// Google Drive: its state changes repaint the ☁ button and the panels that show it (never the page); then it syncs
+// when linked (js/sync.js).
+drive.onDriveChange(() => changed());
+drive.initDrive();
