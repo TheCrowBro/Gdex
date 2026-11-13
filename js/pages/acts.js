@@ -137,8 +137,9 @@ export const printRider = actId => printRiderDoc(actId);
 const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
 const longDay = iso => parseISO(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 // When a name was in use, for the act's page: "from 3 Mar 2021 until 12 Nov 2026", "until 3 Mar 2021" for the first
-// one (nobody said when it began), "date not known" for a name added without a day.
-const spanText = n => (!n.until ? 'date not known' : n.from ? `from ${longDay(n.from)} until ${longDay(n.until)}` : `until ${longDay(n.until)}`);
+// one (nobody said when it began), "on 12 Nov 2026" for one used for less than a day (renamed twice that day), "date
+// not known" for a name added without a day.
+const spanText = n => (!n.until ? 'date not known' : n.from === n.until ? `on ${longDay(n.until)}` : n.from ? `from ${longDay(n.from)} until ${longDay(n.until)}` : `until ${longDay(n.until)}`);
 // In an act's own lists (its dates, its past shows, its log) the act's name is not on each row, so a row from before
 // it changed its name says which name it had that night: "as The Night Owls".
 const asName = b => { const was = formerlyOf(b); return was ? ` · as ${was}` : ''; };
@@ -181,6 +182,14 @@ function namesEditor(a) {
 // today) and two answers. onPick({ kind: 'new' | 'fix', since }) after an answer; closing it without one gives none:
 // the form under it is as it was, and back() puts the focus in it.
 const RENAME = 'New name?';
+// An answer closes the question and saves the form under it at once, so the second click of a double click on it would
+// land on the page under both sheets. For a moment after an answer, a click that is the second of a double click is
+// stopped before it reaches anything.
+const eatSecondClick = () => {
+  const types = ['mousedown', 'mouseup', 'click', 'dblclick'], stop = e => { if (e.detail > 1) { e.stopPropagation(); e.preventDefault(); } };
+  types.forEach(t => window.addEventListener(t, stop, true));
+  setTimeout(() => types.forEach(t => window.removeEventListener(t, stop, true)), 600);
+};
 function askRename({ old, now, since, onPick, back }) {
   const today = todayISO(), min = isDay(since) && since <= today ? since : '';
   const date = h('input', { type: 'date', id: 'ac-rename-since', value: today, max: today, min: min || null, 'aria-describedby': 'ac-rename-hint ac-rename-err' });
@@ -192,7 +201,7 @@ function askRename({ old, now, since, onPick, back }) {
     if (kind === 'new' && !isDay(day)) return wrong('Pick the day the new name began.');
     if (kind === 'new' && day > today) return wrong('That day hasn’t come yet. Pick today or an earlier day.');
     if (kind === 'new' && min && day < min) return wrong(`${old} only began on ${longDay(min)}. Pick that day or a later one.`);
-    answered = true; close(); onPick({ kind, since: day });
+    answered = true; close(); eatSecondClick(); onPick({ kind, since: day });
   };
   date.addEventListener('input', () => { err.hidden = true; });
   const body = h('div', { class: 'stack ac-rename' },

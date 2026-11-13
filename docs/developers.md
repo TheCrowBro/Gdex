@@ -626,8 +626,9 @@ Every record goes on using the current name, so lists and search stay in one pie
 * **On the act.** `span.ac-formerly` ("formerly The Night Owls", the latest earlier name) straight after
   `.ac-card-top` inside the card's head button, so it is part of the button's name, and `p.ac-formerly` straight
   after `h1.ac-title` on the act's page. The Overview lists them all in `section#ac-names` ("Earlier names",
-  `ul.ac-names`, the latest first): `from <day> until <day>`, `until <day>` for the first dated one, `date not
-  known` for a name with no day. Days are written by `toLocaleDateString` with the year.
+  `ul.ac-names`, the latest first): `from <day> until <day>`, `until <day>` for the first dated one, `on <day>` for
+  a name used for less than a day (renamed twice that day), `date not known` for a name with no day. Days are written
+  by `toLocaleDateString` with the year.
 * **Records from before a change.** Where a row names the act, `formerlyLine(b)` goes under the name: Coming up cards,
   Week rows, the booking's header. A venue's rows have `span.vn-row-was`, a backline item's `span.bl-row-was`, a
   person's `span.pp-bk-was`, a song's studio sessions a `span.sg-block` and a row of "Did you see them?"
@@ -651,7 +652,8 @@ Every record goes on using the current name, so lists and search stay in one pie
   cannot be after it, and cannot be before the day the old name began (`model.nameSince`, from the form's rows as
   they stand); a day outside that is refused in words, with the focus on the date. "It’s a new name" adds
   `{ name: <old name>, until: <day> }`; a spelling fix adds nothing. The focus arrives on the date, never on an
-  answer, so a held Enter answers nothing; the dialog is described (`aria-describedby`) by a hidden sentence,
+  answer, so a held Enter answers nothing; an answer saves the form under it at once, so for a moment after it the
+  second click of a double click is stopped before it reaches the page under both sheets; the dialog is described (`aria-describedby`) by a hidden sentence,
   `<old name> becomes <new name>.`, and the question.
 * **The form's part.** `div.field.wide.ac-was[role=group]` straight after the Name field: `div.ac-was-row` per name
   (the latest first) with `input.ac-was-name`, `label.ac-was-until > input[type=date]` (`max` today, so the form's

@@ -605,6 +605,34 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     await sleep(300);
     ok('merging a newer backup brings them in', same((await actOf(page, 'f-act')).formerNames, inFile.formerNames));
 
+    /* renamed twice in one day, the second answer given with a double click */
+    await store(page, s => s.upsert('acts', { id: 'f-day', name: 'First Name', members: [] }));
+    await openAct(page, 'f-day');
+    // Every click that reaches the page under the sheets as the second of a double click.
+    await page.evaluate(() => { window.__under = []; document.getElementById('app').addEventListener('click', e => { if (e.detail > 1) window.__under.push(e.target.id || e.target.className || e.target.tagName); }, true); });
+    for (const [next, how] of [['Middle Name', 'click'], ['Last Name', 'dblclick']]) {
+      const f = await editForm(page);
+      await f.locator('input[data-key=name]').fill(next);
+      await f.locator('button[type=submit]').click();
+      await page.waitForSelector(PROMPT); await sleep(250);
+      await page[how]('#ac-rename-new');
+      await noSheet(page); await sleep(500);
+    }
+    const twice = await actOf(page, 'f-day'), now = await todayOf(page), todayLong = await longDay(page, now);
+    ok('a double click on “It’s a new name” answers once, and its second click never reaches the page under the sheets',
+      twice.name === 'Last Name' && same(twice.formerNames, [{ name: 'First Name', until: now }, { name: 'Middle Name', until: now }]) && same(await page.evaluate(() => window.__under), []) && same(await sheets(page), []) && (await page.locator('.ac-view .ac-title').textContent()) === 'Last Name',
+      JSON.stringify([twice.formerNames, await page.evaluate(() => window.__under), await sheets(page)]));
+    const day = await page.$$eval('#ac-names li', els => els.map(li => [li.querySelector('strong').textContent, li.querySelector('span').textContent]));
+    ok('a name used for less than a day is listed with its one date, never “from … until …” the same day', same(day, [['Middle Name', `on ${todayLong}`], ['First Name', `until ${todayLong}`]]), JSON.stringify(day));
+    // …and a double click on “Just fixing the spelling” the same
+    const ff = await editForm(page);
+    await ff.locator('input[data-key=name]').fill('Last Nane');
+    await ff.locator('button[type=submit]').click();
+    await page.waitForSelector(PROMPT); await sleep(250);
+    await page.dblclick('#ac-rename-fix');
+    await noSheet(page); await sleep(500);
+    ok('…as does one on “Just fixing the spelling”', (await actOf(page, 'f-day')).name === 'Last Nane' && (await actOf(page, 'f-day')).formerNames.length === 2 && same(await page.evaluate(() => window.__under), []) && same(await sheets(page), []), JSON.stringify(await page.evaluate(() => window.__under)));
+
     ok('no errors in the console (changing a name)', errors.length === 0, errors.join(' | '));
     await browser.close();
   }
