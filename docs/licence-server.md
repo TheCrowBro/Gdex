@@ -254,9 +254,13 @@ cancel any other code: generator → paste it → **Cancel the code**. **Restore
 after you win a dispute).
 
 **Someone asks to have their records deleted.** In Gdex they can do it themselves: Settings → About & licence → **Delete
-my licence records**, while signed in. That removes their email's links, any sign-in code and the computers on their
-licence; the licence itself, any cancellation, and the times sign-in codes were sent that day (nothing else, so the
-limits hold) stay.
+my licence records**, while signed in on the website. That removes their email's links and any sign-in code; the
+licence itself, any cancellation, the times sign-in codes were sent that day (nothing else, so the limits hold) and the
+list of computers on the licence (a random number per install, nothing about the person) stay. Clearing the list would
+free the licence's 3 places without a counted move, and each computer would put itself back at its weekly check. A
+computer is taken off with **Release this computer** in the desktop app; if they ask you to delete the list too,
+**Clear its computers** in the generator does it. A computer already on the list does not link the email again at its
+weekly check: only putting the code on a new computer, or signing in again, does.
 
 **Your key is lost.** Unlock the spare (`gdex-licence-key-9-spare.json`) and carry on; tell the developer, who makes you
 a new key in the next version. Codes already made keep working. If a key file and its passphrase leaked, tell the

@@ -215,7 +215,9 @@ async function activate(request, env) {
   const r = await readCode(b.code); if (!r) return json(400, { error: 'invalid' });
   if (r.status === 'expired') return json(403, { error: 'expired' });
   if (await env.LICENCES.get('x:' + r.licence.ref)) return json(403, { error: 'cancelled' });
-  if (r.licence.email) await linkEmail(env, r.licence.email, r.licence); // so the website can sign in with this code's email
+  // A code put on a computer links its email, so the website can sign in with it. A computer already on the list (its
+  // weekly check) does not, so Delete my licence records lasts until the person uses the code somewhere new.
+  if (r.licence.email && !(await seats(env, r.licence.ref)).computers.some(c => c.id === b.install)) await linkEmail(env, r.licence.email, r.licence);
   return takeSeat(env, key, r.licence.ref, r.licence.seats, b);
 }
 // Puts the install b.install on the licence's list (b.release: the tag of a computer to move it from when it is full).
@@ -306,12 +308,13 @@ async function webToken(env, token) {
 }
 // Only a scrambled form of the identity is kept for this, never the email address itself.
 const forgotKey = async ikey => 'z:' + hex(await sha256('gdex-forgot|' + ikey));
-// Delete my licence records (Settings → About & licence): what the server keeps about this sign-in's person goes: the
-// email address's links to its licences, any sign-in code, and the list of computers on those licences (the times of
-// recent moves, and when sign-in codes were sent that day, stay without anything else, so a deletion cannot reset the
-// limit on moves or on codes).
-// Every sign-in made before now stops working; signing in again makes the records afresh. A cancellation stays, so a
-// refunded licence cannot come back this way. Stripe and Link keep their own records of a purchase.
+// Delete my licence records (Settings → About & licence): what the server keeps about this sign-in's email address goes:
+// its links to its licences and any sign-in code (when codes were sent that day stays, without anything else, so a
+// deletion cannot reset the limits). The computers on the licence stay (a random number per install, nothing about the
+// person): clearing them would free its 3 places without a counted move, and each would put itself back at its weekly
+// check anyway; Release this computer takes one off. Every sign-in made before now stops working; signing in again
+// makes the records afresh. A cancellation stays, so a refunded licence cannot come back this way. Stripe and Link keep
+// their own records of a purchase.
 async function webForget(request, env) {
   const b = await readJson(request), v = b && (await webToken(env, b.token));
   if (!v) return json(401, { error: 'signed-out' });
@@ -319,8 +322,6 @@ async function webForget(request, env) {
   const ikey = identityKey(v), rec = (await env.LICENCES.get(ikey, 'json')) || {};
   const list = Array.isArray(rec.licences) ? rec.licences : [];
   const emails = new Set([v.email, ...list.map(l => l.email)].map(cleanEmail).filter(Boolean));
-  const refs = new Set([String(v.ref), ...list.map(l => String(l.ref))].filter(r => /^\d{1,3}:\d{1,10}$/.test(r)));
-  for (const ref of refs) { const s = await seats(env, ref); await env.LICENCES.put('c:' + ref, JSON.stringify({ computers: [], swaps: s.swaps })); }
   for (const e of emails) { await env.LICENCES.delete('e:' + e); await signIn(env, e, { op: 'forget' }); }
   await env.LICENCES.delete(ikey);
   await env.LICENCES.put(await forgotKey(ikey), JSON.stringify({ at: Date.now() }), { expirationTtl: 400 * 86400 });

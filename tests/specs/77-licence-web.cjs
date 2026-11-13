@@ -166,7 +166,8 @@ async function signIn(page) {
       ok('…signed out: back to read-only, with its toast', (await state(page)).mode === 'ended' && (await toasts(page)).includes('Signed out on this device.'));
       await about(page); await signIn(page);
       await page.click('.licence-panel .lic-forget'); await page.waitForSelector('#lic-forget-go');
-      ok('Delete my licence records says what goes and what stays', /This deletes what Gdex’s licence server keeps about you: the email address of your licence \(jo@example\.com\)/.test(await page.textContent('.sheet[aria-label="Delete my licence records"]')));
+      const forgetWords = await page.textContent('.sheet[aria-label="Delete my licence records"]');
+      ok('Delete my licence records says what goes and what stays: the email address\'s link and sign-in codes go; computers with the desktop app keep the licence until each is released', /This deletes what Gdex’s licence server keeps about your email address \(jo@example\.com\): its link to your licence, and its sign-in codes\. Gdex signs out here, and other browsers signed in with it are signed out at their next check\./.test(forgetWords) && /Computers with the desktop app keep your licence, and stay on its list \(a random number for each, nothing about you\): to take one off, use Release this computer on it\./.test(forgetWords) && !/list of devices/.test(forgetWords), forgetWords);
       await page.click('#lic-forget-go'); await sleep(500);
       ok('…deleted: the server was asked with the sign-in, and this browser is signed out', srv.bodies.some(([p, b]) => p === '/licence/web/forget' && b.token && b.token.kid === 2) && (await state(page)).mode === 'ended' && (await toasts(page)).some(t => /Your licence records have been deleted/.test(t)));
       await ctx.close();

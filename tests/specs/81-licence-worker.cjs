@@ -280,17 +280,27 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const dt = await web('verify', { email: 'desk@example.com', code: lastCode('desk@example.com') });
     const forgot = await web('forget', { token: dt.token });
     const lookAfter = await adm('look', dt.licence.ref);
-    ok('Delete my licence records forgets the email\'s links and the computers on its licence', forgot.status === 200 && forgot.ok && lookAfter.computers.length === 0 && !(await kv.get('e:desk@example.com')));
+    ok('Delete my licence records forgets the email\'s links, and leaves the computers on its licence (random numbers, nothing about the person)', forgot.status === 200 && forgot.ok && lookAfter.computers.length === 1 && !(await kv.get('e:desk@example.com')));
     ok('…every sign-in made before it stops working, and it cannot be repeated with the old one (401)', (await web('check', { token: dt.token })).status === 401 && (await web('forget', { token: dt.token })).status === 401);
-    await post('/licence/activate', { code: dsk, install: 'install-desk-0000000001', os: 'Windows' });
+    const deskSent = () => mails().filter(x => x.to[0] === 'desk@example.com').length, deskBefore = deskSent();
+    const weekly = await post('/licence/activate', { code: dsk, install: 'install-desk-0000000001', os: 'Windows' });
     await web('start', { email: 'desk@example.com' });
+    ok('…and the deletion lasts: the desktop computer still on the licence checks in (as it does each week), and the email is not linked again', weekly.status === 200 && deskSent() === deskBefore && !(await kv.get('e:desk@example.com')));
+    await web('start', { code: dsk }); // Have a licence code? Use it instead
     const dt2 = await web('verify', { email: 'desk@example.com', code: lastCode('desk@example.com') });
-    ok('…while the licence itself stays: using the code again makes the records afresh, with a sign-in that works', dt2.status === 200 && (await web('check', { token: dt2.token })).ok === true);
+    ok('…while the licence itself stays: signing in again with the code makes the records afresh, with a sign-in that works', deskSent() === deskBefore + 1 && dt2.status === 200 && (await web('check', { token: dt2.token })).ok === true);
+    { // a deletion frees none of the licence's 3 places
+      const seat = await codes.signCode(ownerKey, 1, { name: 'Seat Full', email: 'seat@example.com', comp: true, issued: '2026-11-02', serial: 45 });
+      const placed = []; for (let n = 1; n <= 3; n++) placed.push((await post('/licence/activate', { code: seat, install: 'install-seat-000000000' + n, os: 'Linux' })).status);
+      await web('start', { email: 'seat@example.com' });
+      const sv = await web('verify', { email: 'seat@example.com', code: lastCode('seat@example.com') }), sf = await web('forget', { token: sv.token });
+      const fourth = await post('/licence/activate', { code: seat, install: 'install-seat-0000000004', os: 'Linux' });
+      ok('…and frees none of the licence\'s 3 places: after it, a 4th computer is still told the code is full', placed.join() === '200,200,200' && sv.status === 200 && sf.ok && fourth.status === 409 && (await fourth.json()).error === 'full');
+    }
     { // when codes were sent stays (without the code), so deleting cannot reset the limits: 3 went today, so 1 more
-      const deskSent = () => mails().filter(x => x.to[0] === 'desk@example.com').length, before = deskSent();
+      const before = deskSent();
       await web('forget', { token: dt2.token });
-      await post('/licence/activate', { code: dsk, install: 'install-desk-0000000001', os: 'Windows' });
-      for (let i = 0; i < 4; i++) await web('start', { email: 'desk@example.com' });
+      for (let i = 0; i < 4; i++) await web('start', { code: dsk });
       ok('…and it keeps when sign-in codes were sent, so deleting cannot reset an address\'s 4 a day: after 3 codes, a deletion and 4 more asks, 1 more is emailed', deskSent() - before === 1, `${deskSent() - before} sent`);
     }
     // The day's sign-in emails, for everyone together: 30.
