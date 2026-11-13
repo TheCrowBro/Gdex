@@ -14,7 +14,7 @@
 // what must be ahead three days on or more; the two records dated today are on the same side of the line all day;
 // dates on screen are compared with the app's own formatters run in the page, and every date typed is made from the
 // page's clock.
-const { open, ok, sleep, go, BASE } = require('../helpers.cjs');
+const { open, ok, sleep, go, BASE, licenceAt } = require('../helpers.cjs');
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -943,6 +943,7 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
     const at = (iso, hm) => c.page.evaluate(([iso, hm]) => { const [y, mo, d] = iso.split('-').map(Number), [hh, mm] = hm.split(':').map(Number); return new Date(y, mo - 1, d, hh, mm).getTime(); }, [iso, hm]);
     await c.ctx.clock.install({ time: await at(N, '00:10') });
     await c.page.reload(); await c.page.waitForSelector('#deck .dk-next');
+    await licenceAt(c.page); // the licence leg: the free days in the page's own time
     await store(c.page, (s, x) => s.update(d => {
       d.acts.push({ id: 'a-late', name: 'Late Band', color: '#8b5cf6' });
       d.bookings.push(

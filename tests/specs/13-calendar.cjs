@@ -3,7 +3,7 @@
 // every one. Only the view buttons save the view on the device.
 // No date word is typed here: a day is read from data-date / data-day, and a title is compared with the same formatter
 // run in the page. Every seeded day is counted from today in whole days, so nothing depends on the hour of the run.
-const { open, ok, sleep, go } = require('../helpers.cjs');
+const { open, ok, sleep, go, licenceAt } = require('../helpers.cjs');
 
 const dayFromNow = (page, n) => page.evaluate(n => import('./js/util.js').then(u => { const d = new Date(); d.setDate(d.getDate() + n); return u.ymd(d); }), n);
 const plus = (page, iso, n) => page.evaluate(([iso, n]) => import('./js/util.js').then(u => { const d = u.parseISO(iso); d.setDate(d.getDate() + n); return u.ymd(d); }), [iso, n]);
@@ -1022,6 +1022,7 @@ async function press(page, loc, ms) {
     const at = (iso, hm) => c.page.evaluate(([iso, hm]) => { const [y, mo, d] = iso.split('-').map(Number), [hh, mm] = hm.split(':').map(Number); return new Date(y, mo - 1, d, hh, mm).getTime(); }, [iso, hm]);
     await c.ctx.clock.install({ time: await at(D, '23:50') });
     await c.page.reload(); await c.page.waitForSelector('.bk-monthview');
+    await licenceAt(c.page, '.bk-monthview'); // the licence leg: the free days in the page's own time
     const show = (id, date, setTime) => put(c.page, 'bookings', { id, kind: 'show', status: 'confirmed', title: 'Night ' + id, date, venueName: 'The Crown', setTime });
     await show('t-D', D, '21:00'); await show('t-N', N, '20:00'); await show('t-N3', N3, '20:00');
     await sleep(300);
@@ -1082,6 +1083,7 @@ async function press(page, loc, ms) {
     const at = (iso, hm) => c.page.evaluate(([iso, hm]) => { const [y, mo, d] = iso.split('-').map(Number), [hh, mm] = hm.split(':').map(Number); return new Date(y, mo - 1, d, hh, mm).getTime(); }, [iso, hm]);
     await c.ctx.clock.install({ time: await at(N, '00:10') });
     await c.page.reload(); await c.page.waitForSelector('.bk-monthview');
+    await licenceAt(c.page, '.bk-monthview'); // the licence leg: the free days in the page's own time
     await put(c.page, 'bookings', { id: 'n-late', kind: 'show', status: 'confirmed', title: 'Late Set', date: D, venueName: 'The Crown', setTime: '00:30' });
     await put(c.page, 'bookings', { id: 'n-done', kind: 'show', status: 'confirmed', title: 'Early Set', date: D, venueName: 'The Crown', setTime: '20:00', setLength: 60 });
     await put(c.page, 'bookings', { id: 'n-next', kind: 'show', status: 'confirmed', title: 'Next Night', date: N, venueName: 'The Crown', setTime: '21:00' });

@@ -15,7 +15,7 @@
 // slips of the hand (a double click or tap, a held Enter key) with a log that has junk in it.
 // Shows that must be over are dated two days back or more, so no check there depends on the hour of the run; dates on
 // screen are compared with the app's own formatters run in the page.
-const { open, ok, sleep, go, BASE: URL } = require('../helpers.cjs');
+const { open, ok, sleep, go, BASE: URL, licenceLeg } = require('../helpers.cjs');
 const { chromium } = require('playwright');
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -56,7 +56,13 @@ const init = () => {
 // The page's clock and "out of sight", for a page opened with `init`.
 const clockKit = page => {
   let now = BASE; // the time the page's clock was last set to (it runs on from there)
-  const setClock = async t => { now = t; await page.evaluate(ms => window.__clock(ms), t.getTime()); };
+  // The licence leg ([S-34]): the helper seeded the free days by the real clock, and this page's clock is years on (they
+  // would be over, and the role read-only), so the first time it is set they are seeded again in its own time.
+  let leg = process.env.GDEX_LICENCE === 'on';
+  const setClock = async t => {
+    now = t; await page.evaluate(ms => window.__clock(ms), t.getTime());
+    if (leg) { leg = false; await page.evaluate(() => import('./js/kv.js').then(k => { const t = Date.now(); localStorage.setItem('gdex-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); return k.kvSet('licence-days', { first: t, seen: t }).catch(() => {}); })); }
+  };
   const sight = hidden => page.evaluate(hidden => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
@@ -506,6 +512,7 @@ async function whoIsAsked() {
 async function firstOpen(dbJson) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+  await licenceLeg(ctx);
   await ctx.addInitScript(data => {
     try { if (!localStorage.getItem('gdex-db-v1')) localStorage.setItem('gdex-db-v1', data); } catch (e) { /* ignore */ }
     // the most sheets and tours on screen at one time, in this load

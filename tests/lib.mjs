@@ -23,6 +23,9 @@ export function serve(root, port = 0) {
     // them on; GDEX_LICENCE=on runs every spec with them live on this host, inside the free days (the build spec [S-34]).
     const on = process.env.GDEX_LICENCE === 'on';
     if (on && p === '/js/licence-config.js') { res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' }); return res.end("export const LICENCE_SITES = ['localhost', '127.0.0.1'];\n"); }
+    // No Date header on these: the licence takes a JSON answer's Date as the real time and puts a wrong device clock
+    // right with it (the build spec [S-38]), and specs set the page's clock where they need it (43-ask's is years on).
+    if (p.startsWith('/licence/')) res.sendDate = false;
     if (p === '/licence/web/status') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ on })); }
     if (p === '/licence/price') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end('{"price":"20.00","currency":"USD","country":"","taxed":null}'); }
     const file = resolve(root, '.' + p); if (!file.startsWith(resolve(root))) { res.writeHead(403); return res.end(); }

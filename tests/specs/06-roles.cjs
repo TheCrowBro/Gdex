@@ -3,7 +3,7 @@
 // follows it, Settings → Your role to swap, bonus tracks for the sections off the menu (on the sleeve or the track list,
 // as a tab on the digital player, and from any link), the booking boxes a role hides, and that nothing is lost.
 const { chromium } = require('playwright');
-const { open, ok, sleep, go, topSheet, BASE } = require('../helpers.cjs');
+const { open, ok, sleep, go, topSheet, BASE, licenceLeg } = require('../helpers.cjs');
 
 const roles = page => page.evaluate(() => import('./js/roles.js').then(m => JSON.parse(JSON.stringify({ roles: m.ROLES, all: m.EVERYTHING, menus: Object.fromEntries([...m.ROLES, m.EVERYTHING].map(r => [r.id, m.menuSections(r)])) }))));
 const menuIds = page => page.evaluate(() => [...document.querySelectorAll('.dk-sheet .dk-sides .dk-track')].map(b => b.dataset.section));
@@ -13,7 +13,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- the first open ---------------- */
   {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx);
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -56,7 +56,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- closing the question ---------------- */
   {
     const browser = await chromium.launch();
-    const page = await (await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' })).newPage();
+    const ctx0 = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx0); const page = await ctx0.newPage();
     await page.goto(BASE);
     await page.waitForSelector('.rp-ask');
     await page.keyboard.press('Escape');
@@ -77,7 +77,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- the sleeve opened in the first moment: the question waits for it ---------------- */
   {
     const browser = await chromium.launch();
-    const page = await (await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' })).newPage();
+    const ctx0 = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx0); const page = await ctx0.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
@@ -125,7 +125,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- a device that used Gdex before roles: one card, once ---------------- */
   {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx);
     await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); } catch (e) { /* ignore */ } });
     const page = await ctx.newPage();
     const errors = [];
@@ -168,7 +168,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- the role texts follow the section menu: a tape deck has Tracks, not a record ---------------- */
   {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx);
     await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-prefs', '{"menu":"tape"}'); } catch (e) { /* ignore */ } });
     const page = await ctx.newPage();
     const errors = [];
@@ -197,7 +197,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- …and a digital player has a track list and ☰, and a tab for the open bonus track ---------------- */
   {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx);
     await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); if (!localStorage.getItem('gdex-prefs')) localStorage.setItem('gdex-prefs', '{"menu":"digital"}'); } catch (e) { /* ignore */ } });
     const page = await ctx.newPage();
     const errors = [];
@@ -290,7 +290,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- the welcome tour on a small screen: the card never hides what it points at ---------------- */
   for (const [label, prefs] of [['standard text', null], ['extra large text', '{"text":"xlarge"}'], ['the digital player, extra large text', '{"menu":"digital","text":"xlarge"}']]) {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: { width: 320, height: 640 }, serviceWorkers: 'block' });
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 640 }, serviceWorkers: 'block' }); await licenceLeg(ctx);
     if (prefs) await ctx.addInitScript(p => { try { localStorage.setItem('gdex-prefs', p); } catch (e) { /* ignore */ } }, prefs);
     const page = await ctx.newPage();
     const errors = [];

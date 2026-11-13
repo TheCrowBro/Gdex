@@ -6,7 +6,7 @@
 // act form (Automatic (Rock) following the genre typed, set by hand, back to automatic, junk read as automatic, the press
 // kit unchanged), every role's words, and 320 px with extra-large text and large buttons.
 const { chromium } = require('playwright');
-const { open, ok, sleep, go, topSheet, BASE } = require('../helpers.cjs');
+const { open, ok, sleep, go, topSheet, BASE, licenceLeg } = require('../helpers.cjs');
 
 const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -191,7 +191,7 @@ const SEED = [
 
   /* ---------------- the list in groups, by touch ---------------- */
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' }); await licenceLeg(ctx); // the licence leg: its own context starts inside the free days too
   await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); localStorage.setItem('gdex-ask-seen', 'off'); } catch (e) { /* ignore */ } });
   await ctx.route(/tile\.openstreetmap\.org|nominatim\.openstreetmap\.org|open-meteo\.com/, r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   const page = await ctx.newPage();
