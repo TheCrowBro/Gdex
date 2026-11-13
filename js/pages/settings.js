@@ -1,5 +1,5 @@
 // Settings: everything that isn't a record, in twirl-down sections that each say where they stand on their closed
-// line: your role (which sets the section menu), your details (and your contact card as a QR code and a .vcf file), quotes & invoices, backups, display &
+// line: your role (which sets the section menu), your details (with the way to My card, the contact card as a big QR code, and the card as a .vcf file), quotes & invoices, backups, display &
 // accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here.
 // A role without money (scout, audiophile: moneyShown() false) has no Quotes & invoices section, and its details
 // are not said to go on quotes and invoices; the section comes back with a role that uses money.
@@ -94,7 +94,7 @@ export function editProfile() {
   });
 }
 
-// A vCard 3.0 for the profile: scanned from the QR code or saved as a .vcf file.
+// A vCard 3.0 for the profile: scanned from the QR code on My card (js/pages/card.js, which uses this and the three below) or saved as a .vcf file.
 const vesc = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/([;,])/g, '\\$1').replace(/\r?\n/g, '\\n');
 export function vcard(p = db.profile) {
   const name = String(p.name || '').trim().replace(/\s+/g, ' '), parts = name ? name.split(' ') : [];
@@ -115,12 +115,12 @@ export function vcard(p = db.profile) {
     'END:VCARD',
   ].filter(Boolean).join('\r\n');
 }
-const hasCard = p => !!(String(p.name || p.business || '').trim() && String(p.phone || p.email || p.website || '').trim());
+export const hasCard = p => !!(String(p.name || p.business || '').trim() && String(p.phone || p.email || p.website || '').trim());
 
 // The QR library reads text byte by byte; unless it has been set to UTF-8, give it the UTF-8 bytes so names such as
 // Zoë or José scan right. The code for the current card is kept, so a redraw shows it at once.
 const qrCache = { text: '', svg: '' };
-async function qrFor(text) {
+export async function qrFor(text) {
   if (qrCache.text === text) return qrCache.svg;
   const q = await loadQR();
   const utf8 = q.stringToBytesFuncs && q.stringToBytes === q.stringToBytesFuncs['UTF-8'];
@@ -129,38 +129,35 @@ async function qrFor(text) {
   return svg;
 }
 
-async function saveCard() {
+export async function saveCard() {
   const p = db.profile;
   if (!hasCard(p)) return toast('Add your name and a phone number or email first');
   if (await saveFile(vcard(p), fileName(p.name || p.business || 'Contact', 'vcf'), 'text/vcard')) toast('Contact card saved');
 }
 
+// The contact card itself, as a big QR code to scan, share or show big, is on its own page, My card (js/pages/card.js):
+// here, a line and the way there, and the card as a file.
+const openMyCard = async () => {
+  await window.logiGo('card');
+  window.scrollTo(0, 0);
+  document.getElementById('cd-title')?.focus({ preventScroll: true });
+};
 function contactBlock() {
-  const p = db.profile, can = hasCard(p), text = can ? vcard(p) : '';
-  const box = can
-    ? h('div', { class: 'qr se-qr', role: 'img', 'aria-label': `QR code: the contact card of ${p.name || p.business}` }, h('span', { class: 'small' }, 'Making the code…'))
-    : h('p', { class: 'empty small se-qr-none' }, 'Add your name and a phone number or email (Edit your details) to make your contact card.');
-  const put = svg => box.replaceChildren(h('div', { class: 'se-qr-svg', html: svg }));
-  let painted = false;
-  const paint = () => {
-    if (!can || painted) return;
-    painted = true;
-    if (qrCache.text === text) return put(qrCache.svg);
-    qrFor(text).then(put).catch(() => { box.replaceChildren(h('span', { class: 'small' }, 'Too much for a QR code: shorten your details.')); });
-  };
-  const el = h('div', { class: 'se-contact' },
+  const p = db.profile, can = hasCard(p), page = sectionName('card', 'My card');
+  return h('div', { class: 'se-contact' },
     h('h3', null, 'Share my contact'),
-    h('p', { class: 'small muted' }, 'Someone scans the code with their phone camera to save your number and email. Or send the card as a file.'),
-    box,
-    h('div', { class: 'actions center' }, h('button', { type: 'button', class: 'btn ghost', id: 'se-vcf', disabled: !can, onclick: saveCard }, '⤓ Save contact card (.vcf)')));
-  return { el, paint };
+    h('p', { class: 'small muted se-card-line' }, can
+      ? `Your contact card is on ${page}, as a big QR code: someone scans it with their phone camera to save your number and email. Share it or show it big from there, or save it here as a file.`
+      : `Add your name and a phone number or email (Edit your details) to make your contact card. It shows on ${page} as a big QR code to scan.`),
+    h('div', { class: 'actions' },
+      h('button', { type: 'button', class: 'btn ghost', id: 'se-card', onclick: openMyCard }, `🪪 Open ${page}`),
+      h('button', { type: 'button', class: 'btn ghost', id: 'se-vcf', disabled: !can, onclick: saveCard }, '⤓ Save contact card (.vcf)')));
 }
 
 function profileBody() {
   const p = db.profile, has = PROFILE_KEYS.some(k => String(p[k] || '').trim());
   const site = safeUrl(String(p.website || '').trim());
   const line = (label, value) => value && h('div', null, h('span', { class: 'muted' }, label), h('span', { class: 'se-val' }, value));
-  const contact = contactBlock();
   const body = [
     has && h('p', { class: 'small muted' }, moneyShown() ? 'They go on your day sheets, quotes and invoices, and on your contact card below.' : 'They go on your day sheets and on your contact card below.'),
     has
@@ -175,9 +172,9 @@ function profileBody() {
       : h('div', { class: 'empty se-empty' }, h('p', null, moneyShown() ? 'Add your name, business and contact details. They go on your day sheets, quotes and invoices.' : 'Add your name and contact details. They go on your day sheets and your contact card.')),
     p.bio && h('p', { class: 'small prewrap se-bio' }, p.bio),
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn primary', id: 'se-edit-profile', onclick: editProfile }, has ? '✎ Edit your details' : '+ Add your details')),
-    contact.el,
+    contactBlock(),
   ];
-  return { body, paint: contact.paint };
+  return { body };
 }
 const profileSummary = () => { const p = db.profile; return [p.name, p.business].map(x => String(x || '').trim()).filter(Boolean).join(' · ') || 'Not set yet: add your name and contact details'; };
 
@@ -318,7 +315,7 @@ function eraseBody() {
 // The walkthrough's words for each section; billing is left out, with the section, while money is off.
 const SECTIONS = [
   ['role', 'Your role', 'Producer, manager, band, solo artist, scout or audiophile: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
-  ['profile', 'Your details', () => (moneyShown() ? 'Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, your contact card as a QR code to scan and a file to send.' : 'Your name and contact details: they go on day sheets. Under them, your contact card as a QR code to scan and a file to send.')],
+  ['profile', 'Your details', () => (moneyShown() ? `Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.` : `Your name and contact details: they go on day sheets. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.`)],
   ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
   ['backups', 'Backups', 'Save a backup file, bring one back, or keep a copy in a file in a synced folder. Everything else lives on this device only.'],
   ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
@@ -339,7 +336,7 @@ export const settings = {
 
     const sec = {
       role: section('role', '🎭', 'Your role', roleSummary(), [rolePanel(), askPref()]), // askPref: the “Did you see them?” question, on or off
-      profile: section('profile', '🪪', 'Your details', profileSummary(), profile.body, profile.paint),
+      profile: section('profile', '🪪', 'Your details', profileSummary(), profile.body),
       billing: moneyShown() ? section('billing', '🧾', 'Quotes & invoices', billingSummary(), billingBody()) : null,
       backups: section('backups', '☁️', 'Backups', backupSummary(), backupPanel()),
       display: section('display', '🔆', 'Display & accessibility', cap(prefsSummary()), display.el),

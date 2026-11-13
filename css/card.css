@@ -1,0 +1,42 @@
+/* My card (js/pages/card.js): the contact card as a big QR code, and Show big, the code alone on a plain white screen.
+   Theme tokens only, but for Show big's white and near-black: a code scans best dark on white, whatever the theme
+   (as .qr in styles.css). */
+.cd-wrap { display: grid; gap: 12px; max-width: 36rem; }
+.cd-wrap > p { margin: 0; }
+.cd-lead { margin-top: -4px; }
+#cd-title:focus:not(:focus-visible) { outline: none; }
+
+/* the card: the code, then the name and the details, centred like a business card */
+.cd-card { display: grid; justify-items: center; gap: 14px; margin: 0; padding: 16px; text-align: center; }
+.cd-qr { width: min(100%, 22rem); margin: 0; } /* .qr gives the white, the padding and the round corners */
+.cd-qr-svg { width: 100%; }
+.cd-who { display: grid; gap: 4px; justify-items: center; min-width: 0; max-width: 100%; font-size: 1rem; } /* in rem, so it follows the Text size setting */
+.cd-name { font-size: 1.35rem; line-height: 1.2; overflow-wrap: anywhere; }
+.cd-sub { color: var(--muted); font-size: .95rem; overflow-wrap: anywhere; }
+.cd-lines { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; justify-items: center; max-width: 100%; }
+.cd-lines li { display: flex; gap: 8px; align-items: baseline; max-width: 100%; }
+.cd-ico { flex: none; }
+.cd-val { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; text-align: left; } /* a postal address keeps its lines, under its first */
+
+/* the buttons: one under the other on a phone, two to a row where two fit whole (a laptop) */
+.cd-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); margin: 0; }
+.cd-actions .btn { width: 100%; }
+.cd-empty .btn { max-width: 100%; }
+
+/* Show big: over everything, the page under it inert; a tap anywhere closes it */
+.cd-big { position: fixed; inset: 0; z-index: 330; display: grid; place-items: center; align-content: center; gap: 12px; overflow: hidden; cursor: pointer;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: #fff; color: #111; text-align: center; }
+.cd-big-code { width: min(calc(100vw - 32px), calc(100vh - 11rem)); width: min(calc(100vw - 32px), calc(100dvh - 11rem)); min-width: 8rem; aspect-ratio: 1; display: grid; place-items: center; }
+.cd-big-svg, .cd-big-svg svg { display: block; width: 100%; height: auto; }
+.cd-big-words { display: grid; gap: 12px; justify-items: center; max-width: 100%; }
+.cd-big-name { margin: 0; max-width: 100%; font-size: 1.25rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.cd-big-help { margin: 0; color: #444; font-size: .95rem; }
+.cd-big-close { font: inherit; font-weight: 600; min-height: var(--hit); padding: 8px 18px; border-radius: 10px; border: 2px solid #111; background: #fff; color: #111; cursor: pointer; }
+.cd-big-close:focus-visible { outline: 3px solid #0b3d91; outline-offset: 3px; }
+body.cd-big-on { overflow: hidden; }
+/* a phone on its side: the words beside the code, so the code can take the whole height */
+@media (orientation: landscape) and (max-height: 540px) {
+  .cd-big { grid-template-columns: auto minmax(0, 14rem); column-gap: 24px; justify-content: center; }
+  .cd-big-code { width: min(calc(100vh - 32px), calc(100vw - 18rem)); width: min(calc(100dvh - 32px), calc(100vw - 18rem)); }
+}

@@ -3,7 +3,7 @@ const { open, ok, sleep, go } = require('../helpers.cjs');
 (async () => {
   const { browser, page, errors } = await open();
   const ids = await page.evaluate(() => window.gdexPages().map(p => p.id));
-  ok('there are eleven sections', ids.length === 11, ids.join(', '));
+  ok('there are twelve sections', ids.length === 12, ids.join(', '));
   for (const id of ids) { await go(page, id); const head = await page.locator('#page .page-card').count(); ok(`${id} opens on an empty database`, head === 1); }
   // ? on a page whose boxes need data first still says something (Money on an empty device).
   await go(page, 'money'); await page.click('#helpBtn'); await sleep(900);

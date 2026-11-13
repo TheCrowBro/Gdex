@@ -59,7 +59,8 @@ npm run serve                   # http://localhost:8124/
 | `money` | Money | `pages/money.js` | Overview: income by month and act, unpaid invoices, deposits due, settlements, payouts. |
 | `tools` | Tools | `pages/tools.js` | Tuner, metronome + tap tempo, delay/reverb times, sound level meter, set timer. |
 | `insurance` | Insurance | `pages/insurance.js` | Policies (instruments, public liability…), renewals, cover vs backline value. |
-| `settings` | Settings | `pages/settings.js` | Profile, money settings, backups, display, tour, erase. |
+| `card` | My card | `pages/card.js` | The person's contact card as a big QR code, their name and details under it; Show big, Share, Save as a file (.vcf), Edit your details. On every role's menu, just before Settings. |
+| `settings` | Settings | `pages/settings.js` | Profile (with the way to My card), money settings, backups, display, tour, erase. |
 
 Navigate in code with `window.logiGo('venues')` (string ids only; resolves once drawn). `window.logiPage()` is the
 open section's id. Which sections are on the menu depends on the role (below); `logiGo` opens any of them, a section
@@ -84,7 +85,7 @@ writes nothing to `gdex-db` and backups do not carry it; Erase this device clear
 Everything** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
 
 A role is data (`ROLES` in `js/roles.js`; not to be confused with `model.js`'s `ROLES`, the instruments people
-play): `sections` (the menu in order; Settings is always added last), `start` (`bookings` for every role, and its
+play): `sections` (the menu in order; My card and then Settings are always added last, by `menuSections`, whatever the list says, so neither is ever a bonus track), `start` (`bookings` for every role, and its
 first track: **Gdex opens on the calendar on every page load**, in every role and in Everything, whatever was open last.
 `startSection()` is the one source for where a start opens; the old `gdex-tab` key is no longer read or written, and is
 removed at boot. Explicit jumps still go where they say: `logiGo`, `openBooking`, `openAct`, a tour step, the first-run
@@ -99,6 +100,7 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `role()`, `roleId()`, `roleChosen()`, `setRole(id, { start })` | The current role; `setRole` saves it and fires `gdex-role` (the app redraws the menu and the page). |
 | `menuSections(r)`, `offMenu(r)`, `startSection(r)` | The menu (always ending with Settings), the bonus tracks, where a fresh start opens. |
 | `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act). |
+| `cardAudience()` | Who the person shows their contact card to, in the role's words ("promoters, venues and fans at the merch desk"): My card's lead line, its empty state and its walkthrough. |
 | `blockShown(id)`, `blockFolded(id)`, `MONEY_BLOCKS` | A booking box shown, under More boxes, or (a money box for a role without money) neither. `blocksFor(kind)` already leaves the others out. |
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
 | `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
@@ -503,6 +505,8 @@ may call it.
 | `js/clock.js` `initClockBar(el)` / `clockCard(b)` | studio | The strip under the section menu while a clock runs / start-stop card. |
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
+| `pages/settings.js` `vcard(p?)` / `hasCard(p)` / `qrFor(text)` / `saveCard()` / `editProfile()` | settings | The profile as a vCard 3.0 / whether it makes a card (a name or business, and a phone, email or website) / the QR code's SVG for a text (UTF-8, the last one kept) / save the card as a .vcf (`print.js` `saveFile`) / the Your details form. My card uses them, so the card is the same everywhere. |
+| `js/tools-ui.js` `keepAwake()` / `letSleep()` | tools | Keep the screen on (the Screen Wake Lock) / let it sleep: the set timer, and My card's Show big. |
 | `js/tour.js` `sheetTutorial(title, steps)` / `setSearchStep(step)` | core | Register walkthrough steps for a sheet by its title / the welcome tour's stop for the search box, just after the section menu (`js/search.js` gives it; the tour cannot import the search). |
 | `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. |
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
@@ -990,6 +994,48 @@ showing).
   songs and 300 pieces of gear the words take about 45 to 55 ms to build and a key press (search and draw) 15 to 35 ms
   on the test machine, All (which ranks every kind) about the same.
 
+### My card (`js/pages/card.js`, `css/card.css`)
+
+The person's contact card as a main page, in every role: the section `card`, which `menuSections` puts on every menu
+just before Settings (Everything has it as the eleventh of twelve tracks; a scout's and an audiophile's menus are six
+tracks). No role renames it, and it is not searched (the search box shows on it, as on every page; `searchKinds()` has
+no kind for it). The card is Settings' own: `vcard()`, `hasCard()`, `qrFor()`, `saveCard()` and `editProfile()` from
+`pages/settings.js`, so My card, the .vcf in Settings and the QR code always agree.
+
+* **The page.** `h1#cd-title[tabindex=-1]` "My card" in `.page-head`, then `div.cd-wrap`: `p.cd-lead` (who to show it
+  to: `cardAudience()`), `div.card.cd-card` with the code, `div.qr.cd-qr[role=img]` (`aria-label` "QR code: the
+  contact card of <name>"; its SVG in `.cd-qr-svg`, the last one drawn kept so a redraw shows it at once), and under it
+  `div.cd-who`: `strong.cd-name` (the name, else the business), `span.cd-sub` (what you do · the business) and
+  `ul.cd-lines[aria-label="On the card"]`, one `li` per way to reach the person as the vCard holds them (phone, email, a
+  website only when it is a web address, based in, postal address), each `span.cd-ico[aria-hidden]`, a `span.sr-only`
+  label ("Phone: ") and `span.cd-val` (an email or a web address breaks after a dot, an @ or a slash: `<wbr>`). Then
+  `div.actions.cd-actions`: `#cd-big` "⛶ Show big" (`aria-haspopup=dialog`), `#cd-share` "↗ Share" (only where
+  `navigator.share` exists), `#cd-vcf` "⤓ Save as a file (.vcf)", `#cd-edit` "✎ Edit your details"; and `p.cd-note`
+  (nothing is sent anywhere; the same card is in Settings → Your details). The words under the code are in rem, so
+  they follow the Text size setting.
+* **No card yet** (`hasCard` false): `div.empty.cd-empty`, a sentence of what to add (a way to reach you, a name, or
+  both) in the role's words, and `#cd-edit` as the primary button.
+* **Share** hands the device's share sheet the .vcf file (`navigator.canShare({ files })`), else the card as text (the
+  name, what you do and the business, then each line); closing the sheet says nothing, a share that fails says to save
+  the file instead.
+* **Show big**: `div.cd-big[role=dialog][aria-modal][aria-label="My card, big screen"]` on `body`, over everything (z-index
+  330), plain white whatever the theme, `#app` inert and `body.cd-big-on` (no scroll) while it shows: `div.cd-big-code[role=img]`
+  as large as fits (the width but 16 px each side, or the height but room for the words; on a phone on its side, the
+  height, with the words beside it) and `div.cd-big-words` (the name, `p#cd-big-help` "Tap anywhere to close.",
+  `button#cd-big-close`, which has the focus and keeps it from Tab). A click anywhere, Escape, ✕ Close or Back closes
+  it: opening it pushes `history.state` `{ gdexBig: true }`, Back pops it, and any other close takes the entry away
+  with `history.back()` (whose popstate is skipped). The screen is kept on with `tools-ui.js` `keepAwake()` (asked
+  again when Gdex comes back into sight) and let go with `letSleep()`; the focus goes back to `#cd-big`. Leaving the
+  page closes it; a redraw of the page does not. A sheet that opens while it shows ("Did you see them?" at a return)
+  is under it, and keeps `#app` inert when it closes; Escape closes Show big alone (its listener is in the capture phase).
+* **Settings → Your details** no longer draws the QR code: `div.se-contact` has `p.se-card-line` (where the card is, or
+  what to add), `#se-card` "🪪 Open My card" (it opens My card at the top, with the focus on `#cd-title`) and `#se-vcf`.
+* **Walkthrough**: My card (in the role's words), The code, What it holds, Show big, Share, Save as a file, Edit your
+  details; with no card, My card and Edit your details. The welcome tour counts My card among the tracks (its menu
+  words follow `menuSections`) and has `STOP_TEXT.card` for a role whose stops would reach it; the role picker's menu
+  line leaves out My card and Settings, which every menu has.
+* **With the licence** (item 9): My card is free in every role, the free Audiophile too; it is never gated.
+
 ## Shared modules (core)
 
 * `util.js`: `h(tag, attrs, ...kids)` (attrs: `class`, `onclick`…, `aria-*`, `data-*`, `html` for trusted markup
@@ -1031,7 +1077,7 @@ showing).
   `.qr`, `.meter`, `.form`, `.field`, `.sheet`.
 * Your own styles go in **your** `css/<feature>.css` only, with class names prefixed for your feature
   (`.bk-`, `.sh-`, `.ds-`, `.mn-`, `.st-` is taken by status pills so studio uses `.sd-`, `.sg-` songs, `.ac-` acts,
-  `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance, `.srch-` search).
+  `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance, `.srch-` search, `.cd-` My card).
 * The keyboard's focus ring is a 3 px outline in `--focus`: a light blue on dark pages and a dark blue on light ones;
   with high contrast yellow on dark and navy on light. It stands out 3:1 or better from `--bg`, `--bg2` and `--card`
   in every theme (`05-deck` measures all forty). A sheet itself has no ring when it holds the focus.
@@ -1088,7 +1134,7 @@ backline, take, comp, stems, split sheet.
   tapped with a finger and clicked), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
-  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `50-backline`, `55-venues`,
+  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `49-my-card`, `50-backline`, `55-venues`,
   `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
@@ -1117,5 +1163,6 @@ need a change there, describe it in your report instead.
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |
 | settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs` |
 | search | `js/search.js`, `css/search.css`, `tests/specs/46-search.cjs` |
+| card | `js/pages/card.js`, `css/card.css`, `tests/specs/49-my-card.cjs` |
 
 A feature may add new files of its own under `js/` (named after the feature) if it needs them.

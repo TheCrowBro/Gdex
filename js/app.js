@@ -40,6 +40,7 @@ const ALL_TABS = [
   section('money', 'Money', '💰', () => import('./pages/money.js').then(m => m.money)),
   section('tools', 'Tools', '🎚️', () => import('./pages/tools.js').then(m => m.tools), () => ({ n: 5, one: 'tool', many: 'tools' })),
   section('insurance', 'Insurance', '🛡️', () => import('./pages/insurance.js').then(m => m.insurance), many('insurance', 'policy', 'policies')),
+  section('card', 'My card', '🪪', () => import('./pages/card.js').then(m => m.card)), // the contact card as a big QR code, on every menu just before Settings
   section('settings', 'Settings', '⚙️', () => import('./pages/settings.js').then(m => m.settings)),
 ];
 const BASE = new Map(ALL_TABS.map(t => [t.id, t.label])); // each section's own name; a role may call it something else
