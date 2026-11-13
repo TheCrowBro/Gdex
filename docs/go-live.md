@@ -77,6 +77,13 @@ Gdex can ever overwrite Vdex's installers or updates). Uploads by hand (the Clou
 put` from your own computer) in the order `docs/desktop.md` gives; if you want CI uploads later, an R2 token scoped to
 `gdex-downloads` only. The address is built into every desktop app for good, so it is settled before the first release.
 
+**Before the first public desktop release: the hardening** (by the developer, with your go-ahead). Electron's
+fuses in the installed app: `RunAsNode`, `NODE_OPTIONS` and the `--inspect` switches off, the app loaded only from its
+`app.asar`, cookie encryption on; and the app quits when it is started with remote debugging. Without them another
+program on the same computer can run its own code as Gdex. The cost: Playwright cannot drive a packaged build with them
+on, so the automatic desktop test keeps running on the unpackaged app and each installer is checked by hand before it
+is uploaded. Steps: `docs/desktop.md`, "Hardening, before the first public desktop release".
+
 ## 9. Then "publish", in this order
 
 Each step only with your go-ahead.

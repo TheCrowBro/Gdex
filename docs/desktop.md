@@ -201,11 +201,36 @@ before the first release.
    login`. If uploads from GitHub are wanted later, an R2 API token scoped to the bucket `gdex-downloads` only (R2 →
    Manage API tokens → Object Read & Write → Apply to specific buckets only), which can never touch Vdex's files.
 
+## Hardening, before the first public desktop release
+
+Not done yet, by the lead's decision on the licence review: it is a step **before the first public desktop release**
+(the first installer anyone outside can download), done by the developer in one commit, with the owner's go-ahead. Until
+then an installed Gdex keeps Electron's default switches, so another program on the same computer could start the app's
+own binary as plain Node.js, or with a debugger, and run its own code as Gdex.
+
+1. **Electron's fuses**, flipped in the packaged app with `@electron/fuses` (`flipFuses`; electron-builder already brings
+   it in) from an `afterPack` hook in `package.json`'s `build`:
+   - `RunAsNode` off (`ELECTRON_RUN_AS_NODE` no longer turns the app into Node.js);
+   - `EnableNodeOptionsEnvironmentVariable` off (`NODE_OPTIONS` is ignored);
+   - `EnableNodeCliInspectArguments` off (`--inspect` and `--inspect-brk` are ignored);
+   - `OnlyLoadAppFromAsar` on (it only loads the app from its `app.asar`, never from a folder put beside it);
+   - `EnableCookieEncryption` on (cookie encryption with the system's key store).
+2. **Quit when started with remote debugging**: in `desktop/main.cjs`, an installed app (`app.isPackaged`) that finds
+   `--remote-debugging-port` or `--remote-debugging-pipe` on its command line quits at once.
+3. **Check it** on each system's installer: `npx @electron/fuses read --app <the installed app>` lists the five as set,
+   and starting it with `--remote-debugging-port=9222` or `ELECTRON_RUN_AS_NODE=1` does not open Gdex.
+
+**The cost:** Playwright cannot drive a packaged build with them on (it starts Electron with `--inspect` and
+`--remote-debugging-port`, which the hardened app ignores or quits on), so `tests/desktop.mjs` keeps testing the app
+unpackaged (`electron .`, which the fuses do not touch), and each installer is checked by hand as in step 3, on
+Windows, Mac and Linux, before it is uploaded.
+
 ## Releasing, when the owner says publish
 
 Gdex's website must be live first (share links, the download page, the licence server and Google's sign-in all point
 at gdex.crowmade.app).
 
+0. **The first public release only:** the hardening above is in, and step 3 of it passed on each installer.
 1. **The version.** Raise `VERSION` in `js/version.js` (a version once uploaded is never uploaded again: installers are
    cached for a year, and a second copy under the same version breaks updates' checksums). Tag the commit `v<VERSION>`
    if a tag is wanted: it must equal `VERSION`.

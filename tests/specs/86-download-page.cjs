@@ -78,6 +78,13 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   const whichRoles = ((html.split('<h2>Which roles need a licence</h2>')[1] || '').split('<h2')[0]).replace(/\s+/g, ' '), stepE = (live.split('**(e)')[1] || '').split('## Questions')[0];
   ok('while licences are off, the download page says so once, where it says which roles need a licence', whichRoles.includes(OFF_DL) && html.replace(/\s+/g, ' ').split(OFF_DL).length === 2, whichRoles.slice(-300));
   ok('…and docs/go-live.md 9(e) takes it out when the desktop app’s licence goes on', stepE.replace(/\s+/g, ' ').includes(OFF_DL) && /download\.html/.test(stepE), stepE.slice(0, 200));
+  // The lead's decision 5: the desktop app's hardening (Electron's fuses, and quitting when started with remote debugging) is
+  // a step before the first public desktop release, not now: in docs/desktop.md and in docs/go-live.md's desktop part, each
+  // with its cost (Playwright cannot drive a packaged build with them on).
+  const harden = (desk.split('## Hardening')[1] || '').split('\n## ')[0].replace(/\s+/g, ' '), step8 = (live.split('## 8.')[1] || '').split('## 9.')[0].replace(/\s+/g, ' ');
+  const FUSES = [/RunAsNode/, /NODE_OPTIONS/, /--inspect/, /only (loads|load) the app from its `?app\.asar`?/i, /cookie encryption/i, /remote debugging/i];
+  ok('docs/desktop.md has the hardening, for before the first public desktop release: the fuses, quitting on remote debugging, and the cost', /before the first public desktop release/i.test(harden) && FUSES.every(re => re.test(harden)) && /Playwright/.test(harden) && /@electron\/fuses/.test(harden), FUSES.filter(re => !re.test(harden)).join(' '));
+  ok('…and docs/go-live.md’s desktop part has it as a step, with the cost, pointing to docs/desktop.md', /before the first public desktop release/i.test(step8) && /RunAsNode/.test(step8) && /remote debugging/i.test(step8) && /Playwright/.test(step8) && /`docs\/desktop\.md`/.test(step8), step8.slice(-400));
   const tests = read('.github/workflows/tests.yml');
   ok('the tests workflow has a desktop job that runs the smoke test under a virtual screen', /^  desktop:/m.test(tests) && /xvfb-run -a npm run test:desktop/.test(tests));
 
