@@ -1,6 +1,7 @@
 // Google Drive's merge (the build spec [S-17]-[S-21]): times seen and takes joined entry by entry and their tombstones
 // kept; two devices logging at once both keep their entries; Replace everywhere with entries reaching the other device
-// and staying; no ping-pong (two devices with their records in different orders write nothing once they agree); a
+// and staying; no ping-pong (two devices with their records, or one act's times seen, in different orders write nothing
+// once they agree); a
 // copy taken in is never pushed straight back; duplicate gdex-db.json files merged and the extra deleted; a Vdex file
 // in Drive refused; a copy deleted in Drive meanwhile made again; and Google Drive's errors in words, with the
 // connection coming back. Uses 90-drive's fake Drive and device opener.
@@ -94,6 +95,19 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
   ok('…and after both sync, the other device has lost them too', JSON.stringify(lost(await data(pb))) === JSON.stringify({ seen: 'm1,m3,m4', takes: 'k1,k3,k4' }), JSON.stringify(lost(await data(pb))));
   await syncOn(pa); await syncOn(pb); await syncOn(pa);
   ok('…and they do not come back on the next round', lost(await data(pa)).seen === 'm1,m3,m4' && lost(await data(pb)).takes === 'k1,k3,k4' && lost(D.json()).seen === 'm1,m3,m4');
+
+  // the same act changed on both devices in the same millisecond: each lists the joined times seen in its own order,
+  // and the two still agree (comparing in order would have them write each other's copy at every sync)
+  const tie = Date.now();
+  const logAt = (p, id) => p.evaluate(([t, x]) => import('./js/store.js').then(s => s.update(d => { const a = d.acts.find(r => r.id === 'm-act'); a.seen = [...a.seen, { id: x, date: '2026-10-03', rating: 70 }]; a.updatedAt = t; })), [tie, id]);
+  await logAt(pa, 'm5'); await logAt(pb, 'm6');
+  await sleep(1500); // their timed syncs
+  await syncOn(pa); await syncOn(pb); await syncOn(pa);
+  const seenOf = async p => (await data(p)).acts.find(a => a.id === 'm-act').seen.map(x => x.id).join();
+  const w1 = D.writes();
+  await syncOn(pa); await syncOn(pb); await syncOn(pa); await syncOn(pb);
+  const tied = { a: await seenOf(pa), b: await seenOf(pb), writes: D.writes() - w1 };
+  ok('two changes to one act in the same millisecond: both devices keep both times seen, and once they agree nothing is written', [tied.a, tied.b].every(x => x.split(',').sort().join() === 'm1,m3,m4,m5,m6') && tied.writes === 0, JSON.stringify(tied));
 
   /* ------------------------------ duplicates, a Vdex file, a copy deleted meanwhile ------------------------------ */
   const oldest = D.named('gdex-db.json')[0].id;

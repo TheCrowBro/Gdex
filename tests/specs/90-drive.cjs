@@ -1,8 +1,9 @@
 // Google Drive, free for everyone (the build spec §8): not set up yet; connecting (Google contacted only once asked, a
-// cancelled sign-in leaves nothing linked, only drive.appdata asked); the first device writes the copy, a second joins,
-// edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the page;
-// Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back and
-// Replace reaching every device; Disconnect, Delete Gdex's copy and Erase; and the earliest free day carried in the
+// cancelled sign-in leaves nothing linked, only drive.appdata asked, Google's script not loading and Try again); the
+// walkthroughs of the Backups sheet, the connect sheet and the daily copies; the first device writes the copy, a second
+// joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
+// page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
+// and Replace reaching every device; Disconnect, Delete Gdex's copy and Erase; and the earliest free day carried in the
 // Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in script is served by the test, and one Google Drive
 // held here in Node answers every device (each browser context is one device).
 // This file also exports the fake and the device opener for 91-drive-merge and 92-drive-desktop.
@@ -281,6 +282,16 @@ if (require.main === module) (async () => {
   ok('…and says what Disconnect does and how to take Gdex’s access away', /Disconnect stops syncing on this device\. Both copies stay: this device’s and the one in your Drive\. To take Gdex’s access away completely, remove Gdex in your Google Account under third-party connections\./.test(linkedText));
   ok('the backups status counts Google Drive as a backup', /Last backup just now \(Google Drive\)/.test(await pa.locator(`${sheetOf('Backups')} .se-bk-status`).innerText()));
   ok('the account is kept as the next sign-in’s hint, the token for its hour', await pa.evaluate(() => localStorage.getItem('gdex-google-email') === 'gee@example.com' && JSON.parse(localStorage.getItem('gdex-google-tokens')).exp > Date.now() + 50 * 60000));
+  // the Backups sheet's walkthrough shows the Drive card, second
+  await pa.click(`${sheetOf('Backups')} .sheet-help`);
+  await pa.waitForSelector('.tour-card h2', { timeout: 10000 });
+  const step1 = await pa.locator('.tour-card h2').innerText();
+  await pa.keyboard.press('ArrowRight');
+  await until(async () => (await pa.locator('.tour-card h2').innerText()) !== step1);
+  const step2 = { title: await pa.locator('.tour-card h2').innerText(), text: await pa.locator('.tour-card h2 + p').innerText(), spot: !!(await until(() => pa.evaluate(() => { const s = document.querySelector('.tour-spot').getBoundingClientRect(), c = document.querySelector('.sheet .se-bk-drive').getBoundingClientRect(); return Math.abs(s.top + 8 - c.top) < 2 && Math.abs(s.height - 16 - c.height) < 2; }), 3000)) }; // the spot moves there in .4 s
+  ok('the Backups walkthrough shows the Google Drive card second, in plain words', step1 === 'How safe your data is' && step2.title === 'Google Drive' && /^Free for everyone: connect your own Google Drive/.test(step2.text) && step2.spot, JSON.stringify({ step1, ...step2 }));
+  await pa.keyboard.press('Escape'); await sleep(200);
+  ok('…and Escape ends it, the sheet kept', (await pa.locator('.tour').count()) === 0 && (await pa.locator(sheetOf('Backups')).count()) === 1);
   await closeSheets(pa);
 
   /* ------------------------------ device B joins ------------------------------ */
@@ -412,6 +423,10 @@ if (require.main === module) (async () => {
   const labels = await pa.evaluate(() => ({ day: new Date().toLocaleDateString('en-GB', { weekday: 'long' }), month: new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) }));
   ok('Bring back a daily copy lists the copies newest first, by weekday and by month, with when each was saved', rows.length === 13 && rows[0].startsWith(labels.day + ' · saved ') && rows.some(r => r.startsWith(labels.month + ' · saved ')), rows.slice(0, 4).join(' | '));
   ok('…from one Drive request', D.log.slice(logAt).filter(l => l.who === 'A').length === 1, JSON.stringify(D.log.slice(logAt).map(l => l.method + ' ' + l.path)));
+  await pa.click(`${sheetOf('Bring back a daily copy')} .sheet-help`);
+  await pa.waitForSelector('.tour-card h2', { timeout: 10000 });
+  ok('the daily copies’ sheet has its own walkthrough', (await pa.locator('.tour-card h2').innerText()) === 'The daily copies' && /last 12 months/.test(await pa.locator('.tour-card h2 + p').innerText()));
+  await pa.keyboard.press('Escape'); await sleep(200);
   await pa.locator(`${sheetOf('Bring back a daily copy')} .se-bk-copy`, { hasText: labels.day }).click();
   await pa.waitForSelector(`${sheetOf('Bring back a backup')} .se-imp-replace`, { timeout: 10000 });
   const chooser = await pa.locator(sheetOf('Bring back a backup')).innerText();
@@ -459,6 +474,35 @@ if (require.main === module) (async () => {
   await sleep(1500);
   ok('Erase disconnects Google Drive first', !(await state(pa)).linked && !(await pa.evaluate(() => localStorage.getItem('gdex-drive'))));
   ok('…and the copy in Drive is left exactly as it was', D.named('gdex-db.json')[0].body === copyBefore && D.writes() === writesBefore && (await data(pa)).bookings.length === 0);
+
+  /* ------------------------------ Google's sign-in script not loading ------------------------------ */
+  {
+    const E = await device(browser, fakeDrive(), { who: 'E' }); all.push(E);
+    const pe = E.page, cs = sheetOf('Connect Google Drive'), GSI = 'https://accounts.google.com/gsi/client';
+    const block = r => r.abort('failed');
+    await E.ctx.route(GSI, block); // over the stand-in script: no answer at all, as with no connection
+    E.allow.push(/ERR_FAILED/);
+    await openBackups(pe);
+    await pe.click(`${sheetOf('Backups')} .se-bk-drive-connect`);
+    await pe.waitForSelector(`${cs} .se-bk-drive-retry:not([hidden])`, { timeout: 10000 });
+    ok('Google’s sign-in not loading says so in the connect sheet, with Try again, and Continue waits', (await pe.locator(`${cs} .se-bk-drive-err`).innerText()) === 'Couldn’t load Google’s sign-in. Check the connection and try again.' && (await pe.locator(`${cs} .se-bk-drive-load`).isHidden()) && (await pe.locator(`${cs} .se-bk-drive-go`).isDisabled()));
+    await E.ctx.unroute(GSI, block);
+    await pe.click(`${cs} .se-bk-drive-retry`);
+    await pe.waitForSelector(`${cs} .se-bk-drive-go:not([disabled])`, { timeout: 10000 });
+    ok('…and Try again loads it: Continue is ready and the message goes', (await pe.locator(`${cs} .se-bk-drive-err`).isHidden()) && (await pe.locator(`${cs} .se-bk-drive-load`).isHidden()) && (await pe.locator(`${cs} .se-bk-drive-retry`).isHidden()));
+    await pe.click(`${cs} .sheet-help`);
+    await pe.waitForSelector('.tour-card h2', { timeout: 10000 });
+    const c1 = await pe.locator('.tour-card h2').innerText();
+    await pe.keyboard.press('ArrowRight');
+    await until(async () => (await pe.locator('.tour-card h2').innerText()) !== c1);
+    ok('the connect sheet has its own walkthrough: what Drive does, then Continue with Google', c1 === 'What Drive does' && (await pe.locator('.tour-card h2').innerText()) === 'Continue with Google');
+    await pe.keyboard.press('Escape'); await sleep(200);
+    await pe.click(`${cs} .btn.ghost:has-text("Not now")`);
+    await pe.waitForSelector(cs, { state: 'detached', timeout: 10000 });
+    ok('Not now closes the sheet: nothing linked and Google Drive never contacted', !(await state(pe)).linked && !E.hosts.some(x => /googleapis/.test(x)) && E.hosts.every(x => x === 'accounts.google.com/gsi/client'), E.hosts.join(' '));
+    await closeSheets(pe);
+    await E.ctx.close();
+  }
 
   /* ------------------------------ the earliest free day, carried by Drive ([S-39]) ------------------------------ */
   {

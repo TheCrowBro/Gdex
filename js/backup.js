@@ -5,7 +5,7 @@
 // written a moment after every change; how recent the last copy is; and an occasional reminder. The ☁ button at the
 // top opens openBackupSheet() and shows the worse of Drive's and the file copy's states; Settings → Backups shows
 // backupPanel().
-import { h, sheet, toast, announce, todayISO, nodes } from './util.js';
+import { h, sheet, toast, announce, todayISO, nodes, fmtTime } from './util.js';
 import * as store from './store.js';
 import { saveFile } from './print.js';
 import { sheetTutorial } from './tour.js';
@@ -383,7 +383,7 @@ const isSentence = e => /[.!?]$/.test(e);
 const driveProblem = e => (isSentence(e) ? e : `Couldn’t reach Google Drive: ${e}.`) + ' Your changes are safe on this device.';
 const notCopied = e => (isSentence(e) ? e : `Not copied yet: ${e}.`) + ' Your changes are safe on this device.';
 const copyFailed = e => (isSentence(e) ? `⚠ Today’s copy wasn’t saved. ${e}` : `⚠ Today’s copy wasn’t saved: ${e}.`);
-const clock = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const clock = t => fmtTime(new Date(t));
 const isToday = t => !!t && new Date(t).toDateString() === new Date().toDateString();
 const savedWhen = t => (t ? `saved ${new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}, ${clock(t)}` : 'saved at a time Drive didn’t say');
 
@@ -409,9 +409,11 @@ function openConnectSheet() {
   const note = h('p', { class: 'small muted se-bk-drive-load', role: 'status', hidden: desktop }, desktop ? '' : 'Loading Google’s sign-in…');
   const err = h('p', { class: 'warn small se-bk-drive-err', role: 'alert', hidden: true });
   const retry = h('button', { type: 'button', class: 'btn ghost se-bk-drive-retry', hidden: true }, 'Try again');
+  // While it loads a quiet line says so; failing, the warning box says why (as a sign-in that did not finish does).
   const load = () => {
-    retry.hidden = true; note.hidden = false; note.textContent = 'Loading Google’s sign-in…'; go.disabled = true;
-    loadGIS().then(() => { note.hidden = true; note.textContent = ''; go.disabled = false; }, e => { note.textContent = e.message || DRIVE_WORDS.noLoad; retry.hidden = false; });
+    retry.hidden = true; err.hidden = true; note.hidden = false; note.textContent = 'Loading Google’s sign-in…'; go.disabled = true;
+    const done = () => { note.hidden = true; note.textContent = ''; };
+    loadGIS().then(() => { done(); go.disabled = false; }, e => { done(); err.textContent = e.message || DRIVE_WORDS.noLoad; err.hidden = false; retry.hidden = false; });
   };
   retry.onclick = load;
   go.onclick = async () => {

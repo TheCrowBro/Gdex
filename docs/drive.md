@@ -129,8 +129,9 @@ came from a tap); list and read `gdex-db.json` (and any extra ones); take `freeD
 earliest to `adoptFreeDaysFrom` (`js/licence-state.js`); `mergeDb(store.db, remote)`; when that differs from this
 device, `store.adopt(merged)` (no new `updatedAt`, no `afterWrite`, the store's gate not asked: Drive keeps flowing in a
 read-only role); when it differs from Drive, or Drive's `freeDaysFrom` is missing or later than the earliest known,
-write. "Differs" compares both after `normalise`, with every list's records in id order, so two devices that list the
-same records in different orders do not write each other's copies all day. Then `gdex-sync-at`, then the daily copy
+write. "Differs" compares both after `normalise`, with every list's records, and every act's times seen and log's
+takes, in id order, so two devices that list the same ones in different orders (two changes to one act in the same
+millisecond end that way) do not write each other's copies all day. Then `gdex-sync-at`, then the daily copy
 (`gdex-backup-cloud` says whether today's is done).
 
 When it runs: when Gdex opens with Drive linked (quietly: with the hour over it says "Sign in" and opens no window);
@@ -166,13 +167,15 @@ the desktop app refuses to sign in (Google knows only 47861).
 
 ### Tests (Google faked)
 
-- `90-drive`: not set up; connect (Google contacted only once asked; a cancelled sign-in; only `drive.appdata`); first
-  device, second device, edits and deletions travelling; the hour up and one tap; a 401; status changes not redrawing
-  the page; the store's gate refusing; the daily and monthly copies; a failed sync and a failed daily copy; bringing a
-  daily copy back and Replace on every device; Disconnect, Delete, Erase; `freeDaysFrom` with a stand-in licence state.
-- `91-drive-merge`: `mergeDb` entry by entry; two devices logging at once; no ping-pong; nothing pushed back after a
-  copy is taken in; Replace everywhere with entries; duplicate copies; a Vdex file refused; a copy deleted meanwhile;
-  Drive's errors in words and the connection coming back.
+- `90-drive`: not set up; connect (Google contacted only once asked; a cancelled sign-in; only `drive.appdata`; Google's
+  script not loading, then Try again); the walkthroughs of the Backups sheet, the connect sheet and the daily copies;
+  first device, second device, edits and deletions travelling; the hour up and one tap; a 401; status changes not
+  redrawing the page; the store's gate refusing; the daily and monthly copies; a failed sync and a failed daily copy;
+  bringing a daily copy back and Replace on every device; Disconnect, Delete, Erase; `freeDaysFrom` with a stand-in
+  licence state.
+- `91-drive-merge`: `mergeDb` entry by entry; two devices logging at once; no ping-pong (records, or one act's times
+  seen, in different orders); nothing pushed back after a copy is taken in; Replace everywhere with entries; duplicate
+  copies; a Vdex file refused; a copy deleted meanwhile; Drive's errors in words and the connection coming back.
 - `92-drive-desktop`: the desktop app's bridge stood in for at localhost:47861 (served by the test, no server); a
   stand-in port; the desktop app's files in a web browser; `index.html`'s CSP.
 

@@ -42,12 +42,18 @@ const earliest = (...ts) => { const xs = ts.filter(t => t > 0); return xs.length
 // The text written to Drive: the database's own keys, then the earliest free day when there is one.
 const payload = from => JSON.stringify(from > 0 ? { ...store.db, freeDaysFrom: from } : store.db, null, 2);
 
-// Two copies hold the same when they do after normalising the same way, whatever the order of their records (two
-// devices can list the same records in different orders; comparing in order would make every sync write).
-const byId = (x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+// Two copies hold the same when they do after normalising the same way, whatever the order of their records and of an
+// act's times seen and a log's takes (two devices can list the same ones in different orders, for instance after two
+// changes in the same millisecond; comparing in order would make every sync write).
+const idOf = x => String((x && x.id) || '');
+const byId = (x, y) => (idOf(x) < idOf(y) ? -1 : idOf(x) > idOf(y) ? 1 : 0);
+const ENTRIES = { acts: 'seen', logs: 'takes' };
 function canon(d) {
   const n = store.normalise(d);
-  for (const c of store.COLLECTIONS) n[c] = [...n[c]].sort(byId);
+  for (const c of store.COLLECTIONS) {
+    const k = ENTRIES[c];
+    n[c] = [...n[c]].map(r => (k && Array.isArray(r[k]) ? { ...r, [k]: [...r[k]].sort(byId) } : r)).sort(byId);
+  }
   n.deleted = Object.fromEntries(Object.entries(n.deleted).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
   return JSON.stringify(n);
 }
