@@ -320,6 +320,39 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // A working role already in use when the licence comes in, its terms not agreed yet ([S-37], §9.5): the terms sheet
+      // at opening. Not now: nothing starts, the role is read-only for this visit and "Did you see them?" waits; the next
+      // opening asks again; a refused change asks for the terms (Read and agree, not Buy), and agreeing there starts the
+      // free days, after which the form that stayed open saves.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' }, ask: 'on' });
+      await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
+      // Written while the sheet is up (nothing refused yet): a band's show three days ago, not answered.
+      await page.evaluate(d => import('./js/store.js').then(s => { s.upsert('acts', { id: 't-band', name: 'The Waiting Room' }); s.upsert('bookings', { id: 't-wait', kind: 'show', status: 'confirmed', actId: 't-band', title: '', venueName: 'The Crown', date: d, setTime: '21:00', setLength: 45 }); }), isoIn(-3));
+      await page.click('#lic-terms-later'); await sleep(1500);
+      let st = await state(page);
+      ok('a working role in use when the licence comes in: the terms sheet at opening; Not now starts nothing, and the question waits', st.mode === 'unstarted' && !(await stored(page)).first && (await sheets(page)).length === 0 && !(await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()))), JSON.stringify({ st, sh: await sheets(page) }));
+      await reload(page);
+      await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
+      ok('…the next opening asks again', (await sheets(page)).join() === 'Before you use the working roles');
+      await page.click('#lic-terms-later'); await sleep(1200);
+      await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('t-wait'))); await sleep(500);
+      await page.click('.bk-edit'); await page.waitForSelector('.sheet form.form');
+      await page.fill('[data-key="title"]', 'Typed, then saved');
+      await page.click('.sheet .form-actions .btn.primary'); await sleep(600);
+      const ro = await page.textContent('.sheet.licence-readonly').catch(() => '');
+      ok('…a refused change asks for the terms instead of a licence: Read and agree, no Buy, the form kept', (await sheets(page)).join() === 'Edit show,Read-only for now' && /To use them, please read and agree to Gdex’s terms\./.test(ro) && /what you typed is still in the form/.test(ro) && (await page.locator('.sheet.licence-readonly #lic-ro-terms').count()) === 1 && (await page.locator('.sheet.licence-readonly .lic-buy').count()) === 0 && (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 't-wait').title || ''))) === '', JSON.stringify({ sh: await sheets(page), ro }));
+      await page.click('#lic-ro-terms');
+      await page.waitForSelector('#lic-terms-ok'); await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); await sleep(900);
+      st = await state(page);
+      ok('…agreed there: the free days start, with their toast, and the form is still open', st.mode === 'trial' && st.started && (await sheets(page)).join() === 'Edit show' && (await toasts(page)).some(t => /^Your 30 free days of Gdex’s working roles have started on this device/.test(t)) && (await page.inputValue('[data-key="title"]')) === 'Typed, then saved', JSON.stringify({ st, sh: await sheets(page) }));
+      await page.click('.sheet .form-actions .btn.primary'); await sleep(500);
+      ok('…and now it saves', (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 't-wait').title || ''))) === 'Typed, then saved');
+      await reload(page);
+      await page.waitForSelector('.sheet[aria-label="Did you see them?"]', { timeout: 8000 }).catch(() => {});
+      ok('…the next opening has no terms sheet, and the question has its turn', (await sheets(page)).join() === 'Did you see them?', (await sheets(page)).join(' | '));
+      await ctx.close();
+    }
+    {
       // The free days running out while open move an Audiophile off a working section; Erase keeps the count.
       const t = Date.now();
       const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(t - 29.5 * DAY, { seen: t }) } });
