@@ -88,6 +88,9 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       await about(page);
       ok('the desktop’s switch off (enabled: false): no mark, no badge, About is About, no panel, every section open', (await state(page)).mode === 'off' && marks === 0 && (await page.locator('.rp-licence').count()) === 0 && (await page.textContent('#se-about .twirl-name')) === 'About' && (await page.locator('.licence-panel:not([hidden])').count()) === 0 && (await go(page, 'money')) === true);
       ok('…the page asked the bridge, not a licence server', (await calls(page)).includes('state') && asked.length === 0, JSON.stringify(asked));
+      await about(page); // the check above went on to Money
+      const where = await page.textContent('#se-about .se-where');
+      ok('…and Where your data is kept speaks of the app on this computer, its update checks, and no licence server', /Everything you enter stays in this app, on this computer\./.test(where) && /The desktop app also looks for new versions at gdex-download\.crowmade\.app\./.test(where) && !/browser/.test(where) && !/licence server/.test(where), where);
       await ctx.close();
     }
 
@@ -109,6 +112,7 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       ok('adoptFreeDaysFrom hands an earlier start to licence.adopt, and refuses a later one', adopted[0] === true && adopted[1] === false && adoptCalls.length === 1 && adoptCalls[0][1] === t && adopted[2] === t, JSON.stringify({ adopted, adoptCalls }));
       // Enter licence code: full, then moved here.
       await about(page);
+      ok('…licences on, Where your data is kept names the licence server too, still in the app’s words', /stays in this app, on this computer\..*licence server at gdex\.crowmade\.app.*looks for new versions at gdex-download\.crowmade\.app/.test(await page.textContent('#se-about .se-where')));
       ok('About & licence: the free days, “until you add a licence code”, with Buy and Enter licence code', /After that the working roles are read-only here until you add a licence code\. Audiophile stays free\./.test(await page.textContent('.licence-panel .licence-line')) && (await page.textContent('.licence-panel .lic-enter')) === 'Enter licence code');
       await sleep(300);
       ok('…the price comes from the bridge (the UK: 24.00 USD with VAT)', /Buy a licence · 24\.00 USD with VAT/.test(await page.textContent('.licence-panel .lic-buy')) && (await calls(page)).includes('price'));
@@ -172,7 +176,22 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
         ok('…and Everything cannot change things here', !(await page.evaluate(() => import('./js/store.js').then(s => s.update(d => { d.profile = { ...d.profile, name: 'Away' }; })))));
         await page.evaluate(() => import('./js/roles.js').then(r => r.setRole('audiophile', { start: true }))); await sleep(400);
         ok('the Audiophile works here: its writes are kept', await page.evaluate(() => import('./js/store.js').then(s => s.update(d => { d.profile = { ...d.profile, name: 'Away fan' }; }))));
+        // Google Drive refuses here too, even with Gdex's Google client set (js/drive.js, [S-42]): the Backups card says
+        // where it works and offers no Connect, and neither Google's script nor a token is ever asked for.
+        const google = [];
+        ctx.on('request', r => { if (/google/.test(new URL(r.url()).hostname)) google.push(r.url()); });
+        await ctx.route('**/js/cloud-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: "export const CLOUD_APPS = { google: 'gdex-test.apps.googleusercontent.com' };\n" }));
+        await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+        while ((await sheets(page)).length) await closeTop(page);
+        await page.click('#cloudBtn');
+        await page.waitForSelector('.sheet[aria-label="Backups"] .se-bk-drive', { timeout: 10000 });
+        const card = page.locator('.sheet[aria-label="Backups"] .se-bk-drive');
+        ok('…Google Drive: the Backups card says “Open Gdex from its desktop app to connect Google Drive.” and has no button', (await card.getAttribute('data-state')) === 'away' && (await card.innerText()).includes('Open Gdex from its desktop app to connect Google Drive.') && (await card.locator('button').count()) === 0, await card.innerText());
+        const refused = await page.evaluate(() => import('./js/drive.js').then(async d => [d.configured(), await d.loadGIS().then(() => 'loaded', e => e.message), await d.googleToken(true).then(() => 'token', e => e.message)]));
+        ok('…and Google’s sign-in is refused with the same words, though the client is set', refused[0] === true && refused[1] === 'Open Gdex from its desktop app to connect Google Drive.' && refused[2] === refused[1], JSON.stringify(refused));
+        await closeTop(page);
         await sleep(1500);
+        ok('…nothing went to Google', google.length === 0, google.join(' '));
         ok('…and nothing is asked of a licence server', asked.length === 0, asked.join(' '));
         await ctx.close();
         await new Promise(r => server.close(() => r()));

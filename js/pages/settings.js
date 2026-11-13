@@ -293,6 +293,12 @@ function aboutLine() {
   }
   return line;
 }
+// Where the data is kept, in words true where Gdex runs (§9.10): in a web browser, or in the desktop app, which keeps it
+// in its own window on this computer and looks for new versions at its download address (desktop/updater.cjs).
+function whereWords() {
+  const desk = !!window.gdexDesktop;
+  return `Everything you enter stays ${desk ? 'in this app, on this computer' : 'in this browser, on this device'}. Your bookings, contacts and fees are never sent to a Gdex server. If you connect Google Drive, Gdex also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Gdex’s licence server at gdex.crowmade.app only ever hears about your licence, and only once you use a working role.' : ''}${desk ? ' The desktop app also looks for new versions at gdex-download.crowmade.app.' : ''} A backup file keeps it all safe and moves it to another device.`;
+}
 function aboutBody(up, done) {
   let size = 0; try { size = new Blob([store.serialize()]).size; } catch { /* ignore */ }
   // The licence's panel comes first while licences are on (js/licence.js, loaded then).
@@ -304,7 +310,7 @@ function aboutBody(up, done) {
       h('span', { class: 'small muted' }, 'The booking deck for music producers and their bands.')),
     h('div', { class: 'card se-where' },
       h('strong', null, 'Where your data is kept'),
-      h('p', { class: 'small muted' }, `Everything you enter stays in this browser, on this device. Your bookings, contacts and fees are never sent to a Gdex server. If you connect Google Drive, Gdex also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Gdex’s licence server at gdex.crowmade.app only ever hears about your licence, and only once you use a working role.' : ''} A backup file keeps it all safe and moves it to another device.`),
+      h('p', { class: 'small muted' }, whereWords()),
       h('p', { class: 'small muted' }, `It takes about ${sizeText(size)} here.`),
       isApple() && !installState().standalone && h('p', { class: 'small muted' }, 'On iPhone and iPad, Safari can clear a website’s data when it hasn’t been opened for a week or so. Add Gdex to the Home Screen to keep it, and save a backup now and then.')),
     up.el,
