@@ -71,7 +71,7 @@ const STORES = /App Store|Google Play|iCloud|Dropbox|OneDrive/;
     // Device permissions (section 4) as the app has them: the location button's own name, a Mac only in the desktop app
     // (desktop/main.cjs), and the screen kept awake by the set timer only (js/tools-timer.js calls keepAwake; the meter does not).
     const perms = text((pages.privacy.split('<h2>4.')[1] || '').split('<h2>5.')[0]);
-    ok('…section 4 names the “📡 I’m here now” button (a Mac only in the desktop app) and says only the set timer keeps the screen awake', /Location: the “📡 I’m here now” button for a venue \(in the desktop app, on a Mac only\)\./.test(perms) && /Keeping the screen on: the set timer keeps the screen awake while it runs\./.test(perms) && !/use my location|meter keep/.test(perms), perms);
+    ok('…section 4 names the “📡 I’m here now” button (a Mac only in the desktop app) and says only the set timer keeps the screen awake', /Location: the “📡 I’m here now” button for a venue \(in the desktop app it works only on a Mac\)\./.test(perms) && /Keeping the screen on: the set timer keeps the screen awake while it runs\./.test(perms) && !/use my location|meter keep/.test(perms), perms);
     ok('…and that Erase keeps the licence record and its second copy in IndexedDB', /second copy[^.]*IndexedDB/.test(P) && /Erase this device keeps the licence record, that second copy and your agreement to the terms/.test(P));
 
     /* ------------------------- in the browser ------------------------- */
