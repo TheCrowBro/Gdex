@@ -22,9 +22,9 @@ Gdex is a sibling of Vdex, the app for videographers, and shares its look and th
 
 ## Set up for the way you work
 
-The first time Gdex opens it asks who's using it: **producer, manager, band, solo artist, scout or audiophile** (or
-everything). Each gets its own menu and pages. Whoever you are, Gdex opens on the calendar every time, and the calendar
-is the first track on every menu:
+The first time Gdex opens it asks who's using it: **producer, manager, band, solo artist, scout or audiophile**, or
+**Jack of Trades** (Master of None: a bit of all of it). Each gets its own menu and pages. Whoever you are, Gdex opens
+on the calendar every time, and the calendar is the first track on every menu:
 
 | Role | Menu (Side A, then Side B) | What changes |
 |---|---|---|
@@ -34,6 +34,7 @@ is the first track on every menu:
 | 🎤 Solo artist | Bookings · Songs · Money · My act · Venues · People · Tools | A show opens with the deal and setlist; private gigs (weddings, parties) are shows too. |
 | 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Gdex asks if you saw them and takes your score; no fees or settlements. |
 | 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Gdex asks if you saw them and takes your score; Tools opens on the sound meter; no fees. |
+| 🧰 Jack of Trades (Master of None) | Bookings · Acts · People · Songs · Studio log · Backline · Venues · Money · Tools · Insurance | Every section on the menu and every box on a booking's page, as Gdex has always been. Close the question without picking and this is what you get. |
 
 Nothing is ever deleted or out of reach: the sections a role doesn't use are **bonus tracks** on the sleeve (tap the
 record), and the booking boxes it doesn't use are under **More boxes**. Change role any time in **Settings → Your
@@ -90,7 +91,7 @@ band by its main genre. The press kit keeps the genre as you typed it.
 - **"Did you see them?"** After a show is over, Gdex asks when it next opens, or when you come back to it after three
   hours or more away (it stays on the page you left). One list holds every show that is waiting. **Yes** takes your
   score out of 100 for the act's card; **No** marks the show "Didn't go" and never asks again. Change your answer any
-  time on the show's own page. It asks producers, managers, scouts and audiophiles (and Everything); turn it on or
+  time on the show's own page. It asks producers, managers, scouts and audiophiles (and Jack of Trades); turn it on or
   off for anyone under **Settings → Your role**.
 - **House rules:** what a venue allows in (cameras, phones, the age limit, bags, anything unusual) is noted once on the
   venue and shows on every show there as a green, amber or red line, with the full rules on the show's page: what is

@@ -317,7 +317,7 @@ function eraseBody() {
 /* ------------------------------- the page ------------------------------- */
 // The walkthrough's words for each section; billing is left out, with the section, while money is off.
 const SECTIONS = [
-  ['role', 'Your role', 'Producer, manager, band, solo artist, scout or audiophile: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
+  ['role', 'Your role', 'Producer, manager, band, solo artist, scout, audiophile or Jack of Trades: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
   ['profile', 'Your details', () => (moneyShown() ? 'Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, your contact card as a QR code to scan and a file to send.' : 'Your name and contact details: they go on day sheets. Under them, your contact card as a QR code to scan and a file to send.')],
   ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
   ['backups', 'Backups', 'Save a backup file, bring one back, or keep a copy in a file in a synced folder. Everything else lives on this device only.'],

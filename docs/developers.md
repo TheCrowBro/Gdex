@@ -67,9 +67,10 @@ off the menu as the bonus track.
 
 ## Roles (`js/roles.js`, `js/role-pick.js`)
 
-The first open asks who is using Gdex: producer, manager, band, solo artist, scout or audiophile, or everything
-(`askRole` in `js/role-pick.js`, then the welcome tour for that role, `startTour(0, { first: true })`, which ends on
-the calendar however it ends, so "Did you see them?" is asked there; taken again later, from ?, Aa or Settings, the
+The first open asks who is using Gdex: producer, manager, band, solo artist, scout or audiophile, or Jack of Trades
+(Master of None: every section), the seventh card, listed last (`askRole` in `js/role-pick.js`, then the welcome tour
+for that role, `startTour(0, { first: true })`, which ends on the calendar however it ends, so "Did you see them?" is
+asked there; taken again later, from ?, Aa or Settings, the
 tour ends on the section it was started from: `runTour(steps, { onEnd })`). Settings → Your role swaps it (`rolePanel`). A
 device whose welcome tour was done before roles came gets one card under the menu instead (`nudgeRole`, shown once:
 `gdex-role-nudged`; closing the first-run question without a pick sets it too, so that person never sees the card).
@@ -80,12 +81,17 @@ compare `menuStyle()` to build such a sentence. (`js/tour.js` cannot import `a11
 `menuKind()` reads `data-menu` on the `html` element, which `applyPrefs()` sets to the menu in use, so it is right even
 when storage could not keep the choice; storage is only the fall-back.) The role is a device preference in `localStorage` `gdex-role`, never in the database, so a swap
 writes nothing to `gdex-db` and backups do not carry it; Erase this device clears it. With none saved the role is
-`EVERYTHING`: every section on the menu, every box, no page defaults, as Gdex always was. **Every spec runs as
-Everything** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
+`EVERYTHING`, called Jack of Trades on screen (id `all`, the value `gdex-role` keeps when it is picked; the constant
+and the id kept their old names, so nothing stored changed): every section on the menu, every box, no page defaults,
+as Gdex always was. Closing the first-run question without a pick leaves it there, with no role saved. **Every spec
+runs as Jack of Trades** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
 
 A role is data (`ROLES` in `js/roles.js`; not to be confused with `model.js`'s `ROLES`, the instruments people
-play): `sections` (the menu in order; Settings is always added last), `start` (`bookings` for every role, and its
-first track: **Gdex opens on the calendar on every page load**, in every role and in Everything, whatever was open last.
+play): `label`, `icon` and `blurb` (its card in the question and in Settings → Your role), `sub` (a sub name, only Jack
+of Trades has one: Master of None, drawn under the name on its card as `.rp-sub`, and read with the name by a screen
+reader, "Jack of Trades, Master of None", through a comma only it gets, `.rp-comma`), `sections` (the menu in order;
+Settings is always added last), `start` (`bookings` for every role, and its first track: **Gdex opens on the calendar
+on every page load**, in every role and in Jack of Trades, whatever was open last.
 `startSection()` is the one source for where a start opens; the old `gdex-tab` key is no longer read or written, and is
 removed at boot. Explicit jumps still go where they say: `logiGo`, `openBooking`, `openAct`, a tour step, the first-run
 pick. Within a visit, leaving Bookings and coming back keeps the view, the day and an open booking), `names` (only
@@ -102,7 +108,7 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `blockShown(id)`, `blockFolded(id)`, `MONEY_BLOCKS` | A booking box shown, under More boxes, or (a money box for a role without money) neither. `blocksFor(kind)` already leaves the others out. |
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
 | `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
-| `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `gdex-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Everything, is asked). |
+| `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `gdex-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Jack of Trades, is asked). |
 
 Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
 seen last), and "From a past show" offers shows up to today (holds and offers too when money is off), leaving out
@@ -117,7 +123,7 @@ word); with money off, People and Venues leave rates off cards and sheets (the f
 someone who goes to shows. The venue checks on a booking speak of "the set" for everyone and mention the deal or
 settlement only when money is on.
 Settings has no Quotes & invoices section (nor its walkthrough step) while money is off, and Your details is not said
-to go on quotes and invoices; Your role says the section comes back with a role that uses money, or with Everything.
+to go on quotes and invoices; Your role says the section comes back with a role that uses money, or with Jack of Trades.
 
 Rules: a page reads the role through these helpers, never `roleId() === 'scout'`; ids stay ids (`sessions` is the
 Studio log, whatever a role calls anything); hiding never deletes or edits data; nothing inside a document that goes

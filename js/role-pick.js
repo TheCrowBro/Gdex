@@ -16,7 +16,8 @@ function card(r, { on = false, radio = false, onPick }) {
     onclick: () => onPick(r.id),
   },
   h('span', { class: 'rp-icon', 'aria-hidden': 'true' }, r.icon),
-  h('span', { class: 'rp-text' }, h('strong', { class: 'rp-name' }, r.label), h('span', { class: 'rp-blurb small' }, r.blurb),
+  // A sub name (Jack of Trades: Master of None) sits under the name; a comma only a screen reader gets joins the two in one name.
+  h('span', { class: 'rp-text' }, h('strong', { class: 'rp-name' }, r.label, r.sub && h('span', { class: 'rp-comma' }, ',')), r.sub && h('span', { class: 'rp-sub' }, r.sub), h('span', { class: 'rp-blurb small' }, r.blurb),
     h('span', { class: 'rp-menu small muted' }, menuText(r))),
   radio && h('span', { class: 'rp-check', 'aria-hidden': 'true' }, on ? '✓' : ''));
 }
@@ -36,26 +37,26 @@ window.addEventListener('gdex-prefs', () => {
 // Once the role card has gone, the page takes the focus (#page), so the next Tab carries on from there.
 const focusPage = () => document.getElementById('page')?.focus({ preventScroll: true });
 
-// The first open: six roles, or everything. Picking one opens its start section (the calendar); then(…) runs the welcome tour.
-// Closing it without a pick is an answer too: Everything stays, and the role card is never offered (gdex-role-nudged).
+// The first open: six roles, and Jack of Trades (every section) last. Picking one opens its start section (the calendar); then(…)
+// runs the welcome tour. Closing it without a pick is an answer too: Gdex stays Jack of Trades (no role is saved), and the role card
+// is never offered (gdex-role-nudged).
 export function askRole({ then = () => {}, title = 'Who’s using Gdex?' } = {}) {
   let picked = false, close = () => {};
   const pick = id => {
     picked = true; haptic(); close();
     setRole(id, { start: true });
-    if (id !== 'all') announce(settled(roleOf(id)));
+    announce(settled(roleOf(id)));
     then();
   };
   const body = h('div', { class: 'stack rp-ask' },
     h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Gdex puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.`),
-    h('div', { class: 'list rp-list', role: 'group', 'aria-label': 'Roles' }, ROLES.map(r => card(r, { onPick: pick }))),
-    h('button', { type: 'button', class: 'btn ghost rp-all', 'data-role': 'all', onclick: () => pick('all') }, `${EVERYTHING.icon} Not sure? Show me everything`));
+    h('div', { class: 'list rp-list', role: 'group', 'aria-label': 'Roles' }, [...ROLES, EVERYTHING].map(r => card(r, { onPick: pick }))));
   ({ close } = sheet(title, body, { dismissOnBackdrop: false, onClose: () => { if (!picked) { nudged(); then(); } } }));
   setTimeout(() => document.querySelector('.rp-ask .rp-card')?.focus(), 60);
 }
 
 // For a device that used Gdex before roles came (its welcome tour done, no role): one card under the menu, once.
-// Choose asks the question; Not now leaves Everything as it is. Either way it is not shown again (Settings → Your role
+// Choose asks the question; Not now leaves Jack of Trades as it is. Either way it is not shown again (Settings → Your role
 // is always there), and the focus goes to the page rather than nowhere.
 export function nudgeRole(anchor) {
   try { if (localStorage.getItem(NUDGED) || roleChosen()) return; } catch { return; }
@@ -73,7 +74,7 @@ export function nudgeRole(anchor) {
   window.addEventListener('gdex-role', () => { if (card.isConnected) done(); }, { once: true });
 }
 
-// Settings → Your role: the six roles and Everything as one choice; what is on the menu, and the bonus tracks. A choice
+// Settings → Your role: the six roles and Jack of Trades as one choice; what is on the menu, and the bonus tracks. A choice
 // redraws the page (the app does, on gdex-role), and the redrawn card keeps the focus. Its words follow the section
 // menu (record player, tape deck or digital player).
 export function rolePanel() {
@@ -89,7 +90,7 @@ export function rolePanel() {
         if (el.isConnected) { draw(); el.querySelector(`[data-role="${id}"]`)?.focus({ preventScroll: true }); }
       } }))),
       extra.length ? h('p', { class: 'small muted rp-bonus' }, 'Bonus tracks for this role: ' + extra.map(id => sectionName(id, NAMES[id])).join(', ') + '.') : null,
-      r.money === false ? h('p', { class: 'small muted rp-money' }, 'Fees, deals and settlements are off for this role. Booking acts and settling shows yourself? Manager or Everything has them. Quotes & invoices come back with a role that uses money, or with Everything.') : null,
+      r.money === false ? h('p', { class: 'small muted rp-money' }, 'Fees, deals and settlements are off for this role. Booking acts and settling shows yourself? Manager or Jack of Trades has them. Quotes & invoices come back with a role that uses money, or with Jack of Trades.') : null,
       h('p', { class: 'small muted' }, 'Kept on this device, not in backups: on a new phone you pick it again when Gdex first opens.'),
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost', id: 'rp-tour', onclick: () => import('./tour.js').then(m => m.startTour()) }, '🧭 Show me around'))));
   };

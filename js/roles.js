@@ -7,6 +7,7 @@ const KEY = 'gdex-role';
 export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'backline', 'venues', 'money', 'tools', 'insurance', 'settings'];
 
 // Each role, in the shape the app reads (docs/developers.md → Roles):
+//   label, icon, blurb   its card in the first-run question and Settings → Your role; sub: a line under the name (optional).
 //   sections   the menu in order (Settings is always added, last); start: the section Gdex opens on, every time. For
 //              every role that is 'bookings', the calendar, and it is the first track on the menu.
 //   names      a section's name for this role ({ acts: 'Roster' }): on the menu, as the page's heading, in the tour.
@@ -111,8 +112,11 @@ export const ROLES = [
     ],
     pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { order: 'recent', tabs: ['about'], empty: 'Add a band you’ve seen or want to see. Each time you see them, log a score out of 100 with notes on the set and the sound; the card keeps your average, your latest score and their next dates.' }, tools: { tool: 'meter' } } },
 ];
-// Before a role is chosen (and for anyone who wants it): every section, as Gdex has always been.
-export const EVERYTHING = { id: 'all', label: 'Everything', icon: '🗂️', what: '', blurb: 'Every section on the menu, as Gdex has always been.', sections: SECTIONS.slice(), start: 'bookings', names: {}, newKind: 'show', hide: [], money: true, pages: {} };
+// Jack of Trades (Master of None): every section, as Gdex has always been. It is where Gdex is before a role is chosen,
+// and a profile anyone can pick: the last card in the first-run question and in Settings → Your role. Its id stays 'all'
+// (what is stored under gdex-role), and EVERYTHING stays its name in the code. sub: a line read under the name on its
+// card (and with it, by a screen reader); only this profile has one.
+export const EVERYTHING = { id: 'all', label: 'Jack of Trades', sub: 'Master of None', icon: '🧰', what: '', blurb: 'A bit of all of it: every section on the menu, and every box on a booking’s page.', sections: SECTIONS.slice(), start: 'bookings', names: {}, newKind: 'show', hide: [], money: true, pages: {} };
 const ALL = [...ROLES, EVERYTHING];
 
 const read = () => { try { const v = localStorage.getItem(KEY); return ALL.some(r => r.id === v) ? v : ''; } catch { return ''; } };
