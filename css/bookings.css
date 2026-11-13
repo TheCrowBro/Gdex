@@ -7,7 +7,8 @@
 .bk-head-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .page-head .bk-head-actions .btn { min-width: 0; }
 .bk-calview > .page-head h1, .bk-dayview .cal-title, .bk-title { outline: none; }
-.bk-filters { display: grid; gap: 2px; margin: -2px 0 10px; }
+/* The filter chips, under the calendar and above Coming up: nearer the calendar they filter than the list under them. */
+.bk-filters { display: grid; gap: 2px; margin: -8px 0 12px; }
 .bk-filters .chips { margin-bottom: 0; }
 .bk-filters .chip { display: inline-flex; align-items: center; gap: 6px; }
 .bk-swatch { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--act, var(--muted)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 30%, transparent); }
@@ -114,6 +115,9 @@
 .bk-formerly { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
 .bk-hero > .bk-formerly { margin-top: -8px; }
 .bk-none { margin: 4px 2px 0; }
+/* A view the filters leave empty: "Nothing on with these filters." and Clear the filters, at the top of what it draws. */
+.bk-filtered { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 8px; }
+.bk-filtered .bk-none { margin: 0 2px; font-size: .9rem; } /* in rem, as a week's "Nothing on": it follows Text size */
 
 /* ------------------------------ week: a list for each day ------------------------------ */
 .bk-week { display: grid; gap: 4px; }
@@ -356,12 +360,14 @@ html[data-contrast=high] .bk-block, html[data-contrast=high] .bk-ev-any { border
 
 /* ------------------------------ laptops: the calendar beside what is coming up (in every view); the boxes two by two ------------------------------ */
 @media (min-width: 1000px) {
+  /* Column one: the calendar, then the chips under it (row 3 takes what the calendar needs past Coming up's heading, the
+     last row what Coming up needs past that). Column two: Coming up. */
   .bk-calview { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto auto auto 1fr; column-gap: 28px; align-items: start; }
   .bk-calview > .page-head { grid-column: 1 / -1; grid-row: 1; }
-  .bk-calview > .bk-filters { grid-column: 1 / -1; grid-row: 2; }
-  .bk-calview > .bk-cal-panel { grid-column: 1; grid-row: 3 / span 2; }
-  .bk-calview > .bk-agenda-head { grid-column: 2; grid-row: 3; margin-top: 0; }
-  .bk-calview > .bk-agenda, .bk-calview > .empty { grid-column: 2; grid-row: 4; }
+  .bk-calview > .bk-cal-panel { grid-column: 1; grid-row: 2 / span 2; }
+  .bk-calview > .bk-filters { grid-column: 1; grid-row: 4; }
+  .bk-calview > .bk-agenda-head { grid-column: 2; grid-row: 2; margin-top: 0; }
+  .bk-calview > .bk-agenda, .bk-calview > .empty { grid-column: 2; grid-row: 3 / span 2; }
   .bk-calview .bk-agenda .list { grid-template-columns: 1fr; }
   .bk-calview .bk-day { min-height: 104px; }
   .bk-calview .bk-day-tall { min-height: 160px; }

@@ -341,6 +341,11 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     await toMonth(page);
     const first = await page.locator('.bk-filters .chips').nth(1).locator('.chip').first().innerText();
     ok(`${r}: the act filter starts “${chip}”`, first === chip, first);
+    // In every role the chips are under the calendar box, above Coming up, and the walkthrough says so after the calendar.
+    const under = await page.evaluate(() => !!document.querySelector('.bk-calview > .bk-cal-panel + .bk-filters + .bk-agenda-head'));
+    const walk = await steps(page);
+    ok(`${r}: the filter chips are under the calendar, above Coming up, and the walkthrough meets them there`, under && walk.indexOf('Filters') === walk.indexOf('The calendar') + 1 && walk.indexOf('Coming up') === walk.indexOf('Filters') + 1
+      && /^Under the calendar: /.test(await stepText(page, 'Filters')), `${under} ${walk.join(', ')}`);
   }
 
   /* ---------------- producer: Start a take log lands on + Take ---------------- */
