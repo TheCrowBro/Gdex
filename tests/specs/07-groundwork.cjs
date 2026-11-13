@@ -580,6 +580,8 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
 
     // A time seen and a take removed by hand leave a tombstone, so Google Drive's entry-by-entry merge does not bring them back.
     await go(page, 'acts');
+    // The sample's acts start in folded main-genre groups (item 12): open the Night Owls' (indie rock) first, as a tap does.
+    if ((await page.getAttribute('#ac-grp-rock', 'aria-expanded')) !== 'true') { await page.click('#ac-grp-rock'); await page.waitForSelector('#ac-grp-rock[aria-expanded="true"]'); }
     await page.locator('.ac-card[data-id="s-owls"] .ac-card-head').click();
     await page.waitForSelector('#ac-pnl-s-owls');
     const t1 = Date.now();
