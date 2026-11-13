@@ -89,7 +89,8 @@ runs as Jack of Trades** unless it sets a role (`tests/helpers.cjs` marks the to
 A role is data (`ROLES` in `js/roles.js`; not to be confused with `model.js`'s `ROLES`, the instruments people
 play): `label`, `icon` and `blurb` (its card in the question and in Settings → Your role), `sub` (a sub name, only Jack
 of Trades has one: Master of None, drawn under the name on its card as `.rp-sub`, and read with the name by a screen
-reader, "Jack of Trades, Master of None", through a comma only it gets, `.rp-comma`), `sections` (the menu in order;
+reader, "Jack of Trades, Master of None", through a comma only it gets, `.rp-comma.sr-only`, which takes no room on
+the line, so it never pushes "Trades" down), `sections` (the menu in order;
 Settings is always added last), `start` (`bookings` for every role, and its first track: **Gdex opens on the calendar
 on every page load**, in every role and in Jack of Trades, whatever was open last.
 `startSection()` is the one source for where a start opens; the old `gdex-tab` key is no longer read or written, and is

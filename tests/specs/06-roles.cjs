@@ -26,13 +26,22 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     // Jack of Trades (id 'all', every section) is a full card like the others: its name, the sub name under it, its icon, its blurb, its menu
     const jack = await page.$eval('.rp-ask .rp-card[data-role="all"]', c => {
       const box = sel => { const e = c.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, text: e.textContent }; };
-      return { name: box('.rp-name'), sub: box('.rp-sub'), blurb: box('.rp-blurb'), menu: box('.rp-menu'), icon: box('.rp-icon'), card: (({ top, bottom, left, right }) => ({ top, bottom, left, right }))(c.getBoundingClientRect()), comma: getComputedStyle(c.querySelector('.rp-comma') || c).clipPath, cls: c.className };
+      return { name: box('.rp-name'), sub: box('.rp-sub'), blurb: box('.rp-blurb'), menu: box('.rp-menu'), icon: box('.rp-icon'), card: (({ top, bottom, left, right }) => ({ top, bottom, left, right }))(c.getBoundingClientRect()), cls: c.className };
+    });
+    // The comma a screen reader gets must take no room on the line: squeezed to the width "Jack of Trades" needs, the
+    // name stays on one line, as it would without it (a comma taking room pushed "Trades" down at 320px with large text).
+    const comma = await page.$eval('.rp-ask .rp-card[data-role="all"] .rp-name', n => {
+      const c = n.querySelector('.rp-comma'), r = c.getBoundingClientRect();
+      const probe = document.createElement('span'); probe.style.cssText = 'position: absolute; white-space: nowrap; visibility: hidden'; probe.textContent = n.firstChild.textContent; n.append(probe);
+      const need = probe.getBoundingClientRect().width; probe.remove();
+      const one = n.getBoundingClientRect().height; n.style.width = `${Math.ceil(need) + 1}px`; const squeezed = n.getBoundingClientRect().height; n.style.width = '';
+      return { text: c.textContent, w: r.width, h: r.height, overflow: getComputedStyle(c).overflow, one: Math.round(one), squeezed: Math.round(squeezed) };
     });
     ok('Jack of Trades is a card like the six: its name, icon and blurb, and every section as its menu', jack.name.text === 'Jack of Trades,' && jack.icon.text === '🧰' && /every section on the menu/.test(jack.blurb.text) && jack.menu.text.split(' · ').length === 10 && jack.cls === 'card tap rp-card', JSON.stringify(jack));
     ok('…with its sub name, Master of None, under the name and over the blurb', jack.sub && jack.sub.text === 'Master of None' && jack.sub.top >= jack.name.bottom - 1 && jack.blurb.top >= jack.sub.bottom - 1 && Math.abs(jack.sub.left - jack.name.left) < 2 && jack.sub.right <= jack.card.right, JSON.stringify(jack.sub));
-    ok('…and the comma that joins them for a screen reader is not seen', jack.comma === 'inset(50%)', jack.comma);
+    ok('…and the comma that joins them for a screen reader is not seen and takes no room on the line', comma.text === ',' && comma.w <= 1 && comma.h <= 1 && comma.overflow === 'hidden' && comma.squeezed === comma.one, JSON.stringify(comma));
     ok('…and only Jack of Trades has a sub name', (await page.locator('.rp-ask .rp-sub').count()) === 1);
-    ok('a screen reader hears its name with the sub name: “Jack of Trades, Master of None”', (await page.getByRole('button', { name: /^Jack of Trades, Master of None A bit of all of it/ }).count()) === 1, await page.locator('.rp-ask .rp-card[data-role="all"]').evaluate(e => e.textContent));
+    ok('a screen reader hears its name with the sub name: “Jack of Trades, Master of None”', (await page.getByRole('button', { name: /^Jack of Trades ?, Master of None A bit of all of it/ }).count()) === 1, await page.locator('.rp-ask .rp-card[data-role="all"]').evaluate(e => e.textContent));
     ok('the old “Not sure? Show me everything” button is gone, and no word on the question says Everything', (await page.locator('.rp-ask .rp-all, .rp-ask button.btn[data-role="all"]').count()) === 0 && !/show me everything|everything/i.test(await page.textContent('.rp-ask')), await page.textContent('.rp-ask'));
     ok('each role shows the menu it gives', /Studio log/.test(await page.textContent('.rp-card[data-role="producer"] .rp-menu')));
     ok('the first role has the focus', await page.evaluate(() => document.activeElement && document.activeElement.dataset.role === 'producer'));
@@ -457,7 +466,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   const radios = await page.$$eval('#se-role .rp-card', bs => bs.map(b => [b.dataset.role, b.getAttribute('role'), b.getAttribute('aria-checked')]));
   ok('it lists the six roles and Jack of Trades, last, as one choice (Jack of Trades checked while none is chosen)', radios.length === 7 && radios.every(r => r[1] === 'radio') && radios[6][0] === 'all' && radios.find(r => r[0] === 'all')[2] === 'true', JSON.stringify(radios));
   ok('…its card has the sub name under the name, and a screen reader hears “Jack of Trades, Master of None”', (await page.textContent('#se-role .rp-card[data-role="all"] .rp-sub')) === 'Master of None' && (await page.locator('#se-role .rp-sub').count()) === 1
-    && (await page.getByRole('radio', { name: /^Jack of Trades, Master of None A bit of all of it/ }).count()) === 1 && (await page.$eval('#se-role .rp-card[data-role="all"]', c => c.querySelector('.rp-sub').getBoundingClientRect().top >= c.querySelector('.rp-name').getBoundingClientRect().bottom - 1)));
+    && (await page.getByRole('radio', { name: /^Jack of Trades ?, Master of None A bit of all of it/ }).count()) === 1 && (await page.$eval('#se-role .rp-card[data-role="all"]', c => c.querySelector('.rp-sub').getBoundingClientRect().top >= c.querySelector('.rp-name').getBoundingClientRect().bottom - 1)));
   ok('…and Your role says Everything nowhere', !/everything/i.test(await page.textContent('#se-role')), await page.textContent('#se-role'));
   ok('…in a radio group', (await page.locator('#se-role [role=radiogroup]').count()) === 1);
   ok('Settings says the role is kept on this device, not in backups', /not in backups/.test(await page.textContent('#se-role')));

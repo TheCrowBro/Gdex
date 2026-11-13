@@ -17,7 +17,7 @@ function card(r, { on = false, radio = false, onPick }) {
   },
   h('span', { class: 'rp-icon', 'aria-hidden': 'true' }, r.icon),
   // A sub name (Jack of Trades: Master of None) sits under the name; a comma only a screen reader gets joins the two in one name.
-  h('span', { class: 'rp-text' }, h('strong', { class: 'rp-name' }, r.label, r.sub && h('span', { class: 'rp-comma' }, ',')), r.sub && h('span', { class: 'rp-sub' }, r.sub), h('span', { class: 'rp-blurb small' }, r.blurb),
+  h('span', { class: 'rp-text' }, h('strong', { class: 'rp-name' }, r.label, r.sub && h('span', { class: 'rp-comma sr-only' }, ',')), r.sub && h('span', { class: 'rp-sub' }, r.sub), h('span', { class: 'rp-blurb small' }, r.blurb),
     h('span', { class: 'rp-menu small muted' }, menuText(r))),
   radio && h('span', { class: 'rp-check', 'aria-hidden': 'true' }, on ? '✓' : ''));
 }

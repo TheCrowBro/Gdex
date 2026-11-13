@@ -420,7 +420,6 @@ html[data-motion=off] *, html[data-motion=off] *::before, html[data-motion=off] 
 .rp-text { display: grid; gap: 2px; min-width: 0; }
 .rp-name { font-size: 1.05rem; }
 .rp-sub { font-size: .85rem; font-weight: 600; font-style: italic; color: var(--muted); margin-top: -2px; } /* Jack of Trades' Master of None */
-.rp-comma { clip-path: inset(50%); } /* read, not seen: "Jack of Trades, Master of None" */
 .rp-blurb, .rp-menu { overflow-wrap: anywhere; }
 .rp-check { font-weight: 800; color: var(--accent); min-width: 1ch; }
 .rp-nudge { margin: 8px 0 4px; display: grid; gap: 8px; border-left: 4px solid var(--accent); } .rp-nudge-text { margin: 0; overflow-wrap: anywhere; }
