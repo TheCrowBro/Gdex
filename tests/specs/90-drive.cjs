@@ -1,0 +1,497 @@
+// Google Drive, free for everyone (the build spec §8): not set up yet; connecting (Google contacted only once asked, a
+// cancelled sign-in leaves nothing linked, only drive.appdata asked); the first device writes the copy, a second joins,
+// edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the page;
+// Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back and
+// Replace reaching every device; Disconnect, Delete Gdex's copy and Erase; and the earliest free day carried in the
+// Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in script is served by the test, and one Google Drive
+// held here in Node answers every device (each browser context is one device).
+// This file also exports the fake and the device opener for 91-drive-merge and 92-drive-desktop.
+const { chromium } = require('playwright');
+const fs = require('fs'), path = require('path');
+const { ok, sleep, BASE } = require('../helpers.cjs');
+
+const CLIENT = '123-gdex-test.apps.googleusercontent.com';
+const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const ROOT = process.env.GDEX_ROOT || path.resolve(__dirname, '..', '..');
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(fs.readFileSync(path.join(ROOT, 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
+const sheetOf = title => `.sheet[aria-label="${title}"]`;
+const until = async (fn, ms = 12000) => { const end = Date.now() + ms; for (;;) { let v; try { v = await fn(); } catch { v = false; } if (v) return v; if (Date.now() > end) return false; await sleep(100); } };
+
+// Google Identity Services, standing in for Google's sign-in window: it records what it was asked and answers 10 ms
+// later with a token (window.__gfail: the person cancelled; window.__gscope: the permission Google granted).
+const GIS = `window.google = { accounts: { oauth2: { initTokenClient: cfg => { window.__gcfg = cfg; return { requestAccessToken: o => { window.__greq = o; window.__gcalls = (window.__gcalls || 0) + 1;
+  setTimeout(() => window.__gfail ? cfg.callback({ error: typeof window.__gfail === 'string' ? window.__gfail : 'access_denied' }) : cfg.callback({ access_token: 'gtok' + Math.random().toString(36).slice(2), expires_in: 3600, scope: window.__gscope || cfg.scope, token_type: 'Bearer' }), 10); } }; } } } };`;
+
+// One Google Drive, its hidden app folder held here. Requests: list (q name='…', orderBy createdTime), media read,
+// multipart create, media PATCH, DELETE, about. D.fail = { status, reason, match({ who, method, path, name }), abort,
+// keep } answers the next matching request (every one with keep) with an error, or no answer at all (abort). It
+// answers 404 only for a file that is not there.
+function fakeDrive() {
+  let seq = 0;
+  const files = [];
+  const D = {
+    files, log: [], fail: null, user: { displayName: 'Gee Test', emailAddress: 'gee@example.com' },
+    put(name, body, modified = new Date().toISOString()) {
+      const f = { id: 'f' + (++seq) + Math.random().toString(36).slice(2, 7), seq, name, body: typeof body === 'string' ? body : JSON.stringify(body, null, 2), modified, writes: 1 };
+      files.push(f); return f;
+    },
+    named: name => files.filter(f => f.name === name).sort((a, b) => a.seq - b.seq),
+    json(name = 'gdex-db.json') { const f = D.named(name)[0]; return f ? JSON.parse(f.body) : null; },
+    drop(id) { const i = files.findIndex(f => f.id === id); if (i >= 0) files.splice(i, 1); return i >= 0; },
+    writes: who => D.log.filter(l => (!who || l.who === who) && (l.method === 'PATCH' || l.method === 'POST')).length,
+    route: who => route => handle(route, who),
+  };
+  async function handle(route, who) {
+    const req = route.request(), method = req.method(), u = new URL(req.url()), p = u.pathname;
+    if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    const send = (status, body) => route.fulfill({ status, headers: { ...CORS, 'content-type': 'application/json; charset=utf-8' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+    const auth = req.headers().authorization || '';
+    const body = () => (req.postDataBuffer() || Buffer.alloc(0)).toString('utf8');
+    // The file a request is about, by name: the list's q, a file's id, or a new file's metadata.
+    const byPath = (/\/files\/([^/]+)$/.exec(p) || [])[1];
+    const name = byPath ? (files.find(f => f.id === byPath) || {}).name || '' : (/name='([^']*)'/.exec(u.searchParams.get('q') || '') || [])[1] || (method === 'POST' ? (/"name":"([^"]*)"/.exec(body()) || [])[1] || '' : '');
+    const entry = { who, method, path: p, q: u.searchParams.get('q') || '', name, auth };
+    D.log.push(entry);
+    if (!/^Bearer \S+$/.test(auth)) return send(401, { error: { code: 401, message: 'Login Required' } });
+    const f0 = D.fail;
+    if (f0 && (!f0.match || f0.match(entry))) {
+      if (!f0.keep) D.fail = null;
+      if (f0.abort) return route.abort('failed');
+      return send(f0.status, { error: { code: f0.status, errors: [{ reason: f0.reason || 'backendError' }] } });
+    }
+    if (p === '/drive/v3/about' && method === 'GET') return send(200, { user: D.user });
+    if (p === '/drive/v3/files' && method === 'GET') {
+      if (u.searchParams.get('spaces') !== 'appDataFolder') return send(400, { error: { code: 400, message: 'only the app folder' } });
+      let list = files.slice().sort((a, b) => a.seq - b.seq);
+      const q = u.searchParams.get('q');
+      if (q) { const m = /^name='((?:[^'\\]|\\.)*)'$/.exec(q); if (!m) return send(400, { error: { code: 400, message: 'q' } }); const name = m[1].replace(/\\'/g, "'"); list = list.filter(f => f.name === name); }
+      return send(200, { files: list.map(f => ({ id: f.id, name: f.name, modifiedTime: f.modified, size: String(Buffer.byteLength(f.body)) })) });
+    }
+    let m = /^\/drive\/v3\/files\/([^/]+)$/.exec(p);
+    if (m && method === 'GET' && u.searchParams.get('alt') === 'media') { const f = files.find(x => x.id === m[1]); return f ? route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'application/json' }, body: f.body }) : send(404, { error: { code: 404, message: 'File not found' } }); }
+    if (m && method === 'DELETE') return D.drop(m[1]) ? route.fulfill({ status: 204, headers: CORS }) : send(404, { error: { code: 404, message: 'File not found' } });
+    if (p === '/upload/drive/v3/files' && method === 'POST' && u.searchParams.get('uploadType') === 'multipart') {
+      const b = (/boundary=([^;]+)/.exec(req.headers()['content-type'] || '') || [])[1];
+      const parts = b ? body().split('--' + b).slice(1, -1).map(s => s.slice(s.indexOf('\r\n\r\n') + 4).replace(/\r\n$/, '')) : [];
+      let meta = {}; try { meta = JSON.parse(parts[0]); } catch { /* checked below */ }
+      if (!meta.name || !(meta.parents || []).includes('appDataFolder') || parts.length !== 2) return send(400, { error: { code: 400, message: 'bad upload' } });
+      return send(200, { id: D.put(meta.name, parts[1]).id });
+    }
+    m = /^\/upload\/drive\/v3\/files\/([^/]+)$/.exec(p);
+    if (m && method === 'PATCH' && u.searchParams.get('uploadType') === 'media') {
+      const f = files.find(x => x.id === m[1]);
+      if (!f) return send(404, { error: { code: 404, message: 'File not found' } });
+      f.body = body(); f.modified = new Date().toISOString(); f.writes++;
+      return send(200, { id: f.id });
+    }
+    return send(400, { error: { code: 400, message: 'unknown request' } });
+  }
+  return D;
+}
+
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+// Serves Gdex's files from the test's copy at any address (the desktop app's own, localhost:4786x), with no server.
+const serveFiles = async route => {
+  let p = decodeURIComponent(new URL(route.request().url()).pathname); if (p.endsWith('/')) p += 'index.html';
+  const file = path.resolve(ROOT, '.' + p);
+  if (!file.startsWith(path.resolve(ROOT)) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
+  return route.fulfill({ status: 200, contentType: MIME[path.extname(file)] || 'application/octet-stream', body: fs.readFileSync(file) });
+};
+
+// One device: a browser context with Gdex open, the welcome tour, the role card and the question out of the way (as
+// tests/helpers.cjs does, the licence leg included), the Google client set (client: '' for none), Google's sign-in
+// script and the fake Drive routed, toasts recorded, and every request to a Google host listed in hosts.
+// seed: localStorage values set before the first page when absent. standIn: a module served as js/licence-state.js
+// (with licences live in js/licence-config.js). serve: Gdex's files served by the test at url (no test server).
+async function device(browser, D, { who = 'A', client = CLIENT, sample = false, init = null, seed = null, standIn = null, url = BASE, serve = false, viewport = { width: 420, height: 900 }, prefs = null, gis = true } = {}) {
+  const ctx = await browser.newContext({ viewport, serviceWorkers: 'block' });
+  const hosts = [];
+  ctx.on('request', r => { try { const u = new URL(r.url()); if (/google/.test(u.hostname)) hosts.push(u.hostname + u.pathname); } catch { /* not a URL */ } });
+  await ctx.addInitScript(([pf, sd]) => {
+    try {
+      localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); localStorage.setItem('gdex-ask-seen', 'off');
+      if (pf) localStorage.setItem('gdex-prefs', pf);
+      if (sd && !sessionStorage.getItem('gdex-test-seeded')) { sessionStorage.setItem('gdex-test-seeded', '1'); for (const [k, v] of Object.entries(sd)) localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); }
+    } catch (e) { /* ignore */ }
+    window.__toasts = [];
+    addEventListener('DOMContentLoaded', () => new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document.body, { childList: true, subtree: true }));
+  }, [prefs, seed]);
+  if (process.env.GDEX_LICENCE === 'on') await ctx.addInitScript(v => { try { const t = Date.now(); if (!localStorage.getItem('gdex-licence')) localStorage.setItem('gdex-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); if (!localStorage.getItem('gdex-terms')) localStorage.setItem('gdex-terms', JSON.stringify({ v, at: t })); } catch (e) { /* ignore */ } }, TERMS_V);
+  if (init) await ctx.addInitScript(init);
+  if (serve) await ctx.route(u => u.href.startsWith(url), serveFiles); // first, so the routes below override it
+  const tile = { status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') };
+  await ctx.route('https://tile.openstreetmap.org/**', r => r.fulfill(tile));
+  await ctx.route('https://*.tile.openstreetmap.org/**', r => r.fulfill(tile));
+  await ctx.route('https://nominatim.openstreetmap.org/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await ctx.route('https://api.open-meteo.com/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"daily":{"time":[]}}' }));
+  await ctx.route('**/js/cloud-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: `export const CLOUD_APPS = ${JSON.stringify({ google: client })};\n` }));
+  if (standIn) {
+    await ctx.route('**/js/licence-state.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: standIn }));
+    await ctx.route('**/js/licence-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: "export const LICENCE_SITES = ['localhost', '127.0.0.1'];\n" }));
+  }
+  if (gis) await ctx.route('https://accounts.google.com/gsi/client', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: GIS }));
+  if (D) await ctx.route('https://www.googleapis.com/**', D.route(who));
+  const page = await ctx.newPage();
+  const errors = [], allow = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { const t = m.text(); if ((m.type() === 'error' || /Content Security Policy|Refused to/.test(t)) && !allow.some(re => re.test(t))) errors.push(t); });
+  page.on('dialog', d => d.accept());
+  await page.goto(url);
+  await page.waitForSelector('#deck .dk-next');
+  await page.evaluate(() => import('./js/backup.js')); // loaded at idle on every open (and Drive with it): now, so a spec need not wait
+  if (sample) { await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(150); }
+  return { ctx, page, errors, hosts, allow, who };
+}
+
+const state = page => page.evaluate(() => import('./js/sync.js').then(m => m.driveState()));
+const syncOn = (page, opts = {}) => page.evaluate(o => import('./js/sync.js').then(m => m.sync(o)), opts);
+const data = page => page.evaluate(() => import('./js/store.js').then(s => JSON.parse(s.serialize())));
+const cloudState = page => page.evaluate(() => [document.getElementById('cloudBtn').dataset.state || '', document.getElementById('cloudLabel').textContent]);
+const waitCloud = (page, st) => page.waitForFunction(s => document.getElementById('cloudBtn')?.dataset.state === s, st, { timeout: 15000 }).then(() => true, () => false);
+const toasts = page => page.evaluate(() => window.__toasts.join(' | '));
+// The ☁ sheet (the backups panel with the Drive card), opened as a person would.
+async function openBackups(page) {
+  if (await page.locator(sheetOf('Backups')).count()) return;
+  await page.click('#cloudBtn');
+  await page.waitForSelector(`${sheetOf('Backups')} .se-bk-drive`, { timeout: 10000 });
+  await sleep(150);
+}
+const closeSheets = async page => { for (let i = 0; i < 4 && (await page.locator('.sheet').count()); i++) { await page.keyboard.press('Escape'); await sleep(200); } };
+// Connect from the ☁ sheet: Connect Google Drive…, then Continue with Google. Resolves once the sheet has answered.
+async function connect(page) {
+  await openBackups(page);
+  await page.click(`${sheetOf('Backups')} .se-bk-drive-connect`);
+  await page.waitForSelector(`${sheetOf('Connect Google Drive')} .se-bk-drive-go:not([disabled])`, { timeout: 10000 });
+  await page.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
+  await page.waitForFunction(() => !document.querySelector('.sheet[aria-label="Connect Google Drive"]') || !document.querySelector('.sheet[aria-label="Connect Google Drive"] .se-bk-drive-err').hidden || !document.querySelector('.sheet[aria-label="Connect Google Drive"] .se-bk-drive-go').disabled, null, { timeout: 15000 }).catch(() => {});
+  await sleep(100);
+}
+// A month's monthly copy name, n months from this one (in the device's time zone).
+const monthName = n => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + n); return `gdex-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}.json`; };
+const weekdayName = () => `gdex-backup-${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]}.json`;
+
+module.exports = { CLIENT, SCOPE, ROOT, GIS, fakeDrive, device, serveFiles, state, syncOn, data, cloudState, waitCloud, toasts, openBackups, closeSheets, connect, until, sheetOf, monthName, weekdayName };
+
+// A stand-in for js/licence-state.js (Part A builds the real one): every export of the build spec §3.5, free days kept
+// in gdex-licence { first }, adoptFreeDaysFrom as §3.5 has it, and the store's gate shut for a paid role once 30 days
+// have passed since first. Enough to see what Google Drive does with the earliest free day.
+const STAND_IN = `import { setGate } from './store.js';
+const DAY = 864e5, KEY = 'gdex-licence';
+const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
+const now = () => { const s = read(), first = Number(s.first) || 0, left = first ? Math.max(0, 30 - Math.floor((Date.now() - first) / DAY)) : 30;
+  return { kind: 'web', mode: !first ? 'unstarted' : left > 0 ? 'trial' : 'ended', canEdit: !first || left > 0, started: !!first, first, trialLeft: left, trialEnds: '', licence: null, seats: 3 }; };
+const paid = () => (localStorage.getItem('gdex-role') || 'all') !== 'audiophile';
+const fns = new Set();
+export const LICENCE_EVENT = 'gdex-licence';
+export const FREE_KEEPS_WORK = false;
+export const licenceNow = now;
+export const licenceOn = () => true;
+export const licenceReady = () => Promise.resolve();
+export const mayOpen = () => 'open';
+export const mayWork = () => 'open';
+export const mayPickRole = () => 'open';
+export const gateWork = fn => { fn(); };
+export const workMark = () => null;
+export const canWrite = () => now().canEdit || !paid();
+export const startFreeDays = () => Promise.resolve(false);
+export const freeDaysFrom = () => now().first;
+export const adoptFreeDaysFrom = async t => {
+  if (typeof t !== 'number' || !Number.isFinite(t) || t < Date.UTC(2026, 0, 1) || t > Date.now() + DAY) return false;
+  const s = read(); if (s.first && !(t < s.first)) return false;
+  localStorage.setItem(KEY, JSON.stringify({ ...s, first: t, seen: Math.max(Number(s.seen) || 0, Date.now()) }));
+  const st = now(); dispatchEvent(new CustomEvent(LICENCE_EVENT, { detail: st })); fns.forEach(f => f(st)); return true;
+};
+export const refreshLicence = now;
+export const serverTime = () => {};
+export const setLicenceState = () => {};
+export const onLicenceChange = fn => { fns.add(fn); return () => fns.delete(fn); };
+export const initLicenceSource = () => Promise.resolve();
+export const roleBadge = () => '';
+export const sectionMark = () => null;
+setGate(() => canWrite());
+` + (() => {
+  // Any other name the real module exports (its own modules may import one) answers nothing here.
+  const mine = new Set(['LICENCE_EVENT', 'FREE_KEEPS_WORK', 'licenceNow', 'licenceOn', 'licenceReady', 'mayOpen', 'mayWork', 'mayPickRole', 'gateWork', 'workMark', 'canWrite', 'startFreeDays', 'freeDaysFrom', 'adoptFreeDaysFrom', 'refreshLicence', 'serverTime', 'setLicenceState', 'onLicenceChange', 'initLicenceSource', 'roleBadge', 'sectionMark']);
+  let src = ''; try { src = fs.readFileSync(path.join(ROOT, 'js', 'licence-state.js'), 'utf8'); } catch { /* none */ }
+  const names = new Set();
+  for (const m of src.matchAll(/^export\s+(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+  for (const m of src.matchAll(/^export\s*\{([^}]*)\}/gm)) for (const part of m[1].split(',')) { const n = part.trim().split(/\s+as\s+/).pop(); if (n) names.add(n); }
+  return [...names].filter(n => !mine.has(n) && n !== 'default').map(n => `export const ${n} = () => undefined;\n`).join('');
+})();
+
+if (require.main === module) (async () => {
+  const browser = await chromium.launch();
+  const all = [];
+
+  /* ------------------------------ not set up yet ------------------------------ */
+  {
+    const dv = await device(browser, null, { client: '' }); all.push(dv);
+    const { page } = dv;
+    await openBackups(page);
+    const card = page.locator(`${sheetOf('Backups')} .se-bk-drive`);
+    ok('not set up: the Drive card is grey and says so, with no Connect', (await card.getAttribute('data-state')) === 'unset' && /Google Drive · Not set up yet: Google Drive will work here once Gdex’s Google sign-in is switched on\./.test((await card.innerText()).replace(/\s*\n\s*/g, ' · ')) && (await card.locator('button').count()) === 0, (await card.innerText()).replace(/\s+/g, ' '));
+    ok('…and it links to no developer documents', (await card.locator('a').count()) === 0);
+    ok('…the Drive card comes before the backup file’s buttons, under the status line', await page.evaluate(() => { const p = document.querySelector('.sheet .se-bk > .stack'); const kids = [...p.children]; return kids.indexOf(p.querySelector('.se-bk-status')) === 0 && kids.indexOf(p.querySelector('.se-bk-drive')) === 1; }));
+    const [st, label] = await cloudState(page);
+    ok('…and the ☁ button is as before', st === '' && label === 'Backup', st + ' ' + label);
+    ok('…nothing went to Google', dv.hosts.length === 0, dv.hosts.join(' '));
+    await closeSheets(page);
+    await dv.ctx.close();
+  }
+
+  /* ------------------------------ device A connects ------------------------------ */
+  const D = fakeDrive();
+  const A = await device(browser, D, { who: 'A', sample: true }); all.push(A);
+  const pa = A.page;
+  await openBackups(pa);
+  let card = pa.locator(`${sheetOf('Backups')} .se-bk-drive`);
+  ok('off: the card offers Google Drive in plain words, free', (await card.getAttribute('data-state')) === 'off' && /Keep Gdex the same on your phone and computer, with a dated copy each day, in a private Gdex folder of your own Google Drive\. Free\. Only Gdex can open that folder\./.test(await card.innerText()) && (await card.locator('.se-bk-drive-connect').innerText()) === 'Connect Google Drive…');
+  ok('nobody who has not asked for Drive contacts Google', A.hosts.length === 0, A.hosts.join(' '));
+  await pa.click(`${sheetOf('Backups')} .se-bk-drive-connect`);
+  await pa.waitForSelector(`${sheetOf('Connect Google Drive')} .se-bk-drive-go:not([disabled])`, { timeout: 10000 });
+  const connectText = await pa.locator(sheetOf('Connect Google Drive')).innerText();
+  ok('Connect opens a sheet that says what Drive does, before anything else', /hidden folder of your Google Drive that only Gdex can open/.test(connectText) && /the last 7 days and the last 12 months/.test(connectText) && /about once an hour/.test(connectText) && /Nothing goes to a Gdex server\./.test(connectText) && /Continue with Google/.test(connectText) && /Not now/.test(connectText) && !/web browser/.test(connectText));
+  ok('Google’s sign-in script loads only once that sheet is open, and Drive is not contacted yet', A.hosts.includes('accounts.google.com/gsi/client') && !A.hosts.some(x => /googleapis/.test(x)), A.hosts.join(' '));
+  await pa.evaluate(() => { window.__gfail = true; });
+  await pa.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
+  await pa.waitForSelector(`${sheetOf('Connect Google Drive')} .se-bk-drive-err:not([hidden])`, { timeout: 10000 });
+  ok('a cancelled sign-in says so in the sheet', (await pa.locator(`${sheetOf('Connect Google Drive')} .se-bk-drive-err`).innerText()) === 'Google sign-in was cancelled.');
+  ok('…and leaves nothing linked and nothing in Drive', !(await pa.evaluate(() => localStorage.getItem('gdex-drive'))) && !(await state(pa)).linked && D.files.length === 0 && !A.hosts.some(x => /googleapis/.test(x)));
+  await pa.evaluate(() => { window.__gfail = false; });
+  await pa.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
+  await pa.waitForSelector(sheetOf('Connect Google Drive'), { state: 'detached', timeout: 15000 });
+  const gcfg = await pa.evaluate(() => ({ id: window.__gcfg.client_id, scope: window.__gcfg.scope, req: window.__greq }));
+  ok('Google is asked with Gdex’s client for drive.appdata only', gcfg.id === CLIENT && gcfg.scope === SCOPE && gcfg.req.prompt === '', JSON.stringify(gcfg));
+  ok('connected: the ☁ button says Synced', await waitCloud(pa, 'synced') && (await cloudState(pa))[1] === 'Synced');
+  ok('…with a toast that says so', /Connected to Google Drive\. Up to date\./.test(await toasts(pa)));
+  let dbA = D.json();
+  ok('the first device writes gdex-db.json into the app folder, with its records', D.named('gdex-db.json').length === 1 && dbA.app === 'gdex' && dbA.bookings.some(b => b.id === 's-show1') && dbA.acts.some(a => a.id === 's-owls'));
+  ok('…as JSON with two-space indent', /^\{\n {2}"app": "gdex"/.test(D.named('gdex-db.json')[0].body));
+  const lic = await pa.evaluate(() => import('./js/licence-state.js').then(L => ({ on: L.licenceOn(), from: L.freeDaysFrom() })));
+  ok('the Drive copy carries freeDaysFrom only when this device has started its free days (none while licences are off)', lic.on ? dbA.freeDaysFrom === lic.from : !('freeDaysFrom' in dbA), JSON.stringify({ lic, field: dbA.freeDaysFrom }));
+  ok('…and the field never enters this device’s database', !(await pa.evaluate(() => 'freeDaysFrom' in JSON.parse(localStorage.getItem('gdex-db-v1')))));
+  await until(() => D.named(weekdayName()).length && D.named(monthName(0)).length);
+  ok('the first good sync of the day saves today’s copy and this month’s', D.named(weekdayName()).length === 1 && D.named(monthName(0)).length === 1 && JSON.parse(D.named(weekdayName())[0].body).bookings.some(b => b.id === 's-show1'));
+  await sleep(200);
+  card = pa.locator(`${sheetOf('Backups')} .se-bk-drive`);
+  const linkedText = await card.innerText();
+  ok('the card names the account and says it is up to date', /Connected to Google Drive/.test(linkedText) && /Signed in as Gee Test · gee@example\.com/.test(linkedText) && /Up to date \(just now\)/.test(linkedText), linkedText.replace(/\s+/g, ' '));
+  ok('…with today’s copy and the buttons', /Today’s copy: saved at/.test(linkedText) && ['Sync now', 'Bring back a daily copy…', 'Disconnect', 'Delete Gdex’s copy from Google Drive…'].every(t => linkedText.includes(t)) && !linkedText.includes('Sign in again'));
+  ok('…and says what Disconnect does and how to take Gdex’s access away', /Disconnect stops syncing on this device\. Both copies stay: this device’s and the one in your Drive\. To take Gdex’s access away completely, remove Gdex in your Google Account under third-party connections\./.test(linkedText));
+  ok('the backups status counts Google Drive as a backup', /Last backup just now \(Google Drive\)/.test(await pa.locator(`${sheetOf('Backups')} .se-bk-status`).innerText()));
+  ok('the account is kept as the next sign-in’s hint, the token for its hour', await pa.evaluate(() => localStorage.getItem('gdex-google-email') === 'gee@example.com' && JSON.parse(localStorage.getItem('gdex-google-tokens')).exp > Date.now() + 50 * 60000));
+  await closeSheets(pa);
+
+  /* ------------------------------ device B joins ------------------------------ */
+  const B = await device(browser, D, { who: 'B' }); all.push(B);
+  const pb = B.page;
+  await pb.evaluate(() => import('./js/store.js').then(s => s.upsert('acts', { id: 'b-act', name: 'The Second Device' })));
+  await connect(pb);
+  ok('a second device connects to the same Drive', await waitCloud(pb, 'synced'));
+  let dbB = await data(pb);
+  ok('…and takes in the first device’s records while keeping its own', dbB.bookings.some(b => b.id === 's-show1') && dbB.acts.some(a => a.id === 'b-act'));
+  ok('…and Drive now holds both', D.json().acts.some(a => a.id === 'b-act') && D.json().bookings.some(b => b.id === 's-show1') && D.named('gdex-db.json').length === 1);
+  await syncOn(pa);
+  ok('…and the first device has the second’s at its next sync', (await data(pa)).acts.some(a => a.id === 'b-act'));
+
+  // an edit travels
+  await pa.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 'a-song', title: 'Harbour Demo' })));
+  ok('a change is copied to Drive a moment later (a full sync)', !!(await until(() => (D.json().songs || []).some(s => s.id === 'a-song'))));
+  await syncOn(pb);
+  ok('…and arrives on the other device at its next sync', (await data(pb)).songs.some(s => s.id === 'a-song'));
+  // a deletion stays deleted
+  await pb.evaluate(() => import('./js/store.js').then(s => s.remove('songs', 'a-song')));
+  ok('a deletion goes to Drive with its tombstone', !!(await until(() => !D.json().songs.some(s => s.id === 'a-song') && D.json().deleted['a-song'] > 0)));
+  await syncOn(pa); await syncOn(pb); await syncOn(pa);
+  ok('…and stays deleted on both devices, round after round', !(await data(pa)).songs.some(s => s.id === 'a-song') && !(await data(pb)).songs.some(s => s.id === 'a-song') && !D.json().songs.some(s => s.id === 'a-song'));
+
+  /* ------------------------------ the hour is up ------------------------------ */
+  await pa.evaluate(() => Promise.all([import('./js/drive.js'), import('./js/sync.js')]).then(([d, s]) => { d.forgetGoogleToken(); return s.sync({ quiet: true }); }));
+  ok('when Google’s hour is up the ☁ button says Sign in', await waitCloud(pa, 'needs-permission') && (await cloudState(pa))[1] === 'Sign in');
+  ok('…and nothing went to Drive without a token', D.log.filter(l => l.who === 'A' && !/^Bearer gtok/.test(l.auth)).length === 0);
+  await openBackups(pa);
+  card = pa.locator(`${sheetOf('Backups')} .se-bk-drive`);
+  ok('the card says so, with Sign in again first', /Needs you to sign in again/.test(await card.innerText()) && (await card.locator('.se-bk-drive-again').count()) === 1);
+  const calls = await pa.evaluate(() => window.__gcalls);
+  await pa.click(`${sheetOf('Backups')} .se-bk-drive-again`);
+  ok('one tap signs in again, naming the account so Google can skip its chooser', await waitCloud(pa, 'synced') && (await pa.evaluate(() => window.__greq.login_hint)) === 'gee@example.com' && (await pa.evaluate(() => window.__gcalls)) === calls + 1);
+  await until(async () => /Signed in again\. Up to date\./.test(await toasts(pa)));
+  ok('…and says so', /Signed in again\. Up to date\./.test(await toasts(pa)));
+  // a 401 from Drive itself (the token was withdrawn) is the same: sign in again
+  A.allow.push(/status of 401/);
+  D.fail = { status: 401, match: r => r.who === 'A' };
+  await syncOn(pa);
+  ok('Drive refusing the token asks for a sign-in, and the token is forgotten', (await state(pa)).status === 'needs-permission' && !(await pa.evaluate(() => localStorage.getItem('gdex-google-tokens'))));
+  A.allow.pop();
+  await pa.click(`${sheetOf('Backups')} .se-bk-drive-again`);
+  await waitCloud(pa, 'synced');
+  await closeSheets(pa);
+
+  /* ------------------------------ status changes never redraw the page ------------------------------ */
+  await pa.evaluate(() => window.logiGo('settings')); await sleep(400);
+  await pa.evaluate(() => { document.querySelector('#page').firstElementChild.dataset.mark = 'kept'; window.__seen = []; return import('./js/sync.js').then(m => m.onDriveChange(st => window.__seen.push(st.status))); });
+  await pa.evaluate(() => { const d = document.getElementById('se-erase'); if (d && !d.open) d.open = true; });
+  await pa.focus('#se-erase-input');
+  await pa.keyboard.type('ER');
+  await pa.evaluate(() => import('./js/sync.js').then(m => { window.__p = m.sync(); }));
+  await pa.keyboard.type('AS');
+  await pa.evaluate(() => window.__p);
+  await pa.keyboard.type('E');
+  const kept = await pa.evaluate(() => ({ seen: window.__seen, mark: document.querySelector('#page').firstElementChild.dataset.mark, value: document.getElementById('se-erase-input').value, focus: document.activeElement && document.activeElement.id }));
+  ok('a sync’s status changes reach the ☁ button and the panels only: the page is not redrawn and the focus stays put', kept.seen.includes('saving') && kept.seen.includes('synced') && kept.mark === 'kept' && kept.value === 'ERASE' && kept.focus === 'se-erase-input', JSON.stringify(kept));
+  await pa.fill('#se-erase-input', '');
+  ok('Settings → Backups’ closed line names Google Drive', /Google Drive: synced just now/.test(await pa.locator('#se-backups .se-sub').innerText()));
+
+  /* ------------------------------ the store's gate refusing everything ------------------------------ */
+  await pb.evaluate(() => import('./js/store.js').then(s => s.setGate(() => false)));
+  await pa.evaluate(() => import('./js/store.js').then(s => s.upsert('acts', { id: 'a-gate', name: 'Through The Gate' })));
+  await until(() => D.json().acts.some(a => a.id === 'a-gate'));
+  await syncOn(pb);
+  const gated = await pb.evaluate(() => import('./js/store.js').then(s => ({ has: !!s.byId('acts', 'a-gate'), refused: s.update(() => {}) === false })));
+  ok('with the store’s gate refusing every change, Drive still brings the other devices’ work in', gated.has && gated.refused, JSON.stringify(gated));
+  await pb.evaluate(() => import('./js/store.js').then(s => s.setGate(null)));
+
+  /* ------------------------------ the daily and monthly copies ------------------------------ */
+  const wk = () => D.named(weekdayName())[0];
+  const wkWrites = wk().writes;
+  await pa.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 'a-song2', title: 'Second Demo' })));
+  await until(() => D.json().songs.some(s => s.id === 'a-song2'));
+  await sleep(300);
+  ok('the daily copy is written once a day, not at every sync', wk().writes === wkWrites, `${wk().writes} vs ${wkWrites}`);
+  await pa.evaluate(() => localStorage.removeItem('gdex-backup-cloud'));
+  await syncOn(pa);
+  ok('…the next day (the record cleared) it is written again, and the month’s copy is not', wk().writes === wkWrites + 1 && D.named(monthName(0))[0].writes === 1 && JSON.parse(wk().body).songs.some(s => s.id === 'a-song2'));
+  const day = await pa.evaluate(() => JSON.parse(localStorage.getItem('gdex-backup-cloud')));
+  ok('…and remembered for the day', day.day === await pa.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }) && day.name === weekdayName() && day.at > Date.now() - 60000, JSON.stringify(day));
+  // a new month: twelve older monthly copies in Drive already
+  D.drop(D.named(monthName(0))[0].id);
+  for (let n = -12; n <= -1; n++) D.put(monthName(n), JSON.stringify({ app: 'gdex', bookings: [], songs: [] }));
+  await pa.evaluate(() => localStorage.removeItem('gdex-backup-cloud'));
+  await syncOn(pa);
+  const months = D.files.filter(f => /^gdex-backup-\d{4}-\d{2}\.json$/.test(f.name)).map(f => f.name).sort();
+  ok('a new month gets its own copy, and only the last 12 months are kept', months.length === 12 && months.includes(monthName(0)) && !months.includes(monthName(-12)) && months.includes(monthName(-11)), months.join(' '));
+  // a sync that fails says why, keeps the changes, and recovers
+  await openBackups(pa);
+  A.allow.push(/status of 500/);
+  D.fail = { status: 500, match: r => r.who === 'A' && r.method === 'GET' && r.name === 'gdex-db.json' };
+  await syncOn(pa);
+  A.allow.pop();
+  let cardText = await pa.locator(`${sheetOf('Backups')} .se-bk-drive`).innerText();
+  ok('a sync that fails says why in the card, and the ☁ button says Not synced', /⚠ Couldn’t reach Google Drive: an error from Google \(500\)\. Your changes are safe on this device\./.test(cardText) && (await cloudState(pa)).join() === 'error,Not synced', cardText.replace(/\s+/g, ' '));
+  ok('…and Settings’ closed line would say so too', /⚠ Google Drive: not synced/.test(await pa.evaluate(() => import('./js/backup.js').then(b => b.backupLine()))));
+  await pa.click(`${sheetOf('Backups')} .se-bk-drive-sync`);
+  ok('Sync now recovers', await waitCloud(pa, 'synced') && !!(await until(async () => /Google Drive is up to date\./.test(await toasts(pa)))));
+  // a daily copy that cannot be saved is shown, and counted
+  A.allow.push(/status of 403/);
+  D.fail = { status: 403, reason: 'storageQuotaExceeded', keep: true, match: r => r.who === 'A' && /^gdex-backup-/.test(r.name) && (r.method === 'PATCH' || r.method === 'POST') };
+  await pa.evaluate(() => localStorage.removeItem('gdex-backup-cloud'));
+  await syncOn(pa);
+  const failedCopy = await state(pa);
+  cardText = await pa.locator(`${sheetOf('Backups')} .se-bk-drive`).innerText();
+  ok('a daily copy that could not be saved is shown with the reason, and the sync itself stays good', failedCopy.status === 'synced' && /⚠ Today’s copy wasn’t saved\. Your Google Drive is full: free up space, then tap Sync now\./.test(cardText), cardText.replace(/\s+/g, ' '));
+  ok('…and the backups status warns about it, without a reminder toast', /today’s daily copy in Google Drive wasn’t saved/.test(await pa.locator(`${sheetOf('Backups')} .se-bk-status`).innerText()) && (await pa.locator(`${sheetOf('Backups')} .se-bk-status`).getAttribute('data-level')) === 'old' && (await pa.evaluate(() => import('./js/backup.js').then(b => b.health().copyFailed))));
+  D.fail = null;
+  A.allow.pop();
+  await pa.click(`${sheetOf('Backups')} .se-bk-drive-sync`);
+  await until(async () => !(await state(pa)).backupError);
+  await sleep(200);
+  ok('Sync now saves it once Drive has room again', !(await state(pa)).backupError && /Today’s copy: saved at/.test(await pa.locator(`${sheetOf('Backups')} .se-bk-drive`).innerText()));
+  await closeSheets(pa);
+
+  /* ------------------------------ bringing back a daily copy, everywhere ------------------------------ */
+  await pa.evaluate(() => import('./js/store.js').then(s => s.upsert('acts', { id: 'a-after', name: 'Added After The Copy' })));
+  await until(() => D.json().acts.some(a => a.id === 'a-after'));
+  await syncOn(pb);
+  ok('(the other device has the record made after the copy)', (await data(pb)).acts.some(a => a.id === 'a-after'));
+  await openBackups(pa);
+  const logAt = D.log.length;
+  await pa.click(`${sheetOf('Backups')} .se-bk-drive-restore`);
+  await pa.waitForSelector(`${sheetOf('Bring back a daily copy')} .se-bk-copy`, { timeout: 10000 });
+  const rows = await pa.locator(`${sheetOf('Bring back a daily copy')} .se-bk-copy`).allInnerTexts();
+  const labels = await pa.evaluate(() => ({ day: new Date().toLocaleDateString('en-GB', { weekday: 'long' }), month: new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) }));
+  ok('Bring back a daily copy lists the copies newest first, by weekday and by month, with when each was saved', rows.length === 13 && rows[0].startsWith(labels.day + ' · saved ') && rows.some(r => r.startsWith(labels.month + ' · saved ')), rows.slice(0, 4).join(' | '));
+  ok('…from one Drive request', D.log.slice(logAt).filter(l => l.who === 'A').length === 1, JSON.stringify(D.log.slice(logAt).map(l => l.method + ' ' + l.path)));
+  await pa.locator(`${sheetOf('Bring back a daily copy')} .se-bk-copy`, { hasText: labels.day }).click();
+  await pa.waitForSelector(`${sheetOf('Bring back a backup')} .se-imp-replace`, { timeout: 10000 });
+  const chooser = await pa.locator(sheetOf('Bring back a backup')).innerText();
+  ok('a daily copy opens the same chooser as a backup file', /In the copy:/.test(chooser) && /Merge into this device/.test(chooser) && /Every device connected to this Google Drive ends up exactly like this copy/.test(chooser), chooser.replace(/\s+/g, ' ').slice(0, 300));
+  await pa.click(`${sheetOf('Bring back a backup')} .se-imp-replace`); // the confirm is accepted
+  await sleep(300);
+  ok('Replace makes this device exactly like the copy', !(await data(pa)).acts.some(a => a.id === 'a-after') && /Every device connected to this Google Drive follows/.test(await toasts(pa)));
+  ok('…and reaches Drive', !!(await until(() => !D.json().acts.some(a => a.id === 'a-after'))));
+  await syncOn(pb);
+  ok('…and the other device at its next sync', !(await data(pb)).acts.some(a => a.id === 'a-after'));
+  await syncOn(pa); await syncOn(pb);
+  ok('…and it does not come back', !(await data(pa)).acts.some(a => a.id === 'a-after') && !(await data(pb)).acts.some(a => a.id === 'a-after'));
+  await closeSheets(pa);
+
+  /* ------------------------------ Disconnect, Delete, Erase ------------------------------ */
+  const nFiles = D.files.length, beforeA = (await data(pa)).bookings.length;
+  await openBackups(pa);
+  await pa.click(`${sheetOf('Backups')} .se-bk-drive-off`);
+  await pa.waitForSelector(`${sheetOf('Backups')} .se-bk-drive[data-state=off]`, { timeout: 10000 });
+  ok('Disconnect stops syncing here and keeps both copies', D.files.length === nFiles && (await data(pa)).bookings.length === beforeA && !(await pa.evaluate(() => localStorage.getItem('gdex-drive') || localStorage.getItem('gdex-google-tokens') || localStorage.getItem('gdex-drive-file'))) && (await cloudState(pa))[0] === '');
+  const writesAfter = D.writes('A');
+  await pa.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 'a-off', title: 'Not Copied' })));
+  await sleep(1500);
+  ok('…and nothing more is copied', D.writes('A') === writesAfter && !D.json().songs.some(s => s.id === 'a-off'));
+  await closeSheets(pa);
+
+  const beforeB = (await data(pb)).bookings.length;
+  await openBackups(pb);
+  await pb.click(`${sheetOf('Backups')} .se-bk-drive-delete`); // the confirm is accepted
+  await pb.waitForSelector(`${sheetOf('Backups')} .se-bk-drive[data-state=off]`, { timeout: 10000 });
+  ok('Delete Gdex’s copy removes every file from Drive and disconnects', D.files.length === 0 && !(await state(pb)).linked);
+  ok('…and this device keeps everything', (await data(pb)).bookings.length === beforeB && beforeB > 0);
+  await closeSheets(pb);
+
+  await connect(pa);
+  await waitCloud(pa, 'synced');
+  await closeSheets(pa);
+  ok('connecting again puts this device’s copy back', D.json() && D.json().songs.some(s => s.id === 'a-off'));
+  const copyBefore = D.named('gdex-db.json')[0].body, writesBefore = D.writes();
+  await pa.evaluate(() => window.logiGo('settings')); await sleep(400);
+  await pa.evaluate(() => { const d = document.getElementById('se-erase'); if (d && !d.open) d.open = true; });
+  await pa.fill('#se-erase-input', 'ERASE');
+  await Promise.all([pa.waitForNavigation({ timeout: 15000 }), pa.click('#se-erase-go')]); // Erase reloads Gdex
+  await pa.waitForSelector('#deck .dk-next');
+  await sleep(1500);
+  ok('Erase disconnects Google Drive first', !(await state(pa)).linked && !(await pa.evaluate(() => localStorage.getItem('gdex-drive'))));
+  ok('…and the copy in Drive is left exactly as it was', D.named('gdex-db.json')[0].body === copyBefore && D.writes() === writesBefore && (await data(pa)).bookings.length === 0);
+
+  /* ------------------------------ the earliest free day, carried by Drive ([S-39]) ------------------------------ */
+  {
+    const D2 = fakeDrive();
+    const DAY = 864e5, t0 = Date.now();
+    const fromA = t0 - 40 * DAY;
+    const A2 = await device(browser, D2, { who: 'A2', standIn: STAND_IN, seed: { 'gdex-licence': { first: fromA, seen: t0 }, 'gdex-role': 'band', 'gdex-terms': { v: TERMS_V, at: t0 } } }); all.push(A2);
+    await connect(A2.page);
+    await waitCloud(A2.page, 'synced');
+    ok('the Drive copy holds the start of this device’s free days', D2.json().freeDaysFrom === fromA, String(D2.json().freeDaysFrom));
+    ok('…as the last field, after the database’s own', Object.keys(D2.json()).pop() === 'freeDaysFrom');
+    const B2 = await device(browser, D2, { who: 'B2', standIn: STAND_IN, seed: { 'gdex-licence': { first: t0, seen: t0 }, 'gdex-role': 'band', 'gdex-terms': { v: TERMS_V, at: t0 } } }); all.push(B2);
+    const before = await B2.page.evaluate(() => import('./js/store.js').then(s => s.update(() => {})));
+    await connect(B2.page);
+    await waitCloud(B2.page, 'synced');
+    const b2 = await B2.page.evaluate(() => import('./js/store.js').then(s => ({ first: JSON.parse(localStorage.getItem('gdex-licence')).first, write: s.update(() => {}), field: 'freeDaysFrom' in JSON.parse(localStorage.getItem('gdex-db-v1')) })));
+    ok('a fresh device that links the same Drive counts from the earliest start: its paid role is read-only', before === true && b2.first === fromA && b2.write === false, JSON.stringify(b2));
+    ok('…and its own database never holds the field', b2.field === false);
+    const C2 = await device(browser, D2, { who: 'C2', standIn: STAND_IN, seed: { 'gdex-role': 'audiophile' } }); all.push(C2);
+    await connect(C2.page);
+    await waitCloud(C2.page, 'synced');
+    ok('a device that had not started its free days takes the start too', (await C2.page.evaluate(() => JSON.parse(localStorage.getItem('gdex-licence') || '{}').first)) === fromA);
+    // a later start written into Drive by hand is not taken, and the earlier one is written back
+    const doc = D2.json(); doc.freeDaysFrom = t0 - DAY; D2.named('gdex-db.json')[0].body = JSON.stringify(doc, null, 2);
+    await syncOn(B2.page);
+    ok('a later start in Drive is not taken, and Drive gets the earlier one back', (await B2.page.evaluate(() => JSON.parse(localStorage.getItem('gdex-licence')).first)) === fromA && D2.json().freeDaysFrom === fromA);
+    const w = D2.writes();
+    await syncOn(B2.page); await syncOn(A2.page); await syncOn(C2.page); await syncOn(B2.page);
+    ok('…and once all agree, syncing writes nothing more', D2.writes() === w, `${D2.writes()} vs ${w}`);
+    for (const d of [A2, B2, C2]) await d.ctx.close();
+  }
+
+  const errs = all.flatMap(d => d.errors.map(e => `${d.who}: ${e}`));
+  ok('no errors in the console', errs.length === 0, errs.slice(0, 5).join(' | '));
+  await browser.close();
+})().catch(e => { console.log('FAIL drive crashed — ' + (e && e.stack || e)); process.exit(1); });

@@ -53,6 +53,27 @@
 .se-bk-file > .btn { justify-self: start; min-width: 12rem; }
 @media (max-width: 480px) { .se-bk-file > .btn { justify-self: stretch; } }
 
+/* Google Drive: its card at the top of the backups panel, the connect sheet and the daily copies */
+.se-bk-drive { margin: 0; gap: 8px; }
+.se-bk-drive > p { margin: 0; }
+.se-bk-drive[data-state=unset], .se-bk-drive[data-state=away] { color: var(--muted); border: 1px dashed var(--line); }
+.se-bk-drive[data-state=unset] strong, .se-bk-drive[data-state=away] strong { color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
+.se-bk-drive-head { display: grid; gap: 2px; min-width: 0; }
+.se-bk-drive-who { overflow-wrap: anywhere; }
+.se-bk-drive-line, .se-bk-drive-copy { overflow-wrap: anywhere; }
+.se-bk-drive-line[data-state=synced] { color: var(--ok); }
+.se-bk-drive-line[data-state=needs-permission], .se-bk-drive-line[data-state=error], .se-bk-drive-copy[data-state=error] { color: var(--danger); }
+.se-bk-drive-actions { margin-top: 0; }
+.se-bk-drive .se-bk-drive-actions .btn { flex: 1 1 10rem; }
+.se-bk-drive > .se-bk-drive-connect { justify-self: start; width: auto; min-width: 12rem; }
+.se-bk-drive > .se-bk-drive-delete { justify-self: start; width: auto; } /* rarely wanted: small, never a main button */
+@media (max-width: 480px) { .se-bk-drive > .se-bk-drive-connect { justify-self: stretch; width: 100%; } }
+.se-bk-connect > p { margin: 0; }
+.se-bk-connect-actions { margin-top: 4px; }
+.se-bk-connect-actions .btn { flex: 1 1 10rem; }
+.se-bk-copy { overflow-wrap: anywhere; }
+.se-bk-copies > p { margin: 0; }
+
 /* bringing a backup back, and the messages around it */
 .se-imp .card { margin: 0; display: grid; gap: 4px; }
 .se-imp .card p { margin: 0; }
