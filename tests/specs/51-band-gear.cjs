@@ -311,7 +311,11 @@ const seed = page => page.evaluate(extra => import('./js/store.js').then(s => s.
   st = await steps(page);
   ok('…its walkthrough is as it was', !st.some(s => /^By /.test(s[0])) && !st.some(s => /investment|fold/i.test(s[1])) && !st.some(s => s[3]), JSON.stringify(st.map(s => s[0])));
   await page.click('#bl-item-s-apollo'); await page.waitForSelector('.sheet[aria-label="Apollo Twin"]');
-  ok('…and the item’s sheet as it was', !(await page.$$eval('.sheet[aria-label="Apollo Twin"] .bl-kv dt', d => d.map(x => x.textContent))).some(t => /For band|Paid by/.test(t)));
+  const bandKv = await page.$$eval('.sheet[aria-label="Apollo Twin"] .bl-kv dt', dts => dts.map(dt => [dt.textContent, dt.nextElementSibling.textContent]));
+  ok('…and the item’s sheet says what its form’s two boxes hold, in the band’s words', bandKv.some(x => same(x, ['For band', 'Sable'])) && bandKv.some(x => same(x, ['Paid by', 'You (Sample Producer)'])), JSON.stringify(bandKv));
+  await page.keyboard.press('Escape'); await sleep(300);
+  await page.click('#bl-item-s-kit'); await page.waitForSelector('.sheet[aria-label="Drum kit"]');
+  ok('…an item for no band, paid by not known, has neither row', !(await page.$$eval('.sheet[aria-label="Drum kit"] .bl-kv dt', d => d.map(x => x.textContent))).some(t => /For band|Paid by/.test(t)));
   await page.keyboard.press('Escape'); await sleep(300);
   await page.click('#bl-add'); await page.waitForSelector('.sheet select[data-key=actId]');
   bx = await boxes(page);

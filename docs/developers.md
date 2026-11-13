@@ -817,7 +817,7 @@ they put in. Everything lives in one block of `pages/backline.js` ("by band").
 
 * **When.** Only for those roles, and only once an item is for an act still in Acts. Otherwise the Items view is as it
   always was, in categories, and none of the hooks below are drawn; every other role's Backline is as it was, but for
-  the two boxes in the form.
+  the two boxes in the form and their two rows on the item's sheet.
 * **The folds.** `div.bl-bands` holds a `section.bl-band[data-band=<act id>]` per act with an item (`data-band="none"`
   for the rest; `.open` while open), A to Z by the act's name, then the rest, under "Not for an act" in the role's word
   (`actWord()`: Not for an artist, Not for an act, Not for a band). Each starts with `h2.bl-band-h >
@@ -842,7 +842,8 @@ they put in. Everything lives in one block of `pages/backline.js` ("by band").
   band first) straight after Whose it is, in every role. Only a role with the folds is told about them in the hints,
   and only where money is shown about the investment. A save stores the picks, and leaves the keys off for none and
   not known (`withBand`).
-* **The item's sheet** has For <act word> and Paid by rows for those roles only.
+* **The item's sheet** has For <act word> and Paid by rows in every role, as the form has the two boxes, each only when
+  it is set (an item for no act, paid by not known, reads as it always did).
 * **Walkthroughs.** For those roles the page's has a "By artist" step (in the role's word) just before "An item": on
   the folds it points at `.bl-band-head` (A to Z, Not for an act last, the count, and where money is shown the total
   value at value times how many and your investment, what you paid for yourself), and "An item" drops the first fold

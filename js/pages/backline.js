@@ -279,8 +279,9 @@ export function openGear(id) {
         row('Owner', owner
           ? h('button', { type: 'button', class: 'bl-link', id: 'bl-owner-link', onclick: () => import('./people.js').then(m => m.openPerson(owner.id)).catch(e => console.error(e)) }, (owner.name || 'Unnamed') + ' ›')
           : 'The band'),
-        gearByBand() && row(`For ${actWord()}`, gearActId(g) ? actLabel(byId('acts', gearActId(g))) : null), // gear by band (item 17)
-        gearByBand() && row('Paid by', paidLabel(g)),
+        // Gear by band (item 17): in every role, as the form's two boxes are, so what was picked there shows; only when set.
+        row(`For ${actWord()}`, gearActId(g) ? actLabel(byId('acts', gearActId(g))) : null),
+        row('Paid by', paidLabel(g)),
         row('Where it is', g.location),
         row('Notes', g.notes)),
       h('div', { class: 'actions bl-sheet-actions' },

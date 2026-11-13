@@ -79,7 +79,7 @@ then folds the gear by act, A to Z, with **Not for an act** last: each heading s
 (each item's value times how many) and **your investment**, the value of what you paid for yourself. Tap a heading to
 drop its gear down; the ones you open stay open while Gdex is open, and the page's search and the owner chips open the
 folds with a match. Producers and managers have Backline on their menu, right after their acts. Every role's item form
-has the two boxes; the figures show only in a role that deals with money. Money in and out stays on the Money page, and
+has the two boxes, and the item's sheet says what they hold; the figures show only in a role that deals with money. Money in and out stays on the Money page, and
 the inventory, stage packs and everything printed are as they were. Search finds an item by its band's name too.
 
 ## The calendar
