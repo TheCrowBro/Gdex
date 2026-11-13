@@ -101,6 +101,16 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   if (active) return;
   const STEPS = steps;
   const app = document.getElementById('app');
+  // What had the focus as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour) has it back when it
+  // ends, however it ends: the card the focus was on goes with it, and the focus would be nowhere. A page drawn again
+  // meanwhile has a stand-in with the same id; with neither, the page takes it.
+  const opener = document.activeElement;
+  const giveBack = () => {
+    const at = document.activeElement;
+    if (at && at !== document.body) return; // something that opened as it ended has taken it
+    const twin = opener && opener !== document.body ? (opener.isConnected ? opener : opener.id ? document.getElementById(opener.id) : null) : null;
+    (twin && twin.getClientRects().length && !twin.closest('[inert]') ? twin : document.getElementById('page'))?.focus({ preventScroll: true });
+  };
   const spot = h('div', { class: 'tour-spot', 'aria-hidden': 'true' });
   const card = h('div', { class: 'tour-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'tour-title' });
   const layer = h('div', { class: 'tour' }, spot, card);
@@ -109,7 +119,7 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   document.body.append(layer); if (app) app.inert = true;
   let i = from, target = null, dir = 1;
   const seen = new Set(); // steps already shown: they keep their place in the count when going back
-  const stop = () => { if (!active) return; active = null; layer.remove(); if (app) app.inert = wasInert; window.removeEventListener('resize', place); window.removeEventListener('scroll', onScroll, true); document.removeEventListener('keydown', keys, true); if (remember) done(); if (onEnd) onEnd(); };
+  const stop = () => { if (!active) return; active = null; layer.remove(); if (app) app.inert = wasInert; window.removeEventListener('resize', place); window.removeEventListener('scroll', onScroll, true); document.removeEventListener('keydown', keys, true); if (remember) done(); if (onEnd) onEnd(); giveBack(); };
   active = { stop };
   // Arrow keys move between steps, except while typing in a field of the card; Escape always leaves.
   const keys = e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && e.key !== 'Escape') return; if (e.key === 'Escape') { e.stopPropagation(); stop(); } else if (e.key === 'ArrowRight') { e.stopPropagation(); next(); } else if (e.key === 'ArrowLeft') { e.stopPropagation(); dir = -1; show(i - 1); } };

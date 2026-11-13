@@ -588,4 +588,34 @@ const DATES = { today: day(0), began: day(-2), ends: day(2), w1: day(-40), w2: d
     ok(`no errors in the console (320 px, ${scheme})`, n.errors.length === 0, n.errors.slice(0, 5).join(' | '));
     await n.browser.close();
   }
+
+  /* ------------------------------ in the small hours: last night's show still to play ------------------------------ */
+  // The page's clock is Playwright's, at 00:10 on a day of the spec's own (worked out in the page, so in the run's own
+  // time zone). A show dated the day before, on stage at 00:30, is still to come: Coming up keeps it at its top marked
+  // "Tonight", and the search lists it with what is ahead, above the line for today; the one that played at 20:00 is
+  // over. Once its set is over (two hours after 00:30) the open search moves it below the line by itself.
+  {
+    const c = await open();
+    const D = '2031-07-10', N = '2031-07-11';
+    const at = (iso, hm) => c.page.evaluate(([iso, hm]) => { const [y, mo, d] = iso.split('-').map(Number), [hh, mm] = hm.split(':').map(Number); return new Date(y, mo - 1, d, hh, mm).getTime(); }, [iso, hm]);
+    await c.ctx.clock.install({ time: await at(N, '00:10') });
+    await c.page.reload(); await c.page.waitForSelector('#deck .dk-next');
+    await store(c.page, (s, x) => s.update(d => {
+      d.acts.push({ id: 'a-late', name: 'Late Band', color: '#8b5cf6' });
+      d.bookings.push(
+        { id: 'n-late', kind: 'show', status: 'confirmed', actId: 'a-late', date: x.D, venueName: 'The Crown', setTime: '00:30' },
+        { id: 'n-done', kind: 'show', status: 'confirmed', actId: 'a-late', date: x.D, venueName: 'The Crown', setTime: '20:00', setLength: 60 },
+        { id: 'n-next', kind: 'show', status: 'confirmed', actId: 'a-late', date: x.N, venueName: 'The Bell', setTime: '21:00' });
+    }), { D, N });
+    await sleep(300);
+    ok('the small hours: Coming up keeps last night’s show still to play at its top, marked “Tonight”', same(await c.page.$$eval('.bk-agenda .bk-card', els => els.map(e => [e.dataset.id, e.querySelector('.bk-card-sub').textContent.split(' · ')[0]])), [['n-late', 'Tonight'], ['n-next', 'Today']]));
+    await openSearch(c.page); await type(c.page, 'late band');
+    const word = id => c.page.evaluate(id => { const e = document.querySelector(`.srch-list .card[data-id="${id}"] .bk-card-sub`); return e ? e.textContent.split(' · ')[0] : null; }, id);
+    ok('…and the search lists it with what is still ahead, above the line for today, as its card says “Tonight”', same(await rows(c.page), ['n-next', 'n-late', 'TODAY', 'n-done']) && (await word('n-late')) === 'Tonight', JSON.stringify([await rows(c.page), await word('n-late')]));
+    await c.page.clock.fastForward(150 * 60000); await sleep(400);
+    ok('…once its set is over, the open search moves it below the line, with the show that is over', same(await rows(c.page), ['n-next', 'TODAY', 'n-done', 'n-late']) && (await word('n-late')) === 'On stage 00:30', JSON.stringify([await rows(c.page), await word('n-late')]));
+    await closeSearch(c.page);
+    ok('no errors in the console (the small hours)', c.errors.length === 0, c.errors.slice(0, 5).join(' | '));
+    await c.browser.close();
+  }
 })().catch(e => { console.log('FAIL search spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });

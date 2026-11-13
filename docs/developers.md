@@ -475,7 +475,7 @@ may call it.
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
 | `js/tour.js` `sheetTutorial(title, steps)` | core | Register walkthrough steps for a sheet by its title. |
-| `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended. |
+| `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. |
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
 | `blocks/guests.js` `guestCounts(b)`; `blocks/settlement.js` `isSettled(b)` / `settlementDoc(b)` | show | Names, heads and in / whether the night is settled / the printable settlement. |
 | `js/daysheet-doc.js` `cleanDaySheet(data)` / renderer | daysheet | Pure (no store): the whitelist and renderer shared by the app and `daysheet.html`. |
@@ -769,7 +769,8 @@ and `46-search` check it with Install hidden and showing).
   entries, has a chip too), the place chips `div.srch-places[role=group]` (`#srch-place-all`, then
   `.chip[data-place]`, busiest first, at most 24, then `.srch-more-places`; a second tap on the pressed one undoes it;
   left out when everything found is at one place) and `ul.srch-list[aria-label=Results]`, one `li` per card, newest
-  first, with `li.srch-today` between what is still ahead (a booking until its last day is over) and what is over,
+  first, with `li.srch-today` between what is still ahead (a booking until its last day is over, and in the small hours last night's show still to
+  play, `model.tonightShows`, which its card calls "Tonight" as Coming up does) and what is over,
   left out when everything is on one side. The first 30 cards are drawn; `#srch-more` adds 30. Nothing found:
   `p.srch-none`. A pressed chip has a tick (`.srch-tick`) as well as its colour. The count ("9 results", "No results")
   is announced half a second after the typing stops, when it has changed.

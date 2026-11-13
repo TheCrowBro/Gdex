@@ -161,9 +161,10 @@ function find(q) {
 export const searchFor = q => (find(q) || []).map(it => ({ type: it.type, id: it.id, kind: it.kind, date: it.date, place: it.place.name, guests: it.guests.map(g => g.s.id) }));
 export const searchStats = () => ({ ...STATS, records: INDEX ? INDEX.length : 0 });
 
-// Still ahead, or over. A booking stays ahead until its last day ends (as Coming up keeps it); a time seen is over
-// from the day it is dated.
-const isAhead = (it, today) => (it.type === 'b' ? it.last >= today : it.date > today);
+// Still ahead, or over. A booking stays ahead until its last day ends, and in the small hours last night's show still to
+// play (model.tonightShows) is ahead too, as Coming up keeps it, marked "Tonight"; a time seen is over from the day it
+// is dated.
+const isAhead = (it, today, tonight) => (it.type === 'b' ? it.last >= today || tonight.has(it.b) : it.date > today);
 
 /* ------------------------------- the cards ------------------------------- */
 // The date square of a card says no year: a result from another year adds it.
@@ -305,7 +306,7 @@ function draw() {
     groups.length > MAX_PLACES && h('span', { class: 'srch-more-places muted small' }, `and ${plural(groups.length - MAX_PLACES, 'more place')}: type one to find it`));
   // One list, newest first: what is still ahead, a line for today, what is over. The line is left out when everything
   // listed is on one side of it.
-  const today = todayISO(), ahead = listed.filter(it => isAhead(it, today)), over = listed.filter(it => !isAhead(it, today));
+  const today = todayISO(), tonight = new Set(model.tonightShows()), ahead = listed.filter(it => isAhead(it, today, tonight)), over = listed.filter(it => !isAhead(it, today, tonight));
   const all = [...ahead, ...over], shown = all.slice(0, S.limit), left = all.length - shown.length, words = wordsOf(q), rows = [];
   shown.forEach((it, i) => {
     if (i === ahead.length && ahead.length) rows.push(h('li', { class: 'srch-today' }, h('span', null, 'Today · ' + fmtShort(today)), h('span', { class: 'sr-only' }, '. Above this: still to come. Below it: over.')));
