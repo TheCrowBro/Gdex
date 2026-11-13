@@ -505,7 +505,7 @@ may call it.
 | `js/clock.js` `initClockBar(el)` / `clockCard(b)` | studio | The strip under the section menu while a clock runs / start-stop card. |
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
-| `pages/settings.js` `vcard(p?)` / `hasCard(p)` / `qrFor(text)` / `saveCard()` / `editProfile()` | settings | The profile as a vCard 3.0 / whether it makes a card (a name or business, and a phone, email or website) / the QR code's SVG for a text (UTF-8, the last one kept) / save the card as a .vcf (`print.js` `saveFile`) / the Your details form. My card uses them, so the card is the same everywhere. |
+| `pages/settings.js` `vcard(p?)` / `hasCard(p)` / `qrFor(text)` / `saveCard()` / `editProfile()` | settings | The profile as a vCard 3.0 / whether it makes a card (a name or business, and a phone, an email or a website that is a web address, as `vcard()` keeps it) / the QR code's SVG for a text (UTF-8, the last one kept) / save the card as a .vcf (`print.js` `saveFile`) / the Your details form. My card uses them, so the card is the same everywhere. |
 | `js/tools-ui.js` `keepAwake()` / `letSleep()` | tools | Keep the screen on (the Screen Wake Lock) / let it sleep: the set timer, and My card's Show big. |
 | `js/tour.js` `sheetTutorial(title, steps)` / `setSearchStep(step)` | core | Register walkthrough steps for a sheet by its title / the welcome tour's stop for the search box, just after the section menu (`js/search.js` gives it; the tour cannot import the search). |
 | `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. |
@@ -1022,12 +1022,15 @@ no kind for it). The card is Settings' own: `vcard()`, `hasCard()`, `qrFor()`, `
   330), plain white whatever the theme, `#app` inert and `body.cd-big-on` (no scroll) while it shows: `div.cd-big-code[role=img]`
   as large as fits (the width but 16 px each side, or the height but room for the words; on a phone on its side, the
   height, with the words beside it) and `div.cd-big-words` (the name, `p#cd-big-help` "Tap anywhere to close.",
-  `button#cd-big-close`, which has the focus and keeps it from Tab). A click anywhere, Escape, ✕ Close or Back closes
+  `button#cd-big-close`, which has the focus and keeps it from Tab and from anything that would take it: a `focusin`
+  listener in the capture phase gives it back). A click anywhere, Escape, ✕ Close or Back closes
   it: opening it pushes `history.state` `{ gdexBig: true }`, Back pops it, and any other close takes the entry away
   with `history.back()` (whose popstate is skipped). The screen is kept on with `tools-ui.js` `keepAwake()` (asked
   again when Gdex comes back into sight) and let go with `letSleep()`; the focus goes back to `#cd-big`. Leaving the
   page closes it; a redraw of the page does not. A sheet that opens while it shows ("Did you see them?" at a return)
-  is under it, and keeps `#app` inert when it closes; Escape closes Show big alone (its listener is in the capture phase).
+  is under it and cannot take the focus; Escape (its listener is in the capture phase) or Enter on ✕ Close closes Show
+  big alone, `#app` stays inert, and the focus goes to that sheet; ✕ Close and `#cd-big` share `data-fk="cd-big"`, so
+  the sheet gives the focus to Show big when it closes.
 * **Settings → Your details** no longer draws the QR code: `div.se-contact` has `p.se-card-line` (where the card is, or
   what to add), `#se-card` "🪪 Open My card" (it opens My card at the top, with the focus on `#cd-title`) and `#se-vcf`.
 * **Walkthrough**: My card (in the role's words), The code, What it holds, Show big, Share, Save as a file, Edit your

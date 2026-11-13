@@ -15,8 +15,9 @@ import { vcard, hasCard, qrFor, saveCard, editProfile } from './settings.js';
 const txt = v => String(v ?? '').trim();
 // The name on the card: the person's, else the business, band or project (as the vCard's FN).
 const nameOf = p => txt(p.name).replace(/\s+/g, ' ') || txt(p.business);
-// What they do and the business under the name (the business only when it is not the name already).
-const subOf = p => [txt(p.role), txt(p.name) ? txt(p.business) : ''].filter(Boolean).join(' · ');
+// What they do and the business under the name (the business only when it is not the name already: no name, or the
+// same words as the name, as a solo artist's project often is).
+const subOf = p => { const biz = txt(p.business); return [txt(p.role), biz.replace(/\s+/g, ' ').toLowerCase() !== nameOf(p).toLowerCase() ? biz : ''].filter(Boolean).join(' · '); };
 // The ways to reach them, as the vCard holds them: a website only when it is a web address (vcard() leaves out any other).
 const linesOf = p => [
   ['📞', 'Phone', txt(p.phone)],
@@ -32,7 +33,7 @@ const cardText = p => [nameOf(p), subOf(p), ...linesOf(p).map(l => l[2])].filter
 const fileOf = p => fileName(p.name || p.business || 'Contact', 'vcf'); // as Save as a file names it (settings.js saveCard)
 // What is missing before there is a card (hasCard: a name, and a way to reach them).
 function missing(p) {
-  const who = !!(txt(p.name) || txt(p.business)), how = !!(txt(p.phone) || txt(p.email) || txt(p.website));
+  const who = !!(txt(p.name) || txt(p.business)), how = !!(txt(p.phone) || txt(p.email) || safeUrl(txt(p.website))); // a website only when it is a web address, as hasCard() counts it
   if (who && !how) return 'Add a phone number, an email or a website';
   if (how && !who) return 'Add your name, or your business, band or project name';
   return 'Add your name (or your business, band or project name) and a phone number, an email or a website';
@@ -44,7 +45,8 @@ function code(text, box, cls) {
   const put = svg => box.replaceChildren(h('div', { class: cls, html: svg }));
   if (last.text === text) { put(last.svg); return box; }
   box.append(h('span', { class: 'small' }, 'Making the code…'));
-  qrFor(text).then(svg => { last = { text, svg }; put(svg); }).catch(() => box.replaceChildren(h('span', { class: 'small' }, 'Too much for a QR code: shorten your details.')));
+  // No code drawn: the box is no longer an image of one, so a screen reader reads the sentence instead.
+  qrFor(text).then(svg => { last = { text, svg }; put(svg); }).catch(() => { box.removeAttribute('role'); box.removeAttribute('aria-label'); box.replaceChildren(h('span', { class: 'small' }, 'Too much for a QR code: shorten your details.')); });
   return box;
 }
 
@@ -72,7 +74,8 @@ function showBig() {
   const p = db.profile;
   if (!hasCard(p)) return;
   const name = nameOf(p), app = document.getElementById('app'), wasInert = !!(app && app.inert);
-  const shut = h('button', { type: 'button', class: 'cd-big-close', id: 'cd-big-close' }, '✕ Close');
+  // data-fk: ✕ Close stands for Show big, so a sheet that opened under it gives the focus to Show big when it closes.
+  const shut = h('button', { type: 'button', class: 'cd-big-close', id: 'cd-big-close', 'data-fk': 'cd-big' }, '✕ Close');
   const el = h('div', { class: 'cd-big', role: 'dialog', 'aria-modal': 'true', 'aria-label': `${sectionName('card', 'My card')}, big screen`, 'aria-describedby': 'cd-big-help' },
     code(vcard(p), h('div', { class: 'cd-big-code', role: 'img', 'aria-label': `QR code: the contact card of ${name}` }), 'cd-big-svg'),
     h('div', { class: 'cd-big-words' },
@@ -85,6 +88,9 @@ function showBig() {
     else if (e.key === 'Tab') { e.preventDefault(); shut.focus(); } // the one control: the focus stays on it
   };
   const back = () => { if (document.visibilityState === 'visible') keepAwake(); }; // the browser lets the lock go while out of sight
+  // The focus stays on ✕ Close: a sheet that opens under it (the question when Gdex comes back after hours) cannot take
+  // it to a button no one can see, which Enter would then press.
+  const guard = e => { if (!el.contains(e.target)) shut.focus({ preventScroll: true }); };
   const state = {
     close({ popped = false } = {}) {
       if (big !== state) return;
@@ -93,15 +99,18 @@ function showBig() {
       if (app) app.inert = wasInert || !!document.querySelector('.sheet-back, .tour'); // a sheet that opened under it (the question at a return) keeps the app out of reach
       document.removeEventListener('keydown', keys, true);
       document.removeEventListener('visibilitychange', back);
+      document.removeEventListener('focusin', guard, true);
       letSleep();
       if (pushed && !popped && history.state && history.state.gdexBig) { backing++; history.back(); }
-      document.getElementById('cd-big')?.focus({ preventScroll: true });
+      // The focus back on Show big, or on a sheet that opened under it and is now on top.
+      ([...document.querySelectorAll('.sheet-back .sheet')].pop() || document.getElementById('cd-big'))?.focus({ preventScroll: true });
     },
   };
   big = state;
   el.addEventListener('click', () => state.close());
   document.addEventListener('keydown', keys, true);
   document.addEventListener('visibilitychange', back);
+  document.addEventListener('focusin', guard, true);
   try { history.pushState({ gdexBig: true }, ''); pushed = true; } catch { /* no history here: a tap and Escape still close it */ }
   document.body.append(el); document.body.classList.add('cd-big-on');
   if (app) app.inert = true;
@@ -135,7 +144,7 @@ export const card = {
           lines.length > 0 && h('ul', { class: 'cd-lines', 'aria-label': 'On the card' }, lines.map(([icon, label, value]) => h('li', null,
             h('span', { class: 'cd-ico', 'aria-hidden': 'true' }, icon), h('span', { class: 'sr-only' }, label + ': '), h('span', { class: 'cd-val' }, label === 'Email' || label === 'Website' ? breakable(value) : value)))))),
       h('div', { class: 'actions cd-actions' },
-        h('button', { type: 'button', class: 'btn primary', id: 'cd-big', 'aria-haspopup': 'dialog', onclick: showBig }, '⛶ Show big'),
+        h('button', { type: 'button', class: 'btn primary', id: 'cd-big', 'data-fk': 'cd-big', 'aria-haspopup': 'dialog', onclick: showBig }, '⛶ Show big'),
         canShare() && h('button', { type: 'button', class: 'btn ghost', id: 'cd-share', onclick: shareCard }, '↗ Share'),
         h('button', { type: 'button', class: 'btn ghost', id: 'cd-vcf', onclick: () => saveCard() }, '⤓ Save as a file (.vcf)'),
         edit(false)),

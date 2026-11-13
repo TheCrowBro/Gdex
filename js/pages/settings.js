@@ -115,15 +115,20 @@ export function vcard(p = db.profile) {
     'END:VCARD',
   ].filter(Boolean).join('\r\n');
 }
-export const hasCard = p => !!(String(p.name || p.business || '').trim() && String(p.phone || p.email || p.website || '').trim());
+// A card needs a name (or the business) and a way to reach the person: a phone, an email, or a website that is a web
+// address (vcard() leaves any other out, so a name with "insta: @maya" alone makes no card).
+const filled = v => String(v ?? '').trim();
+export const hasCard = p => !!((filled(p.name) || filled(p.business)) && (filled(p.phone) || filled(p.email) || safeUrl(filled(p.website))));
 
-// The QR library reads text byte by byte; unless it has been set to UTF-8, give it the UTF-8 bytes so names such as
-// Zoë or José scan right. The code for the current card is kept, so a redraw shows it at once.
+// The QR library reads text byte by byte; qrSvg switches it to UTF-8 wherever it has that, so the text goes as it is,
+// and only a library without UTF-8 is given the UTF-8 bytes, so names such as Zoë or José scan right. (Asking whether
+// it is set to UTF-8 already was wrong on the first code of a visit: qrSvg sets it only after, and the bytes were
+// encoded twice, "ZoÃ«".) The code for the current card is kept, so a redraw shows it at once.
 const qrCache = { text: '', svg: '' };
 export async function qrFor(text) {
   if (qrCache.text === text) return qrCache.svg;
   const q = await loadQR();
-  const utf8 = q.stringToBytesFuncs && q.stringToBytes === q.stringToBytesFuncs['UTF-8'];
+  const utf8 = !!(q.stringToBytesFuncs && q.stringToBytesFuncs['UTF-8']);
   const svg = await qrSvg(utf8 ? text : Array.from(new TextEncoder().encode(text), b => String.fromCharCode(b)).join(''));
   qrCache.text = text; qrCache.svg = svg;
   return svg;

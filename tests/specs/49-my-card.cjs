@@ -186,8 +186,21 @@ async function tourTitles(page) {
   await page.evaluate(() => import('./js/util.js').then(u => u.sheet('A question', u.h('p', null, 'Did you see them?'))));
   await sleep(250); await page.keyboard.press('Escape'); await sleep(300);
   ok('a sheet that opened under Show big stays, with the app still out of reach, after one Escape', !(await bigOpen(page)) && (await page.locator('.sheet[aria-label="A question"]').count()) === 1 && await page.evaluate(() => document.getElementById('app').inert === true));
+  ok('…the focus then in that sheet, not lost on the page', await page.evaluate(() => !!document.activeElement && !!document.activeElement.closest('.sheet[aria-label="A question"]')), await focused(page));
   await page.keyboard.press('Escape'); await sleep(300);
   ok('…and the next Escape closes the sheet and gives the app back', (await page.locator('.sheet').count()) === 0 && await page.evaluate(() => document.getElementById('app').inert === false));
+  ok('…with the focus back on Show big', (await focused(page)) === 'cd-big', await focused(page));
+  // The sheet under it cannot take the focus (its own Yes, or the sheet itself a moment later): Enter, meant for
+  // ✕ Close, must not press a button no one can see.
+  await until(() => page.evaluate(() => !(history.state && history.state.gdexBig)));
+  await page.keyboard.press('Enter'); await page.waitForSelector('.cd-big'); await sleep(200);
+  await page.evaluate(() => import('./js/util.js').then(u => { const yes = u.h('button', { type: 'button', id: 'q-yes', onclick: () => { window.__yes = 1; } }, 'Yes'); u.sheet('A question', u.h('div', null, u.h('p', null, 'Did you see them?'), yes)); yes.focus(); }));
+  await sleep(400);
+  ok('a sheet that opens under Show big does not take the focus from ✕ Close', (await focused(page)) === 'cd-big-close', await focused(page));
+  await page.keyboard.press('Enter'); await sleep(300);
+  ok('…so Enter closes Show big and presses nothing under it', !(await bigOpen(page)) && !(await page.evaluate(() => window.__yes)) && (await page.locator('.sheet[aria-label="A question"]').count()) === 1);
+  await page.keyboard.press('Escape'); await sleep(300);
+  ok('…Escape then closes the sheet, the focus on Show big', (await page.locator('.sheet').count()) === 0 && (await focused(page)) === 'cd-big', await focused(page));
   await until(() => page.evaluate(() => !(history.state && history.state.gdexBig)));
 
   /* ---------------- the walkthrough ---------------- */
@@ -227,6 +240,16 @@ async function tourTitles(page) {
   ok('audiophile, no details yet: what to add, in the role’s words', (await text(page, '.cd-empty p')) === `Add your name (or your business, band or project name) and a phone number, an email or a website, and your card is ready to show ${WHO.audiophile}: they scan it with their phone camera to save your details.`, await text(page, '.cd-empty p'));
   await setProfile(page, { business: 'Night Owls, Ltd', role: 'Band', email: 'owls@example.com', website: 'javascript:alert(1)' }); await page.waitForSelector('.cd-qr svg'); await sleep(200);
   ok('a business and no name: the business is the name on the card; a link that is no web address is left off, as the vCard leaves it', (await text(page, '.cd-name')) === 'Night Owls, Ltd' && (await text(page, '.cd-sub')) === 'Band' && (await page.$$eval('.cd-lines li', ls => ls.map(l => l.textContent).join('|'))) === '✉️Email: owls@example.com' && !(await page.evaluate(() => import('./js/pages/settings.js').then(m => m.vcard()))).includes('URL:'));
+  // A name and, as the only way to reach them, a "website" that is no web address: the vCard leaves it out, so there is
+  // no card yet, and the page asks for a way to reach them (not for a name).
+  await setProfile(page, { ...CLEAR, name: 'Maya Brooks', website: 'insta: @maya' }); await sleep(300);
+  ok('a name and a website that is no web address: no card, and it asks for a way to reach you', /^Add a phone number, an email or a website, and your card is ready/.test(await text(page, '.cd-empty p')) && (await page.locator('.cd-qr').count()) === 0 && !(await page.evaluate(() => import('./js/pages/settings.js').then(m => m.hasCard({ name: 'Maya', website: 'insta: @maya' })))), await text(page, '.cd-empty p'));
+  // The business under the name only when it is not the name again (a solo artist's project is often their name).
+  await setProfile(page, { ...CLEAR, name: 'Maya Brooks', business: 'Maya  Brooks', role: 'Singer', email: 'maya@example.com' }); await page.waitForSelector('.cd-qr svg'); await sleep(200);
+  ok('a business that is the name again is not said twice', (await text(page, '.cd-name')) === 'Maya Brooks' && (await text(page, '.cd-sub')) === 'Singer', await text(page, '.cd-sub'));
+  // Too much for a QR code: the sentence says so, and the box is no longer an image of a code for a screen reader.
+  await setProfile(page, { address: 'Quay Street '.repeat(300) }); await until(() => page.evaluate(() => /Too much for a QR code/.test(document.querySelector('.cd-qr')?.textContent || '')));
+  ok('too much for a QR code: it says so, and a screen reader is not told there is a code', (await text(page, '.cd-qr')) === 'Too much for a QR code: shorten your details.' && (await page.getAttribute('.cd-qr', 'role')) === null && (await page.getAttribute('.cd-qr', 'aria-label')) === null);
   await setProfile(page, PROFILE); await setRole(page, 'all'); await sleep(400);
 
   /* ---------------- the search: on the page, and no new kind ---------------- */
@@ -244,6 +267,21 @@ async function tourTitles(page) {
   const noShareTour = await tourTitles(page);
   ok('…and the walkthrough leaves Share out', !noShareTour.includes('Share') && noShareTour.includes('Save as a file'), noShareTour.join(' › '));
   ok('no errors in the console (no share sheet)', errors.length === 0, errors.slice(0, 5).join(' | '));
+  await browser.close();
+
+  /* ---------------- a name with accents, as the first code of a visit ---------------- */
+  // The code holds the card in UTF-8, so a phone reads "Zoë", not "ZoÃ«". The first code drawn after Gdex opens once
+  // had its bytes encoded twice (the QR library is switched to UTF-8 only as that code is made), and the code kept for
+  // the visit stayed wrong. The reference is made after, straight from js/qr.js, which reads the text as UTF-8.
+  ({ browser, page, errors } = await open());
+  await setProfile(page, { ...PROFILE, name: 'Zoë Ångström-José', business: 'Café Ñandú' }); await toCard(page); await page.waitForSelector('.cd-qr svg');
+  const utf8 = await page.evaluate(async () => {
+    const [m, q] = await Promise.all([import('./js/pages/settings.js'), import('./js/qr.js')]);
+    const want = new DOMParser().parseFromString(await q.qrSvg(m.vcard(), { level: 'L' }), 'image/svg+xml').querySelector('path').getAttribute('d');
+    return { drawn: document.querySelector('.cd-qr svg path').getAttribute('d') === want, kept: (await m.qrFor(m.vcard())).includes(want) };
+  });
+  ok('a name with accents, the first code of the visit: the code is the card in UTF-8 (not encoded twice)', utf8.drawn && utf8.kept, JSON.stringify(utf8));
+  ok('no errors in the console (accents)', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 
   /* ---------------- 320 px, extra-large text and large buttons, each section menu ---------------- */
