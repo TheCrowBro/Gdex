@@ -155,8 +155,10 @@ found somewhere, in any order; capitals and accents don't matter.
 
 ## Keep your things safe
 
-- **Everything stays on this device.** Nothing is sent anywhere by itself. The [privacy page](privacy.html) says in
-  plain words what leaves your device and when.
+- **Everything stays on this device.** Nothing else leaves it but what you turn on or use: a venue's map and address
+  search (OpenStreetMap), Google Drive once you connect it (it then syncs by itself), and, once licences are switched
+  on, a working role's licence checks. The [privacy page](privacy.html) says in plain words what leaves your device and
+  when.
 - **Google Drive** (☁ → Backups → Connect Google Drive…) keeps every phone and computer you connect the same, with a
   dated copy each day for the last week and the last 12 months, in a hidden Gdex folder of your own Drive that only Gdex
   can open. It is free, whatever your role. Nothing goes to a Gdex server.

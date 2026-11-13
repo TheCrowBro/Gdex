@@ -11,7 +11,7 @@ built in a folder of the Vdex repository and moved here with its history. It sha
 keeps its own storage, cache and files.
 
 It is a plain web app: ES modules, no framework, no build step, no external libraries or CDNs in the app (only
-`vendor/qrcode.js`; Google's sign-in script is loaded from Google only when someone connects Google Drive). It works
+`vendor/qrcode.js`; Google's sign-in script is loaded from Google only once someone taps Connect Google Drive…). It works
 offline once opened, installs to a home screen, and keeps all data in the browser's `localStorage` under keys that
 start with `gdex-` (and one IndexedDB database, `gdex`). A desktop app for Windows, Mac and Linux (`desktop/`,
 Electron) wraps the same files.
@@ -19,8 +19,10 @@ Electron) wraps the same files.
 **What leaves the device.** Nothing of the person's goes to a server except:
 
 * **Google Drive**, only when the person connects it (free for everyone): Google's sign-in script, loaded from Google
-  only then; the whole Gdex database and daily dated copies, in a hidden Gdex folder of their own Drive, with the day
-  their free days first started (`freeDaysFrom`). Nobody who never connects Drive contacts Google.
+  only once they tap Connect Google Drive… (as its sheet opens, so Google's window can open straight from the tap on
+  Continue with Google: Google sees the address even after Not now); the whole Gdex database and daily dated copies, in
+  a hidden Gdex folder of their own Drive, with the day their free days first started (`freeDaysFrom`). Nobody who never
+  taps Connect Google Drive… contacts Google.
 * **Gdex's licence server** at gdex.crowmade.app (`cloudflare/worker.mjs`), only once licences are live
   (`LICENCE_SITES` in `js/licence-config.js`, `[]` until the owner publishes; `desktop/licence-on.json` for the
   desktop app) and only for the licence: a status question with nothing in it (at most every 6 hours, and only from a
@@ -1175,8 +1177,8 @@ caller tests for the member it uses, because specs stand in for parts of it):
 | `licence.enter(code, { release })` | the state (with `offline: true` when the server did not answer), `{ error }`, or `{ error: 'full', computers, swapsLeft, seats }`; while off `{ error: 'This version of Gdex does not use licence codes yet: every role is free.' }` |
 | `licence.recheck()`, `licence.release()`, `licence.code()`, `licence.buy()`, `licence.localPrice()`, `licence.onChange(cb)` | as Vdex's; `localPrice()` is `null` while off and asks nothing; `release()` while off keeps the code and asks nothing |
 
-The desktop app contacts nothing while its licence is off and Google Drive is not linked, but for its update checks
-once installed (`desktop/updater.cjs`, `https://gdex-download.crowmade.app/`, Gdex's own bucket; the same address in
+The desktop app contacts nothing while its licence is off and Google Drive is not linked, but for OpenStreetMap when a
+venue's map or Find from address is used, and its update checks once installed (`desktop/updater.cjs`, `https://gdex-download.crowmade.app/`, Gdex's own bucket; the same address in
 `package.json`'s `build.publish`, `download.html` and the feed, kept equal by `86-download-page`). It is built by hand
 (`.github/workflows/desktop.yml`) and uploads nothing.
 

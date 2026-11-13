@@ -1,7 +1,7 @@
 # Notes for Claude Code sessions on this repository
 
 Gdex is the booking deck for music producers and bands: a plain web app (ES modules, no framework, no build step, no
-external libraries in the app: Google's sign-in script is loaded from Google only when someone connects Google Drive)
+external libraries in the app: Google's sign-in script is loaded from Google only once someone taps Connect Google Drive…)
 that keeps everything in the browser's localStorage and works offline. A desktop app (`desktop/`, Electron) wraps the
 same files. It is a sibling of Vdex, the videographer app in TheCrowBro/Logi-Video-Production-app-: it began as a copy
 of Vdex's shell and shares its look, but the two share no code at run time and must never share storage. Do not change
@@ -15,7 +15,7 @@ Vdex from here.
   for every write, so a number reads the same on every page.
 - Storage keys, cache names and IndexedDB names start with `gdex-` (the IndexedDB database is `gdex`). Nothing of the
   person's goes to a server except: **Google Drive**, only when the person connects it (Google's sign-in script, loaded
-  from Google only then; the whole Gdex database and daily dated copies, in a hidden Gdex folder of their own Drive,
+  from Google only once they tap Connect Google Drive…, as its sheet opens; the whole Gdex database and daily dated copies, in a hidden Gdex folder of their own Drive,
   with the day their free days first started); and **Gdex's licence server** at gdex.crowmade.app
   (`cloudflare/worker.mjs`), only once licences are live (`LICENCE_SITES` in `js/licence-config.js`, `[]` until the
   owner publishes; `desktop/licence-on.json` for the desktop app) and only for the licence: a status question with
@@ -25,7 +25,7 @@ Vdex from here.
   OpenStreetMap's map tiles and address search, and the desktop app's update checks at the download address in
   `desktop/updater.cjs` (https://gdex-download.crowmade.app/). While licences are off nothing at all goes to the
   licence server, and the desktop app contacts nothing while its licence is off and Google Drive is not linked, but for
-  those update checks once installed. A day sheet never carries money (deal, fees, settlement, budget). Never share a
+  those update checks once installed and OpenStreetMap when a venue's map or Find from address is used. A day sheet never carries money (deal, fees, settlement, budget). Never share a
   storage key, a licence key or prefix, a port, an app id, a download bucket or an update channel with Vdex.
 - A page never compares `roleId()` to decide the licence: it asks `js/licence-state.js` (`mayOpen`, `mayWork`,
   `gateWork`, `canWrite`), and every write goes through the store, whose gate the licence installs.
