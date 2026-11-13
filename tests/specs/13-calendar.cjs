@@ -395,13 +395,19 @@ async function press(page, loc, ms) {
   await view(page, 'month');
   ok('…and a month with nothing left, above its squares', (await page.locator('.bk-body > .bk-filtered:first-child .bk-none').textContent()) === 'Nothing on with these filters.' && (await page.locator('.bk-body > .bk-filtered + .bk-cal').count()) === 1);
   // Clear the filters: both go, the focus moves to what is drawn where the line was (the month's first square), on
-  // screen, the page not moved, and it is said aloud.
-  await page.locator('#bk-filters-clear').scrollIntoViewIfNeeded(); await sleep(300);
-  const y0 = await page.evaluate(() => scrollY), first = await page.locator('.bk-body .bk-day').first().getAttribute('data-date');
+  // screen, the page not moved, and it is said aloud. The line is first brought just under the section menu, wholly in
+  // sight: where the page happens to be depends on the fonts, and a line half under the menu would rightly move the page
+  // (the 320 px checks below take that case).
+  const lineInSight = async () => {
+    await page.evaluate(() => { const f = document.querySelector('.bk-body > .bk-filtered'); window.scrollTo(0, f.getBoundingClientRect().top + scrollY - document.getElementById('deck').offsetHeight - 20); }); await sleep(400);
+    return page.evaluate(() => { const r = document.querySelector('.bk-body > .bk-filtered').getBoundingClientRect(), nav = document.getElementById('deck');
+      return { y: Math.round(scrollY), seen: r.top >= 0 && r.bottom <= innerHeight && (nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom) }; });
+  };
+  const mpre = await lineInSight(), y0 = mpre.y, first = await page.locator('.bk-body .bk-day').first().getAttribute('data-date');
   await page.click('#bk-filters-clear'); await sleep(250);
   const cleared = await page.evaluate(() => { const a = document.activeElement, r = a.getBoundingClientRect(), nav = document.getElementById('deck');
-    return { on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: a.matches('.bk-body .bk-day') && a.dataset.date, seen: r.top >= 0 && r.bottom <= innerHeight && (nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom), y: scrollY, filtered: document.querySelectorAll('.bk-filtered').length, head: document.querySelector('.bk-agenda-head').textContent }; });
-  ok('Clear the filters in the view clears both, puts the focus on the month’s first square, in sight, and says so', same(cleared.on, ['All kinds', 'All acts']) && cleared.focus === first && cleared.seen && Math.abs(cleared.y - y0) <= 1 && cleared.filtered === 0 && cleared.head === 'Coming up' && (await spoken(page)) === 'Filters cleared', JSON.stringify(cleared));
+    return { on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: a.matches('.bk-body .bk-day') && a.dataset.date, seen: r.top >= 0 && r.bottom <= innerHeight && (nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom), y: Math.round(scrollY), filtered: document.querySelectorAll('.bk-filtered').length, head: document.querySelector('.bk-agenda-head').textContent }; });
+  ok('Clear the filters in the view clears both, puts the focus on the month’s first square, in sight, the page not moved, and says so', mpre.seen && same(cleared.on, ['All kinds', 'All acts']) && cleared.focus === first && cleared.seen && Math.abs(cleared.y - y0) <= 1 && cleared.filtered === 0 && cleared.head === 'Coming up' && (await spoken(page)) === 'Filters cleared', JSON.stringify([mpre, cleared]));
   // Coming up's own Clear the filters, under the chips: the focus moves up to the first chip, which stays where it was.
   await page.locator('.bk-filters .chip', { hasText: 'Sable' }).click(); await sleep(200);
   await page.locator('.bk-filters .chip', { hasText: 'Rehearsals' }).click(); await sleep(250);
@@ -416,12 +422,12 @@ async function press(page, loc, ms) {
   await page.locator('.bk-filters .chip', { hasText: 'Sable' }).click(); await sleep(200);
   await page.locator('.bk-filters .chip', { hasText: 'Rehearsals' }).click(); await sleep(250);
   ok('the Week with nothing left says so above its squares', (await page.locator('.bk-body > .bk-filtered:first-child .bk-none').textContent()) === 'Nothing on with these filters.' && (await page.locator('.bk-body > .bk-filtered + .bk-cal-week').count()) === 1);
-  await page.locator('#bk-filters-clear').scrollIntoViewIfNeeded(); await sleep(300);
-  const wy0 = await page.evaluate(() => scrollY), wfirst = await page.locator('.bk-cal-week .bk-day').first().getAttribute('data-date');
+  const wpre = { ...(await lineInSight()), first: await page.locator('.bk-cal-week .bk-day').first().getAttribute('data-date') };
   await page.click('#bk-filters-clear'); await sleep(250);
   const wcleared = await page.evaluate(() => { const a = document.activeElement, r = a.getBoundingClientRect(), nav = document.getElementById('deck');
-    return { on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: a.matches('.bk-cal-week .bk-day') && a.dataset.date, id: a.id, seen: r.top >= 0 && r.bottom <= innerHeight && (nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom), y: scrollY, filtered: document.querySelectorAll('.bk-filtered').length }; });
-  ok('…and its Clear the filters clears both, puts the focus on the week’s first square, its Monday, in sight, the page not moved, and says so', same(wcleared.on, ['All kinds', 'All acts']) && wcleared.focus === wfirst && wfirst === await monday(page, T) && wcleared.id === 'bk-sq-' + wfirst && wcleared.seen && Math.abs(wcleared.y - wy0) <= 1 && wcleared.filtered === 0 && (await spoken(page)) === 'Filters cleared', JSON.stringify(wcleared));
+    return { on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: a.matches('.bk-cal-week .bk-day') && a.dataset.date, id: a.id, seen: r.top >= 0 && r.bottom <= innerHeight && (nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom), y: Math.round(scrollY), filtered: document.querySelectorAll('.bk-filtered').length }; });
+  const wsaid = await spoken(page);
+  ok('…and its Clear the filters clears both, puts the focus on the week’s first square, its Monday, in sight, the page not moved, and says so', wpre.seen && same(wcleared.on, ['All kinds', 'All acts']) && wcleared.focus === wpre.first && wpre.first === await monday(page, T) && wcleared.id === 'bk-sq-' + wpre.first && wcleared.seen && Math.abs(wcleared.y - wpre.y) <= 1 && wcleared.filtered === 0 && wsaid === 'Filters cleared', JSON.stringify([wpre, wcleared, wsaid]));
   await page.locator('.bk-filters .chip', { hasText: 'Sable' }).click(); await sleep(200);
   await page.locator('.bk-filters .chip', { hasText: 'Rehearsals' }).click(); await sleep(250);
   await page.locator('#bk-agenda-clear').scrollIntoViewIfNeeded(); await sleep(300);

@@ -41,7 +41,7 @@ export const saveCalMode = mode => {
 };
 
 /* ------------------------------- extra lines on a booking's card ------------------------------- */
-// Cards and rows are buttons, so each of these is a span with no control inside.
+// A Coming up card is a button (in the search's lists too), so each of these is a span with no control inside.
 // "Overlaps with Chelsea Wolfe, 21:00": the other shows on the day whose sets run into this one's (model.overlapText).
 // day: one day only, so a booking over several days speaks only of that day's clashes (nothing passes one now: a Week
 // square says its day's note in its spoken name, from model.overlapText); without it (a Coming up card) it names every
