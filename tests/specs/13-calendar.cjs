@@ -36,7 +36,7 @@ async function reach(page, sel, label) { for (let i = 0; i < 30 && !(await page.
 async function toWeek(page, iso, back = false) {
   await view(page, 'week'); await page.waitForSelector('.bk-week');
   if (await page.locator(`#bk-wd-${iso}`).count()) return true;
-  await page.click('[aria-label="This week"]'); await sleep(150);
+  await page.click('[aria-label="Today, this week"]'); await sleep(150);
   return reach(page, `#bk-wd-${iso}`, back ? 'Previous week' : 'Next week');
 }
 // The titles of the cards the page's ? walkthrough shows, Next pressed to the end: a step with nothing on screen to
@@ -99,8 +99,8 @@ const inkLow = (page, sels) => page.evaluate(sels => import('./js/a11y.js').then
   return out;
 }), sels);
 const NAV = {
-  month: ['Previous month', 'This month', 'Next month'], two: ['Previous two weeks', 'These two weeks', 'Next two weeks'], week: ['Previous week', 'This week', 'Next week'],
-  three: ['Previous three days', 'From today', 'Next three days'], day: ['Previous day', 'Today', 'Next day'],
+  month: ['Previous month', 'Today, this month', 'Next month'], two: ['Previous two weeks', 'Today, these two weeks', 'Next two weeks'], week: ['Previous week', 'Today, this week', 'Next week'],
+  three: ['Previous three days', 'Today and the next two days', 'Next three days'], day: ['Previous day', 'Today', 'Next day'],
 };
 const LEN = { two: 14, week: 7, three: 3, day: 1 };
 async function press(page, loc, ms) {
@@ -146,6 +146,7 @@ async function press(page, loc, ms) {
       ok(`${v}: the head, the calendar panel (buttons, ‹ Today ›, the view) and Coming up, in that order`, same(at.kids, ['page-head', 'cal-panel', 'bk-agenda-head', 'empty']) && same(at.panel.slice(0, 3), ['bk-views', 'cal-nav', 'bk-body']) && at.agenda === 'Coming up' && at.empties === 1, JSON.stringify([at.kids, at.panel]));
       ok(`${v}: only the month is .bk-monthview and only the day .bk-dayview; one heading takes the focus on arrival`, at.month === (v === 'month' ? 1 : 0) && at.day === (v === 'day' ? 1 : 0) && same(at.heads, [v === 'day' ? 'H2' : 'H1']) && at.live === null, JSON.stringify(at));
       ok(`${v}: ‹, Today and › are named for the view; the legend sits under squares only; no tab or grid roles`, same(at.nav, NAV[v]) && at.todayText === 'Today' && at.legend === (v === 'month' || v === 'two' ? 1 : 0) && at.roles === 0, JSON.stringify(at.nav));
+      ok(`${v}: the Today button’s spoken name starts with the word it shows, so “click Today” finds it`, at.nav[1].split(/[ ,]/)[0] === at.todayText, at.nav[1]);
 
       // where it starts, and how far ‹ › go
       const now = await dayFromNow(page, 0);
@@ -205,7 +206,7 @@ async function press(page, loc, ms) {
     ok('a day’s name in the week opens the Day view on that day, and the saved view is still Week', (await title(page)) === (await wantTitle(page, 'day', other, other)) && (await saved(page)) === 'week', await title(page));
     await view(page, 'three');
     ok('three days start on the day in view', (await firstDay(page)) === other && same(await page.locator('.bk-grid-head').evaluateAll(els => els.map(e => e.dataset.date)), [other, await plus(page, other, 1), await plus(page, other, 2)]));
-    await page.click('[aria-label="From today"]'); await sleep(200);
+    await page.click('[aria-label="Today and the next two days"]'); await sleep(200);
     ok('…and after Today they start today', (await firstDay(page)) === now && (await page.locator('.bk-grid-head.today').getAttribute('data-date')) === now);
 
     // two weeks: the arrow keys run off the edge as ‹ › do
@@ -315,7 +316,7 @@ async function press(page, loc, ms) {
   // + New starts on today when today is on screen, else on the first day shown; on the day in view in Day and 3 days
   const newDate = async () => { await page.locator('.bk-new').click(); await page.locator('.bk-kind[data-kind="other"]').click(); const f = sheetNamed(page, 'New diary entry'); await f.waitFor(); const v = await f.locator('[data-key="date"]').inputValue(); await f.locator('button', { hasText: 'Cancel' }).click(); await sleep(250); return v; };
   ok('+ New in a week without today starts on its Monday', (await newDate()) === (await monday(page, T)));
-  await page.click('[aria-label="This week"]'); await sleep(200);
+  await page.click('[aria-label="Today, this week"]'); await sleep(200);
   ok('…and on today in this week', (await newDate()) === (await dayFromNow(page, 0)));
 
   /* ---------------- a row opens its booking; Back and Delete land on the Day view of its day ---------------- */
@@ -540,7 +541,7 @@ async function press(page, loc, ms) {
   const zero = (await monthOf(page, await dayFromNow(page, 0), 1))[0].slice(0, 8) + '00';
   await put(page, 'bookings', { id: 'c-zero', kind: 'show', status: 'confirmed', title: 'Day nought', date: zero, setTime: '09:00' });
   await put(page, 'bookings', { id: 'c-zero2', kind: 'show', status: 'confirmed', title: 'Day nought, no time', date: zero }); await sleep(300);
-  await page.click('[aria-label="This month"]'); await page.click('[aria-label="Next month"]'); await sleep(200);
+  await page.click('[aria-label="Today, this month"]'); await page.click('[aria-label="Next month"]'); await sleep(200);
   await view(page, 'day'); await page.click('[aria-label="Previous day"]'); await sleep(200); // the last day of this month
   const inPanel = () => page.evaluate(() => ({ n: document.querySelectorAll('.bk-cal-panel [data-id^="c-zero"]').length, first: (document.querySelector('.bk-hour') || {}).textContent || '' }));
   const zeros = {};

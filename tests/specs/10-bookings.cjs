@@ -38,7 +38,7 @@ const unfold = t => t.replace(/\r\n /g, '');
     await page.mouse.move(grid.x + grid.width - 30, grid.y + grid.height / 2); await page.mouse.down();
     await page.mouse.move(grid.x + 40, grid.y + grid.height / 2 + 6, { steps: 6 }); await page.mouse.up(); await sleep(300);
     ok('a swipe across the calendar moves to the next month, and does not open a day', (await title()) === t1 && (await page.locator('.bk-monthview').count()) === 1);
-    await page.click('[aria-label="This month"]'); await sleep(150);
+    await page.click('[aria-label="Today, this month"]'); await sleep(150);
     ok('Today comes back to this month', (await title()) === t0);
     // arrow keys move between days and leave the Rolodex alone
     const todayCell = page.locator('.bk-day.today');

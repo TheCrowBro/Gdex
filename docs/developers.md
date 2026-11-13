@@ -476,7 +476,8 @@ buttons, ‹ title Today ›, the view's body, the legend under squares) and Com
 
 * **‹ › and Today** step by the length of the view. The title is not a live region (the page is drawn again at every
   step, and a live region that arrives with its words in it is not read out): each step says the new title through
-  `announce()`. In the Day view the title is the view's heading (`h2.cal-title[tabindex=-1][data-view-head]`); it
+  `announce()`. Today's spoken name starts with the word it shows (`Today, this week`; in the Day view just `Today`),
+  so a person who says or types "Today" finds it. In the Day view the title is the view's heading (`h2.cal-title[tabindex=-1][data-view-head]`); it
   takes a row of its own above the arrows under 480 px (every view's does under 360 px, and with extra-large text).
   A range's title comes from `Intl.DateTimeFormat(…).formatRange`, with the year whenever the range is not wholly in
   this year.

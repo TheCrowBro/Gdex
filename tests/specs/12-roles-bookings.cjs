@@ -390,7 +390,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     ok(`${r}: the month view is headed ${name}`, (await page.locator('.bk-monthview .page-head h1').innerText()) === name);
   }
   await setRole(page, 'scout');
-  await page.click('[aria-label="This month"]'); await sleep(200);
+  await page.click('[aria-label="Today, this month"]'); await sleep(200);
   await page.locator(`.bk-day[data-date="${today}"]`).click(); await page.waitForSelector('.bk-dayview');
   ok('scout: a day’s walkthrough calls the list Shows', (await steps(page)).includes('Shows') && !(await steps(page)).includes('Bookings'));
 

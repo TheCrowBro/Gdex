@@ -57,12 +57,13 @@ function said(b, days = '') {
 
 /* ------------------------------- dates, in the device's language ------------------------------- */
 const VIEWS = [['month', 'Month'], ['two', '2 weeks'], ['week', 'Week'], ['three', '3 days'], ['day', 'Day']];
-// For each view: how many days ‹ › step (the month steps by a month), and what ‹, › and Today are called.
+// For each view: how many days ‹ › step (the month steps by a month), and what ‹, › and Today are called. Today's
+// spoken name starts with the word it shows, so a person who says or types “Today” finds it.
 const NAV = {
-  month: { prev: 'Previous month', next: 'Next month', today: 'This month' },
-  two: { days: 14, prev: 'Previous two weeks', next: 'Next two weeks', today: 'These two weeks' },
-  week: { days: 7, prev: 'Previous week', next: 'Next week', today: 'This week' },
-  three: { days: 3, prev: 'Previous three days', next: 'Next three days', today: 'From today' },
+  month: { prev: 'Previous month', next: 'Next month', today: 'Today, this month' },
+  two: { days: 14, prev: 'Previous two weeks', next: 'Next two weeks', today: 'Today, these two weeks' },
+  week: { days: 7, prev: 'Previous week', next: 'Next week', today: 'Today, this week' },
+  three: { days: 3, prev: 'Previous three days', next: 'Next three days', today: 'Today and the next two days' },
   day: { days: 1, prev: 'Previous day', next: 'Next day', today: 'Today' },
 };
 const modeOf = S => (CAL_MODES.includes(S.mode) ? S.mode : 'month');
