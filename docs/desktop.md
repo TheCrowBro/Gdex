@@ -115,7 +115,9 @@ A code entered while the licence server cannot be reached is `pending`: it works
 check made after them has failed. Those 14 days come **once per computer** (`graceFrom`): Remove the code keeps their
 start, so entering the same code again, or another one, gives no new days, and blocking gdex.crowmade.app buys 14 days
 at most; the 3 computers and a refund still count. Only the server's yes for this computer (the code activated) clears
-it, so a code entered with no internet after that has its own 14 days. `85-desktop-licence` checks it.
+it, so a code entered with no internet after that has its own 14 days. These 14 days and the 90 days a licensed
+computer may go without reaching the server count with the latest time Gdex has seen, as the free days do, and a check
+that fails never moves the last try back, so winding the clock back gains nothing. `85-desktop-licence` checks both.
 
 **Switching it on** is part of a release, never a commit on its own, and only once the shop is open (`docs/go-live.md`,
 step (e)):

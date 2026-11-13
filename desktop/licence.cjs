@@ -111,12 +111,14 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     if (a.status === 'cancelled') return { ...base, ...trial, licence, mode: 'cancelled', canEdit: left > 0 };
     if (a.status === 'released') return { ...base, ...trial, licence, mode: 'released', canEdit: left > 0 };
     // Past a limit, Gdex turns read-only only once a check made after the limit has failed, so someone opening Gdex
-    // after a long break is not shown read-only while it is still checking.
+    // after a long break is not shown read-only while it is still checking. Both limits count with the latest time
+    // seen, as the free days do, so winding the clock back gains nothing.
+    const at = Math.max(t, s.seen || 0);
     if (a.status === 'active' && good) {
-      if (t - (a.checked || 0) > OFFLINE_LIMIT && (a.tried || 0) > (a.checked || 0) + OFFLINE_LIMIT) return { ...base, ...trial, licence, mode: 'offline', canEdit: false };
+      if (at - (a.checked || 0) > OFFLINE_LIMIT && (a.tried || 0) > (a.checked || 0) + OFFLINE_LIMIT) return { ...base, ...trial, licence, mode: 'offline', canEdit: false };
       return { ...base, ...trial, licence, mode: 'licensed', canEdit: true };
     }
-    const waited = Math.max(0, t - (s.enteredAt || t)), daysLeft = Math.max(0, Math.ceil((PENDING_LIMIT - waited) / DAY));
+    const waited = Math.max(0, at - (s.enteredAt || at)), daysLeft = Math.max(0, Math.ceil((PENDING_LIMIT - waited) / DAY));
     const failedSince = (a.tried || 0) > (s.enteredAt || 0) + PENDING_LIMIT;
     return { ...base, ...trial, licence, mode: 'pending', daysLeft, canEdit: daysLeft > 0 || left > 0 || !failedSince };
   }
@@ -192,12 +194,13 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     const a = await activate(code, install, typeof release === 'string' ? release.slice(0, 64) : '');
     if (a.full) return { error: 'full', computers: a.computers, swapsLeft: a.swapsLeft, seats: r.licence.seats };
     for (const k of ['cancelled', 'swaps', 'invalid']) if (a[k]) return { error: MESSAGES[k] };
-    const s2 = read(), t = now();
-    if (s2.code !== code) { s2.code = code; s2.enteredAt = a.ok ? t : s2.graceFrom || t; s2.act = {}; }
+    const s2 = read(), t = now(), at = Math.max(t, s2.seen || 0);
+    if (s2.code !== code) { s2.code = code; s2.enteredAt = a.ok ? t : s2.graceFrom || at; s2.act = {}; }
     if (a.ok) { s2.act = active(a.receipt, t); delete s2.graceFrom; }
     else {
-      s2.act = { ...(s2.act || {}), tried: t, answered: !!a.answered };
-      if (!s2.act.status && !s2.graceFrom) s2.graceFrom = s2.enteredAt || t; // pending: its 14 days are this computer's one go
+      // a failed try is stamped with the latest time seen and never moves back, so a clock wound back undoes no limit
+      s2.act = { ...(s2.act || {}), tried: Math.max((s2.act && s2.act.tried) || 0, at), answered: !!a.answered };
+      if (!s2.act.status && !s2.graceFrom) s2.graceFrom = s2.enteredAt || at; // pending: its 14 days are this computer's one go
     }
     keep(s2);
     return { ...(await state()), offline: !a.ok };
@@ -217,11 +220,11 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     if (!due) return state();
     const res = await activate(s.code, s.install, '');
     const s2 = read(); if (s2.code !== s.code) return state(); // changed while we waited
-    const t2 = now();
+    const t2 = now(), at2 = Math.max(t2, s2.seen || 0);
     if (res.ok) { s2.act = active(res.receipt, t2); delete s2.graceFrom; }
     else if (res.full) s2.act = { status: 'released', tried: t2 };
     else if (res.cancelled) s2.act = { status: 'cancelled', tried: t2 };
-    else s2.act = { ...a, tried: t2, answered: !!res.answered }; // offline, or an answer to look at again later
+    else s2.act = { ...a, tried: Math.max(a.tried || 0, at2), answered: !!res.answered }; // offline, or an answer to look at again later (never moved back)
     keep(s2);
     return state();
   }

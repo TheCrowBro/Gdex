@@ -177,6 +177,12 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     ok('opened after a long break, it is not read-only while it is still checking', s.mode === 'licensed' && s.canEdit);
     s = await lc.lic.recheck();
     ok('after 90 days without reaching the server (and a check that fails) it is read-only until it can check', s.mode === 'offline' && s.canEdit === false);
+    // The clock wound back gains nothing: the 90 days count with the latest time Gdex has seen, as the free days do.
+    const lastSeen = lc.c.t, triedAt = fileOf(lc.lic).act.tried; lc.c.t -= 90 * DAY; s = await lc.lic.state();
+    ok('…winding the clock back 90 days does not make it licensed again', s.mode === 'offline' && s.canEdit === false, s.mode);
+    s = await lc.lic.recheck();
+    ok('…nor does the check that then fails, which never moves the last try back', s.mode === 'offline' && s.canEdit === false && fileOf(lc.lic).act.tried >= triedAt, `${s.mode}, tried ${new Date(fileOf(lc.lic).act.tried).toISOString().slice(0, 10)}`);
+    lc.c.t = lastSeen;
     server.mode = 'ok'; s = await lc.lic.recheck(true);
     ok('"Try again" with the internet back puts it right', s.mode === 'licensed' && s.canEdit);
     server.cancelled.add('2:4242'); lc.c.t += 8 * DAY; s = await lc.lic.recheck();
@@ -216,6 +222,11 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     ok('a code entered with no internet and the free days over: 14 days', s.mode === 'pending' && s.daysLeft === 14 && s.canEdit);
     po.c.t += 15 * DAY; s = await po.lic.recheck();
     ok('…15 days on, with a check that fails, it is read-only', s.mode === 'pending' && s.canEdit === false);
+    po.c.t -= 10 * DAY; s = await po.lic.state();
+    ok('…and winding the clock back 10 days changes nothing (the latest time seen counts)', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    s = await po.lic.recheck();
+    ok('…nor does a check that then fails', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    po.c.t += 10 * DAY;
     s = await po.lic.release();
     ok('…Remove the code works with no internet (this computer was never on the code’s list)', !s.error && s.mode === 'ended' && !(await po.lic.code()), s.error || s.mode);
     s = await po.lic.enter(offA);
@@ -224,6 +235,9 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     ok('…nor a fortnight later', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
     await po.lic.release(); s = await po.lic.enter(offB);
     ok('…nor another code', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    po.c.t -= 25 * DAY; await po.lic.release(); s = await po.lic.enter(offA);
+    ok('…nor removing it and entering it again with the clock wound back to a few days after it was first entered', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    po.c.t += 25 * DAY; await po.lic.release(); s = await po.lic.enter(offB);
     fs.rmSync(po.lic.file); s = await po.lic.enter(offB);
     ok('…nor deleting licence.json (desktop-state.json keeps the date too)', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false && s.first === T0, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
     server.mode = 'ok'; s = await po.lic.recheck(true);
