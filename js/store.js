@@ -79,10 +79,11 @@ function persist() { rev++; if (sealed) { dirty = true; return; } if (!writeQueu
 export function flush() { rev++; writeNow(); }
 // The licence (js/licence-state.js) installs the one write gate: a paid role used after its free days is read-only.
 // fn({ form, quiet }) → true to allow. form: a form asks before closing (it stays open when refused); quiet: a side
-// effect of something allowed (a day sheet marked sent), skipped without a word when refused.
+// effect of something allowed (a day sheet marked sent), skipped without a word when refused. canChange({ form: false })
+// for a change asked with no form (Load the sample, bringing a backup back), so the refusal says nothing about one.
 let gate = null;
 export const setGate = fn => { gate = typeof fn === 'function' ? fn : null; };
-export const canChange = () => !gate || gate({ form: true }) !== false;
+export const canChange = ({ form = true } = {}) => !gate || gate({ form }) !== false;
 export const canChangeQuietly = () => !gate || gate({ quiet: true }) !== false;
 
 // After every change made on this device (update, replaceAll, mergeIn), never after adopt(): js/sync.js copies the

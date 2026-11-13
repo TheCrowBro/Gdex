@@ -682,6 +682,21 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // A refused change with no form (Load the sample, Bring back a backup's Merge): "Nothing was changed.", never "what
+      // you typed is still in the form".
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+      await page.waitForSelector('.sheet.licence-over', { timeout: 8000 }); await closeTop(page);
+      await go(page, 'settings'); await sleep(300); await page.evaluate(() => { for (let d = document.getElementById('se-sample-load').closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true; }); await page.click('#se-sample-load'); await sleep(600);
+      const sample = await page.textContent('.sheet.licence-readonly .lic-ro p').catch(() => '');
+      await closeTop(page);
+      await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/backup.js')]).then(([s, b]) => { b.importBackup(new File([s.serialize()], 'gdex-backup-test.json', { type: 'application/json' })); }));
+      await page.waitForSelector('.sheet[aria-label="Bring back a backup"]');
+      await page.click('.sheet[aria-label="Bring back a backup"] .se-imp-merge'); await sleep(600);
+      const backup = await page.textContent('.sheet.licence-readonly .lic-ro p').catch(() => '');
+      ok('a refused change with no form says "Nothing was changed.", not that what was typed is in the form: Load the sample, and Bring back a backup', /^Your free days are over, so Producer can’t change things on this device\. Nothing was changed\. You can still open/.test(sample) && /^Your free days are over, so Producer can’t change things on this device\. Nothing was changed\. You can still open/.test(backup), JSON.stringify({ sample, backup }));
+      await ctx.close();
+    }
+    {
       // The terms changed since they were agreed ([S-37], §9.4), the free days under way: the terms sheet comes again at
       // opening ("The terms have changed"). Not now: read-only for this visit, a refused change asks for the updated terms;
       // agreed there, the form that stayed open saves.

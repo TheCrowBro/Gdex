@@ -221,7 +221,9 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 * **The licence's gate.** `update` returns `false` and changes nothing when the licence refuses the change (a working
   role after its free days); `upsert` and `patch` return `null` then, `remove` `false`. Every caller that uses the
   returned record stops on `null` (a form stays open with what was typed: `form.js` asks `canChange()` before it closes).
-  `canChange()` asks the gate as a form would (the read-only sheet explains); `canChangeQuietly()` for a side effect
+  `canChange()` asks the gate as a form would (the read-only sheet explains, and says what was typed stays in the form);
+  `canChange({ form: false })` for a change asked with no form (Load the sample, bringing a backup back), whose
+  read-only sheet says only that nothing was changed; `canChangeQuietly()` for a side effect
   that is skipped without a word when refused (a day sheet marked sent). `setGate(fn)` is the licence's alone.
 * **Google Drive's seams.** `afterWrite(fn)` runs after `update`, `replaceAll` and `mergeIn`, never after
   `adopt(data)`, which takes in a merged copy from Drive without a new `updatedAt`, without `afterWrite` and without

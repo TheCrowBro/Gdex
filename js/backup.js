@@ -234,7 +234,7 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
     const err = h('p', { class: 'warn small se-imp-err', role: 'alert', hidden: true });
     let reading = false;
     const go = async (how, btn) => {
-      if (reading || !store.canChange()) return; // bringing a backup back is a change: the chooser stays open and the licence's sheet explains
+      if (reading || !store.canChange({ form: false })) return; // bringing a backup back is a change: the chooser stays open and the licence's sheet explains
       // With Drive linked, Replace first takes in what the other devices have put in Drive since this one last synced
       // (from the tap: signing in again when Google's hour is up), so that is replaced too. If Drive can't be read,
       // nothing is replaced and the chooser says why.

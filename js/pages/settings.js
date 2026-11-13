@@ -233,7 +233,7 @@ const licenceBit = () => {
 const roleSummary = () => { const r = role(); return (roleChosen() ? `${r.label} · ${plural(menuSections(r).length, 'section')} on the menu` : 'Not chosen: every section is on the menu') + licenceBit(); };
 const sampleCount = () => store.COLLECTIONS.reduce((n, c) => n + db[c].filter(r => r && r.sample).length, 0);
 function loadSample() {
-  if (!store.canChange()) return; // a read-only role: the licence's sheet says why
+  if (!store.canChange({ form: false })) return; // a read-only role: the licence's sheet says why
   const before = sampleCount();
   store.loadSample();
   const added = sampleCount() - before;
