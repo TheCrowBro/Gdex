@@ -75,6 +75,12 @@ put` from your own computer) in the order `docs/desktop.md` gives; if you want C
 
 Each step only with your go-ahead.
 
+**(0) The work on `main`.** The developer merges the finished work into `main` and pushes it, with your go-ahead.
+Publishing runs from `main` only: the publish workflow refuses any other branch, and GitHub shows **Publish Gdex** under
+Actions only once its file (`.github/workflows/publish.yml`) is on the repository’s default branch, which must be
+`main` (Settings → General → Default branch). Every later change to be published, such as (d)'s, goes onto `main` the
+same way first.
+
 **(a) The website and the Worker, with licences still off.** Actions → **Publish Gdex** → **Run workflow** on `main`,
 type `publish gdex`, then approve the run when GitHub asks. It runs every test (licences off and on), stamps the build,
 checks the configuration is Gdex's own, publishes, and checks the live site. Look at https://gdex.crowmade.app: every

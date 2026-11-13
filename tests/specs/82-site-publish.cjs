@@ -97,6 +97,11 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
     ok('`wrangler deploy` is the only Wrangler command in any workflow (no delete, kv, r2 or secret)', commands.length === 0 && flows.every(f => !/wrangler\s+(delete|kv|r2|secret)/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8'))) && (yml.match(/npx wrangler deploy/g) || []).length === 1, commands.join(' | '));
     const others = flows.filter(f => f !== 'publish.yml' && /CLOUDFLARE_API_TOKEN|environment: gdex-live/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8')));
     ok('no other workflow can publish (none uses the Cloudflare token or the Environment)', others.length === 0, others.join(', '));
+    // The workflow runs only on main, and GitHub lists a by-hand workflow under Actions only once its file is on the
+    // default branch: the owner's list puts the work there first, and CLAUDE.md says publishing runs from main.
+    const live = fs.readFileSync(path.join(REPO, 'docs/go-live.md'), 'utf8'), before9a = (live.split('## 9.')[1] || '').split('**(a)')[0];
+    const claude = (fs.readFileSync(path.join(REPO, 'CLAUDE.md'), 'utf8').split('## Publishing')[1] || '');
+    ok('docs/go-live.md, before 9(a): the developer merges the finished work into main and pushes it, with the owner\'s go-ahead, so Actions shows Publish Gdex; CLAUDE.md says publishing runs from main', /\*\*\(0\) The work on `main`\.\*\* The developer merges the finished work into `main` and pushes it, with your go-ahead\./.test(before9a) && /only once its file \(`\.github\/workflows\/publish\.yml`\) is on the repository’s default branch, which must be\s+`main`/.test(before9a) && /Publishing runs from `main` only/.test(claude), before9a.trim().slice(0, 300));
 
     /* ------------------------------ the guard ------------------------------ */
     const lines = yml.split('\n'), g = lines.findIndex(l => /^\s+GUARD: \|$/.test(l)), indent = (lines[g + 1] || '').match(/^\s*/)[0];

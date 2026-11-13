@@ -53,7 +53,9 @@ Vdex from here.
 Gdex's address is gdex.crowmade.app: a Cloudflare Worker (`cloudflare/`) serves the site and the licence server. The
 desktop app's installers and updates go to the download address in `desktop/updater.cjs`. Nothing is published,
 deployed, uploaded or released (the website, the Worker, the desktop app) without the owner's go-ahead;
-`docs/go-live.md` is the owner's list, in order. A deploy always names its config (`npx wrangler deploy --config
-wrangler.jsonc` in `cloudflare/`, as `.github/workflows/publish.yml` does after its guard): never add another Wrangler
-command or config to a workflow. Before a release, `node tools/stamp-build.mjs` stamps the build so installed copies
+`docs/go-live.md` is the owner's list, in order. Publishing runs from `main` only (`.github/workflows/publish.yml`
+refuses any other branch, and GitHub lists it under Actions only once it is on the default branch): the approved work
+is merged into `main` and pushed, with the owner's go-ahead, before each publish. A deploy always names its config
+(`npx wrangler deploy --config wrangler.jsonc` in `cloudflare/`, as `.github/workflows/publish.yml` does after its
+guard): never add another Wrangler command or config to a workflow. Before a release, `node tools/stamp-build.mjs` stamps the build so installed copies
 update.
