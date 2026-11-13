@@ -758,12 +758,12 @@ showing).
   `.sheet.srch-sheet`, its body `div.srch`) whose own box, `input#srch-q` at the top (`.srch-top`, sticky, with the
   tabs), takes the words, the caret or selection the box had, and the focus, so the person types on; the box at the top
   of the page follows every key. A tap on the box when it holds words, Enter, or ↓ (which then goes to the first result)
-  opens them too. Escape and ✕ close them, keep the words in both boxes, and put the focus back in the box; when the
-  close was a touch, the box takes the focus with `inputmode="none"` for that moment, so the phone's keyboard does not
-  come up (it comes back at the next tap or key). A tap on a result closes them and the focus goes where the result
-  opens. What was typed, the tab, the kind and the place picked on the bookings tab, how many results are drawn and how
-  far the list was scrolled live in memory for the visit, so opening them again brings the last search back on the same
-  tab and scroll. Nothing about a search is written to storage. A search typed over the last one (over the whole of its
+  opens them too. Escape, ✕ and a tap on the dim backdrop close them, keep the words in both boxes, and put the focus
+  back in the box; when the close was a touch, the box takes the focus with `inputmode="none"` for that moment, so the
+  phone's keyboard does not come up (it comes back at the next tap or key). A tap on a result closes them and the
+  focus goes where the result opens. What was typed, the tab, the kind and the place picked on the bookings tab, how
+  many results are drawn and how far the list was scrolled live in memory for the visit, so opening them again brings
+  the last search back on the same tab and scroll. Nothing about a search is written to storage. A search typed over the last one (over the whole of its
   words selected, or with no word of one beginning a word of the other) starts the bookings tab again on Shows at every
   place; one narrowed or widened keeps them. The tab picked is kept whatever is typed.
 * **What is found**, kind by kind, in the order of the tabs (`SEARCH_KINDS`): `gigs` (the bookings tab, below), `bands`,
@@ -894,9 +894,13 @@ showing).
 
 * `util.js`: `h(tag, attrs, ...kids)` (attrs: `class`, `onclick`…, `aria-*`, `data-*`, `html` for trusted markup
   only), `nodes`, `uid`, `pad`, `ymd`, `todayISO`, `parseISO`, `fmtLong`, `fmtShort`, `fmtTime`, `daysUntil`,
-  `groupBy`, `toast(msg)`, `announce(msg)`, `sheet(title, body, { onClose })` → `{ el, close }` (a dialog that takes
+  `groupBy`, `toast(msg)`, `announce(msg)`, `sheet(title, body, { onClose, dismissOnBackdrop })` → `{ el, close }` (a dialog that takes
   the focus itself 100 ms after it opens, unless something in it already has it: place your own focus sooner, as
-  forms do at 50 ms and the track list at 60 ms; Escape or ✕ gives it back to the opener), `mapsUrl`, `telUrl`,
+  forms do at 50 ms and the track list at 60 ms; Escape or ✕ gives it back to the opener, and so does a tap on its dim
+  backdrop, which closes it on the click, never on the press, and only when the press began and ended on the
+  backdrop: the click stops there, so nothing under it is pressed, and the press never takes the focus out of the
+  sheet; with `dismissOnBackdrop: false`, as forms and "Did you see them?" have, the tap closes nothing and the focus
+  stays where it was; `08-sheets` checks it with a finger and a mouse), `mapsUrl`, `telUrl`,
   `safeUrl` (always use it for user-typed links), `empty(msg, action)`, `backBtn(label, fn)`, `hold(el, ms, fn)` /
   `wasHeld(el)` (press and hold), `rateText(c, sym)`, `personRate(c)`.
 * `form.js` `openForm({ title, fields, values, onSave(values), onDelete, saveLabel, confirmDelete, onReady(formEl) })`. Field `type`s: `text` (default),
@@ -963,6 +967,7 @@ backline, take, comp, stems, split sheet.
   `const { browser, page, errors } = await open({ sample: true, tab: 'songs' });` Each `ok(name, condition, extra)`
   prints a PASS or FAIL line. End every spec with `ok('no errors in the console', errors.length === 0, …)` and
   `await browser.close()`, and wrap the whole spec in `(async () => { … })().catch(e => { console.log('FAIL … crashed — ' + e.message); process.exit(1); })`.
+* `open({ touch: true })` emulates a touch screen (`page.touchscreen.tap`; the mouse still works).
 * `open()` marks the welcome tour done, dismisses the role card and turns "Did you see them?" off (`gdex-ask-seen`
   `'off'`, set again on every load), so no sheet opens over a spec's own work. A spec about the question opens with
   `open({ ask: true })`, which leaves the key alone; it seeds its shows, then reloads.
@@ -977,7 +982,8 @@ backline, take, comp, stems, split sheet.
   through `model.showOver(b, now)` with a fixed `now`. A check that must use today's date gives the same result at
   00:10 and at 23:50.
 * Spec files by owner: `00-smoke` (core), `05-deck` and `06-roles` (core), `07-groundwork` (core: the model and the
-  contracts under the calendar, the question, the menus and house rules), `10-bookings`, `11-order` (same-day order and
+  contracts under the calendar, the question, the menus and house rules), `08-sheets` (core: a sheet's dim backdrop,
+  tapped with a finger and clicked), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
   `46-search`, `50-backline`, `55-venues`, `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
@@ -991,7 +997,7 @@ backline, take, comp, stems, split sheet.
 Only edit files you own. Core files (`index.html`, `styles.css`, `js/app.js`, `js/store.js`, `js/model.js`,
 `js/util.js`, `js/form.js`, `js/deck.js`, `js/a11y.js`, `js/roles.js`, `js/role-pick.js`, `js/tour.js`, `js/tutorials.js`, `js/print.js`, `js/blocks/index.js`,
 `js/bookings-kit.js`, `sw.js`, `tools/`, `tests/lib.mjs`, `tests/run.mjs`, `tests/helpers.cjs`, `tests/specs/00-smoke.cjs`,
-`tests/specs/07-groundwork.cjs`) belong to the integrator: if you
+`tests/specs/07-groundwork.cjs`, `tests/specs/08-sheets.cjs`) belong to the integrator: if you
 need a change there, describe it in your report instead.
 
 | Feature | Files |

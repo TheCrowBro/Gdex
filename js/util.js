@@ -104,7 +104,22 @@ export function sheet(title, body, { onClose, dismissOnBackdrop = true } = {}) {
     h('div', { class: 'sheet-head' }, h('h2', null, title), h('div', { class: 'sheet-tools' }, window.logiHelp && h('button', { class: 'icon-btn sheet-help', 'aria-label': 'Tutorial for this', title: 'Tutorial', onclick: () => window.logiHelp() }, '?'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, '✕'))),
     h('div', { class: 'sheet-body' }, body));
   back.append(box);
-  if (dismissOnBackdrop) back.addEventListener('pointerdown', e => { if (e.target === back) close(); });
+  // A tap on the dim backdrop closes the sheet on its click, never on the press: closed on the press, the rest of the
+  // tap (on a phone the whole click, which comes after the finger lifts) landed on the page under it, pressing ?, Aa or
+  // Backup. The click stops at the backdrop, which is not in #app. Only a press that began and ended on the backdrop
+  // counts (not a drag from the sheet onto it, nor from it into the sheet), and the press never takes the focus out of
+  // the sheet onto the page's body: a sheet that stays (a form, the question) keeps it where it was, and one that
+  // closes gives it back as Escape and ✕ do.
+  let onBack = false;
+  back.addEventListener('pointerdown', e => { onBack = e.target === back; });
+  back.addEventListener('pointerup', e => { if (e.target !== back) onBack = false; });
+  back.addEventListener('mousedown', e => { if (e.target === back) e.preventDefault(); });
+  back.addEventListener('click', e => {
+    const mine = onBack && e.target === back; onBack = false;
+    if (e.target !== back) return;
+    e.preventDefault(); e.stopPropagation();
+    if (mine && dismissOnBackdrop) close();
+  });
   document.addEventListener('keydown', keys);
   document.body.append(back);
   sheetStack.push(back);
