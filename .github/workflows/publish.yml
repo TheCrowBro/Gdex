@@ -1,0 +1,127 @@
+# Publishes Gdex to https://gdex.crowmade.app: a Cloudflare Worker named gdex that serves the website's files and, for
+# /buy and /licence/…, Gdex's licence server (cloudflare/worker.mjs). Only the owner starts it, by hand, and only when
+# the owner has said "publish" (docs/go-live.md): Actions → Publish Gdex → Run workflow, on main, typing "publish gdex".
+#
+# It never runs by itself: not on a push, not on a schedule. Its job waits in the protected GitHub Environment
+# gdex-live, which holds the Cloudflare secrets (never repository secrets) and asks the owner to approve every run.
+# Cloudflare cannot limit a token to one Worker, so the token could reach Vdex's Worker too: the guard below refuses
+# any configuration that is not Gdex's own (name gdex, the one route gdex.crowmade.app, no workers.dev address, no
+# borrowed storage), and `wrangler deploy` is the only Wrangler command in any workflow of this repository. Nothing
+# here deletes, uploads to a bucket or changes a secret. Only the website's own files are published
+# (tools/stage-site.mjs): never the desktop app, the tools (the licence generator), the docs, the tests or a key.
+name: Publish Gdex
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type exactly: publish gdex'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: publish-gdex
+  cancel-in-progress: false
+jobs:
+  refused:
+    # Started anywhere but main, or without the words: say why, and publish nothing (no approval is asked).
+    if: github.ref != 'refs/heads/main' || inputs.confirm != 'publish gdex'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::Nothing was published. Run this workflow on main and type exactly: publish gdex (docs/go-live.md)."
+          exit 1
+  publish:
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'publish gdex'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The owner approves each run here; the Cloudflare secrets live only in this Environment (docs/licence-server.md).
+    environment: gdex-live
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      - name: Wrangler at the exact version in cloudflare/package-lock.json (the licence server's specs use it too)
+        run: npm ci --prefix cloudflare
+      - run: npx playwright install --with-deps chromium
+      - name: The tests, with licences off (as the repository is) and with them live
+        run: |
+          npm test
+          GDEX_LICENCE=on npm test
+      - name: Stamp the build (installed copies update to it)
+        run: node tools/stamp-build.mjs
+        env:
+          BUILD_SHA: ${{ github.sha }}
+      - name: The guard (only Gdex's own Worker, at gdex.crowmade.app; licence keys in place before licences go live)
+        env:
+          GUARD: |
+            const fs = require('fs');
+            const fail = m => { console.error('::error::' + m + ' Nothing was published.'); process.exit(1); };
+            // Wrangler looks for wrangler.json, then wrangler.jsonc, then wrangler.toml, in its folder and every folder
+            // above it, and follows a .wrangler/deploy/config.json beside them: the deploy names its file
+            // (--config wrangler.jsonc), and no other Wrangler configuration may be in the repository at all.
+            const others = ['wrangler.json', 'wrangler.jsonc', 'wrangler.toml', '.wrangler/deploy/config.json', 'cloudflare/wrangler.json', 'cloudflare/wrangler.toml', 'cloudflare/.wrangler/deploy/config.json'].filter(f => fs.existsSync(f));
+            if (others.length) fail('Only cloudflare/wrangler.jsonc may configure Wrangler; remove ' + others.join(', ') + '.');
+            let wr;
+            try { wr = JSON.parse(fs.readFileSync('cloudflare/wrangler.jsonc', 'utf8').replace(/^\s*\/\/.*$/gm, '')); } catch (e) { fail('cloudflare/wrangler.jsonc could not be read: ' + e.message + '.'); }
+            if (wr.name !== 'gdex') fail('The Worker in cloudflare/wrangler.jsonc is "' + wr.name + '", not "gdex".');
+            if (JSON.stringify(wr.routes) !== JSON.stringify([{ pattern: 'gdex.crowmade.app', custom_domain: true }])) fail('The Worker\'s only route must be the custom domain gdex.crowmade.app.');
+            if ('route' in wr || 'env' in wr) fail('cloudflare/wrangler.jsonc may not add a "route" or an "env" of its own.');
+            if (wr.workers_dev !== false || wr.preview_urls !== false) fail('workers_dev and preview_urls must be false.');
+            if (!Array.isArray(wr.kv_namespaces) || wr.kv_namespaces.some(k => k.binding !== 'LICENCES' || 'id' in k || 'preview_id' in k)) fail('The only storage is LICENCES, with no id: Wrangler makes Gdex\'s own (gdex-licences).');
+            // Nothing else: no binding to another Worker, bucket, database or queue (Vdex's among them), and only the
+            // staged website as the files.
+            const KNOWN = ['$schema', 'name', 'compatibility_date', 'compatibility_flags', 'workers_dev', 'preview_urls', 'routes', 'main', 'keep_vars', 'kv_namespaces', 'assets', 'observability'];
+            const extra = Object.keys(wr).filter(k => !KNOWN.includes(k));
+            if (extra.length) fail('cloudflare/wrangler.jsonc may not add ' + extra.join(', ') + ' (only Gdex\'s own Worker, its licence store and its files).');
+            if (wr.main !== 'worker.mjs') fail('The Worker\'s script must be cloudflare/worker.mjs.');
+            if (JSON.stringify(wr.assets) !== JSON.stringify({ directory: './site', binding: 'ASSETS', html_handling: 'none', not_found_handling: 'none', run_worker_first: ['/buy', '/licence/*'] })) fail('The Worker\'s files must be the staged website (cloudflare/site), with only /buy and /licence/* run by the script.');
+            const sites = fs.readFileSync('js/licence-config.js', 'utf8').match(/export const LICENCE_SITES = (\[[^\]]*\]);/);
+            if (!sites) fail('LICENCE_SITES could not be read in js/licence-config.js.');
+            const live = JSON.parse(sites[1].replace(/'/g, '"'));
+            if (live.length) {
+              const keys = JSON.parse(fs.readFileSync('desktop/licence-keys.json', 'utf8'));
+              const web = fs.readFileSync('js/licence-keys.js', 'utf8').match(/export const LICENCE_KEYS = (\{[^\n]*\});/);
+              if (!keys[2]) fail('Licences are live in js/licence-config.js but desktop/licence-keys.json has no shop key (2).');
+              if (!web || JSON.stringify(JSON.parse(web[1])) !== JSON.stringify(keys)) fail('js/licence-keys.js differs from desktop/licence-keys.json: run node tools/licence-keys.mjs.');
+            }
+            console.log('The guard passed: Worker gdex at gdex.crowmade.app; licences ' + (live.length ? 'live on ' + live.join(', ') : 'off') + '.');
+        run: node -e "$GUARD"
+      - name: Stage the website's own files, with the headers Cloudflare reads
+        run: node tools/stage-site.mjs cloudflare/site --cloudflare
+      - name: Deploy the Worker gdex (the only Wrangler command in any workflow)
+        working-directory: cloudflare
+        run: npx wrangler deploy --config wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: "false"
+      - name: Check the live site
+        run: |
+          site=https://gdex.crowmade.app
+          rc=0; code=$(curl -sS -o /dev/null -w '%{http_code}' "$site/sw.js") || rc=$?
+          case $rc in
+            0) ;;
+            6|7|35|60) echo "::notice::$site does not answer yet: a new address can take a few minutes after the first publish (docs/licence-server.md)."; exit 0 ;;
+            *) echo "::error::$site/sw.js could not be fetched (curl exit $rc)"; exit 1 ;;
+          esac
+          [ "$code" = 200 ] || { echo "::error::$site/sw.js answered HTTP $code after the deploy"; exit 1; }
+          build=${GITHUB_SHA::7}; ok=
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "$site/sw.js" | grep -q "const BUILD = '$build'"; then ok=1; break; fi
+            sleep 10
+          done
+          [ -n "$ok" ] || { echo "::error::$site is not serving build $build"; exit 1; }
+          curl -fsS -o /dev/null -D - "$site/index.html" | grep -qi '^content-security-policy:'
+          # The licence server answers its own addresses: a request without a code is refused by it, not a missing file.
+          lic=$(curl -sS -o /tmp/lic -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$site/licence/activate")
+          [ "$lic" = 400 ] && grep -q '"invalid"' /tmp/lic || { echo "::error::$site/licence/activate answered HTTP $lic, not the licence server"; exit 1; }
+          st=$(curl -sS -o /tmp/st -w '%{http_code}' "$site/licence/web/status")
+          [ "$st" = 200 ] && grep -q '"on"' /tmp/st || { echo "::error::$site/licence/web/status answered HTTP $st, not the licence server"; exit 1; }
+          echo "Live: $site, build $build; the licence server says $(cat /tmp/st)."

@@ -1,0 +1,150 @@
+// What gets published to gdex.crowmade.app (the build spec §6.3): tools/stage-site.mjs, run in a throw-away copy of the
+// repository (with a planted key file and ledger), copies every page and every file of the offline list and nothing
+// else (no desktop app, licence server, tools, docs, tests, key file or package file); the Cloudflare copy's headers
+// carry each page's own policy; the addresses the Worker answers agree everywhere; and the publish workflow runs only by
+// hand, in the owner's protected Environment, after its guard, which refuses any Worker but Gdex's (tried here on
+// tampered copies). Node only: nothing is published and nothing reaches the network.
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
+const { pathToFileURL } = require('url');
+const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
+const REPO = path.resolve(__dirname, '../..');
+const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
+const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1];
+
+(async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gdex-publish-'));
+  try {
+    // A copy of the whole repository (desktop/, cloudflare/, docs/, tests/ and tools/ included, never .git or any
+    // node_modules), with a key file and a ledger left lying at its top, as an owner's could be by mistake.
+    const root = path.join(tmp, 'repo');
+    fs.cpSync(REPO, root, { recursive: true, filter: src => !/(^|[\\/])(\.git|node_modules|output|site|dist)$/.test(path.relative(REPO, src)) || src === REPO });
+    fs.writeFileSync(path.join(root, 'gdex-licence-key-1.json'), '{"type":"gdex-licence-signing-key"}');
+    fs.writeFileSync(path.join(root, 'gdex-ledger.csv'), 'issued,ref,type,name,email,expires,seats,note,code\n');
+    const stage = (dest, ...args) => execFileSync(process.execPath, [path.join(root, 'tools/stage-site.mjs'), dest, ...args], { cwd: root, stdio: 'pipe' }).toString();
+    const refusal = (...args) => { try { stage(...args); return ''; } catch (e) { return String(e.stderr); } };
+    const { PAGES, WORKER_ROUTES } = await import(pathToFileURL(path.join(root, 'tools/site-files.mjs')).href);
+    const read = f => fs.readFileSync(path.join(root, f), 'utf8');
+
+    /* ---------------------------- the staged site ---------------------------- */
+    stage('stage-test');
+    const out = path.join(root, 'stage-test');
+    const files = walk(out).map(f => path.relative(out, f).split(path.sep).join('/'));
+    const tops = [...new Set(files.map(f => f.split('/')[0]))].sort();
+    ok('every page in PAGES is published', PAGES.every(p => files.includes(p)), PAGES.filter(p => !files.includes(p)).join(', '));
+    ok('only the website: the pages, styles, manifest, service worker, js, css, vendor and icons', JSON.stringify(tops) === JSON.stringify([...PAGES, 'css', 'icons', 'js', 'manifest.webmanifest', 'styles.css', 'sw.js', 'vendor'].sort()), tops.join(', '));
+    const stray = files.filter(f => /^(desktop|cloudflare|tools|docs|tests|\.github)\//.test(f) || /licence-(generator|key-|codes)|ledger|package(-lock)?\.json$|wrangler|worker\.mjs$/.test(f) || (/\.md$/.test(f) && f !== 'vendor/LICENSES.md'));
+    ok('nothing from desktop/, cloudflare/, tools/, docs/ or tests/, no key file, no ledger, no package file', stray.length === 0, stray.join(', '));
+    const shell = [...read('sw.js').match(/const SHELL = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)].map(m => m[1]).filter(f => f !== './');
+    ok('every file in the offline list (sw.js) is published', shell.length > 50 && shell.every(f => files.includes(f)), shell.filter(f => !files.includes(f)).join(', '));
+    ok('the plain copy has no _headers or _redirects', !files.includes('_headers') && !files.includes('_redirects'));
+    fs.rmSync(out, { recursive: true, force: true });
+
+    /* ------------------------ what stops a publish ------------------------ */
+    fs.writeFileSync(path.join(root, 'stray.html'), '<!doctype html>');
+    const r1 = refusal('stage-test'); fs.rmSync(path.join(root, 'stray.html'));
+    ok('a new page left out of tools/site-files.mjs stops the publish instead of silently missing', /not in tools\/site-files\.mjs/.test(r1), r1.trim().slice(0, 120));
+    const priv = read('privacy.html'); fs.writeFileSync(path.join(root, 'privacy.html'), priv.replace('</body>', '<a href="docs/nowhere.md">x</a></body>'));
+    const r2 = refusal('stage-test'); fs.writeFileSync(path.join(root, 'privacy.html'), priv);
+    ok('a page linking to a file that is not published stops the publish', /privacy\.html → docs\/nowhere\.md/.test(r2), r2.trim().slice(0, 120));
+    const sw = read('sw.js'); fs.writeFileSync(path.join(root, 'sw.js'), sw.replace("const SHELL = [\n", "const SHELL = [\n  'js/not-here.js', "));
+    const r3 = refusal('stage-test'); fs.writeFileSync(path.join(root, 'sw.js'), sw);
+    ok('an offline list naming a file that is not published stops the publish', /js\/not-here\.js/.test(r3), r3.trim().slice(0, 120));
+    ok('it stages only inside the repository', /must be inside the repository/.test(refusal(path.join(tmp, 'outside'))) && /must be inside the repository/.test(refusal('.')));
+    const before = ['cloudflare', 'js', 'docs'].map(d => walk(path.join(root, d)).length);
+    const slips = ['cloudflare', 'js', 'docs'].map(d => refusal(d));
+    ok('it never empties one of the repository\'s own folders (a slip such as "cloudflare" for "cloudflare/site")', slips.every(r => /not an earlier staged copy/.test(r)) && JSON.stringify(['cloudflare', 'js', 'docs'].map(d => walk(path.join(root, d)).length)) === JSON.stringify(before) && fs.existsSync(path.join(root, 'cloudflare/worker.mjs')), slips.map(r => r.trim().slice(0, 60)).join(' | '));
+    stage('stage-test'); stage('stage-test');
+    ok('…while an earlier staged copy is replaced', fs.existsSync(path.join(root, 'stage-test/sw.js')));
+    fs.rmSync(path.join(root, 'stage-test'), { recursive: true, force: true });
+
+    /* --------------------------- the Cloudflare copy --------------------------- */
+    stage('cloudflare/site', '--cloudflare');
+    const cf = path.join(root, 'cloudflare/site');
+    const headers = fs.readFileSync(path.join(cf, '_headers'), 'utf8'), redirects = fs.readFileSync(path.join(cf, '_redirects'), 'utf8');
+    const block = p => headers.split(/\n(?=\S)/).find(b => b.split('\n')[0] === p) || '';
+    const mismatched = PAGES.filter(f => { const meta = metaCsp(read(f)); return !meta || !block('/' + f).includes(`Content-Security-Policy: ${meta.trim().replace(/;$/, '')}; frame-ancestors 'none'`); });
+    ok('each page\'s Content-Security-Policy header is its own meta tag\'s, plus frame-ancestors', mismatched.length === 0, mismatched.join(', '));
+    ok('"/" gets the start page\'s policy; pages, the service worker and the manifest are never cached stale', block('/').includes(`Content-Security-Policy: ${metaCsp(read('index.html')).trim().replace(/;$/, '')}; frame-ancestors 'none'`) && /Cache-Control: no-cache/.test(block('/sw.js')) && /no-cache/.test(block('/manifest.webmanifest')) && /application\/manifest\+json/.test(block('/manifest.webmanifest')) && PAGES.every(f => /Cache-Control: no-cache/.test(block('/' + f))));
+    ok('every address is nosniff, and "/" shows index.html instead of redirecting', /X-Content-Type-Options: nosniff/.test(block('/*')) && redirects.trim() === '/ /index.html 200');
+    ok('no _headers line is over Cloudflare\'s 2,000-character limit', headers.split('\n').every(l => l.length <= 2000));
+    const cfFiles = walk(cf).map(f => path.relative(cf, f).split(path.sep).join('/'));
+    ok('the Cloudflare copy holds the same files, plus _headers and _redirects only', JSON.stringify(cfFiles.filter(f => !/^_(headers|redirects)$/.test(f)).sort()) === JSON.stringify(files.sort()));
+
+    /* ------------------- the addresses the Worker answers ------------------- */
+    const wr = JSON.parse(read('cloudflare/wrangler.jsonc').replace(/^\s*\/\/.*$/gm, ''));
+    const swRoutes = JSON.parse(read('sw.js').match(/const WORKER_ROUTES = (\[[^\]]*\]);/)[1].replace(/'/g, '"'));
+    ok('WORKER_ROUTES (tools/site-files.mjs) equals the Worker\'s run_worker_first and the service worker\'s list', JSON.stringify(WORKER_ROUTES) === JSON.stringify(wr.assets.run_worker_first) && JSON.stringify(swRoutes) === JSON.stringify(WORKER_ROUTES) && JSON.stringify(WORKER_ROUTES) === JSON.stringify(['/buy', '/licence/*']));
+    ok('the Worker serves the staged folder (cloudflare/site, ignored by git)', wr.assets.directory === './site' && /^cloudflare\/site\/$/m.test(fs.readFileSync(path.join(REPO, '.gitignore'), 'utf8')));
+
+    /* --------------------------- the publish workflow --------------------------- */
+    const flows = fs.readdirSync(path.join(REPO, '.github/workflows')).filter(f => /\.ya?ml$/.test(f));
+    const yml = fs.readFileSync(path.join(REPO, '.github/workflows/publish.yml'), 'utf8');
+    const onBlock = (yml.match(/^on:\n((?:[ #].*\n)+)/m) || [])[1] || '';
+    ok('it runs only by hand: workflow_dispatch with a required "confirm", never on a push or a schedule', /^  workflow_dispatch:\n/m.test(onBlock) && !/^  (push|pull_request|schedule|workflow_run|release)/m.test(onBlock) && /confirm:\n\s+description: 'Type exactly: publish gdex'\n\s+required: true/.test(yml));
+    const job = (yml.split('\n  publish:\n')[1] || '');
+    ok('the publishing job runs only on main, only with "publish gdex", in the owner\'s protected Environment gdex-live', /^    if: github\.ref == 'refs\/heads\/main' && inputs\.confirm == 'publish gdex'$/m.test(job) && /^    environment: gdex-live$/m.test(job) && /^permissions:\n  contents: read$/m.test(yml));
+    ok('its secrets come from that Environment, and only the deploy step sees them', (yml.match(/secrets\./g) || []).length === 2 && /Deploy the Worker gdex[^\n]*\n\s+working-directory: cloudflare\n\s+run: npx wrangler deploy --config wrangler\.jsonc\n\s+env:\n\s+CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}\n\s+CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/.test(yml));
+    const order = ['npm ci --prefix cloudflare', 'npm test', 'GDEX_LICENCE=on npm test', 'node tools/stamp-build.mjs', 'node -e "$GUARD"', 'node tools/stage-site.mjs cloudflare/site --cloudflare', 'npx wrangler deploy --config wrangler.jsonc', '/licence/activate'];
+    const at = order.map(s => job.indexOf(s));
+    ok('the steps: Wrangler, both test legs, the stamp, the guard, the staged site, the deploy, then live checks', at.every((n, i) => n > 0 && (i === 0 || n > at[i - 1])), order.filter((s, i) => !(at[i] > 0 && (i === 0 || at[i] > at[i - 1]))).join(', '));
+    const actionsPinned = [...yml.matchAll(/uses: ([^\s]+)/g)].every(m => /@[0-9a-f]{40}$/.test(m[1]));
+    ok('every action is pinned by commit', actionsPinned);
+    const wranglerUses = flows.flatMap(f => [...fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8').matchAll(/wrangler(?:-action)?\b[^\n]*/g)].map(m => `${f}: ${m[0]}`)).filter(l => !/^[^:]+: wrangler\.jsonc/.test(l) && !/cloudflare\/wrangler\.jsonc/.test(l));
+    const commands = wranglerUses.filter(l => /wrangler (?!deploy\b)[a-z]/.test(l) || /wrangler-action/.test(l));
+    ok('`wrangler deploy` is the only Wrangler command in any workflow (no delete, kv, r2 or secret)', commands.length === 0 && flows.every(f => !/wrangler\s+(delete|kv|r2|secret)/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8'))) && (yml.match(/npx wrangler deploy/g) || []).length === 1, commands.join(' | '));
+    const others = flows.filter(f => f !== 'publish.yml' && /CLOUDFLARE_API_TOKEN|environment: gdex-live/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8')));
+    ok('no other workflow can publish (none uses the Cloudflare token or the Environment)', others.length === 0, others.join(', '));
+
+    /* ------------------------------ the guard ------------------------------ */
+    const lines = yml.split('\n'), g = lines.findIndex(l => /^\s+GUARD: \|$/.test(l)), indent = (lines[g + 1] || '').match(/^\s*/)[0];
+    const guard = []; for (let i = g + 1; i < lines.length && (lines[i].startsWith(indent) || !lines[i].trim()); i++) guard.push(lines[i].slice(indent.length));
+    const guardFile = path.join(tmp, 'guard.cjs'); fs.writeFileSync(guardFile, guard.join('\n'));
+    const files0 = { wr: read('cloudflare/wrangler.jsonc'), cfg: read('js/licence-config.js'), keys: read('desktop/licence-keys.json'), web: read('js/licence-keys.js') };
+    const tryGuard = (change = {}) => {
+      fs.writeFileSync(path.join(root, 'cloudflare/wrangler.jsonc'), change.wr ? change.wr(files0.wr) : files0.wr);
+      fs.writeFileSync(path.join(root, 'js/licence-config.js'), change.cfg || files0.cfg);
+      fs.writeFileSync(path.join(root, 'desktop/licence-keys.json'), change.keys || files0.keys);
+      fs.writeFileSync(path.join(root, 'js/licence-keys.js'), change.web || files0.web);
+      try { return { ok: true, out: execFileSync(process.execPath, [guardFile], { cwd: root, stdio: 'pipe' }).toString() }; } catch (e) { return { ok: false, out: String(e.stderr) }; }
+    };
+    ok('the guard passes Gdex\'s own configuration as it is in the repository', g > 0 && tryGuard().ok, tryGuard().out.trim());
+    const tampered = [
+      ['a Worker named vdex', /not "gdex"/, { wr: t => t.replace('"name": "gdex"', '"name": "vdex"') }],
+      ['Vdex\'s address as the route', /only route/, { wr: t => t.replace('"pattern": "gdex.crowmade.app"', '"pattern": "vdex.crowmade.app"') }],
+      ['a second route', /only route/, { wr: t => t.replace('"routes": [{ "pattern": "gdex.crowmade.app", "custom_domain": true }]', '"routes": [{ "pattern": "gdex.crowmade.app", "custom_domain": true }, { "pattern": "crowmade.app/*", "zone_name": "crowmade.app" }]') }],
+      ['a workers.dev address', /workers_dev/, { wr: t => t.replace('"workers_dev": false', '"workers_dev": true') }],
+      ['an "env" of its own', /"env" of its own/, { wr: t => t.replace('"main": "worker.mjs",', '"main": "worker.mjs", "env": { "x": { "name": "vdex" } },') }],
+      ['someone else\'s storage by id', /only storage is LICENCES/, { wr: t => t.replace('[{ "binding": "LICENCES" }]', '[{ "binding": "LICENCES", "id": "0123456789abcdef" }]') }],
+      ['a binding to another Worker (Vdex\'s)', /may not add services/, { wr: t => t.replace('"main": "worker.mjs",', '"main": "worker.mjs", "services": [{ "binding": "V", "service": "vdex" }],') }],
+      ['someone else\'s bucket', /may not add r2_buckets/, { wr: t => t.replace('"main": "worker.mjs",', '"main": "worker.mjs", "r2_buckets": [{ "binding": "B", "bucket_name": "vdex-downloads" }],') }],
+      ['the whole repository as the website\'s files', /staged website/, { wr: t => t.replace('"directory": "./site"', '"directory": ".."') }],
+      ['a script of its own', /cloudflare\/worker\.mjs/, { wr: t => t.replace('"main": "worker.mjs"', '"main": "other.mjs"') }],
+      ['licences live with no keys built in', /no shop key/, { cfg: "export const LICENCE_SITES = ['gdex.crowmade.app'];\n" }],
+      ['licences live with the web copy of the keys out of date', /differs from desktop\/licence-keys\.json/, { cfg: "export const LICENCE_SITES = ['gdex.crowmade.app'];\n", keys: '{"1":"a","2":"b","9":"c"}', web: '// x\nexport const LICENCE_KEYS = {};\n' }],
+    ];
+    // Wrangler takes wrangler.json before wrangler.jsonc, from its folder or any folder above it, and follows a
+    // .wrangler/deploy/config.json: a planted one would be deployed instead of the file the guard reads.
+    for (const [what, f, body] of [['a wrangler.json at the top of the repository (Wrangler would deploy it instead)', 'wrangler.json', '{ "name": "vdex", "main": "cloudflare/worker.mjs" }'],
+      ['a wrangler.toml beside the guarded file', 'cloudflare/wrangler.toml', 'name = "vdex"\n'], ['a redirect to another configuration', 'cloudflare/.wrangler/deploy/config.json', '{ "configPath": "../../../wrangler.json" }']]) {
+      tampered.push([what, /Only cloudflare\/wrangler\.jsonc may configure Wrangler/, { plant: [f, body] }]);
+    }
+    const missed = tampered.filter(([, why, change]) => {
+      const planted = change.plant && path.join(root, change.plant[0]);
+      if (planted) { fs.mkdirSync(path.dirname(planted), { recursive: true }); fs.writeFileSync(planted, change.plant[1]); }
+      const r = tryGuard(change);
+      if (planted) fs.rmSync(planted);
+      return r.ok || !why.test(r.out) || !/Nothing was published/.test(r.out);
+    }).map(([what]) => what);
+    ok('the guard refuses, each for its own reason, every configuration that is not Gdex\'s own, and live licences without the keys', missed.length === 0, missed.join(', '));
+    ok('…and passes live licences once the keys are in both places', tryGuard({ cfg: "export const LICENCE_SITES = ['gdex.crowmade.app'];\n", keys: '{"1":"a","2":"b","9":"c"}', web: '// Generated\nexport const LICENCE_KEYS = {"1":"a","2":"b","9":"c"};\n' }).ok);
+    tryGuard();
+  } catch (e) {
+    console.log('FAIL spec crashed — ' + (e && (e.stderr ? String(e.stderr) : e.stack) || e));
+    process.exitCode = 1;
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+})();
