@@ -150,6 +150,13 @@ async function theSheet() {
   const order = [];
   for (let i = 0; i < 9; i++) { await page.keyboard.press('Tab'); order.push(await focusId(page)); }
   ok('Tab runs through each row’s buttons, then Done, and stays inside the sheet', same(order, ['ac-ask-no-q-a', 'ac-ask-yes-q-b', 'ac-ask-no-q-b', 'ac-ask-yes-q-c', 'ac-ask-no-q-c', 'ac-ask-close', 'Tutorial for this', 'Close', 'ac-ask-yes-q-a']), order.join(' › '));
+  // A click on its dim backdrop, over the top bar's ? (before ↓ below, which scrolls the page under the sheet): the
+  // question does not close on its backdrop (js/util.js sheet(), dismissOnBackdrop false), and the click must neither
+  // reach ? nor take the focus out of the sheet onto the page's body. (08-sheets taps with a finger too.)
+  const tb = await page.locator('#helpBtn').boundingBox(), tx = tb.x + tb.width / 2, ty = tb.y + tb.height / 2;
+  const onBack = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.classList.contains('sheet-back'), [tx, ty]);
+  await page.mouse.click(tx, ty); await sleep(400);
+  ok('a click on the dim backdrop above it (over ?) closes nothing, presses nothing and leaves the focus where it was, in the sheet', onBack && same(await sheetsOf(page), [QUESTION]) && !(await tours(page)) && (await focusId(page)) === 'ac-ask-yes-q-a', `on the backdrop: ${onBack}; ${await focusId(page)}; ${(await sheetsOf(page)).join(' | ')}`);
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowDown'); await sleep(400);
   ok('the section menu’s arrow keys are off while it is open', (await page.evaluate(() => window.logiPage())) === 'bookings');
 

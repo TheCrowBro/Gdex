@@ -545,7 +545,8 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
     band: ['Search bookings, bands, venues…', 'Search bookings, bands, venues and more', 'Find bookings, bands, venues, people, songs, setlists, gear, take logs and invoices by any word', '9 shows at 4 places', 'Shows', 'Bookings', 'Bands', true],
     solo: ['Search bookings, acts, venues…', 'Search bookings, acts, venues and more', 'Find bookings, acts, venues, people, songs, setlists, gear, take logs and invoices by any word', '9 shows at 4 places', 'Shows', 'Bookings', 'Acts', true],
     scout: ['Search shows, acts, venues…', 'Search shows, acts, venues and more', 'Find shows, acts, venues, people, songs, setlists, gear and take logs by any word', '9 shows at 4 places', 'Shows', 'Shows', 'Acts', false],
-    audiophile: ['Search gigs, bands, venues…', 'Search gigs, bands, venues and more', 'Find gigs, bands, venues, people, songs, setlists, gear and take logs by any word', '9 gigs at 4 places', 'Gigs', 'Gigs', 'Bands', false],
+    // The audiophile's calendar, and so its tab, is called Gigs; a kind is called what the calendar calls it (Shows).
+    audiophile: ['Search gigs, bands, venues…', 'Search gigs, bands, venues and more', 'Find gigs, bands, venues, people, songs, setlists, gear and take logs by any word', '9 shows at 4 places', 'Shows', 'Gigs', 'Bands', false],
   };
   for (const [id, [ph, label, help, line, kindWord, gigsTab, actsTab, withMoney]] of Object.entries(WORDS)) {
     await setRole(page, id);
@@ -563,12 +564,30 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
       ok(`${id}: no Money tab and no money on any tab (the show has a fee and an invoice, a settlement and costs; the session a rate; the quote an amount)`, !/[$£€]|1,?234|987|555|\b45\b|INV-0042|Q-0007/.test(text.join(' ')) && /Paid \/ settled/.test(text.join(' ')) && inv.length === 0, text.join(' ').slice(0, 200));
     }
     if (id === 'audiophile') {
+      // A kind is called the same everywhere: the calendar's own kind row (under the results), + New and "Did you see
+      // them?" say Shows and Show in every role, so the search's kind row, its lines and its walkthrough do too; only
+      // the tab, which holds the whole of the calendar, is named after it (Gigs).
+      const cal = await page.$$eval('.bk-filters [aria-label="Kind of booking"] .chip', els => els.map(e => e.textContent.replace(/^[^A-Za-z]+/, '')).filter(t => t !== 'All kinds'));
+      const one = await page.evaluate(() => import('./js/model.js').then(m => m.kindLabel('show')));
       await type(page, 'chelsea'); await pickTab(page, 'gigs');
+      const row = (await chips(page, '.srch-kinds')).map(c => c[0]), tabWord = await page.textContent('#srch-tab-gigs .srch-tab-name');
+      ok('audiophile: the kind row calls each kind what the calendar’s kind row calls it (Shows), and the tab is still Gigs', row.length > 1 && row[0] === 'Shows' && row.every(w => cal.includes(w)) && tabWord === 'Gigs', `${row.join(', ')} | calendar: ${cal.join(', ')} | tab: ${tabWord}`);
+      const sr = await page.$eval('.srch-kinds .chip[data-kind="show"]', e => e.getAttribute('aria-pressed') + '|' + e.querySelector('.srch-n').textContent);
+      await pickTab(page, 'all');
+      const words = await page.$$eval('.srch-all .srch-rec[data-rec="gigs"] .srch-kind', els => [...new Set(els.map(e => e.textContent.trim()))]);
+      ok('audiophile: on All a show’s row says Show, as + New and the show’s own page do', words.includes(one) && one === 'Show' && !words.some(w => /gig/i.test(w)) && sr === 'true|9', `${words.join(', ')} (calendar: ${one}; chip ${sr})`);
+      await pickTab(page, 'gigs');
       await chip(page, '.srch-kinds', 'Sessions').click(); await sleep(150);
       await typeOn(page, ' church'); // chelsea church
-      ok('audiophile: “No sessions found. 4 gigs at The Church”', (await foundLine(page)) === 'No sessions found. 4 gigs at The Church', await foundLine(page));
+      ok('audiophile: “No sessions found. 4 shows at The Church”', (await foundLine(page)) === 'No sessions found. 4 shows at The Church', await foundLine(page));
       await type(page, ''); await type(page, 'echo chamber');
-      ok('audiophile: in a new search with no gig found the line says “No gigs found.”', (await foundLine(page)) === 'No gigs found. 1 session at Echo Chamber Studios', await foundLine(page));
+      ok('audiophile: in a new search with no show found the line says “No shows found.”', (await foundLine(page)) === 'No shows found. 1 session at Echo Chamber Studios', await foundLine(page));
+      await type(page, 'chelsea'); await pickTab(page, 'gigs');
+      await page.click(`${SHEET} .sheet-help`); await page.waitForSelector('.tour-card'); await sleep(350);
+      const told = {};
+      for (let i = 0; i < 8 && (await page.$('.tour-card')); i++) { told[await page.$eval('#tour-title', e => e.textContent)] = await page.$eval('.tour-card p', e => e.textContent); await page.click('.tour-actions .btn.primary'); await sleep(450); }
+      ok('audiophile: the walkthrough speaks of shows on the gigs tab', told.Kinds === 'Shows, sessions and rehearsals each have a list of their own. It starts on shows.'
+        && /On the gigs tab: .* a card marked From the log is a time you logged seeing a band that has no show on the calendar\./.test(told['The results'] || ''), JSON.stringify([told.Kinds, told['The results']]));
     }
     if (id === 'producer') {
       await page.click(`${SHEET} .sheet-help`); await page.waitForSelector('.tour-card'); await sleep(350);
