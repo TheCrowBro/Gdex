@@ -250,6 +250,35 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       ok('a clock left running: the strip’s Stop and Break offer the licence, and the session keeps running untouched', c1.join() === 'The working boxes need a licence' && c2.join() === 'The working boxes need a licence' && s1c && s1c.end == null && s1c.breaks === 0 && s2c && s2c.end == null && s2c.breaks === 0, JSON.stringify([c1, s1c, c2, s2c]));
       await ctx.close();
     }
+    {
+      // A free Audiophile whose free days are over: Duplicate makes only shows, and a show's copy carries nothing of the
+      // working boxes or the money; a diary entry's form has no Fee (the owner's answer 1).
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      await sampleIn(page);
+      await page.evaluate(d => import('./js/store.js').then(s => s.upsert('bookings', { id: 't-other', kind: 'other', title: 'Radio session', status: 'confirmed', date: d, fee: 250, people: [], gear: [], checks: {} })), isoIn(3));
+      await setLicence(page, ended()); await reload(page); await sleep(300);
+      const ids = () => page.evaluate(() => import('./js/store.js').then(s => s.db.bookings.map(b => b.id)));
+      const ids0 = await ids();
+      await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1'))); await sleep(500);
+      await page.click('.bk-actions .btn:has-text("Duplicate")'); await page.waitForSelector('#bk-dup-date');
+      await page.click('.sheet form button[type=submit]'); await sleep(600);
+      const copy = await page.evaluate(ids0 => import('./js/store.js').then(s => s.db.bookings.find(b => !ids0.includes(b.id)) || null), ids0);
+      const kept = copy && ['deal', 'setlistId', 'guestList', 'guestCap', 'runningOrder', 'budget', 'hospitality', 'accommodation', 'parking'].filter(k => copy[k] != null && copy[k] !== '');
+      ok('a free Audiophile duplicates a show: a show, its act, venue and times, and nothing of the working boxes or the money (deal, line-up, gear, setlist, guests, running order, budget)', !!copy && copy.kind === 'show' && copy.actId === 's-owls' && !!copy.setTime && !kept.length && !(copy.people || []).length && !(copy.gear || []).length && !Object.keys(copy.gearQty || {}).length && !(copy.kits || []).length, JSON.stringify({ kept, copy }));
+      await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('t-other'))); await sleep(500);
+      await page.click('.bk-edit'); await page.waitForSelector('.sheet form.form');
+      const fee = await page.locator('.sheet form [data-key="fee"]').count();
+      await page.fill('.sheet form [data-key="title"]', 'Radio session, live');
+      await page.click('.sheet .form-actions .btn.primary'); await sleep(500);
+      const other = await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 't-other')));
+      ok('…a diary entry’s form has no Fee, and what it keeps saves (its fee left as it was)', fee === 0 && other.title === 'Radio session, live' && other.fee === 250, JSON.stringify({ fee, other }));
+      const n1 = (await ids()).length;
+      await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('t-other'))); await sleep(500);
+      await page.click('.bk-actions .btn:has-text("Duplicate")'); await sleep(500);
+      const sh = await sheets(page);
+      ok('…Duplicate on a diary entry offers the licence and makes nothing (+ New makes only shows)', sh.join() === 'The working boxes need a licence' && (await ids()).length === n1, JSON.stringify(sh));
+      await ctx.close();
+    }
 
     /* =========== a working role after the free days: the sheet at opening, read-only =========== */
     {

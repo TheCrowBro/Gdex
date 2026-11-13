@@ -233,7 +233,9 @@ function fieldsFor(kind, cur = '') {
     { key: 'rate', label: 'Rate', type: 'number', min: 0, step: 'any', placeholder: '0' }, { key: 'rateUnit', label: 'Per', type: 'select', options: model.RATE_UNITS }, title, ...contact];
   if (kind === 'rehearsal') return [act(), status, date, ...venue('Room', 'Room name', 'e.g. Basement Rehearsal Rooms'), t('start', 'Start'), t('end', 'Finish'), title];
   return [{ key: 'title', label: 'What', required: true, placeholder: 'e.g. Radio session, photo shoot, label meeting' }, status, date, endDate, t('start', 'Start'), t('end', 'Finish'),
-    ...venue('Where', 'Place', 'e.g. BBC Maida Vale'), act(`${capital(word)} (optional)`), { key: 'fee', label: 'Fee', type: 'number', min: 0, step: 'any', placeholder: '0' }];
+    ...venue('Where', 'Place', 'e.g. BBC Maida Vale'), act(`${capital(word)} (optional)`),
+    // Nothing about money for a free Audiophile without the working roles (the owner's answer 1): its fee stays as it is.
+    !showsOnly() && { key: 'fee', label: 'Fee', type: 'number', min: 0, step: 'any', placeholder: '0' }].filter(Boolean);
 }
 
 // focus: the key of a field to put the cursor in (Score this show's "Pick the act" opens the form on the act).
@@ -390,11 +392,19 @@ export function copyOf(b, date) {
   if (Array.isArray(c.guestList)) c.guestList = c.guestList.map(g => ({ ...g, in: false }));
   if (c.deal && typeof c.deal === 'object') { c.deal.depositPaid = false; if (isoOk(c.deal.depositDue)) c.deal.depositDue = addDays(c.deal.depositDue, off); }
   if (Array.isArray(c.deliverables)) c.deliverables = c.deliverables.map(d => ({ ...d, done: false, due: isoOk(d.due) ? addDays(d.due, off) : d.due }));
+  // A free Audiophile without the working roles copies only what it keeps (the owner's answer 1): nothing of the working
+  // boxes or the money.
+  if (showsOnly()) {
+    for (const k of ['deal', 'runningOrder', 'guestList', 'guestCap', 'hospitality', 'accommodation', 'parking', 'backlineProvided', 'setlistId', 'budget', 'rate', 'rateUnit', 'songIds', 'deliverables', 'fee']) delete c[k];
+    Object.assign(c, { people: [], gear: [], gearQty: {}, kits: [] });
+  }
   return c;
 }
 
 function duplicateSheet(b) {
-  if (workLocked(b)) return gateWork(() => duplicateSheet(byId('bookings', b.id) || b));
+  // A free Audiophile without the working roles adds only shows (the owner's answer 1): a copy of anything else goes
+  // through the licence, as a session's or a rehearsal's changes do.
+  if (showsOnly() && b.kind !== 'show') return gateWork(() => duplicateSheet(byId('bookings', b.id) || b));
   const span = multi(b) ? daysBetween(b.date, lastDay(b)) : 0;
   const input = h('input', { type: 'date', id: 'bk-dup-date', required: true, value: isoOk(b.date) ? addDays(b.date, 7) : todayISO() });
   const note = h('p', { class: 'muted small', 'aria-live': 'polite' });
