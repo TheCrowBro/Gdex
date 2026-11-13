@@ -295,8 +295,10 @@ function dayCell(iso, all, today, { tall = false, named = false, week = false } 
     return more.length ? `${head}: ${more.join('; ')}` : head;
   };
   const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(spoken).join(week ? '. ' : ', ') : 'nothing booked'}`;
+  // The id is the square's name across a redraw (js/app.js gives the focus back by id, else by the spoken name, which
+  // changes with the day's bookings): a change from elsewhere, or midnight, leaves the focus on the same day.
   return h('button', {
-    type: 'button', class: 'day bk-day' + (tall ? ' bk-day-tall' : '') + (iso === today ? ' today' : '') + (list.length ? ' has' : ''), 'data-date': iso, 'aria-label': label,
+    type: 'button', id: 'bk-sq-' + iso, class: 'day bk-day' + (tall ? ' bk-day-tall' : '') + (iso === today ? ' today' : '') + (list.length ? ' has' : ''), 'data-date': iso, 'aria-label': label,
     'aria-current': iso === today ? 'date' : null, onclick: () => X.go({ mode: 'day', day: iso }),
   },
     h('span', { class: 'num' }, tall && (named || d.getDate() === 1) ? monthDay(d) : d.getDate()),

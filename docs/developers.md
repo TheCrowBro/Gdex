@@ -517,7 +517,9 @@ whose grids are `.bk-cal-two` and `.bk-cal-week`),
 `#bk-agenda-more`, `.bk-agenda-head`, `.bk-filters .chips`, `.bk-export`, `.bk-new`, `.bk-new-day`, `.bk-none` (the
 "nothing on" line), `.bk-cal-panel .cal-title`, `#bk-view-<mode>` (the view buttons, in `.bk-views`), `.bk-body` (the
 view's body, which takes the swipe). Ids, because the page is rebuilt after every change and the focus is given back
-by id, or by `data-date` for a day square: `#bk-gh-<iso>` (a day's name over its grid column),
+by id (a redraw from a change of the data, in `js/app.js`, knows a control by its id, else by its spoken name, which a
+day square's changes with its bookings): `#bk-sq-<iso>` (a day square, `.bk-day[data-date]`, in the month, two weeks
+and the week; the arrow keys find the next one by `data-date`), `#bk-gh-<iso>` (a day's name over its grid column),
 `#bk-ev-<bookingId>-<iso>` (a grid block, `.bk-block`), `#bk-ev-<bookingId>-any` (a pill in
 the grid's "any time" row, `.bk-ev-any`), `.bk-col[data-day]` (a grid column).
 **Under `.bk-dayview` a bare `[data-id]` also matches the Coming up card of the same booking: use `.bk-ev[data-id]`.**

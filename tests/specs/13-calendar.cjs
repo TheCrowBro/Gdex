@@ -257,6 +257,14 @@ async function press(page, loc, ms) {
     await page.keyboard.press('ArrowUp'); await sleep(250);
     at = await focusAt();
     ok('…and ↑ comes back', at.focus === (await plus(page, w0, 2)) && at.first === w0 && (await saved(page)) === 'week', JSON.stringify(at));
+    // A change made elsewhere (another device, another tab) draws the page again: the focus stays on the day, though its
+    // spoken name changes with what is on it.
+    const sqDay = await plus(page, w0, 2);
+    await put(page, 'bookings', { id: 'c-elsewhere', kind: 'show', status: 'confirmed', title: 'From Elsewhere', date: sqDay, setTime: '20:00' }); await sleep(350);
+    const kept = await page.evaluate(() => ({ focus: document.activeElement && document.activeElement.dataset.date, said: document.activeElement && document.activeElement.getAttribute('aria-label') }));
+    await page.evaluate(() => import('./js/store.js').then(s => s.remove('bookings', 'c-elsewhere'))); await sleep(350);
+    const keptAgain = await page.evaluate(() => ({ focus: document.activeElement && document.activeElement.dataset.date, said: document.activeElement && document.activeElement.getAttribute('aria-label') }));
+    ok('…a booking added to the focused day from elsewhere, then taken away, leaves the focus on that day each time', kept.focus === sqDay && /20:00 From Elsewhere/.test(kept.said || '') && keptAgain.focus === sqDay && /: nothing booked$/.test(keptAgain.said || ''), JSON.stringify([kept, keptAgain]));
     await page.keyboard.press('Enter'); await page.waitForSelector('.bk-dayview');
     ok('…and Enter opens that day, with the focus on its name', (await title(page)) === (await wantTitle(page, 'day', await plus(page, w0, 2), await plus(page, w0, 2))) + ((await plus(page, w0, 2)) === now ? ' · today' : '') && await page.evaluate(() => document.activeElement && document.activeElement.matches('.bk-dayview h2.cal-title')), await title(page));
 
