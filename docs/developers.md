@@ -533,13 +533,17 @@ buttons, one control: ← → move the focus between them, round from the last t
   wider), where Coming up is beside the calendar, they stay under it, in its column. A keyboard and a screen reader
   meet them after the calendar, and so does the walkthrough: its Filters step ("Under the calendar: …") comes after The
   calendar (and the Day view's own steps) and before Coming up. What is drawn above them grows or shrinks with a
-  filter (a week's rows, a grid's hours), so a tap scrolls the page by as much (`filterGo`): the chip stays where it
-  was on screen, with the focus, as far as the page is long enough; when the page moves up, the section menu slides
-  back over the top of the screen, and the chip is kept below it. A view the filters leave with nothing in it says so
-  where the person is looking, with Clear the filters (`.bk-filtered`, `#bk-filters-clear`): at the top of the month,
-  the two weeks and the week (each of whose days then reads "Nothing on"), in place of the grid's own line in three
-  days and Day. Clear the filters there puts the focus on the view's heading; Coming up's (when it is empty) on the
-  first chip. Both say "Filters cleared" aloud, and neither moves the page.
+  filter (a week's rows, a grid's hours), so a tap scrolls the page by as much (`filterGo`, `holdAt`): the chip stays
+  where it was on screen, with the focus, as far as the page is long enough; when the page moves up, the section menu
+  slides back over the top of the screen, and the chip is kept below it. A row too wide for the screen scrolls
+  sideways (a phone, large text): after a tap each row keeps where it was, the chip whole in sight. A view the filters
+  leave with nothing in it says so where the person is looking, with Clear the filters (`.bk-filtered`,
+  `#bk-filters-clear`): at the top of the month, the two weeks and the week (each of whose days then reads "Nothing
+  on"), in place of the grid's own line in three days and Day. Clear the filters there puts the focus on what is drawn
+  where the line was: the view's first square, day's name or booking (on a Day with nothing on, + New on this day),
+  never a heading, which is often off the screen or under the section menu; the page moves only when that is out of
+  sight (`inSight`). Coming up's (when it is empty, `#bk-agenda-clear`) puts it on the first chip, just above, held
+  where it was on screen as after a tap. Both say "Filters cleared" aloud.
 
 * **‹ › and Today** step by the length of the view. The title is not a live region (the page is drawn again at every
   step, and a live region that arrives with its words in it is not read out): each step says the new title through

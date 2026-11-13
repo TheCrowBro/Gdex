@@ -179,31 +179,53 @@ function filters() {
         { act: S.act === a.id ? '' : a.id }))));
 }
 // A chip's tap draws the page again, and the calendar above the chips can grow or shrink with the filter (a week's rows,
-// the hours of the grid): the page is scrolled by as much, so the chip stays where it was on screen, under the finger
-// and the focus, as far as the page is long enough for it. When the page moves up (or a page grown shorter stops it
-// lower), the section menu slides back over the top of the screen (js/app.js), so the chip is then kept below it.
+// the hours of the grid): the chip is held where it was on screen (holdAt), under the finger and the focus.
+// A row too wide for the screen scrolls sideways (a phone, large text): the redraw would put it back at its start, the
+// chip tapped out of sight with the focus on it, so each row keeps where it was and the chip is kept whole in its row.
 function filterGo(p, id) {
   const was = document.getElementById(id), y0 = was && was.getBoundingClientRect().top, sy = window.scrollY;
+  const rows = () => [...document.querySelectorAll('.bk-filters .chips')], side = new Map(rows().map(r => [r.getAttribute('aria-label'), r.scrollLeft]));
   X.go(p, { top: false });
-  const chip = document.getElementById(id), nav = document.getElementById('deck');
-  if (!chip || y0 == null) return;
-  const t = chip.getBoundingClientRect().top, now = window.scrollY, max = document.documentElement.scrollHeight - window.innerHeight;
-  const to = at => Math.max(0, Math.min(max, now + t - at)); // the scroll that puts the chip at that height on screen
+  const chip = document.getElementById(id);
+  for (const r of rows()) r.scrollLeft = side.get(r.getAttribute('aria-label')) || 0;
+  if (chip) { const r = chip.parentElement, a = r.getBoundingClientRect(), c = chip.getBoundingClientRect(); r.scrollLeft += c.left < a.left ? c.left - a.left : c.right > a.right ? c.right - a.right : 0; }
+  if (chip && y0 != null) holdAt(chip, y0, sy);
+}
+// Scroll the page so el is back at y0 on screen (sy: the scroll it was at then), as far as the page is long enough for
+// it. When the page moves up, the section menu slides back over the top of the screen (js/app.js): el is kept below it.
+function holdAt(el, y0, sy) {
+  const nav = document.getElementById('deck'), t = el.getBoundingClientRect().top, now = window.scrollY, max = document.documentElement.scrollHeight - window.innerHeight;
+  const to = at => Math.max(0, Math.min(max, now + t - at)); // the scroll that puts el at that height on screen
   let y = to(y0);
   if (y < sy - 6 && nav) y = to(Math.max(y0, nav.offsetHeight + 8));
   if (Math.abs(y - now) >= 1) window.scrollTo(0, y);
 }
-// Clear both filters. The button goes with them: the focus moves to the view's heading (for the button in the view) or
-// to the first chip (for Coming up's, just under the chips), the page stays where it is, and the change is said aloud.
-function clearFilters(...focusTo) {
+// Moves the page only when el is out of sight: above the screen or under the section menu, it comes down to just below
+// the menu (a move up brings the menu back over the top of the screen); below the screen, it comes up into it.
+function inSight(el) {
+  const nav = document.getElementById('deck'), r = el.getBoundingClientRect();
+  const hid = r.top < 0 || (nav && !nav.classList.contains('tucked') && r.top < nav.getBoundingClientRect().bottom);
+  const dy = hid ? r.top - ((nav ? nav.offsetHeight : 0) + 8) : r.bottom > window.innerHeight ? r.bottom - window.innerHeight + 8 : 0;
+  if (Math.abs(dy) >= 1) window.scrollBy(0, dy);
+}
+// Clear both filters, and say so aloud. The button goes with them, and the focus moves to what is drawn where it was.
+// In the view: the first thing in it (a square, a day's name, a booking; on a day with nothing on, + New on this day,
+// just under it); the page moves only if that is out of sight (never to a heading: the page's is above the calendar and
+// the Day view's above its arrows, often off the screen or under the section menu).
+// In Coming up (hold): the first chip, just above, held where it was on screen, as after a tap on a chip, so the
+// bookings come back under it where the button was.
+function clearFilters(focusTo, hold = false) {
+  const first = () => { const root = X.root(); return root && root.querySelector('.bk-filters .chip'); };
+  const was = hold && first(), y0 = was && was.getBoundingClientRect().top, sy = window.scrollY;
   X.go({ kind: '', act: '' }, { top: false });
+  if (was && first()) holdAt(first(), y0, sy);
   const root = X.root(), el = root && focusTo.map(sel => root.querySelector(sel)).find(Boolean);
-  if (el && (!document.activeElement || document.activeElement === document.body)) el.focus({ preventScroll: true });
+  if (el && (!document.activeElement || document.activeElement === document.body)) { el.focus({ preventScroll: true }); inSight(el); }
   announce('Filters cleared');
 }
 // "Nothing on with these filters." where a view the filters leave empty would show what is on, with the way out beside it.
 const filteredNone = () => h('div', { class: 'bk-filtered' }, h('p', { class: 'muted bk-none' }, 'Nothing on with these filters.'),
-  h('button', { type: 'button', class: 'btn ghost small', id: 'bk-filters-clear', onclick: () => clearFilters('[data-view-head]') }, 'Clear the filters'));
+  h('button', { type: 'button', class: 'btn ghost small', id: 'bk-filters-clear', onclick: () => clearFilters(['.bk-body button', '.bk-new-day', '[data-view-head]']) }, 'Clear the filters'));
 
 // "Coming up", under every view: the next bookings, soonest first; on the same day, in the order the bands play.
 function comingUp() {
@@ -216,7 +238,7 @@ function comingUp() {
         h('div', { class: 'list' }, shown.map(agendaCard)),
         list.length > 8 && h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost small', id: 'bk-agenda-more', onclick: () => go({ all: !S.all }, { top: false }) }, S.all ? 'Show fewer' : `Show all (${list.length})`)))
       : empty(X.filtersOn() ? 'Nothing coming up with these filters.' : moneyShown() ? 'Nothing coming up. Add a show, a studio session or a rehearsal, or tap a date on the calendar.' : 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.',
-        X.filtersOn() ? h('button', { type: 'button', class: 'btn ghost', id: 'bk-agenda-clear', onclick: () => clearFilters('.bk-filters .chip', '[data-view-head]') }, 'Clear the filters')
+        X.filtersOn() ? h('button', { type: 'button', class: 'btn ghost', id: 'bk-agenda-clear', onclick: () => clearFilters(['.bk-filters .chip', '[data-view-head]'], true) }, 'Clear the filters')
           : moneyShown() ? h('button', { type: 'button', class: 'btn primary', onclick: () => X.newBooking({}) }, '+ New booking') : h('button', { type: 'button', class: 'btn primary', onclick: () => X.newBooking({ kind: 'show' }) }, '+ Add a show')),
   ];
 }

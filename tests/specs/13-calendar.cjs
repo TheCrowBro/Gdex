@@ -339,18 +339,22 @@ async function press(page, loc, ms) {
   ok('…as do three days, under their names', (await page.locator('.bk-cal-panel .bk-none').textContent()) === 'Nothing on with these filters.' && (await page.locator('.bk-grid + .bk-filtered #bk-filters-clear').count()) === 1);
   await view(page, 'month');
   ok('…and a month with nothing left, above its squares', (await page.locator('.bk-body > .bk-filtered:first-child .bk-none').textContent()) === 'Nothing on with these filters.' && (await page.locator('.bk-body > .bk-filtered + .bk-cal').count()) === 1);
-  // Clear the filters: both go, the focus moves to the view's heading without moving the page, and it is said aloud.
+  // Clear the filters: both go, the focus moves to what is drawn where the line was (the month's first square), on
+  // screen, the page not moved, and it is said aloud.
   await page.locator('#bk-filters-clear').scrollIntoViewIfNeeded(); await sleep(300);
-  const y0 = await page.evaluate(() => scrollY);
+  const y0 = await page.evaluate(() => scrollY), first = await page.locator('.bk-body .bk-day').first().getAttribute('data-date');
   await page.click('#bk-filters-clear'); await sleep(250);
-  const cleared = await page.evaluate(() => ({ on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: document.activeElement && document.activeElement.matches('[data-view-head]'), y: scrollY, filtered: document.querySelectorAll('.bk-filtered').length, head: document.querySelector('.bk-agenda-head').textContent }));
-  ok('Clear the filters in the view clears both, puts the focus on the view’s heading and says so', same(cleared.on, ['All kinds', 'All acts']) && cleared.focus && Math.abs(cleared.y - y0) <= 1 && cleared.filtered === 0 && cleared.head === 'Coming up' && (await spoken(page)) === 'Filters cleared', JSON.stringify(cleared));
-  // Coming up's own Clear the filters, under the chips: the focus moves up to the first chip.
+  const cleared = await page.evaluate(() => { const a = document.activeElement, r = a.getBoundingClientRect(), nav = document.getElementById('deck');
+    return { on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: a.matches('.bk-body .bk-day') && a.dataset.date, seen: r.top >= 0 && r.bottom <= innerHeight && (nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom), y: scrollY, filtered: document.querySelectorAll('.bk-filtered').length, head: document.querySelector('.bk-agenda-head').textContent }; });
+  ok('Clear the filters in the view clears both, puts the focus on the month’s first square, in sight, and says so', same(cleared.on, ['All kinds', 'All acts']) && cleared.focus === first && cleared.seen && Math.abs(cleared.y - y0) <= 1 && cleared.filtered === 0 && cleared.head === 'Coming up' && (await spoken(page)) === 'Filters cleared', JSON.stringify(cleared));
+  // Coming up's own Clear the filters, under the chips: the focus moves up to the first chip, which stays where it was.
   await page.locator('.bk-filters .chip', { hasText: 'Sable' }).click(); await sleep(200);
   await page.locator('.bk-filters .chip', { hasText: 'Rehearsals' }).click(); await sleep(250);
+  await page.locator('#bk-agenda-clear').scrollIntoViewIfNeeded(); await sleep(300);
+  const k0 = await page.evaluate(() => Math.round(document.getElementById('bk-f-kind').getBoundingClientRect().top));
   await page.click('#bk-agenda-clear'); await sleep(250);
-  const cleared2 = await page.evaluate(() => ({ on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: document.activeElement && document.activeElement.id }));
-  ok('…and Coming up’s Clear the filters puts the focus on the first chip, just above it', same(cleared2.on, ['All kinds', 'All acts']) && cleared2.focus === 'bk-f-kind' && (await spoken(page)) === 'Filters cleared', JSON.stringify(cleared2));
+  const cleared2 = await page.evaluate(() => ({ on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: document.activeElement && document.activeElement.id, top: Math.round(document.getElementById('bk-f-kind').getBoundingClientRect().top) }));
+  ok('…and Coming up’s Clear the filters puts the focus on the first chip, just above it, where it was', same(cleared2.on, ['All kinds', 'All acts']) && cleared2.focus === 'bk-f-kind' && Math.abs(cleared2.top - k0) <= 1 && (await spoken(page)) === 'Filters cleared', JSON.stringify([k0, cleared2]));
 
   // a swipe across the list is the next week, and opens nothing
   await toWeek(page, T);
@@ -836,6 +840,30 @@ async function press(page, loc, ms) {
         return { top: Math.round(r.top), inView: r.top >= 0 && r.bottom <= innerHeight, clear: nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom, focus: document.activeElement === c, pressed: c.getAttribute('aria-pressed'), under: f.top >= p.bottom, page: document.documentElement.scrollWidth }; }, t);
       ok(`320 px, ${scheme}, ${menu}: ${t} under the week keeps the chip on screen, clear of the menu, pressed and with the focus`, at.inView && at.clear && at.focus && at.pressed === 'true' && at.under && at.page <= 320, JSON.stringify(at));
     }
+    // A row of chips wider than the screen scrolls sideways: a tap (or Enter) on its last chip keeps the row where it was,
+    // the chip whole in sight with the focus on it, never back at the row's start.
+    const lastAt = () => n.page.evaluate(() => { const row = document.querySelector('.bk-filters .chips'), c = row.lastElementChild, a = row.getBoundingClientRect(), r = c.getBoundingClientRect();
+      return { id: c.id, wide: row.scrollWidth > row.clientWidth, scroll: Math.round(row.scrollLeft), whole: r.left >= a.left - 1 && r.right <= a.right + 1, focus: document.activeElement === c, pressed: c.getAttribute('aria-pressed') }; });
+    await n.page.evaluate(() => { const row = document.querySelector('.bk-filters .chips'); row.scrollLeft = row.scrollWidth; const c = row.lastElementChild; window.scrollTo(0, c.getBoundingClientRect().top + scrollY - 450); }); await sleep(400);
+    const s0 = await lastAt(), lb = await n.page.locator('.bk-filters .chips').first().locator('.chip').last().boundingBox();
+    await n.page.mouse.click(lb.x + lb.width / 2, lb.y + lb.height / 2); await sleep(400);
+    const s1 = await lastAt();
+    ok(`320 px, ${scheme}: a tap on the last chip of a row that scrolls sideways keeps the row where it was, the chip whole in sight, pressed, with the focus`, s0.wide && s0.whole && s0.scroll > 0 && s1.id === s0.id && Math.abs(s1.scroll - s0.scroll) <= 1 && s1.whole && s1.focus && s1.pressed === 'true', JSON.stringify([s0, s1]));
+    await n.page.keyboard.press('Enter'); await sleep(400);
+    const s2 = await lastAt();
+    ok(`320 px, ${scheme}: …and Enter on it (off again) keeps it whole in sight with the focus`, s2.id === s0.id && s2.whole && s2.focus && s2.pressed === 'false', JSON.stringify(s2));
+    // A view the filters leave empty, its Clear the filters tapped with the menu back over the top of the screen: the focus
+    // goes to the month's first square, in sight and clear of the menu.
+    await view(n.page, 'month');
+    await n.page.locator('#bk-f-act-s-sablea').evaluate(c => c.click()); await sleep(250);
+    await n.page.locator('#bk-f-kind-rehearsal').evaluate(c => c.click()); await sleep(250);
+    await n.page.evaluate(() => { const b = document.getElementById('bk-filters-clear'); window.scrollTo(0, b.getBoundingClientRect().top + scrollY - document.getElementById('deck').offsetHeight + 10); }); await sleep(400);
+    await n.page.evaluate(() => window.scrollBy(0, -20)); await sleep(400); // a little way back up: the menu slides back
+    const m0 = await n.page.evaluate(() => { const nav = document.getElementById('deck'), b = document.getElementById('bk-filters-clear').getBoundingClientRect(); return { back: !nav.classList.contains('tucked'), seen: b.top >= nav.getBoundingClientRect().bottom }; });
+    await n.page.click('#bk-filters-clear'); await sleep(400);
+    const m1 = await n.page.evaluate(() => { const a = document.activeElement, r = a.getBoundingClientRect(), nav = document.getElementById('deck');
+      return { first: a === document.querySelector('.bk-body .bk-day'), seen: r.top >= 0 && r.bottom <= innerHeight && (nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom - 1), on: document.querySelectorAll('.bk-filters .chip.on').length }; });
+    ok(`320 px, ${scheme}, ${menu}: Clear the filters in the month, the menu back, puts the focus on its first square, in sight and clear of the menu`, m0.back && m0.seen && m1.first && m1.seen && m1.on === 2, JSON.stringify([m0, m1]));
     ok(`no errors in the console (320 px, ${scheme})`, n.errors.length === 0, n.errors.slice(0, 5).join(' | '));
     await n.browser.close();
   }
