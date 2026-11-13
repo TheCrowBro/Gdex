@@ -257,7 +257,10 @@ after you win a dispute).
 **Someone asks to have their records deleted.** In Gdex they can do it themselves: Settings → About & licence → **Delete
 my licence records**, while signed in on the website. That removes their email's links and any sign-in code; the
 licence itself, any cancellation, the times sign-in codes were sent that day (nothing else, so the limits hold) and the
-list of computers on the licence (a random number per install, nothing about the person) stay. Clearing the list would
+list of computers on the licence (a random number per install, nothing about the person) with its recent moves (30 days)
+stay, and so does a "records deleted" mark for 400 days, so sign-ins made before the deletion stay refused: the key is
+`z:` and the SHA-256 of the address, not the address, though anyone who reads the store and knows an address can tell
+from it that the address deleted its records, and when (privacy.html says so). Clearing the list would
 free the licence's 3 places without a counted move, and each computer would put itself back at its weekly check. A
 computer is taken off with **Release this computer** in the desktop app; if they ask you to delete the list too,
 **Clear its computers** in the generator does it. A computer already on the list does not link the email again at its
