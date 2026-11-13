@@ -367,6 +367,27 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // A Manager read-only: the invoice editor keeps what was typed when Save is refused (as a form does), and Delete,
+      // refused, does not close it as if the invoice were gone.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'manager', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      await sampleIn(page);
+      await page.evaluate(() => import('./js/money.js').then(m => m.createDoc('s-show1', 'invoice')));
+      await setLicence(page, ended()); await reload(page);
+      await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);
+      const inv0 = await page.evaluate(() => import('./js/store.js').then(s => JSON.stringify(s.byId('bookings', 's-show1').invoice)));
+      await page.evaluate(() => import('./js/money.js').then(m => m.openEditor('s-show1', 'invoice'))); await page.waitForSelector('.mn-editor');
+      await page.fill('#mn-l1-price', '777'); await page.fill('#mn-ed-notes', 'Typed while read-only');
+      await page.click('.mn-editor button[type=submit]'); await sleep(700);
+      const s1 = await sheets(page), kept = await page.locator('#mn-l1-price').inputValue().catch(() => null);
+      ok('a Manager read-only: Save in the invoice editor keeps it open with what was typed, the read-only sheet over it', s1.join() === 'Edit the invoice,Read-only until there is a licence' && kept === '777' && /what you typed is still in the form/.test(await page.textContent('.sheet.licence-readonly').catch(() => '')), JSON.stringify({ s1, kept }));
+      await closeTop(page);
+      if (!(await page.locator('.mn-editor').count())) { await page.evaluate(() => import('./js/money.js').then(m => m.openEditor('s-show1', 'invoice'))); await page.waitForSelector('.mn-editor'); }
+      await page.click('.mn-editor .btn.danger'); await sleep(700);
+      const s2 = await sheets(page), inv1 = await page.evaluate(() => import('./js/store.js').then(s => JSON.stringify(s.byId('bookings', 's-show1').invoice)));
+      ok('…Delete, refused, leaves the editor open (not closed as if deleted), and the invoice is stored as it was', s2.join() === 'Edit the invoice,Read-only until there is a licence' && inv1 === inv0, JSON.stringify({ s2, same: inv1 === inv0 }));
+      await ctx.close();
+    }
+    {
       // Coming back after 3 hours brings the sheet back.
       const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);

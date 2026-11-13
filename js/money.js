@@ -8,7 +8,7 @@
 //   payments: [{ id, date, amount, method }], sentAt, acceptedAt, paidAt, createdAt, updatedAt }.
 // Quote statuses: draft, sent, accepted, declined. Invoice statuses: draft, sent, paid, void.
 import { h, sheet, toast, uid, todayISO, parseISO, ymd, fmtLong } from './util.js';
-import { db, byId, update } from './store.js';
+import { db, byId, update, canChange } from './store.js';
 import { openForm } from './form.js';
 import { bookingTitle, actName, venueOf, fmtMoney, currency, settle, dealPays, daysSpan, markCheck, lastDate } from './model.js';
 import { clockHours, plannedHours } from './clock.js';
@@ -75,6 +75,7 @@ function takeNumber(d, kind) {
 const CHECKS = { show: { sent: 'show-invoice', paid: 'show-paid' }, session: { sent: 'ses-invoice', paid: 'ses-paid' } };
 // Saves a document onto its booking: stamps when it was sent, accepted or paid, and ticks the booking's checklist
 // (an invoice sent ticks "Invoice sent"; paid in full ticks "Paid in full", and unticks it if a payment is undone).
+// false when nothing was saved (the booking is gone, or the licence refused the change: read-only).
 export function saveDoc(bookingId, kind, next) {
   const b = byId('bookings', bookingId);
   if (!b) { toast('That booking has been deleted.'); return false; }
@@ -84,7 +85,7 @@ export function saveDoc(bookingId, kind, next) {
   // An invoice whose payments already cover it (the deposit and the night's takings came in) is paid, not just sent.
   if (kind === 'invoice' && doc.status === 'sent' && Array.isArray(doc.payments) && doc.payments.length && calc({ ...doc, status: 'sent' }).total > 0 && calc({ ...doc, status: 'sent' }).due <= 0.005) doc.status = 'paid';
   if (kind === 'invoice') { if (doc.status === 'paid') doc.paidAt = doc.paidAt || now; else doc.paidAt = null; }
-  update(d => { const x = d.bookings.find(r => r.id === bookingId); if (!x) return; x[kind] = doc; x.updatedAt = now; });
+  if (!update(d => { const x = d.bookings.find(r => r.id === bookingId); if (!x) return; x[kind] = doc; x.updatedAt = now; })) return false;
   const ids = CHECKS[b.kind];
   if (kind === 'invoice' && ids) {
     if (doc.status === 'sent' || doc.status === 'paid') markCheck(bookingId, ids.sent, true);
@@ -193,7 +194,7 @@ export function setStatus(bookingId, kind, status) {
 export function deleteDoc(bookingId, kind) {
   const b = byId('bookings', bookingId), doc = docOf(b, kind); if (!doc) return false;
   if (!confirm(`Delete ${KINDS[kind].label.toLowerCase()} ${doc.number}? This cannot be undone, and the number is not used again.`)) return false;
-  update(d => { const x = d.bookings.find(r => r.id === bookingId); if (x) { delete x[kind]; x.updatedAt = Date.now(); } });
+  if (!update(d => { const x = d.bookings.find(r => r.id === bookingId); if (x) { delete x[kind]; x.updatedAt = Date.now(); } })) return false; // read-only: nothing deleted
   const ids = CHECKS[b.kind];
   if (kind === 'invoice' && ids && doc.status !== 'draft') { markCheck(bookingId, ids.sent, false); markCheck(bookingId, ids.paid, false); }
   toast(`${KINDS[kind].label} ${doc.number} deleted`);
@@ -398,6 +399,8 @@ export function openEditor(bookingId, kind) {
     if (kind === 'invoice' && next.status !== 'paid' && next.status !== 'void' && cur.payments.length && open <= 0.005) next.status = 'paid';
     const reopened = kind === 'invoice' && cur.status === 'paid' && next.status === 'paid' && cur.payments.length && open > 0.005 && calc({ ...cur, status: 'sent' }).due <= 0.005;
     if (reopened) next.status = 'sent';
+    // Read-only (the licence): the editor stays open with what was typed, and the licence's sheet says why.
+    if (!canChange()) return;
     close();
     if (saveDoc(bookingId, kind, next)) toast(reopened ? `${K.label} ${nb} saved. It is not paid in full any more: ${fmtMoney(open)} still due.` : `${K.label} ${nb} saved`);
   };
@@ -412,7 +415,7 @@ export function openEditor(bookingId, kind) {
     totals,
     field('mn-ed-notes', 'Notes on the document', notes, 'wide'),
     h('div', { class: 'form-actions' },
-      h('button', { type: 'button', class: 'btn danger', onclick: () => { if (deleteDoc(bookingId, kind)) close(); } }, 'Delete'),
+      h('button', { type: 'button', class: 'btn danger', onclick: () => { if (canChange() && deleteDoc(bookingId, kind)) close(); } }, 'Delete'),
       h('span', { class: 'spacer' }),
       h('button', { type: 'button', class: 'btn ghost', onclick: () => close() }, 'Cancel'),
       h('button', { type: 'submit', class: 'btn primary' }, 'Save')));
