@@ -3,6 +3,7 @@ import { createDeck } from './deck.js';
 import * as store from './store.js';
 import { applyPrefs, openDisplaySettings } from './a11y.js';
 import { initInstall } from './install.js';
+import { initSearch } from './search.js';
 import { startTour, tourSeen } from './tour.js';
 import { initClockBar } from './clock.js';
 import { initUpdates } from './update.js';
@@ -17,6 +18,7 @@ document.getElementById('helpBtn')?.addEventListener('click', help);
 window.logiHelp = help; // sheets show a ? too
 document.getElementById('displayBtn')?.addEventListener('click', openDisplaySettings);
 initInstall(document.getElementById('installBtn'));
+initSearch(document.getElementById('searchBtn')); // the magnifying glass, and "/" (js/search.js)
 initClockBar(document.getElementById('clockbar'));
 
 // Gdex always opens on Bookings (the calendar), so it loads with the app. Every other section is fetched and parsed the first

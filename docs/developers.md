@@ -39,6 +39,7 @@ npm run serve                   # http://localhost:8124/
 | `js/pages/*.js` | One module per section. |
 | `js/bookings-cal.js`, `js/bookings-kit.js` | The calendar's views (drawn for `pages/bookings.js`), and the helpers the two share. |
 | `js/acts-ask.js`, `js/venues-rules.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn. |
+| `js/search.js` | The search: the magnifying glass in the top bar (and the `/` key) and the sheet it opens. |
 | `js/blocks/*.js` | Boxes on a booking's page (deal, setlist, guest list…), listed in `js/blocks/index.js`. |
 | `js/*.js` | Shared modules (see below). |
 | `tests/` | `run.mjs`, `lib.mjs`, `helpers.cjs`, `specs/NN-name.cjs`. |
@@ -434,6 +435,8 @@ may call it.
 |---|---|---|
 | `pages/bookings.js` `openBooking(id)` | bookings | Go to Bookings and show that booking's page. Returns a promise. |
 | `js/bookings-cal.js` `calendarView(ctx)` / `calendarSteps(ctx)` | calendar | The page while no booking is open (every view, with Coming up under it) / its walkthrough as drawn now. `ctx` is built once in `pages/bookings.js`: `{ S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }`. The calendar never imports the page. |
+| `js/bookings-cal.js` `bookingCard(b)` | calendar | Coming up's card for a list outside the calendar (the search): drawn by the same code, without press-and-hold to delete or its title. Its own tap would open the booking inside the calendar's page, so the list it goes in takes the click in the capture phase. A card for a booking that is over says nothing where Coming up says "On now". |
+| `js/search.js` `initSearch(btn)` / `openSearch()` / `actNames(a)` / `fold(s)` / `searchFor(q)` / `searchStats()` | search | Wire the top bar's button and the `/` key (`app.js`, once) / open the search / every name an act is known by (today `[name]`: the one place the search reads a band's name, where earlier names join it) / text as the search compares it (no capitals, no accents) / for checks: what a search finds, and how long it took (below). |
 | `js/bookings-kit.js` `cardExtras(b)` / `overlapNote(b)` / `wentMark(b)` | core | What a Coming up card and a Week row add under their own lines, in order: the overlap note (`span.bk-overlap`), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. They are direct children of `.bk-card-main` / `.bk-wrow-main`. |
 | `js/bookings-kit.js` `formerlyLine(b)` | core | `span.bk-formerly` with `model.formerlyNote(b)`, or `null`: the line under the name of a booking from before its act changed its name. A Coming up card and a Week row put it straight after their top line (`.bk-card-top`, `.bk-wrow-top`), the booking's header after `.bk-hero-top`. |
 | `js/deck.js` `createDeck(root, tabs, { start, onSelect, extras, onExtra })` | core | The section menu. `tabs`: `[{ id, label, icon?, bonus?, count?() }]`; the icon is the digital player's cover art and the picture on its tab. Returns `{ go(i), index, refresh(), setTabs(tabs, index) }`. |
@@ -442,6 +445,7 @@ may call it.
 | `js/venues-rules.js` `rulesChip(b)` / `venueChip(v)` / `rulesFull(v, { where })` / `rulesEditor(v)` | venues | A show's house-rules chip, or `null` / the same for a venue / the full rules (`where: 'venue' \| 'show'`), or `null` / the House rules part of the venue form: `{ node, read() }`. It draws what `model.js` returns and imports `util.js` and `model.js` only. |
 | `pages/bookings.js` `newBooking(preset)` | bookings | Open the new-booking form, prefilled (`{ kind, actId, venueId, date, setlistId }`). |
 | `pages/acts.js` `openAct(id)` / `editAct(a, onSaved)` / `printRider(actId)` | acts | View sheet / edit form / print the tech rider. |
+| `pages/acts.js` `openSeen(actId, seenId)` | acts | Go to the acts list with that act's card dropped open, the time seen in view and the focus on its Edit button (the search opens a time seen this way). Resolves with the entry's row once drawn, or `null` when the act or the entry is gone. |
 | `pages/acts.js` `logSighting(a, entry)` | acts | Add (no `entry.id`) or edit a time seen, prefilled (`{ date, venueId, where, bookingId }`): Score this show uses it. Every save links the entry to the act's show on its date (the one it came from while that still fits, else the act's only show that day, or the one at the venue picked); a new entry on a night whose show is already in the log asks first, and OK updates that entry instead. |
 | `pages/people.js` `openPerson(id)` / `editPerson(p, onSaved)` | people | View sheet / edit form (it also edits which acts the person is in: `act.members`). |
 | `pages/songs.js` `openSong(id)` / `editSong(s, onSaved)` | songs | View sheet / edit form. |
@@ -684,6 +688,59 @@ Every record goes on using the current name, so lists and search stay in one pie
   venue: once the page is drawn again, a focus left nowhere goes to the page's `[data-view-head]` (a show's title) or
   to `#page`.
 
+### The search (`js/search.js`)
+
+The magnifying glass, `#searchBtn` (named "Search", `aria-keyshortcuts="/"`), is the first button of the top bar in
+`index.html`, on every page and in every role; `/` opens the search too, unless the focus is in a field or a sheet,
+form or tour is up. `initSearch(btn)` wires both. On a phone (600 px and narrower, 640 px with extra-large text) the small words "booking deck" beside
+GDEX are hidden; under 560 px the brand keeps its width and the buttons narrow to share the rest of the row, so all
+five (with Install) fit at 320 px with extra-large text and large buttons (`styles.css`, after `.top-actions`).
+
+* The search is one of Gdex's sheets (`util.sheet`, title "Search", `.sheet.srch-sheet`, its body `div.srch`), over
+  whatever is on screen, which does not change. The box is `input#srch-q` (a label, `.srch-top`, stays at the top while
+  the list scrolls). Escape and ✕ close it and the focus goes back to `#searchBtn`; a tap on a result closes it and the
+  focus goes where the result opens. What was typed, the kind and the place picked, how many cards are drawn and how
+  far the list was scrolled live in memory for the visit, so opening it again brings the last search back with its
+  words selected. Nothing about a search is written to storage. A search typed over the last one (over the whole of
+  its words selected, or with no word of one beginning a word of the other) starts again on Shows at every place; one
+  narrowed or widened keeps them.
+* **What is searched**, built once per change of the data (any store change drops the index; the next search builds
+  it): for each booking with a date, the act's names (`actNames(a)`) and genre, the client, the place (the saved
+  venue's name and address, or the venue name and address typed on the booking), its title, the other acts on its bill
+  (running-order slots that are not ours and not a marker such as Doors, with or without a length), its notes, and the
+  notes and typed place of the act's time seen for it (`model.seenEntryFor`). For each time seen that belongs to no
+  booking: the act's names and genre, the place (a saved venue, or the words typed: words that are exactly one saved
+  venue's name count as that venue) and its notes. Every word typed, without the punctuation around it, must be found
+  somewhere in a record's words (`fold`: no capitals, no accents).
+* **What comes up**, in `.srch-out`: `p.srch-help` before anything is typed; else `p.srch-found` ("9 shows at 4
+  places"; "No sessions found. 4 shows at The Church" when the kind picked holds nothing and another does: the list
+  moves to shows, else to the first kind in the role's order that has results), the kind row
+  `div.srch-kinds[role=group]` of `.chip[data-kind][aria-pressed]` (left out when one kind was found; Other, the diary
+  entries, has a chip too), the place chips `div.srch-places[role=group]` (`#srch-place-all`, then
+  `.chip[data-place]`, busiest first, at most 24, then `.srch-more-places`; a second tap on the pressed one undoes it;
+  left out when everything found is at one place) and `ul.srch-list[aria-label=Results]`, one `li` per card, newest
+  first, with `li.srch-today` between what is still ahead (a booking until its last day is over) and what is over,
+  left out when everything is on one side. The first 30 cards are drawn; `#srch-more` adds 30. Nothing found:
+  `p.srch-none`. A pressed chip has a tick (`.srch-tick`) as well as its colour. The count ("9 results", "No results")
+  is announced half a second after the typing stops, when it has changed.
+* **The cards.** A booking is the calendar's own card (`bookingCard(b)`), so its status, the overlap note, the
+  house-rules chip, "Didn’t go" and anything added to Coming up's card read as they do there. The search adds the
+  year under the date when it is not this year (`.srch-year`), the band when a title of the booking's own hides it
+  (`.srch-who`, "Band: The Night Owls", in the role's word), the score of the act's time seen for it
+  (`.srch-score`, "★ Scored 92/100"), and why it was found when its own words do not show it (`.srch-why`: "Also on the
+  bill: …", "Notes: …"). A time seen with no booking is `button.bk-card.srch-seen[data-act][data-seen]`: the date,
+  "Act @ place", "From the log" and the score. A booking opens with `openBooking(id)`, a time seen with
+  `openSeen(actId, seenId)` (its row is marked `.srch-hit` for a moment). Money never shows: the card has none.
+* **Keyboard.** Tab goes from the box through the kind row and the place chips to the cards; ↓ or Enter in the box
+  goes to the first card, ↓ ↑ walk the cards and ↑ from the first goes back to the box. A redraw after a change to the
+  data keeps the focus on the same card or chip.
+* **Words** follow the role: an act, a band or an artist (`actWord()`), the role's names for Bookings and Acts, and
+  "gigs" where the calendar is called Gigs. The sheet's ? runs its own walkthrough (`sheetTutorial('Search', …)`).
+  The welcome tour does not name the top bar's buttons, so it does not name this one either.
+* **For checks**: `searchFor(q)` (what a search finds, `[{ type: 'b' | 's', id, kind, date, place }]`, without drawing
+  it) and `searchStats()` (`{ builds, buildMs, findMs, drawMs, records }`). With 2,000 bookings and 200 bands the index
+  takes about 20 ms to build and a key press (search and draw) about 35 ms on the test machine.
+
 ## Shared modules (core)
 
 * `util.js`: `h(tag, attrs, ...kids)` (attrs: `class`, `onclick`…, `aria-*`, `data-*`, `html` for trusted markup
@@ -719,7 +776,7 @@ Every record goes on using the current name, so lists and search stay in one pie
   `.qr`, `.meter`, `.form`, `.field`, `.sheet`.
 * Your own styles go in **your** `css/<feature>.css` only, with class names prefixed for your feature
   (`.bk-`, `.sh-`, `.ds-`, `.mn-`, `.st-` is taken by status pills so studio uses `.sd-`, `.sg-` songs, `.ac-` acts,
-  `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance).
+  `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance, `.srch-` search).
 * The keyboard's focus ring is a 3 px outline in `--focus`: a light blue on dark pages and a dark blue on light ones;
   with high contrast yellow on dark and navy on light. It stands out 3:1 or better from `--bg`, `--bg2` and `--card`
   in every theme (`05-deck` measures all forty). A sheet itself has no ring when it holds the focus.
@@ -774,7 +831,7 @@ backline, take, comp, stems, split sheet.
   contracts under the calendar, the question, the menus and house rules), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
-  `50-backline`, `55-venues`, `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
+  `46-search`, `50-backline`, `55-venues`, `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
   meter, timer, wake lock): a spec can check that leaving a page leaves nothing listening.
@@ -801,5 +858,6 @@ need a change there, describe it in your report instead.
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |
 | settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs` |
+| search | `js/search.js`, `css/search.css`, `tests/specs/46-search.cjs` |
 
 A feature may add new files of its own under `js/` (named after the feature) if it needs them.

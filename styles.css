@@ -264,6 +264,12 @@ input[type=range] { min-height: var(--hit); padding: 0; accent-color: var(--acce
 .top-actions { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-end; flex: 0 0 auto; } /* one row, always: the brand gives way instead */
 @media (max-width: 560px) { .top .cloud { width: var(--hit); padding: 0; justify-content: center; } .top .cloud-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; } } /* icons only; the labels stay for screen readers */
 @media (max-width: 400px) { .top .brand { letter-spacing: .08em; font-size: .9rem; } }
+/* The top bar on a phone, with the search button in it (five buttons while Install shows): the small words "booking deck" go, GDEX shows whole and no longer gives way, and the buttons share the rest of the row. Each keeps its height and narrows only where five do not fit (a 320px phone; large text or large buttons); at 340px and under the dot before GDEX goes too, for room. */
+@media (max-width: 600px) { .brand small { display: none; } }
+@media (max-width: 640px) { html[data-text=xlarge] .brand small { display: none; } } /* with extra-large text they would be cut short just above 600px (large buttons, Install showing) */
+@media (max-width: 560px) { .top .brand { flex: 0 0 auto; overflow: visible; } .top-actions { flex: 0 1 auto; min-width: 0; } .top .cloud { flex: 0 1 var(--hit); min-width: 0; } }
+@media (max-width: 340px) { .top-actions { gap: 4px; } .top .brand .dot { display: none; } }
+.search-ico { display: block; width: 1.15em; height: 1.15em; } /* the magnifying glass, drawn in the text colour */
 button, .btn, a.btn, .chip, .check, .day, summary { touch-action: manipulation; }
 .btn, .chip, .icon-btn, .day, .card.tap, .seg button { transition: transform .12s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease, opacity .15s ease, filter .15s ease; }
 .btn:active, .chip:active, .icon-btn:active, .day:active, .card.tap:active, .seg button:active { transform: scale(.96); }

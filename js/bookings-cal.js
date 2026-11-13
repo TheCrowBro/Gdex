@@ -184,7 +184,7 @@ function comingUp() {
 
 function agendaCard(b) {
   const d = parseISO(b.date), n = daysUntil(b.date);
-  const when = n < 0 ? 'On now' : n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : n < 14 ? `In ${n} days` : '';
+  const when = n < 0 ? (lastDay(b) < todayISO() ? '' : 'On now') : n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : n < 14 ? `In ${n} days` : ''; // one that is over (the search lists those too) says nothing here
   const card = h('button', { type: 'button', class: 'card tap bk-card', style: actStyle(b), 'data-id': b.id, title: 'Tap to open; press and hold to delete',
     onclick: () => { if (!wasHeld(card)) X.showBooking(b); } },
     h('span', { class: 'bk-date', 'aria-hidden': 'true' },
@@ -196,6 +196,14 @@ function agendaCard(b) {
       h('span', { class: 'bk-card-sub muted small' }, [when, multi(b) && `to ${fmtShort(lastDay(b))}`, timeLine(b), venueLine(b) && `📍 ${venueLine(b)}`].filter(Boolean).join(' · ')),
       ...cardExtras(b)));
   return X.holdToDelete(card, b);
+}
+// The same card for a list outside the calendar (the search, js/search.js): drawn by agendaCard, so it reads exactly as
+// it does under Coming up, but with no press-and-hold to delete. The card's own tap opens the booking inside this
+// page, so the list it goes in takes the tap itself: a click listener in the capture phase that stops the click there.
+export function bookingCard(b) {
+  const page = X;
+  X = { ...page, holdToDelete: el => el };
+  try { const card = agendaCard(b); card.removeAttribute('title'); return card; } finally { X = page; }
 }
 
 // The row of view buttons scrolls sideways inside itself on a narrow phone. Once it is on the page, the pressed button
