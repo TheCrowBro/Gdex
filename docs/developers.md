@@ -875,8 +875,8 @@ showing).
   `guests` the ids of the support acts' times seen a booking holds, without drawing it), `searchAll(q)` (`{ kind: [ids]
   }` for every kind the person may see; a quote or an invoice is `'invoice:<bookingId>'`), both after `searchReady()`,
   and `searchStats()` (`{ builds, buildMs, findMs, drawMs, records }`). With 2,000 bookings, 200 bands, 500 people, 500
-  songs and 300 pieces of gear the words take about 45 ms to build and a key press (search and draw) 15 to 20 ms on the
-  test machine, All (which ranks every kind) about the same.
+  songs and 300 pieces of gear the words take about 45 to 55 ms to build and a key press (search and draw) 15 to 35 ms
+  on the test machine, All (which ranks every kind) about the same.
 
 ## Shared modules (core)
 
