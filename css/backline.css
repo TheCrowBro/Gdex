@@ -109,7 +109,7 @@ html[data-contrast=high] .vn-chip { border-width: 2px; border-color: var(--r); }
 .vn-rules-sec .vn-rules-name { display: none; } /* on the venue's sheet the section's heading already says "House rules" */
 .vn-rules-sec > p { margin: 0; }
 .vn-rules-list { display: grid; grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr); gap: 4px 12px; margin: 0; align-items: baseline; }
-.vn-rules-list dt { color: var(--muted); font-size: .85rem; }
+.vn-rules-list dt { color: color-mix(in srgb, var(--muted) 70%, var(--text)); font-size: .85rem; } /* the plain --muted is under 4.5:1 on a show's page (--bg2) in several light themes */
 .vn-rules-list dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 360px) { .vn-rules-list { grid-template-columns: minmax(0, 1fr); gap: 1px; } .vn-rules-list dd { margin-bottom: 5px; } .vn-rules-list dd:last-child { margin-bottom: 0; } }
 @container vn-rules (max-width: 20em) { .vn-rules-list { grid-template-columns: minmax(0, 1fr); gap: 1px; } .vn-rules-list dd { margin-bottom: 5px; } .vn-rules-list dd:last-child { margin-bottom: 0; } }

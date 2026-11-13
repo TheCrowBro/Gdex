@@ -162,6 +162,11 @@
 .bk-hours { position: relative; min-width: 0; }
 .bk-hour { position: absolute; right: 5px; transform: translateY(-50%); font-size: .66rem; line-height: 1; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bk-hour .bk-next { margin-left: 1px; font-size: .52rem; }
+/* Small words on the calendar's panel (--bg2): the plain --muted there is under 4.5:1 in several light themes (Brass 3.95),
+   and the accent “+1” under 3:1. Mixed with the text colour they read at 5.5:1 or better in every theme, as the digital
+   player's small lines do; the “+1” takes its hour's colour. */
+.cal .wd, .bk-wday-head, .bk-none, .bk-hour, .bk-any-label, .bk-grid-head, .bk-went { color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
+.bk-hour .bk-next { color: inherit; }
 .bk-col { position: relative; min-width: 0; border-left: 1px solid var(--line); background-image: linear-gradient(var(--line) 1px, transparent 1px); background-size: 100% var(--hh); }
 .bk-col.today { background-color: color-mix(in srgb, var(--accent) 7%, transparent); }
 /* A block is a container, so a short one (less than two lines of its own text high, whatever the text size) puts its

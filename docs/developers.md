@@ -635,6 +635,8 @@ press that opened it, still down) does not.
 * The keyboard's focus ring is a 3 px outline in `--focus`: a light blue on dark pages and a dark blue on light ones;
   with high contrast yellow on dark and navy on light. It stands out 3:1 or better from `--bg`, `--bg2` and `--card`
   in every theme (`05-deck` measures all forty). A sheet itself has no ring when it holds the focus.
+* Small grey words on `--bg2` (the calendar's panel, a show's house rules) use
+  `color-mix(in srgb, var(--muted) 70%, var(--text))`: plain `--muted` there is under 4.5:1 in several light themes.
 * Phone first (360–430px wide), and it must also look right on a laptop (the page widens past 900px).
 * Forms (`form.js`): the Save bar stays at the foot of the sheet, and `styles.css` gives every sheet with one a
   `scroll-padding-bottom`, so a control reached with Tab is scrolled clear of it (a tall notes box at least to its

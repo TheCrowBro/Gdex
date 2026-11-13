@@ -74,6 +74,30 @@ const squareLines = (page, iso) => page.evaluate(iso => {
       inside: r.top >= s.top - 0.5 && r.bottom <= s.bottom + 0.5 };
   }) };
 }, iso);
+// Small words read at 4.5:1 or better: for each selector, the words of the first one on screen against the colour painted
+// behind them (flat colours laid over each other up the page), in the light scheme of every theme at standard contrast.
+// Gives the lowest ratio and its theme, or null when nothing on screen matches.
+const inkLow = (page, sels) => page.evaluate(sels => import('./js/a11y.js').then(({ PALETTES }) => {
+  const cx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
+  const rgba = c => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
+  const over = (top, under) => [0, 1, 2].map(i => top[i] * top[3] + under[i] * (1 - top[3])).concat(1);
+  const lum = c => { const [r, g, b] = c.slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const behind = el => { const chain = []; for (let e = el; e; e = e.parentElement) { const c = rgba(getComputedStyle(e).backgroundColor); chain.push(c); if (c[3] === 1) break; } return chain.reduceRight((c, top) => over(top, c), [255, 255, 255, 1]); };
+  const root = document.documentElement, was = { ...root.dataset }, out = {};
+  for (const sel of sels) {
+    const el = [...document.querySelectorAll(sel)].find(e => e.getClientRects().length && e.textContent.trim());
+    if (!el) { out[sel] = null; continue; }
+    let low = 99, where = '';
+    for (const p of PALETTES) {
+      Object.assign(root.dataset, { palette: p.id, scheme: 'light', contrast: 'normal' });
+      const bg = behind(el), fg = over(rgba(getComputedStyle(el).color), bg), x = lum(fg), y = lum(bg), r = (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+      if (r < low) { low = r; where = p.name; }
+    }
+    out[sel] = [Math.round(low * 100) / 100, where];
+  }
+  Object.assign(root.dataset, was);
+  return out;
+}), sels);
 const NAV = {
   month: ['Previous month', 'This month', 'Next month'], two: ['Previous two weeks', 'These two weeks', 'Next two weeks'], week: ['Previous week', 'This week', 'Next week'],
   three: ['Previous three days', 'From today', 'Next three days'], day: ['Previous day', 'Today', 'Next day'],
@@ -555,6 +579,20 @@ async function press(page, loc, ms) {
   w = await went();
   await view(page, 'month');
   ok('the same show cancelled says it nowhere', !/Didn’t go/.test(wb) && !/Didn’t go/.test(wd) && w && w.went.length === 0 && !/Didn’t go/.test(w.text) && (await sqName()).endsWith('(Cancelled)'), JSON.stringify([wb, wd, w, await sqName()]));
+
+  /* ---------------- small words in the views read at 4.5:1 in every light theme ---------------- */
+  // Day names, Nothing on, the hours and their +1, any time, the 3-day heads, Didn’t go and the weekday letters sit on
+  // the calendar's panel, where the plain muted grey is too faint in several light themes.
+  await page.evaluate(() => import('./js/store.js').then(s => s.patch('bookings', 'c-G', { status: 'done' }))); await sleep(300);
+  const faint = {};
+  await toWeek(page, PAST, true); Object.assign(faint, await inkLow(page, ['.bk-wday:not(.today) .bk-wday-head', '.bk-went']));
+  await toWeek(page, T3); Object.assign(faint, await inkLow(page, ['.bk-none']));
+  await toDay(page, T); Object.assign(faint, await inkLow(page, ['.bk-hour', '.bk-hour .bk-next', '.bk-any-label']));
+  await view(page, 'three'); Object.assign(faint, await inkLow(page, ['.bk-grid-head:not(.today)']));
+  await view(page, 'two'); Object.assign(faint, await inkLow(page, ['.bk-cal .wd']));
+  ok('in every light theme the small words of the views read at 4.5:1 or better: day names, Nothing on, the hours and their +1, any time, Didn’t go, the weekdays', Object.keys(faint).length === 8 && Object.values(faint).every(x => x && x[0] >= 4.5), JSON.stringify(faint));
+  await page.evaluate(() => import('./js/store.js').then(s => s.patch('bookings', 'c-G', { status: 'cancelled' }))); await sleep(300);
+  await view(page, 'month');
 
   /* ---------------- the sample's show; a scout ---------------- */
   await toDay(page, SHOW1);

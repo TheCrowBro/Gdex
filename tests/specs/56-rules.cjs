@@ -39,6 +39,30 @@ const full = (page, sel) => page.evaluate(s => {
     rows: dl ? [...dl.querySelectorAll('dt')].map(dt => [dt.textContent, dt.nextElementSibling.textContent]) : null, controls: r.querySelectorAll('button, a, input, select, textarea').length, marked: r.querySelectorAll('b, i, em, script').length };
 }, sel);
 
+// Small words read at 4.5:1 or better: for each selector, the words of the first one on screen against the colour painted
+// behind them (flat colours laid over each other up the page), in the light scheme of every theme at standard contrast.
+// Gives the lowest ratio and its theme, or null when nothing on screen matches.
+const inkLow = (page, sels) => page.evaluate(sels => import('./js/a11y.js').then(({ PALETTES }) => {
+  const cx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
+  const rgba = c => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
+  const over = (top, under) => [0, 1, 2].map(i => top[i] * top[3] + under[i] * (1 - top[3])).concat(1);
+  const lum = c => { const [r, g, b] = c.slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const behind = el => { const chain = []; for (let e = el; e; e = e.parentElement) { const c = rgba(getComputedStyle(e).backgroundColor); chain.push(c); if (c[3] === 1) break; } return chain.reduceRight((c, top) => over(top, c), [255, 255, 255, 1]); };
+  const root = document.documentElement, was = { ...root.dataset }, out = {};
+  for (const sel of sels) {
+    const el = [...document.querySelectorAll(sel)].find(e => e.getClientRects().length && e.textContent.trim());
+    if (!el) { out[sel] = null; continue; }
+    let low = 99, where = '';
+    for (const p of PALETTES) {
+      Object.assign(root.dataset, { palette: p.id, scheme: 'light', contrast: 'normal' });
+      const bg = behind(el), fg = over(rgba(getComputedStyle(el).color), bg), x = lum(fg), y = lum(bg), r = (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+      if (r < low) { low = r; where = p.name; }
+    }
+    out[sel] = [Math.round(low * 100) / 100, where];
+  }
+  Object.assign(root.dataset, was);
+  return out;
+}), sels);
 /* ------------------------------- the form's part ------------------------------- */
 const FORM = { add: sheetOf('Add venue'), edit: sheetOf('Edit venue') };
 // Which answer a rule shows: 'yes', 'no' or '' (a pick-list: its value).
@@ -691,6 +715,10 @@ const all = []; // every console error of every browser below
     ok('forced colours: every pressed button has the same edge, a permission and a fact alike', fcEdge[0] === fcEdge[1] && fcEdge[1] === fcEdge[2] && fcEdge[2] !== fcEdge[3], fcEdge.join(' | '));
     await page.emulateMedia({ forcedColors: 'none' });
     await page.keyboard.press('Escape'); await sleep(200);
+    // The small words that name the rows of the full rules (Not allowed, Allowed, Good to know) on a show's page, whose box is the panel colour.
+    await openB(page, 's-show1');
+    const terms = await inkLow(page, ['.bk-hero .vn-rules-list dt']);
+    ok('in every light theme the full rules’ row names on a show’s page read at 4.5:1 or better', Object.values(terms).every(t => t && t[0] >= 4.5), JSON.stringify(terms));
     ok('no errors in the console (themes)', errors.length === 0, errors.slice(0, 5).join(' | ')); all.push(...errors);
     await browser.close();
   }
