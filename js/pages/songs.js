@@ -11,6 +11,7 @@ import { sheetTutorial } from '../tour.js';
 import { openSetlist, newSetlist, liveSheet, plural, shortKey, tickShows } from '../setlist.js';
 import { openBooking } from './bookings.js';
 import { sectionName, pageOpt, roleId } from '../roles.js';
+import { gateWork } from '../licence-state.js'; // the working boxes and paid records a free role reaches (the build spec [S-3])
 
 // View state survives redraws: which view, which act's chip, the search.
 const S = { view: '', act: '', q: '', lyrics: false, qBox: false }; // qBox: the search box was showing (kept until the view changes, so clearing it never pulls it away mid-typing)
@@ -171,12 +172,15 @@ function newSetlistForm() {
       { key: 'name', label: 'Name', required: true, placeholder: 'Club set, Festival 30, Acoustic…' },
       { key: 'actId', label: 'Act', type: 'select', options: [['', 'No act'], ...acts.map(a => [a.id, a.name || 'Untitled act'])] },
     ],
-    onSave: v => { const rec = newSetlist({ name: v.name, actId: v.actId }); openSetlist(rec.id); },
+    onSave: v => { const rec = newSetlist({ name: v.name, actId: v.actId }); if (rec) openSetlist(rec.id); }, // null: refused by the licence
   });
 }
 
 /* -------------------------------- song sheet -------------------------------- */
-export function openSong(id) {
+// A free role reaches it from its own sections (a booking's boxes, a band's members): it comes with the working roles
+// (js/licence-state.js gateWork: at once while it may be used, else the free days start or the licence is offered).
+export function openSong(id) { let out = null; gateWork(() => { out = openSongNow(id); }); return out; }
+function openSongNow(id) {
   if (!byId('songs', id)) { toast('That song is not there any more.'); return null; }
   return liveSheet('Song', ctx => { const s = byId('songs', id); return s ? songView(s, ctx) : null; }, { cls: 'sg-sheet' });
 }
@@ -245,12 +249,15 @@ function addToSetlist(songId) {
     lists.length
       ? h('div', { class: 'sg-links' }, lists.map(l => { const t = setlistLength(l), has = (l.items || []).some(it => it && it.songId === songId); return h('button', { class: 'card tap', type: 'button', onclick: () => pick(l) }, h('strong', null, l.name || 'Untitled setlist'), h('span', { class: 'muted small sg-block' }, dotted([actName(l.actId) || 'No act', plural(t.songs, 'song'), fmtDur(t.sec), has && 'already in it']).join(''))); }))
       : h('p', { class: 'muted' }, 'No setlists yet.'),
-    h('button', { class: 'btn ghost', type: 'button', onclick: () => { close(); const rec = newSetlist({ name: 'New setlist', actId: song.actId || '', items: [{ songId }] }); openSetlist(rec.id); } }, '+ New setlist with this song'));
+    h('button', { class: 'btn ghost', type: 'button', onclick: () => { close(); const rec = newSetlist({ name: 'New setlist', actId: song.actId || '', items: [{ songId }] }); if (rec) openSetlist(rec.id); } }, '+ New setlist with this song')); // null: refused by the licence
   ({ close } = sheet('Add to a setlist', body));
 }
 
 /* --------------------------------- song form --------------------------------- */
-export function editSong(s = {}, onSaved) {
+// A free role reaches it from its own sections (a booking's boxes, a band's members): it comes with the working roles
+// (js/licence-state.js gateWork: at once while it may be used, else the free days start or the licence is offered).
+export function editSong(s = {}, onSaved) { let out = null; gateWork(() => { out = editSongNow(s, onSaved); }); return out; }
+function editSongNow(s = {}, onSaved) {
   const src = (s && s.id && byId('songs', s.id)) || s || {};
   const isNew = !src.id;
   const acts = [...db.acts].sort(byName);
@@ -289,6 +296,7 @@ export function editSong(s = {}, onSaved) {
         duration: dur || (raw ? Number(fresh.duration) || 0 : 0), tuning: str(v.tuning), status: v.status || 'idea',
         isrc: str(v.isrc).toUpperCase(), link: str(v.link), lyrics: v.lyrics || '', notes: v.notes || '', splits,
       });
+      if (!rec) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       const tot = splitTotal(splits);
       if (raw && !dur) toast(`Saved, but the length “${raw}” could not be read: type it like 3:45.`);
       else if (splits.length && !splitOk(tot)) toast(`Saved. The splits add up to ${fmtPct(tot)}, not 100%.`);

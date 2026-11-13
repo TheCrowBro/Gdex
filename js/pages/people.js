@@ -13,6 +13,7 @@ import { saveFile, fileName } from '../print.js';
 import { sheetTutorial } from '../tour.js';
 import { playField, playLabel, playTime } from '../model.js'; // the time a show is sorted by, printed on its row
 import { sectionName, pageOpt, actWord, moneyShown } from '../roles.js';
+import { gateWork } from '../licence-state.js'; // the working boxes and paid records a free role reaches (the build spec [S-3])
 
 /* ------------------------------- small helpers ------------------------------- */
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -127,6 +128,7 @@ function edit(p = {}, onSaved, { actIds = null } = {}) {
       if (!rec.name) { toast('Add a name to save this person.'); return edit(rec, onSaved, { actIds: chosen }); }
       if (rec.rate !== '' && rec.rate != null) rec.rate = Math.max(0, Number(rec.rate) || 0);
       const saved = upsert('people', rec);
+      if (!saved) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       if (Array.isArray(chosen)) setMemberships(saved.id, chosen);
       toast(stored ? 'Saved' : `${saved.name} added`);
       if (onSaved) onSaved(saved);
@@ -146,7 +148,9 @@ function askHint(form) {
   sync();
 }
 // Edit form for a person (also used by the booking's line-up and the acts page). onSaved(record) after it saves.
-export function editPerson(p = {}, onSaved) { edit(p || {}, onSaved); }
+// A free role reaches it from its own sections (a booking's boxes, a band's members): it comes with the working roles
+// (js/licence-state.js gateWork: at once while it may be used, else the free days start or the licence is offered).
+export function editPerson(p = {}, onSaved) { gateWork(() => edit(p || {}, onSaved)); }
 
 /* ------------------------------- delete ------------------------------- */
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
@@ -238,7 +242,10 @@ function personView(p, close) {
 }
 
 // View sheet for a person, from anywhere in the app. It follows changes while open and closes if they are deleted.
-export function openPerson(id) {
+// A free role reaches it from its own sections (a booking's boxes, a band's members): it comes with the working roles
+// (js/licence-state.js gateWork: at once while it may be used, else the free days start or the licence is offered).
+export function openPerson(id) { let out = null; gateWork(() => { out = openPersonNow(id); }); return out; }
+function openPersonNow(id) {
   const p0 = byId('people', id);
   if (!p0) { toast('That person is no longer in People.'); return; }
   let title = nameOf(p0);

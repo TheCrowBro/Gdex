@@ -5,6 +5,7 @@
 // target that is not on screen is skipped). A step with target null is a plain card.
 import { h, sheet, toast } from './util.js';
 import { runTour, startTour, sheetSteps } from './tour.js';
+import { sectionMark } from './licence-state.js'; // a working section's licence mark (null while licences are off)
 
 const pages = () => (window.gdexPages ? window.gdexPages() : []); // [{ id, label, icon, page? }] from app.js
 const topSheet = () => { const all = document.querySelectorAll('.sheet[aria-label]'); return all[all.length - 1] || null; };
@@ -38,14 +39,15 @@ export function openChooser() {
   let close = () => {};
   const body = h('div', { class: 'stack' },
     h('p', { class: 'small muted' }, 'A short walkthrough of any page. Each one highlights the boxes on that page with a line about what they do.'),
-    h('div', { class: 'list' }, ...pages().map(t => h('button', { class: 'card tap', type: 'button', onclick: async () => {
+    h('div', { class: 'list' }, ...pages().map(t => { const mark = sectionMark(t.id); return h('button', { class: 'card tap', type: 'button', 'data-section': t.id, 'aria-label': mark ? `${t.label}, ${mark.label}` : null, onclick: async () => {
       close();
-      await window.logiGo?.(t.id);
+      const shown = await window.logiGo?.(t.id);
+      if (shown === false) return; // the licence kept it closed (and said why)
       await new Promise(r => setTimeout(r, 500));
       const tab = pages().find(x => x.id === t.id);
       const steps = tab && tab.page ? resolve(tab.page.tutorial) : [];
       if (steps.length) runTour(steps); else toast('Nothing to show on this page yet');
-    } }, h('strong', null, `${t.icon} ${t.label}`)))),
+    } }, h('strong', null, `${t.icon} ${t.label}`), mark && h('span', { class: 'dk-track-lock', 'aria-hidden': 'true' }, mark.text)); })),
     h('div', { class: 'actions' }, h('button', { class: 'btn ghost small', type: 'button', onclick: () => { close(); setTimeout(() => startTour(), 150); } }, '🧭 The welcome tour')));
   ({ close } = sheet('Tutorials', body));
 }

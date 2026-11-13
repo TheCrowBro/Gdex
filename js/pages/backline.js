@@ -8,6 +8,7 @@ import { openForm } from '../form.js';
 import { printElement, docPage, saveFile, fileName, csv } from '../print.js';
 import { sheetTutorial } from '../tour.js';
 import { sectionName } from '../roles.js';
+import { gateWork } from '../licence-state.js'; // the working boxes and paid records a free role reaches (the build spec [S-3])
 import { formerlyNote } from '../model.js'; // "formerly The Night Owls": a booking from before its act changed its name
 
 // What the page is showing. Kept here so it survives the redraw after every change.
@@ -169,7 +170,10 @@ function bookingRow(b, g, close) {
 }
 
 // The item's sheet: its details, the stage packs it is in, and the bookings it is on (tap one to open it).
-export function openGear(id) {
+// A free role reaches it from its own sections (a booking's boxes, a band's members): it comes with the working roles
+// (js/licence-state.js gateWork: at once while it may be used, else the free days start or the licence is offered).
+export function openGear(id) { let out = null; gateWork(() => { out = openGearNow(id); }); return out; }
+function openGearNow(id) {
   const first = byId('gear', id);
   if (!first) { toast('That item is no longer in your backline.'); return null; }
   let title = itemName(first);
@@ -238,7 +242,10 @@ const num = (v, { min = 0, whole = false } = {}) => {
 };
 
 // Add or edit an item. onSaved(record) after it is stored.
-export function editGear(g = {}, onSaved) {
+// A free role reaches it from its own sections (a booking's boxes, a band's members): it comes with the working roles
+// (js/licence-state.js gateWork: at once while it may be used, else the free days start or the licence is offered).
+export function editGear(g = {}, onSaved) { let out = null; gateWork(() => { out = editGearNow(g, onSaved); }); return out; }
+function editGearNow(g = {}, onSaved) {
   const cur = (g && g.id && byId('gear', g.id)) || g || {};
   const cats = !cur.category || GEAR_CATS.includes(cur.category) ? GEAR_CATS : [...GEAR_CATS, cur.category]; // keep a category of its own
   const ownerOk = cur.owner && byId('people', cur.owner);
@@ -263,6 +270,7 @@ export function editGear(g = {}, onSaved) {
       if (!name) return toast('Give the item a name first.');
       const stored = upsert('gear', { ...v, name, make: String(v.make || '').trim(), model: String(v.model || '').trim(), serial: String(v.serial || '').trim(),
         location: String(v.location || '').trim(), qty: Math.max(1, num(v.qty, { min: 1, whole: true }) || 1), value: num(v.value), owner: v.owner || '' });
+      if (!stored) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       // Fewer owned now than a booking ahead needs: say so (each such booking is marked on the item's sheet).
       const short = cur.id && stored.qty < qtyOf(cur) ? aheadOf(stored.id).filter(b => gearShort(b, stored.id)).length : 0;
       toast(!cur.id ? `${name} added` : short ? `Saved, but ${plural(short, 'booking')} coming up ${short === 1 ? 'needs' : 'need'} more than you own now.` : 'Saved');
@@ -273,7 +281,10 @@ export function editGear(g = {}, onSaved) {
 }
 
 // Add or edit a stage pack: a name, its backline (with how many of each), and notes. onSaved(record) after it is stored.
-export function editKit(k = {}, onSaved) {
+// A free role reaches it from its own sections (a booking's boxes, a band's members): it comes with the working roles
+// (js/licence-state.js gateWork: at once while it may be used, else the free days start or the licence is offered).
+export function editKit(k = {}, onSaved) { let out = null; gateWork(() => { out = editKitNow(k, onSaved); }); return out; }
+function editKitNow(k = {}, onSaved) {
   const cur = (k && k.id && byId('kits', k.id)) || k || {};
   const options = sortGear(db.gear).map(g => {
     const n = qtyOf(g), mm = makeModel(g);
@@ -295,6 +306,7 @@ export function editKit(k = {}, onSaved) {
       const items = (v.items || []).filter(id => byId('gear', id));
       const qty = Object.fromEntries(Object.entries(v.qty || {}).filter(([id, n]) => items.includes(id) && Number(n) > 1));
       const stored = upsert('kits', { ...v, name, items, qty });
+      if (!stored) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       toast(cur.id ? 'Saved' : `${name} made`);
       onSaved && onSaved(stored);
     },
@@ -333,6 +345,7 @@ function packCard(k) {
 
 function duplicatePack(k) {
   const copy = upsert('kits', { ...k, id: undefined, createdAt: undefined, sample: undefined, name: (k.name || 'Pack') + ' (copy)', items: [...(k.items || [])], qty: { ...(k.qty || {}) } });
+  if (!copy) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
   toast(`${copy.name} made`);
 }
 

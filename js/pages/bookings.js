@@ -4,7 +4,7 @@
 // and sheets that make, copy and delete a booking.
 // Adapted from Vdex's bookings page: press and hold to delete, duplicate.
 import { h, nodes, todayISO, fmtLong, fmtShort, toast, announce, sheet, backBtn, hold, telUrl } from '../util.js';
-import { db, byId, update, upsert, remove, upcoming, covers, lastDay } from '../store.js';
+import { db, byId, update, upsert, remove, upcoming, covers, lastDay, canChange } from '../store.js';
 import * as model from '../model.js';
 import { openForm } from '../form.js';
 import { mapButtons } from '../map.js';
@@ -20,6 +20,11 @@ import { isoOk, addDays, daysBetween, actOf, actStyle, tone, multi, dateRange, p
 import { calendarView, calendarSteps } from '../bookings-cal.js';
 import { rulesFull } from '../venues-rules.js';
 import { formerlyLine } from '../bookings-kit.js'; // "formerly The Night Owls" under the name of a booking from before its act changed its name
+// The licence (decisions §9 and the owner's answer 1): a free Audiophile without the working roles (no licence, and its
+// free days not running) keeps its gigs; the working boxes under More boxes, new studio sessions and rehearsals, and
+// changes to the ones already here come with the working roles. workMark() is null whenever none of that applies
+// (licences off, a working role in use, a licence or free days running), and then everything is as it always was.
+import { workMark, gateWork, mayWork } from '../licence-state.js';
 
 /* ------------------------------- words ------------------------------- */
 const NOUN = { show: 'show', session: 'studio session', rehearsal: 'rehearsal', other: 'diary entry' };
@@ -141,11 +146,20 @@ export function openBooking(id, { box = '' } = {}) {
 }
 
 // Open the new-booking form, prefilled ({ kind, actId, venueId, date, setlistId }). Without a kind, asks for one first.
+// A free Audiophile without the working roles adds a show, whatever was asked for (+ New, a day's + New, a venue, a link).
 export function newBooking(preset = {}) {
   const p = preset && typeof preset === 'object' ? preset : {};
-  if (p.kind && model.KINDS.some(k => k[0] === p.kind)) editBooking(blank(p.kind, p));
+  if (showsOnly()) editBooking(blank('show', p));
+  else if (p.kind && model.KINDS.some(k => k[0] === p.kind)) editBooking(blank(p.kind, p));
   else chooseKind(p);
 }
+// The owner's answer 1: only shows to add, and the studio sessions and rehearsals already here kept to look at.
+const WORK_KINDS = ['session', 'rehearsal'];
+const showsOnly = () => !!workMark();
+const workLocked = b => !!(b && WORK_KINDS.includes(b.kind) && showsOnly());
+// A change to such a booking goes through the licence: at once when it may be changed, else the free days start (then
+// the change goes on) or the licence is offered.
+const viaWork = (b, fn) => (workLocked(b) ? gateWork(fn) : fn());
 
 /* ------------------------------- new / edit ------------------------------- */
 function blank(kind, p = {}) {
@@ -223,7 +237,8 @@ function fieldsFor(kind, cur = '') {
 }
 
 // focus: the key of a field to put the cursor in (Score this show's "Pick the act" opens the form on the act).
-function editBooking(b, { focus = '' } = {}) {
+function editBooking(b, opts = {}) { viaWork(b, () => editBookingNow(b, opts)); }
+function editBookingNow(b, { focus = '' } = {}) {
   const isNew = !b.id;
   const kind = model.KINDS.some(k => k[0] === b.kind) ? b.kind : 'other';
   const c = b.contact || {};
@@ -239,6 +254,7 @@ function editBooking(b, { focus = '' } = {}) {
       // A show moved to another date, or given another act, is asked about again ("Did you see them?").
       if (before.id && (rec.date !== before.date || (rec.endDate || '') !== (before.endDate || '') || (rec.actId || '') !== (before.actId || ''))) delete rec.went;
       const stored = upsert('bookings', rec);
+      if (!stored) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       haptic();
       if (isNew) { toast(`${model.kindLabel(kind)} added`); openBooking(stored.id); } else toast('Saved');
     },
@@ -354,6 +370,7 @@ function setStatus(b, s) {
 }
 
 function statusPicker(b) {
+  if (workLocked(b)) return gateWork(() => statusPicker(byId('bookings', b.id) || b));
   const { close } = sheet('Booking status', h('div', { class: 'bk-status-list', role: 'radiogroup', 'aria-label': 'Status' },
     statusChoices(b.kind, b.status).map(([id, label, t]) => h('button', {
       type: 'button', role: 'radio', 'aria-checked': String(b.status === id), class: 'bk-status-opt' + (b.status === id ? ' on' : ''), 'data-status': id,
@@ -377,6 +394,7 @@ export function copyOf(b, date) {
 }
 
 function duplicateSheet(b) {
+  if (workLocked(b)) return gateWork(() => duplicateSheet(byId('bookings', b.id) || b));
   const span = multi(b) ? daysBetween(b.date, lastDay(b)) : 0;
   const input = h('input', { type: 'date', id: 'bk-dup-date', required: true, value: isoOk(b.date) ? addDays(b.date, 7) : todayISO() });
   const note = h('p', { class: 'muted small', 'aria-live': 'polite' });
@@ -386,8 +404,10 @@ function duplicateSheet(b) {
   const form = h('form', { class: 'stack', onsubmit: e => {
     e.preventDefault();
     if (!isoOk(input.value)) { input.focus(); return toast('Pick the date for the copy'); }
+    if (!canChange()) return; // read-only (the licence): the sheet stays, and the licence's sheet says why
     close();
     const stored = upsert('bookings', copyOf(byId('bookings', b.id) || b, input.value));
+    if (!stored) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
     haptic();
     toast(`Copied to ${fmtShort(stored.date)}` + (stored.status === 'hold' ? ', on hold' : ''));
     openBooking(stored.id);
@@ -409,6 +429,7 @@ const HOLD_MS = 3000;
 // that: the draw that follows puts it on the view's heading rather than nowhere.
 let HEAD_NEXT = false;
 function deleteSheet(b) {
+  if (workLocked(b)) return gateWork(() => deleteSheet(byId('bookings', b.id) || b));
   const { close } = sheet('Delete this booking?', h('div', { class: 'stack' },
     h('p', null, h('strong', null, model.bookingTitle(b)), h('span', { class: 'muted small bk-del-when' }, [dateRange(b, fmtShort), model.kindLabel(b.kind)].join(' · '))),
     h('p', { class: 'small muted' }, !moneyShown() // a role without money: only what it keeps on a booking
@@ -478,12 +499,23 @@ function bookingPage(b) {
       backBtn(isoOk(here) ? fmtShort(here) : 'Day', () => go({ view: 'cal', mode: 'day', day: isoOk(here) ? here : todayISO() })), // to the Day view; the view kept on the device does not change
       h('button', { type: 'button', class: 'btn ghost bk-edit', onclick: () => editBooking(byId('bookings', b.id) || b) }, '✎ Edit')),
     hero(b),
+    workNote(b),
     h('div', { class: 'bk-actions' },
       h('button', { type: 'button', class: 'btn ghost small', onclick: () => duplicateSheet(b) }, h('span', { 'aria-hidden': 'true' }, '⧉'), 'Duplicate'),
       h('button', { type: 'button', class: 'btn ghost small', onclick: () => addToCalendar(b) }, h('span', { 'aria-hidden': 'true' }, '📆'), 'Add to calendar'),
       h('button', { type: 'button', class: 'btn ghost small bk-delete', onclick: () => deleteSheet(b) }, h('span', { 'aria-hidden': 'true' }, '🗑'), 'Delete')),
     h('div', { class: 'bk-blocks' }, blocks.map(blk => blockBox(b, blk, ctx))),
     moreBoxes(b, ctx));
+}
+
+// A studio session or a rehearsal a free Audiophile cannot change now (the owner's answer 1): what it is kept for, and
+// the way to change it (the free days, or the licence).
+function workNote(b) {
+  if (!workLocked(b)) return null;
+  const start = mayWork() === 'start';
+  return h('div', { class: 'card lic-work-note' },
+    h('p', { class: 'small' }, `${b.kind === 'session' ? 'Studio sessions' : 'Rehearsals'} come with Gdex’s working roles: this one stays here for you to look at, and can be changed ${start ? 'during your 30 free days' : 'with a licence'}.`),
+    h('button', { type: 'button', class: 'btn ghost small', id: 'bk-work-open', onclick: () => gateWork(() => draw()) }, start ? 'Start my 30 free days' : 'Get a licence…'));
 }
 
 // The boxes the role keeps out of the way (js/roles.js: hide), in one closed fold below the others. They are drawn with
@@ -494,12 +526,19 @@ function moreBoxes(b, ctx) {
   if (!list.length) return null;
   const set = openSet(b.id), titles = list.map(x => x.title || x.id);
   const line = titles.length <= 3 ? andList(titles) : `${titles.slice(0, 2).join(', ')} and ${titles.length - 2} more`;
-  const fold = h('details', { class: 'bk-more', id: 'bk-more', open: set.has('more') },
-    h('summary', null,
+  // The working boxes, for a free Audiophile without the working roles: the fold says so ("30 days free", "🔒 Licence"),
+  // and opening it goes through the licence instead of showing them. Its boxes are not drawn, so ctx.open finds none.
+  const mark = workMark();
+  const fold = h('details', { class: 'bk-more', id: 'bk-more', open: !mark && set.has('more') },
+    h('summary', { 'aria-label': mark ? `More boxes (${list.length}), ${mark.label}` : null },
       h('span', { class: 'blk-ico', 'aria-hidden': 'true' }, '🗃️'),
-      h('span', { class: 'blk-text' }, h('span', { class: 'blk-title' }, `More boxes (${list.length})`), h('span', { class: 'blk-sum' }, line))),
-    h('div', { class: 'bk-more-blocks' }, list.map(blk => blockBox(b, blk, ctx))));
-  fold.addEventListener('toggle', () => { if (fold.open) set.add('more'); else set.delete('more'); });
+      h('span', { class: 'blk-text' }, h('span', { class: 'blk-title' }, `More boxes (${list.length})`), h('span', { class: 'blk-sum' }, line)),
+      mark && h('span', { class: 'dk-track-lock', 'aria-hidden': 'true' }, mark.text)),
+    h('div', { class: 'bk-more-blocks' }, mark ? null : list.map(blk => blockBox(b, blk, ctx))));
+  fold.addEventListener('toggle', () => {
+    if (mark && fold.open) { fold.open = false; gateWork(() => { set.add('more'); draw(); }); return; } // the free days started: drawn open, with its boxes
+    if (!mark) { if (fold.open) set.add('more'); else set.delete('more'); }
+  });
   return fold;
 }
 
@@ -635,6 +674,7 @@ function blockBox(b, blk, ctx) {
   const fill = () => {
     filled = true;
     let node;
+    if (workLocked(b)) { body.replaceChildren(...nodes(lockedBody(byId('bookings', b.id) || b, blk))); return; } // to look at, not to change
     try { node = blk.render(byId('bookings', b.id) || b, ctx); } catch (e) { console.warn(`The ${blk.id} box failed`, e); node = h('p', { class: 'warn small' }, `This box could not be shown (${(e && e.message) || e}).`); }
     body.replaceChildren(...nodes(node));
   };
@@ -649,6 +689,12 @@ function blockBox(b, blk, ctx) {
     if (det.open) { set.add(blk.id); if (!filled) fill(); } else { set.delete(blk.id); filled = false; body.replaceChildren(); }
   });
   return det;
+}
+
+// A box of a booking a free Audiophile cannot change now: its notes as text, or what the box is for.
+function lockedBody(b, blk) {
+  if (blk.id === 'notes') return h('p', { class: 'prewrap bk-notes-ro' }, String(b.notes || '').trim() || 'No notes.');
+  return h('p', { class: 'muted small' }, 'This box comes with Gdex’s working roles.');
 }
 
 /* ------------------------------- walkthroughs ------------------------------- */
@@ -667,7 +713,7 @@ function bookingSteps(b) {
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },
     { title: 'The boxes', text: 'Everything else about the booking, one box each: tap a box to open it. Boxes you open stay open.', target: ['.bk-blocks'] },
-    foldedFor(b.kind).length > 0 && { title: 'More boxes', text: 'The boxes your role uses less, folded away under the others. Open it to reach any of them; they work as the ones above. Settings → Your role changes which boxes are here.', target: ['.bk-more'] },
+    foldedFor(b.kind).length > 0 && { title: 'More boxes', text: 'The boxes your role uses less, folded away under the others. Open it to reach any of them; they work as the ones above. Settings → Your role changes which boxes are here.' + (workMark() ? ' The working boxes (line-up, setlist, take log and the rest) come with Gdex’s working roles.' : ''), target: ['.bk-more'] },
   ].filter(Boolean);
   const set = openSet(b.id);
   const steps = x => { try { return (typeof x.tutorial === 'function' ? x.tutorial(b) : x.tutorial) || []; } catch { return []; } };
