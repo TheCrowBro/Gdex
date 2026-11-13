@@ -52,7 +52,7 @@ npm run serve                   # http://localhost:8124/
 | `bookings` | Bookings | `pages/bookings.js` | The calendar (month, two weeks, week, three days, day: `js/bookings-cal.js`) with Coming up under it; the booking page with its blocks. Gdex opens here every time. |
 | `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards, folded under their main genre (Rock, Pop…) once there are two or more: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider. |
 | `people` | People | `pages/people.js` | Band members, session players, crew, industry contacts (promoters, agents…). |
-| `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, split sheet) and setlists. |
+| `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, album, split sheet), folded by act and album, and setlists. |
 | `sessions` | Studio log | `pages/sessions.js` | Take logs for recording sessions: song, take number, time, keep/maybe/no, notes. |
 | `backline` | Backline | `pages/backline.js` | Instruments, amps, mics… with serials, values, owners; stage packs (kits). |
 | `venues` | Venues | `pages/venues.js` | Venues, studios, rehearsal rooms, festivals: capacity, stage, PA, curfew, noise limit, load-in, map. |
@@ -284,7 +284,11 @@ only to the latter). It replaces only the rules this build knows: the answers to
 or a backup edited by hand) are kept as they were stored (`model.unknownRules(v)`).
 
 `songs`: `{ id, title, actId, key, bpm, duration (seconds), tuning, status, isrc, lyrics, link, notes,
-splits: [{ id, name, role, share (%), pro, ipi, publisher }] }`.
+splits: [{ id, name, role, share (%), pro, ipi, publisher }], album }`. `album` is the album or release as typed in the
+song form (its spaces tidied; `''` for none), and is absent on a song never saved through the form since. Read it only
+through `model.albumOf(s)`, which reads anything else stored there (not text, no letter or digit, "n/a", "Single"…) as
+no album; a number reads as its digits. It travels in backups, and in nothing printed or sent (the press kit, the
+printed setlist, the split sheet).
 
 `setlists`: `{ id, name, actId, gap (seconds between songs), items: [{ id, songId, title, duration, note, segue,
 encore, isBreak }], notes }`. An item with `songId` takes its title and length from the song; one without carries its
@@ -304,7 +308,7 @@ by `js/money.js`.
 
 Constants: `KINDS`, `STATUSES`, `statusesFor`, `statusLabel`, `statusTone`, `kindLabel`, `kindIcon`, `SHOW_TIMES`,
 `SESSION_TIMES`, `timesFor`, `PEOPLE_GROUPS`, `ROLES`, `GEAR_CATS`, `VENUE_KINDS`, `RATE_UNITS`, `SONG_STATUS`,
-`NOTES`, `KEYS`, `SPLIT_ROLES`, `DEAL_TYPES`, `MAIN_GENRES`, `NO_GENRE`.
+`NOTES`, `KEYS`, `SPLIT_ROLES`, `DEAL_TYPES`, `MAIN_GENRES`, `NO_GENRE`, `NO_ALBUM`.
 Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `seenEntryFor(a, b)`, `actShowsOn(actId, iso)`, `onlyShowOn(actId, iso)`, `actUpcoming(a)`, `bookingTitle(b)`, `actName(id)`, `venueOf(b)`, `firstTime(b)`, `lastDate(b)`, `coversDay(b, iso)`, `fmtDur(sec)`,
 `parseDur(text)`, `fmtMin(min)`, `addMinutes('HH:MM', min)`, `minutesBetween(a, b)`, `setlistLength(list)`,
 `itemTitle(item)`, `fmtMoney(n, sym?)`, `currency()`, `dealPays(deal, gross)`, `dealSummary(deal)`, `dealBest(deal)`,
@@ -399,6 +403,13 @@ acoustic, choir, orchestra, DJ, dance, fusion…) decides only when nothing else
 Rock, "indie pop" Pop, "gospel choir" Gospel & Christian, "hip hop DJ" Hip hop & rap, "Latin dance" Latin. The table
 (`GENRE_TABLE`) lives in the block; `47-genres` reads two tables through it, close to two hundred genres and some two
 hundred and fifty more written apart from the first.
+
+A song's album (the songs list's folds): `NO_ALBUM` ("Singles & unreleased", the fold for the songs with none),
+`albumOf(s)` (the album as typed, its spaces tidied, or `''`: a key that is absent or not text, text with no letter or
+digit, or words that say there is none: "none", "no album", "n/a", "TBC", "TBA", "single", "non-album single",
+"unreleased", "not released", "Singles & unreleased", "unknown", whatever their capitals, accents and punctuation; a
+finite number reads as its digits; never throws) and `albumKey(text)` (what tells two albums apart: capitals, spaces and
+punctuation aside, as `sameName` does for an act's names; `''` for no album).
 
 Use these instead of re-implementing them, so a show's numbers agree on every page. If one is wrong or missing, say
 so in your report rather than forking it.
@@ -796,6 +807,58 @@ and the acts list folds the acts under it. Everything lives in one block of `pag
   and one about the role's order across the whole list (`42-roles-acts`) files Sable under Rock by hand, so the list
   has one main genre and no groups.
 
+### Songs in folds: an act, then its albums (`js/model.js`, `js/pages/songs.js`)
+
+The songs list folds its songs the way the acts list folds its acts under their main genres (above), and its folds
+look and behave the same. Everything lives in one block of `pages/songs.js` ("folds").
+
+* **When.** By act when the library's songs are of two or more acts (songs with no act, or whose act is gone, count as
+  one more); inside every act's fold, by album once any song in the library has one (`model.albumOf`), so an act
+  none of whose songs has an album holds a lone Singles & unreleased fold (the owner: "Songs with none go in a SINGLES
+  & UNRELEASED fold, last in each band"); with no album anywhere, an act's fold lists its songs straight. With songs
+  of one act (or of none), its album folds only, and with no album either the list is as it always was: the act's
+  name over its cards (`section.sg-group > h3`), none of the hooks below. Whether there are folds, and each album's name, come from the whole library, never
+  from the search's matches.
+* **The folds.** `div.list.sg-folds` holds the top folds: `section.sg-fold.sg-fold-act[data-act=<actId|none>]` per act,
+  A to Z, then No act, or (one act) `section.sg-fold.sg-fold-album[data-act][data-album=<albumKey|none>]` per album, A to
+  Z, then Singles & unreleased (`NO_ALBUM`; an album whose key is `none`, as "N.O.N.E", is `data-album=none_`, so
+  the two never share an id); `.open` while open. Each starts with `h2.sg-fold-h > button.sg-fold-head`
+  (an album inside an act: `h3`), a real disclosure button: `aria-expanded`, `aria-controls="<id>-list"`, the label in
+  `span.sg-fold-name`, the count in `span.sg-fold-n` and the chevron (`span.sg-chev`, turned while open), both hidden
+  from a screen reader, which reads the button's `aria-label` instead: "The Night Owls, 8 songs". Ids: `#sg-act-<actId>`
+  (`#sg-act-none` for No act), `#sg-alb-<actId|none>-<albumKey|none>`. Under it, `div.list.sg-fold-list#<id>-list
+  [role=group]` labelled by the heading holds the act's album folds or the songs (A to Z by title, as the list always
+  had them), and is empty and `hidden` while folded. An album's name is the spelling most of the act's songs use (the
+  first A to Z on a tie), so "Harbour Lights EP" and "harbour lights ep" are one fold. No act is "No " + the role's word
+  for an act (`actWord()`: No artist, No band, No act); the counts are always "songs".
+* **Folding.** Every fold is folded at first; a tap, Enter or Space on a heading opens or folds it, and the page is
+  drawn again at once with the focus on the heading (it has an id, so the focus also comes back to it after any other
+  redraw). An act folded and opened again keeps its albums as they were. The folds opened are kept in memory for the
+  visit (`S.folds`, keys `<actKey>` and `<actKey>\n<albumKey>`): another section and back keeps them; a reload folds them
+  all. A song saved through the form, and a song the search at the top opens (`showSongs('songs', songId)`), has its
+  folds opened, so its card is on the list for the focus to come back to.
+* **The page's own search** (`#sg-q`, from four songs) opens every fold with a match and leaves out the folds without
+  one; the counts are the matches. A fold folded during a search (`S.shut`) opens again when the words change; clearing
+  the search puts the folds back as they were. Its words (`songText`) include the album, and so does the search at the
+  top of every page, whose song row then says why ("Album: Harbour Lights EP").
+* **No act chips.** The folds take the place of the songs list's act chips; the Setlists view keeps its chips
+  (`.sg-acts`), and a chip picked there hides no song. + Song starts with no act.
+* **The form.** `editSong` has "Album or release" (`input[data-key=album]`) straight after Act, with a `datalist` of
+  the albums already typed for the act picked, A to Z, which follows the Act box as it changes (`albumHelper`); its hint
+  is in the role's words ("The artist’s albums already typed are offered. Leave it empty for a single or a song not out
+  yet: it goes under Singles & unreleased."). It shows what is stored when that is text, else nothing, and a save
+  stores the box with its spaces tidied (`''` when empty). The song's sheet shows it as a fact of its own row, "Album".
+* **What it is not.** Nothing printed or sent changes: the press kit, the printed setlist (`stageDoc`), its text and
+  the split sheet carry no album. The setlist editor's song picker keeps its groups by act.
+* **Walkthroughs.** On a list in folds the songs walkthrough has a step on the folds (`.sg-fold-head`, "By act and
+  album", "By artist", "By album"…, in the role's words) between Songs and setlists and Search; its first step says
+  how the list is drawn, its Search step that the album is searched and that matches open their folds, and its song
+  step drops the first fold open (and its first album) when none is, as a tap would. The song sheet's walkthrough says
+  the album is the fold it sits in.
+* **Specs.** The sample's songs are of two acts (The Night Owls, Sable) and have no albums, so the sample's songs list
+  is in two act folds with the songs straight inside: a spec that reads cards on it opens a fold first
+  (`#sg-act-s-owls`, `#sg-act-s-sablea`); while the page's own search has words in it, the folds with a match are open.
+
 ### House rules, drawn (`js/venues-rules.js`, `js/pages/venues.js`)
 
 * The chip: `span.vn-chip.vn-chip-<ok|some|strict>` with the visible words in `> [aria-hidden=true]` and the spoken
@@ -867,7 +930,7 @@ showing).
   `searchKinds()` is the one place that decides which the person may see: Money only with `moneyShown()`; the licence
   for the working roles narrows it there. Each kind's words are those its own section's search reads, from the function
   the section exports (`actSearchText`, `venueText` and `venueMatches` with the house rules, `personText`, `gearText`,
-  `songText`, `logWords`; `setlistWords` for setlists, which have no search of their own), so the two never disagree; a
+  `songText` (with the song's album), `logWords`; `setlistWords` for setlists, which have no search of their own), so the two never disagree; a
   band is found by every name it has had, and so are its members, songs, setlists, take logs and invoices. Money is
   found by the document's number, its status as the booking's box says it (`statusPill`: Draft, Sent, Part paid, Paid,
   Overdue…, and "unpaid" for one sent and not paid), the client, the act, the booking and its amount, written either
@@ -965,7 +1028,7 @@ showing).
   time seen with `openSeen(actId, seenId)` (its row is marked `.srch-hit` for a moment, and says "as …" from before a
   change); an act with `openActCard(id)` (the acts list, its card dropped open, the focus on it); a venue, a person, a
   song, a setlist or a piece of gear by going to its section and pressing its card there (`#vn-<id>`, `#pp-open-<id>`,
-  `[data-fk="pg-song-<id>"]` after `showSongs('songs')`, `[data-fk="pg-sl-<id>"]` after `showSongs('setlists')`,
+  `[data-fk="pg-song-<id>"]` after `showSongs('songs', id)` (which opens the song's folds), `[data-fk="pg-sl-<id>"]` after `showSongs('setlists')`,
   `#bl-item-<id>`), so its sheet opens over the list and gives the focus back to the card when it closes (when the
   section's own filters hide the card, the sheet opens all the same: `openVenue`, `openPerson`, `openSong`,
   `openSetlist`, `openGear`); a take log with `openLog(id)` (the focus on + Take); a quote or an invoice with
@@ -1088,7 +1151,8 @@ backline, take, comp, stems, split sheet.
   tapped with a finger and clicked), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
-  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `50-backline`, `55-venues`,
+  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `48-song-folds` (a song's album
+  and the songs list in folds), `50-backline`, `55-venues`,
   `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
@@ -1110,7 +1174,7 @@ need a change there, describe it in your report instead.
 | daysheet | `js/daysheet.js`, `js/blocks/daysheet.js`, `daysheet.html`, `js/daysheet-page.js`, `css/daysheet.css`, `tests/specs/20-daysheet.cjs` |
 | money | `js/money.js`, `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs` |
 | studio | `js/clock.js`, `js/blocks/clock.js`, `js/blocks/takes.js`, `js/blocks/worksongs.js`, `js/blocks/deliverables.js`, `js/pages/sessions.js`, `css/studio.css`, `tests/specs/30-studio.cjs` |
-| songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs` |
+| songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs`, `tests/specs/48-song-folds.cjs` |
 | acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs`, `tests/specs/47-genres.cjs` |
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
