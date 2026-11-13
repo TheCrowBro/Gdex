@@ -15,7 +15,7 @@
 // slips of the hand (a double click or tap, a held Enter key) with a log that has junk in it.
 // Shows that must be over are dated two days back or more, so no check there depends on the hour of the run; dates on
 // screen are compared with the app's own formatters run in the page.
-const { open, ok, sleep, go, BASE: URL, licenceLeg } = require('../helpers.cjs');
+const { open, ok, sleep, go, BASE: URL, licenceLeg, licenceAt } = require('../helpers.cjs');
 const { chromium } = require('playwright');
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -57,11 +57,16 @@ const init = () => {
 const clockKit = page => {
   let now = BASE; // the time the page's clock was last set to (it runs on from there)
   // The licence leg ([S-34]): the helper seeded the free days by the real clock, and this page's clock is years on (they
-  // would be over, and the role read-only), so the first time it is set they are seeded again in its own time.
+  // would be over, and the role read-only), so the first time it is set they are seeded again in its own time, and the
+  // page is loaded again on that clock (licenceAt): an open Gdex never takes a later start than one it has known.
   let leg = process.env.GDEX_LICENCE === 'on';
   const setClock = async t => {
     now = t; await page.evaluate(ms => window.__clock(ms), t.getTime());
-    if (leg) { leg = false; await page.evaluate(() => import('./js/kv.js').then(k => { const t = Date.now(); localStorage.setItem('gdex-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); return k.kvSet('licence-days', { first: t, seen: t }).catch(() => {}); })); }
+    if (leg) {
+      leg = false; await licenceAt(page);
+      const st = await page.evaluate(() => import('./js/licence-state.js').then(l => ({ first: l.licenceNow().first, now: Date.now(), write: l.canWrite() })));
+      ok('the licence leg: the free days start on the page’s own clock, so Gdex can change things', st.write === true && Math.abs(st.first - st.now) < 60000 && new Date(st.first).getFullYear() === t.getFullYear(), JSON.stringify(st));
+    }
   };
   const sight = hidden => page.evaluate(hidden => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });

@@ -1282,13 +1282,14 @@ backline, take, comp, stems, split sheet.
   test server serves `js/licence-config.js` with `localhost` live and the status `{ on: true }`, sends no `Date` header
   on `/licence/*` (a spec's clock is its own), and `open()` seeds, before the first page, free days already under way
   and the terms agreed (only when absent). A context a spec makes itself takes `licenceLeg(ctx)`; a page whose clock a
-  spec moved years on takes `licenceAt(page, sel)` (both from `tests/helpers.cjs`; nothing in the off leg). The specs
+  spec moved years on takes `licenceAt(page, sel)`, which seeds them in the page's own time and loads the page again, since
+  an open Gdex never takes a later start than one it has known (both from `tests/helpers.cjs`; nothing in the off leg). The specs
   that read differently in the on leg, and why:
 
   | Spec | In the on leg |
   |---|---|
   | `06-roles`, `43-ask`, `47-genres`, `70-settings` | their own contexts take `licenceLeg` |
-  | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, 43's `setClock`) |
+  | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
   | `90-drive` | its own contexts take the same seed |
   | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92` | set their own state, or none: the same in both legs |
