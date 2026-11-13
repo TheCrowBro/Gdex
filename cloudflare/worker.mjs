@@ -51,6 +51,12 @@ const plain = t => String(t).replace(/[\r\n]+/g, ' ').slice(0, 120);
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 const sha256 = async text => new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(text)));
 const today = (t = Date.now()) => new Date(t).toISOString().slice(0, 10);
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const dayWords = d => { const [y, m, n] = String(d).split('-').map(Number); return `${n} ${MONTHS[m - 1]} ${y}`; }; // "4 November 2026"
+// An order made in Stripe's test mode (livemode false) gets a code that ends two days after it was issued, so no test
+// purchase becomes a lasting licence (the lead's decision 2); a live order's code never ends.
+const TEST_DAYS = 2;
+const testWords = r => (r.expires ? `This was a test order (Stripe’s test mode), so this code works only until ${dayWords(r.expires)}.` : '');
 
 /* -------------------------------- responses -------------------------------- */
 const API_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
@@ -117,8 +123,10 @@ async function licenceForSession(s, env) {
   const d = s.customer_details || {}, name = codes.fitText(d.name || ''), email = String(d.email || '').trim().toLowerCase();
   const mail = enc.encode(email).length <= 64 && /^[^\s@]+@[^\s@]+$/.test(email) ? email : '';
   const { serial, ref } = await refForSession(s.id);
-  const code = await codes.signCode(key, SHOP_KID, { serial, name: name || (mail ? '' : 'Gdex customer'), email: mail, issued: today((Number(s.created) || 0) * 1000 || Date.now()) });
-  return { code, ref, name, email: email || '', sessionId: s.id };
+  const issued = today((Number(s.created) || 0) * 1000 || Date.now());
+  const expires = s.livemode === false ? today(Date.parse(issued + 'T00:00:00Z') + TEST_DAYS * DAY) : '';
+  const code = await codes.signCode(key, SHOP_KID, { serial, name: name || (mail ? '' : 'Gdex customer'), email: mail, issued, expires });
+  return { code, ref, name, email: email || '', sessionId: s.id, expires };
 }
 
 // The cancellation of a code (x:<ref>: { why: 'refund' | 'dispute' | 'owner', at }), or null.
@@ -137,6 +145,8 @@ async function thanks(url, env) {
   const who = r.name || r.email, web = await webReady(env), mailed = !!(env.RESEND_API_KEY && r.email);
   return page(200, 'Thank you: here is your Gdex licence', `<h1>Thank you: here is your Gdex licence</h1>
 <p>${who ? `Licensed to <b>${esc(who)}</b>. ` : ''}It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).${mailed ? ` We’ve emailed it to you too, at ${esc(r.email)}.` : ' Keep a copy: this page is the only place it is shown.'}</p>
+${r.expires ? `<p><b>${esc(testWords(r))}</b></p>
+` : ''}
 <div class="card"><label for="code" class="muted">Your licence code</label><textarea id="code" rows="8" readonly>${esc(r.code)}</textarea><button id="copy" type="button">Copy the code</button> <span id="copied" class="muted" role="status"></span></div>
 ${web ? `<p><b>On the website:</b> Settings → About &amp; licence → Sign in, with ${r.email ? `<b>${esc(r.email)}</b>` : 'the email address you paid with'}. Gdex emails you a 6-digit code to type in.</p>
 ` : ''}<p><b>In the desktop app:</b> Settings → About &amp; licence → Enter licence code, and paste the code. <a href="/download.html">Download Gdex for your computer</a> if you haven’t yet.</p>
@@ -186,8 +196,8 @@ async function webhook(request, env) {
 // The licence email. Every value in its HTML is escaped; the subject is fixed text.
 async function sendCode(env, r, web) {
   const who = r.name ? `${r.name} (${r.email})` : r.email;
-  const text = `Thank you for buying Gdex.\n\nLicensed to ${who}. It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).\n\nYour licence code:\n\n${r.code}\n\n${web ? `On the website (${SITE}): Settings → About & licence → Sign in, with this email address. Gdex emails you a 6-digit code to type in.\n\n` : ''}In the desktop app: Settings → About & licence → Enter licence code, and paste the code. Download Gdex for your computer: ${SITE}/download.html\n\nKeep this email: it is your licence.${env.REPLY_TO ? ' Questions? Reply to it.' : ''}\n`;
-  const html = `<p>Thank you for buying Gdex.</p><p>Licensed to <b>${esc(r.name || r.email)}</b>${r.name ? ` (${esc(r.email)})` : ''}. It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).</p><p>Your licence code:</p><p style="font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;background:#f3eefb;color:#211a2e;padding:12px;border-radius:8px">${esc(r.code)}</p>${web ? `<p><b>On <a href="${SITE}/">the website</a>:</b> Settings → About &amp; licence → Sign in, with this email address. Gdex emails you a 6-digit code to type in.</p>` : ''}<p><b>In the desktop app:</b> Settings → About &amp; licence → Enter licence code, and paste the code. <a href="${SITE}/download.html">Download Gdex for your computer</a>.</p><p>Keep this email: it is your licence.${env.REPLY_TO ? ' Questions? Reply to it.' : ''}</p>`;
+  const text = `Thank you for buying Gdex.\n\nLicensed to ${who}. It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).${r.expires ? `\n\n${testWords(r)}` : ''}\n\nYour licence code:\n\n${r.code}\n\n${web ? `On the website (${SITE}): Settings → About & licence → Sign in, with this email address. Gdex emails you a 6-digit code to type in.\n\n` : ''}In the desktop app: Settings → About & licence → Enter licence code, and paste the code. Download Gdex for your computer: ${SITE}/download.html\n\nKeep this email: it is your licence.${env.REPLY_TO ? ' Questions? Reply to it.' : ''}\n`;
+  const html = `<p>Thank you for buying Gdex.</p><p>Licensed to <b>${esc(r.name || r.email)}</b>${r.name ? ` (${esc(r.email)})` : ''}. It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).</p>${r.expires ? `<p><b>${esc(testWords(r))}</b></p>` : ''}<p>Your licence code:</p><p style="font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;background:#f3eefb;color:#211a2e;padding:12px;border-radius:8px">${esc(r.code)}</p>${web ? `<p><b>On <a href="${SITE}/">the website</a>:</b> Settings → About &amp; licence → Sign in, with this email address. Gdex emails you a 6-digit code to type in.</p>` : ''}<p><b>In the desktop app:</b> Settings → About &amp; licence → Enter licence code, and paste the code. <a href="${SITE}/download.html">Download Gdex for your computer</a>.</p><p>Keep this email: it is your licence.${env.REPLY_TO ? ' Questions? Reply to it.' : ''}</p>`;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': 'gdex-licence-' + r.sessionId },
@@ -275,7 +285,7 @@ async function licencesFor(env, email) {
     for (const pl of paymentLinks(env)) { const found = await stripeGet(env, `checkout/sessions?customer_details[email]=${encodeURIComponent(email)}&payment_link=${encodeURIComponent(pl)}&limit=10`); sessions.push(...((found && found.data) || [])); }
     for (const sess of sessions) {
       const r = await licenceForSession(sess, env); if (r.error || cleanEmail(r.email) !== email) continue;
-      const v = await readCode(r.code); if (v) { await linkEmail(env, email, v.licence); list = [...list, { ref: v.licence.ref, seats: v.licence.seats, name: v.licence.name, comp: false, expires: '' }]; }
+      const v = await readCode(r.code); if (v) { await linkEmail(env, email, v.licence); list = [...list, { ref: v.licence.ref, seats: v.licence.seats, name: v.licence.name, comp: false, expires: v.licence.expires || '' }]; } // a test order keeps its end date
     }
   }
   const out = [];

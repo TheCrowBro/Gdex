@@ -170,9 +170,13 @@ so a Vdex purchase on the same account never makes a Gdex code, and a Vdex refun
    **Reveal** the signing secret and add the value starting `whsec_` in Cloudflare as `STRIPE_WEBHOOK_SECRET`.
 
 Stripe's test mode ("Sandbox") has its own link, keys and webhook: you can do steps 4 to 8 there first and try a test
-card, then do them again in live mode and replace the four Cloudflare secrets with the live ones. **A test purchase's
-code is a real Gdex licence**, signed by the same shop key, and its email stays linked for website sign-in: refund each
-test purchase in Stripe's test mode before you switch (or cancel its code in the generator afterwards, Part 8).
+card, then do them again in live mode and replace the Cloudflare secrets with the live ones. **While you test, leave
+`BUY_URL` unset** (the website and `/buy` then say the licence is not on sale yet, and the website's licence stays
+paused) **and open the test payment link directly** from Stripe's Dashboard, so nobody else reaches a test checkout; set
+`BUY_URL` only to the live link. **A test purchase's code ends two days after it was issued** (Stripe marks a test
+order `livemode: false`): the thank-you page and the email say until when, and its email signs in to the website only
+until then, so no test purchase becomes a lasting licence. A live order's code never ends. You can still refund test
+purchases in Stripe's test mode, or cancel a code in the generator (Part 8).
 
 **Changing the price later:** a Stripe price can't be edited. In the product, **Add another price**; make a new payment
 link with it exactly as in step 5; in Cloudflare set `BUY_URL` to the new link's address and `STRIPE_PAYMENT_LINK` to

@@ -44,7 +44,9 @@ after payment `https://gdex.crowmade.app/licence/thanks?session_id={CHECKOUT_SES
 link's address) and `STRIPE_PAYMENT_LINK` (its `plink_…` id); a restricted key with Checkout Sessions read →
 `STRIPE_SECRET_KEY`; a webhook to `https://gdex.crowmade.app/licence/stripe-webhook` with
 `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded` and
-`charge.dispute.created` → `STRIPE_WEBHOOK_SECRET`. Test mode first if you like. Steps: `docs/licence-server.md`, Part 4.
+`charge.dispute.created` → `STRIPE_WEBHOOK_SECRET`. Test mode first if you like: while testing, leave `BUY_URL` unset (the
+website then says "not on sale yet") and open the test payment link directly; a test order's code ends two days after
+it was issued, so no test purchase becomes a lasting licence. Steps: `docs/licence-server.md`, Part 4.
 
 ## 5. Resend (10 minutes)
 

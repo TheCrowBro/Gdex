@@ -41,7 +41,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
 
     const calls = [];
     const sessions = new Map();
-    const session = (id, extra = {}) => ({ id, object: 'checkout.session', status: 'complete', payment_status: 'paid', payment_link: 'plink_gdex', created: Date.parse('2026-11-02T12:00:00Z') / 1000, payment_intent: 'pi_' + id.slice(-12), customer_details: { name: 'Pat Buyer', email: 'Pat@Example.com' }, ...extra });
+    const session = (id, extra = {}) => ({ id, object: 'checkout.session', livemode: true, status: 'complete', payment_status: 'paid', payment_link: 'plink_gdex', created: Date.parse('2026-11-02T12:00:00Z') / 1000, payment_intent: 'pi_' + id.slice(-12), customer_details: { name: 'Pat Buyer', email: 'Pat@Example.com' }, ...extra });
     let resendStatus = 200;
     const outbound = async request => {
       const u = new URL(request.url), body = request.method === 'POST' ? await request.text() : '';
@@ -100,6 +100,19 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     ok('the thank-you page shows a GDEX- code made by the shop key, for the buyer, for 3 devices, its ref from Gdex\'s own salt', th.status === 200 && /^GDEX-/.test(code) && v && v.status === 'valid' && v.licence.kid === 2 && v.licence.ref === refForSession(sid) && v.licence.name === 'Pat Buyer' && v.licence.email === 'pat@example.com' && v.licence.seats === 3 && !v.licence.comp && v.licence.issued === '2026-11-02');
     ok('it says, in Gdex\'s words, how to use it on the website and in the desktop app', /Thank you: here is your Gdex licence/.test(html) && /On the website:<\/b> Settings → About &amp; licence → Sign in, with <b>pat@example\.com<\/b>/.test(html) && /In the desktop app:<\/b> Settings → About &amp; licence → Enter licence code/.test(html) && /every role on up to 3 of your devices/.test(html) && /Audiophile stays free/.test(html) && /We’ve emailed it to you too/.test(html) && !/Vdex|Android|iPhone|App Store/i.test(html));
     ok('reloading the page shows the same code', (await (await get('/licence/thanks?session_id=' + sid)).text()).includes(code));
+    ok('a live order\'s code (livemode true) never ends', v && v.licence.expires === '' && !/test order/i.test(html), v && v.licence.expires);
+    const TEST_ORDER = 'cs_test_testModeOrder00000001', noonOf = d => Date.parse(d + 'T12:00:00Z');
+    { // The lead's decision 2: an order made in Stripe's test mode (livemode false) gets a code that ends two days after it was
+      // issued, so no test purchase becomes a lasting licence. Its thank-you page and its email say so.
+      const tsid = TEST_ORDER; sessions.set(tsid, session(tsid, { livemode: false, customer_details: { name: 'Tess Tester', email: 'tess@example.com' } }));
+      const tpage = await (await get('/licence/thanks?session_id=' + tsid)).text();
+      const tcode = (tpage.match(/<textarea id="code"[^>]*>([^<]+)<\/textarea>/) || [])[1];
+      const tv = tcode && (await codes.verifyCode(tcode, { keys: KEYS, now: noonOf('2026-11-02') }));
+      const last = tcode && (await codes.verifyCode(tcode, { keys: KEYS, now: noonOf('2026-11-04') }));
+      const after = tcode && (await codes.verifyCode(tcode, { keys: KEYS, now: noonOf('2026-11-05') }));
+      ok('a test-mode order (livemode false) gets a code that ends two days after it was issued: valid on 2 and 4 November, expired on the 5th', !!tv && tv.status === 'valid' && tv.licence.issued === '2026-11-02' && tv.licence.expires === '2026-11-04' && last.status === 'valid' && after.status === 'expired', JSON.stringify({ issued: tv && tv.licence.issued, expires: tv && tv.licence.expires, last: last && last.status, after: after && after.status }));
+      ok('…its thank-you page says it is a test order and when the code stops working', /This was a test order \(Stripe’s test mode\), so this code works only until 4 November 2026\./.test(tpage), (tpage.match(/<p>[^<]*Licensed to[\s\S]{0,400}/) || [''])[0]);
+    }
     { // a new payment link (a new price) beside the old one: purchases through either still get their code
       const both = make({ ...env, STRIPE_PAYMENT_LINK: 'plink_newprice, plink_gdex' });
       const again = await (await both.dispatchFetch(SITE + '/licence/thanks?session_id=' + sid, { redirect: 'manual' })).text();
@@ -134,6 +147,15 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const vdexEvent = await (await signed({ type: 'checkout.session.completed', data: { object: sessions.get('cs_test_vdexPayment000000001') } })).json();
     ok('a Vdex purchase\'s webhook (same Stripe account) is ignored: no code, no email', vdexEvent.ignored === 'not-ours' && mails().length === 0, JSON.stringify(vdexEvent));
     ok('other events are acknowledged and ignored', (await (await signed({ type: 'customer.created', data: { object: {} } })).json()).ignored === 'customer.created');
+    { // The lead's decision 2, by email: a test-mode order's webhook emails the same two-day code, and says so.
+      calls.length = 0;
+      const tsign = await (await signed({ type: 'checkout.session.completed', data: { object: sessions.get(TEST_ORDER) } })).json();
+      const tmail = mails().find(m => [].concat(m.to).includes('tess@example.com'));
+      const mcode = tmail && (tmail.text.match(/GDEX-[0-9A-Z]+(?:-[0-9A-Z]+)*/) || [''])[0];
+      const mv = mcode && (await codes.verifyCode(mcode, { keys: KEYS, now: noonOf('2026-11-02') }).catch(() => null));
+      ok('…its webhook emails the same two-day code, saying so too', tsign.ok === true && !!mv && mv.licence.expires === '2026-11-04' && /This was a test order \(Stripe’s test mode\), so this code works only until 4 November 2026\./.test(tmail.text) && /This was a test order \(Stripe’s test mode\), so this code works only until 4 November 2026\./.test(tmail.html), JSON.stringify({ tsign, expires: mv && mv.licence.expires }));
+      sessions.delete(TEST_ORDER);
+    }
 
     /* ---------------------------- 3 computers ---------------------------- */
     const id = n => 'install-' + String(n).padStart(14, '0');
@@ -276,6 +298,12 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     calls.length = 0;
     await web('start', { email: 'late@example.com' }); await web('start', { email: 'vonly@example.com' });
     ok('a buyer whose webhook never came is looked up in Stripe, among Gdex\'s payment links only', calls.some(c => /customer_details%5Bemail%5D=late%40example\.com|customer_details\[email\]=late%40example\.com/.test(c.url) && /payment_link=plink_gdex/.test(c.url)) && /^\d{6}$/.test(lastCode('late@example.com') || '') && !lastCode('vonly@example.com'));
+    // The lead's decision 2 here too: a test-mode order found in Stripe (its webhook never came) keeps its end date, so
+    // once its two days are over it signs in to nothing.
+    const tlsid = 'cs_test_lateTestOrder000000001'; sessions.set(tlsid, session(tlsid, { livemode: false, customer_details: { name: 'Late Tester', email: 'late-test@example.com' } }));
+    await web('start', { email: 'late-test@example.com' });
+    ok('…but a test-mode order found there, its two days over, gives no sign-in', !lastCode('late-test@example.com'), lastCode('late-test@example.com'));
+    sessions.delete(tlsid);
     // The right code, but the licence was refunded in between.
     const csid = 'cs_test_cancelBetween00000001'; sessions.set(csid, session(csid, { customer_details: { name: 'Between', email: 'between@example.com' } }));
     await signed({ type: 'checkout.session.completed', data: { object: sessions.get(csid) } });
