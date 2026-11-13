@@ -1,6 +1,6 @@
-// The calendar: what the Bookings page shows while no booking is open. One frame (the heading, the filter chips, the
-// calendar panel with its row of view buttons, and "Coming up") around five views of the same bookings: the month and
-// two weeks as day squares, the week as a list for each day, three days and one day as a time grid.
+// The calendar: what the Bookings page shows while no booking is open. One frame (the heading, the calendar panel with
+// its row of view buttons, the filter chips under it, and "Coming up") around five views of the same bookings: the
+// month and two weeks as day squares, the week as a list for each day, three days and one day as a time grid.
 // Everything it needs from the page (js/pages/bookings.js) arrives in ctx; it never imports the page.
 //   ctx = { S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }
 //   S: the page's state. Read S.mode ('month' | 'two' | 'week' | 'three' | 'day'), S.day (the one anchor day, always a
@@ -116,7 +116,11 @@ export function calendarView(ctx) {
     announce(isDay ? fmtLong(day) + (day === todayISO() ? ', today' : '') : mode === 'month' ? monthTitle(day) : rangeTitle(to.first, to.last));
   };
   const all = db.bookings.filter(b => isoOk(b.date) && X.passes(b)); // the filter chips apply in every view
-  const body = h('div', { class: 'bk-body' }, squared ? squares(mode, R, all, today, title) : mode === 'week' ? weekList(R, all, today) : timeGrid(mode, R, all, today));
+  // The filters hide everything in view: the month, two weeks and week say so at the top of the view, with a way to
+  // clear them (the chips are under the calendar, which can be taller than the screen); the grid says so in its place.
+  const hidden = X.filtersOn() && !all.some(b => R.days.some(d => covers(b, d)));
+  const body = h('div', { class: 'bk-body' }, hidden && mode !== 'three' && mode !== 'day' && filteredNone(),
+    squared ? squares(mode, R, all, today, title) : mode === 'week' ? weekList(R, all, today, hidden) : timeGrid(mode, R, all, today));
   swipe(body, step);
 
   const views = h('div', { class: 'bk-views', role: 'group', 'aria-label': 'Calendar view' }, VIEWS.map(([id, label]) => h('button', {
@@ -141,7 +145,6 @@ export function calendarView(ctx) {
       h('div', { class: 'bk-head-actions' },
         h('button', { type: 'button', class: 'btn ghost small bk-export', title: 'Save your upcoming bookings as a calendar file (.ics)', onclick: X.exportCalendar }, '📆 Export calendar'),
         h('button', { type: 'button', class: 'btn primary bk-new', onclick: () => X.newBooking({ date: newDate }) }, '+ New'))),
-    filters(),
     h('section', { class: 'cal-panel box-dark bk-cal-panel', 'aria-label': 'Calendar' },
       views,
       h('div', { class: 'cal-nav' },
@@ -154,25 +157,53 @@ export function calendarView(ctx) {
       body,
       squared && h('div', { class: 'bk-legend muted', 'aria-hidden': 'true' }, h('span', null, h('i', { class: 'bk-dot st-confirmed' }), ' booked'), h('span', null, h('i', { class: 'bk-dot st-hold' }), ' hold or offer'), h('span', null, h('i', { class: 'bk-dot st-cancelled' }), ' cancelled')),
       isDay && h('div', { class: 'bk-day-add' }, h('button', { type: 'button', class: 'btn ghost small bk-new-day', onclick: () => X.newBooking({ date: S.day }) }, '+ New on this day'))),
+    filters(), // under the calendar, above Coming up: they apply to both
     comingUp());
 }
 
-// The filter chips: one kind of booking, one act. Shown once there is more than one of either to choose from.
+// The filter chips, under the calendar: one kind of booking, one act. Shown once there is more than one of either to
+// choose from. Each has an id, so the focus comes back to it after the redraw a tap causes.
 function filters() {
-  const { S, go } = X;
+  const { S } = X;
   const actsUsed = sortByName(db.acts.filter(a => db.bookings.some(b => b.actId === a.id)));
   const kindsUsed = model.KINDS.filter(([k]) => db.bookings.some(b => b.kind === k));
-  const chip = (on, label, onclick, extra = {}) => h('button', { type: 'button', class: 'chip' + (on ? ' on' : ''), 'aria-pressed': String(on), onclick, ...extra }, label);
+  const chip = (id, on, label, p) => h('button', { type: 'button', class: 'chip' + (on ? ' on' : ''), id, 'aria-pressed': String(on), onclick: () => filterGo(p, id) }, label);
   return (kindsUsed.length > 1 || S.kind || actsUsed.length > 1 || S.act) && h('div', { class: 'bk-filters', role: 'group', 'aria-label': 'Filters' },
     (kindsUsed.length > 1 || S.kind) && h('div', { class: 'chips', role: 'group', 'aria-label': 'Kind of booking' },
-      chip(!S.kind, 'All kinds', () => go({ kind: '' }, { top: false })),
-      model.KINDS.filter(([k]) => S.kind === k || kindsUsed.some(x => x[0] === k)).map(([k, , icon]) => chip(S.kind === k, `${icon} ${KIND_CHIP[k]}`, () => go({ kind: S.kind === k ? '' : k }, { top: false })))),
+      chip('bk-f-kind', !S.kind, 'All kinds', { kind: '' }),
+      model.KINDS.filter(([k]) => S.kind === k || kindsUsed.some(x => x[0] === k)).map(([k, , icon]) => chip('bk-f-kind-' + k, S.kind === k, `${icon} ${KIND_CHIP[k]}`, { kind: S.kind === k ? '' : k }))),
     (actsUsed.length > 1 || S.act) && h('div', { class: 'chips', role: 'group', 'aria-label': capital(actWord()) },
-      chip(!S.act, allActs(), () => go({ act: '' }, { top: false })),
-      actsUsed.concat(S.act && !actsUsed.some(a => a.id === S.act) && byId('acts', S.act) ? [byId('acts', S.act)] : []).map(a => chip(S.act === a.id,
+      chip('bk-f-act', !S.act, allActs(), { act: '' }),
+      actsUsed.concat(S.act && !actsUsed.some(a => a.id === S.act) && byId('acts', S.act) ? [byId('acts', S.act)] : []).map(a => chip('bk-f-act-' + a.id, S.act === a.id,
         [h('span', { class: 'bk-swatch', style: safeColor(a.color) ? `--act:${safeColor(a.color)}` : null, 'aria-hidden': 'true' }), a.name || 'Unnamed act'],
-        () => go({ act: S.act === a.id ? '' : a.id }, { top: false })))));
+        { act: S.act === a.id ? '' : a.id }))));
 }
+// A chip's tap draws the page again, and the calendar above the chips can grow or shrink with the filter (a week's rows,
+// the hours of the grid): the page is scrolled by as much, so the chip stays where it was on screen, under the finger
+// and the focus, as far as the page is long enough for it. When the page moves up (or a page grown shorter stops it
+// lower), the section menu slides back over the top of the screen (js/app.js), so the chip is then kept below it.
+function filterGo(p, id) {
+  const was = document.getElementById(id), y0 = was && was.getBoundingClientRect().top, sy = window.scrollY;
+  X.go(p, { top: false });
+  const chip = document.getElementById(id), nav = document.getElementById('deck');
+  if (!chip || y0 == null) return;
+  const t = chip.getBoundingClientRect().top, now = window.scrollY, max = document.documentElement.scrollHeight - window.innerHeight;
+  const to = at => Math.max(0, Math.min(max, now + t - at)); // the scroll that puts the chip at that height on screen
+  let y = to(y0);
+  if (y < sy - 6 && nav) y = to(Math.max(y0, nav.offsetHeight + 8));
+  if (Math.abs(y - now) >= 1) window.scrollTo(0, y);
+}
+// Clear both filters. The button goes with them: the focus moves to the view's heading (for the button in the view) or
+// to the first chip (for Coming up's, just under the chips), the page stays where it is, and the change is said aloud.
+function clearFilters(...focusTo) {
+  X.go({ kind: '', act: '' }, { top: false });
+  const root = X.root(), el = root && focusTo.map(sel => root.querySelector(sel)).find(Boolean);
+  if (el && (!document.activeElement || document.activeElement === document.body)) el.focus({ preventScroll: true });
+  announce('Filters cleared');
+}
+// "Nothing on with these filters." where a view the filters leave empty would show what is on, with the way out beside it.
+const filteredNone = () => h('div', { class: 'bk-filtered' }, h('p', { class: 'muted bk-none' }, 'Nothing on with these filters.'),
+  h('button', { type: 'button', class: 'btn ghost small', id: 'bk-filters-clear', onclick: () => clearFilters('[data-view-head]') }, 'Clear the filters'));
 
 // "Coming up", under every view: the next bookings, soonest first; on the same day, in the order the bands play.
 function comingUp() {
@@ -185,7 +216,7 @@ function comingUp() {
         h('div', { class: 'list' }, shown.map(agendaCard)),
         list.length > 8 && h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost small', id: 'bk-agenda-more', onclick: () => go({ all: !S.all }, { top: false }) }, S.all ? 'Show fewer' : `Show all (${list.length})`)))
       : empty(X.filtersOn() ? 'Nothing coming up with these filters.' : moneyShown() ? 'Nothing coming up. Add a show, a studio session or a rehearsal, or tap a date on the calendar.' : 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.',
-        X.filtersOn() ? h('button', { type: 'button', class: 'btn ghost', onclick: () => go({ kind: '', act: '' }, { top: false }) }, 'Clear the filters')
+        X.filtersOn() ? h('button', { type: 'button', class: 'btn ghost', id: 'bk-agenda-clear', onclick: () => clearFilters('.bk-filters .chip', '[data-view-head]') }, 'Clear the filters')
           : moneyShown() ? h('button', { type: 'button', class: 'btn primary', onclick: () => X.newBooking({}) }, '+ New booking') : h('button', { type: 'button', class: 'btn primary', onclick: () => X.newBooking({ kind: 'show' }) }, '+ Add a show')),
   ];
 }
@@ -309,14 +340,14 @@ function arrowKeys(grid, mode, R) {
 }
 
 /* ------------------------------- week: a list for each day ------------------------------- */
-function weekList(R, all, today) {
+function weekList(R, all, today, hidden) {
   return h('div', { class: 'bk-week' }, R.days.map(iso => {
     const list = all.filter(b => covers(b, iso)).sort(byPlay), now = iso === today;
     return h('section', { class: 'bk-wday' + (now ? ' today' : '') + (list.length ? '' : ' bk-wday-empty') },
       h('h3', { class: 'bk-wday-h' }, h('button', { type: 'button', class: 'bk-wday-head', id: 'bk-wd-' + iso, 'data-date': iso, 'aria-label': openDay(iso, today), 'aria-current': now ? 'date' : null,
         onclick: () => X.go({ mode: 'day', day: iso }) }, dayShort(iso), now && ' · today')),
       list.length ? h('div', { class: 'bk-wrows' }, list.map(b => weekRow(b, iso)))
-        : h('p', { class: 'muted bk-none' }, X.filtersOn() ? 'Nothing on with these filters' : 'Nothing on'));
+        : h('p', { class: 'muted bk-none' }, X.filtersOn() && !hidden ? 'Nothing on with these filters' : 'Nothing on')); // a week the filters empty says so once, at its top
   }));
 }
 
@@ -363,7 +394,7 @@ function timeGrid(mode, R, all, today) {
     return h('button', { type: 'button', class: 'bk-grid-head' + (now ? ' today' : ''), id: 'bk-gh-' + iso, 'data-date': iso, 'aria-label': openDay(iso, today), 'aria-current': now ? 'date' : null, onclick: () => X.go({ mode: 'day', day: iso }) }, dayShort(iso)); }));
   const frame = (...rows) => h('div', { class: 'bk-grid', style: `--n:${R.days.length};--hh:${hh}px` }, heads, rows);
   if (!inView.length) {
-    const none = h('p', { class: 'muted bk-none' }, X.filtersOn() ? 'Nothing on with these filters.' : one ? 'Nothing booked on this day.' : 'Nothing on these three days.');
+    const none = X.filtersOn() ? filteredNone() : h('p', { class: 'muted bk-none' }, one ? 'Nothing booked on this day.' : 'Nothing on these three days.');
     return one ? none : [frame(), none]; // three days keep their names, each a way into its day
   }
   const any = loose.length > 0 && anyRow(loose, R, one);
@@ -479,7 +510,6 @@ export function calendarSteps(ctx) {
   return [
     { title: 'New booking', text: 'Add a show, a studio session, a rehearsal or anything else in the diary.', target: ['.bk-new'] },
     { title: 'Export calendar', text: moneyShown() ? 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar, or to send to the band. No fees or deals go in it.' : 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar.', target: ['.bk-export'] },
-    { title: 'Filters', text: 'Show one act, or one kind of booking, on the calendar and in the list.', target: ['.bk-filters'] },
     { title: 'Views', text: 'Month, 2 weeks, Week, 3 days or Day. Gdex opens on the one you picked here last.', target: ['.bk-views'] },
     // A day with nothing on has no grid: no hours to speak of, and nothing to tap, so those two steps are skipped there.
     { title: 'The calendar', text: gridHelp(mode), target: [mode === 'day' ? '.bk-dayview .bk-grid' : '.bk-cal-panel'] },
@@ -487,6 +517,8 @@ export function calendarSteps(ctx) {
       { title: 'Add to this day', text: 'A new booking with this date already filled in.', target: ['.bk-new-day'] },
       { title: pageName(), text: 'Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-dayview .bk-grid'] },
     ] : []),
+    // The chips come after the calendar, as a keyboard and a screen reader meet them.
+    { title: 'Filters', text: 'Under the calendar: show one act, or one kind of booking, on the calendar and in Coming up.', target: ['.bk-filters'] },
     { title: 'Coming up', text: 'Your next bookings, soonest first; on the same day, in the order the bands play. Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-agenda', '.bk-calview > .empty'] },
     // The lines a card can carry, each explained only when one is on screen.
     ...(onScreen('.vn-chip') ? [{ title: 'House rules', text: RULES_HELP, target: ['.bk-agenda .vn-chip', '.bk-cal-panel .vn-chip'] }] : []),

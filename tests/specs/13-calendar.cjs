@@ -181,8 +181,10 @@ async function press(page, loc, ms) {
       // the walkthrough
       const tour = await steps(page), names = tour.map(s => s[0]);
       const cal = (tour.find(s => s[0] === 'The calendar') || [])[1] || '';
-      ok(`${v}: the walkthrough has New booking, Export calendar, Filters, Views, The calendar and Coming up`, same(names.filter(n => !['Add to this day', 'Bookings'].includes(n)), ['New booking', 'Export calendar', 'Filters', 'Views', 'The calendar', 'Coming up'])
+      // The filter chips are under the calendar: their step comes after it, as a keyboard and a screen reader meet them.
+      ok(`${v}: the walkthrough has New booking, Export calendar, Views, The calendar, Filters and Coming up`, same(names.filter(n => !['Add to this day', 'Bookings'].includes(n)), ['New booking', 'Export calendar', 'Views', 'The calendar', 'Filters', 'Coming up'])
         && (tour.find(s => s[0] === 'Views') || [])[1] === 'Month, 2 weeks, Week, 3 days or Day. Gdex opens on the one you picked here last.' && same((tour.find(s => s[0] === 'Coming up') || [])[2], ['.bk-agenda', '.bk-calview > .empty']), names.join(', '));
+      ok(`${v}: …and its Filters step says the chips are under the calendar, and points at them`, same(tour.find(s => s[0] === 'Filters'), ['Filters', 'Under the calendar: show one act, or one kind of booking, on the calendar and in Coming up.', ['.bk-filters']]), JSON.stringify(tour.find(s => s[0] === 'Filters')));
       ok(`${v}: …and The calendar step speaks of this view`, cal.startsWith({ month: 'Each line or dot is a booking', two: 'Two weeks of days, each booking with the time the band plays.', week: 'Each day lists what is on, in the order the bands play.', three: 'Three days with nothing on. Tap a day’s name to see that day alone', day: 'Hours run down the side' }[v]), cal); // no hours on three empty days (an empty Day skips the step)
       ok(`${v}: only the Day view adds “Add to this day” and a step named after the page`, names.includes('Add to this day') === (v === 'day') && names.includes('Bookings') === (v === 'day'), names.join(', '));
     }
@@ -289,18 +291,66 @@ async function press(page, loc, ms) {
   ok('a day with nothing on says “Nothing on”', empties.length >= 1 && empties.every(t => t === 'Nothing on'), empties.join('|'));
   ok('a booking with no date is in no row', (await page.locator('.bk-calview [data-id="c-nodate"]').count()) === 0);
 
-  // the filter chips apply to the view as well as to Coming up
-  await page.locator('.bk-filters .chip', { hasText: 'Sable' }).click(); await sleep(250);
+  // the filter chips: right under the calendar box, above Coming up; they apply to the view as well as to Coming up
+  const place = () => page.evaluate(() => { const root = document.querySelector('.bk-calview'), panel = root.querySelector('.bk-cal-panel').getBoundingClientRect(), f = root.querySelector('.bk-filters').getBoundingClientRect(), head = root.querySelector('.bk-agenda-head').getBoundingClientRect();
+    return { kids: [...root.children].map(c => c.className.split(' ')[0]), gap: Math.round(f.top - panel.bottom), under: Math.round(head.top - f.bottom), page: document.documentElement.scrollWidth <= innerWidth }; });
+  for (const v of ['month', 'two', 'week', 'three', 'day']) {
+    await view(page, v);
+    const at = await place();
+    ok(`${v}: the filter chips sit right under the calendar box and above Coming up, in the page's order as on screen`, same(at.kids, ['page-head', 'cal-panel', 'bk-filters', 'bk-agenda-head', 'bk-agenda']) && at.gap >= 0 && at.gap <= 16 && at.under >= 0 && at.under <= 40 && at.page, JSON.stringify(at));
+  }
+  // On a laptop Coming up is beside the calendar: the chips stay under the calendar box, in its column.
+  await page.setViewportSize({ width: 1280, height: 900 }); await sleep(250);
+  for (const v of ['month', 'week', 'day']) {
+    await view(page, v);
+    const at = await page.evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(), p = r('.bk-cal-panel'), f = r('.bk-filters'), hd = r('.bk-agenda-head');
+      return { left: Math.round(f.left - p.left), width: Math.round(f.width - p.width), gap: Math.round(f.top - p.bottom), beside: hd.left >= p.right && Math.abs(hd.top - p.top) <= 2 }; });
+    ok(`1280 px, ${v}: the chips are under the calendar box, as wide as it, with Coming up beside it from its top`, at.left === 0 && at.width === 0 && at.gap >= 0 && at.gap <= 16 && at.beside, JSON.stringify(at));
+  }
+  await page.setViewportSize({ width: 420, height: 900 }); await sleep(250);
+  await toWeek(page, T);
+  // A tap on a chip draws the page again, and the week above the chips grows or shrinks with the filter: the chip stays
+  // where it was on screen (never the top of the page), with the focus on it, and clear of the section menu.
+  const chipAt = t => page.evaluate(t => { const c = [...document.querySelectorAll('.bk-filters .chip')].find(x => x.textContent.includes(t)), r = c.getBoundingClientRect(), nav = document.getElementById('deck');
+    return { top: Math.round(r.top), y: Math.round(scrollY), focus: document.activeElement === c, pressed: c.getAttribute('aria-pressed'), clear: nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom, id: c.id }; }, t);
+  const tapChip = async t => { const b = await page.locator('.bk-filters .chip', { hasText: t }).boundingBox(); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); await sleep(400); return chipAt(t); };
+  await page.evaluate(() => { const c = [...document.querySelectorAll('.bk-filters .chip')].find(x => x.textContent.includes('Sable')); window.scrollTo(0, c.getBoundingClientRect().top + scrollY - innerHeight + 90); }); await sleep(400);
+  const c0 = await chipAt('Sable'), c1 = await tapChip('Sable');
   ids = await weekIds(page, T);
   ok('with an act’s chip on, only that act’s rows are left', same(ids, ['c-A', 'c-D']), ids.join(','));
-  await page.locator('.bk-filters .chip', { hasText: 'All acts' }).click(); await sleep(150);
+  ok('…and the chip, tapped under the calendar, stays where it was on screen though the week above it got shorter, pressed and with the focus', Math.abs(c1.top - c0.top) <= 1 && c1.y < c0.y - 100 && c1.focus && c1.pressed === 'true' && c1.clear && c1.id === 'bk-f-act-s-sablea', JSON.stringify([c0, c1]));
+  const c2 = await tapChip('All acts');
+  ok('…as does All acts, the week growing again', Math.abs(c2.top - c1.top) <= 1 && c2.y > c1.y + 100 && c2.focus && c2.pressed === 'true' && c2.clear, JSON.stringify([c1, c2]));
+  // Sable has no rehearsal on any day: with both chips on, nothing in the week is left. It says so once, at its top, with
+  // the way to clear the filters (the chips are under a week that can be taller than the screen); each day “Nothing on”.
+  await page.locator('.bk-filters .chip', { hasText: 'Sable' }).click(); await sleep(250);
   await page.locator('.bk-filters .chip', { hasText: 'Rehearsals' }).click(); await sleep(250);
-  ok('with a kind’s chip on that nothing matches, a day reads “Nothing on with these filters”', same(await weekIds(page, T), []) && (await page.locator(`.bk-wday:has(#bk-wd-${T}) .bk-none`).textContent()) === 'Nothing on with these filters');
+  const hid = await page.evaluate(() => { const body = document.querySelector('.bk-body'), top = body.firstElementChild;
+    return { top: top.className, says: top.querySelector('.bk-none').textContent, btn: (top.querySelector('button') || {}).textContent, id: (top.querySelector('button') || {}).id, days: [...document.querySelectorAll('.bk-wday .bk-none')].map(p => p.textContent) }; });
+  ok('with chips on that nothing in the week matches, the week says “Nothing on with these filters.” at its top, with Clear the filters, and each day “Nothing on”', same(await weekIds(page, T), []) && hid.top === 'bk-filtered' && hid.says === 'Nothing on with these filters.' && hid.btn === 'Clear the filters' && hid.id === 'bk-filters-clear' && same(hid.days, Array(7).fill('Nothing on')), JSON.stringify(hid));
+  await page.locator('.bk-filters .chip', { hasText: 'All kinds' }).click(); await sleep(250); // Sable alone: the week has some of its bookings
+  const some = await page.evaluate(T => ({ top: document.querySelectorAll('.bk-filtered').length, day: [...document.querySelectorAll('.bk-wday')].filter(d => !d.querySelector('.bk-ev')).map(d => d.querySelector('.bk-none').textContent) }), T);
+  ok('…while in a week that has something left, an empty day reads “Nothing on with these filters”, and nothing more is said at the top', some.top === 0 && some.day.length >= 1 && some.day.every(t => t === 'Nothing on with these filters'), JSON.stringify(some));
+  await page.locator('.bk-filters .chip', { hasText: 'Rehearsals' }).click(); await sleep(250);
   await page.click(`#bk-wd-${T}`); await page.waitForSelector('.bk-dayview');
-  ok('…and the Day view reads “Nothing on with these filters.”, with the chips above it', (await page.locator('.bk-dayview .bk-none').textContent()) === 'Nothing on with these filters.' && (await page.locator('.bk-grid').count()) === 0 && (await page.locator('.bk-filters .chip.on', { hasText: 'Rehearsals' }).count()) === 1);
+  ok('…and the Day view reads “Nothing on with these filters.” with Clear the filters, the chips under it', (await page.locator('.bk-dayview .bk-none').textContent()) === 'Nothing on with these filters.' && (await page.locator('.bk-dayview .bk-filtered #bk-filters-clear').count()) === 1 && (await page.locator('.bk-grid').count()) === 0
+    && (await page.locator('.bk-cal-panel + .bk-filters .chip.on', { hasText: 'Rehearsals' }).count()) === 1);
   await view(page, 'three');
-  ok('…as do three days', (await page.locator('.bk-cal-panel .bk-none').textContent()) === 'Nothing on with these filters.');
-  await page.locator('.bk-filters .chip', { hasText: 'All kinds' }).click(); await sleep(250);
+  ok('…as do three days, under their names', (await page.locator('.bk-cal-panel .bk-none').textContent()) === 'Nothing on with these filters.' && (await page.locator('.bk-grid + .bk-filtered #bk-filters-clear').count()) === 1);
+  await view(page, 'month');
+  ok('…and a month with nothing left, above its squares', (await page.locator('.bk-body > .bk-filtered:first-child .bk-none').textContent()) === 'Nothing on with these filters.' && (await page.locator('.bk-body > .bk-filtered + .bk-cal').count()) === 1);
+  // Clear the filters: both go, the focus moves to the view's heading without moving the page, and it is said aloud.
+  await page.locator('#bk-filters-clear').scrollIntoViewIfNeeded(); await sleep(300);
+  const y0 = await page.evaluate(() => scrollY);
+  await page.click('#bk-filters-clear'); await sleep(250);
+  const cleared = await page.evaluate(() => ({ on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: document.activeElement && document.activeElement.matches('[data-view-head]'), y: scrollY, filtered: document.querySelectorAll('.bk-filtered').length, head: document.querySelector('.bk-agenda-head').textContent }));
+  ok('Clear the filters in the view clears both, puts the focus on the view’s heading and says so', same(cleared.on, ['All kinds', 'All acts']) && cleared.focus && Math.abs(cleared.y - y0) <= 1 && cleared.filtered === 0 && cleared.head === 'Coming up' && (await spoken(page)) === 'Filters cleared', JSON.stringify(cleared));
+  // Coming up's own Clear the filters, under the chips: the focus moves up to the first chip.
+  await page.locator('.bk-filters .chip', { hasText: 'Sable' }).click(); await sleep(200);
+  await page.locator('.bk-filters .chip', { hasText: 'Rehearsals' }).click(); await sleep(250);
+  await page.click('#bk-agenda-clear'); await sleep(250);
+  const cleared2 = await page.evaluate(() => ({ on: [...document.querySelectorAll('.bk-filters .chip.on')].map(c => c.textContent), focus: document.activeElement && document.activeElement.id }));
+  ok('…and Coming up’s Clear the filters puts the focus on the first chip, just above it', same(cleared2.on, ['All kinds', 'All acts']) && cleared2.focus === 'bk-f-kind' && (await spoken(page)) === 'Filters cleared', JSON.stringify(cleared2));
 
   // a swipe across the list is the next week, and opens nothing
   await toWeek(page, T);
@@ -430,7 +480,7 @@ async function press(page, loc, ms) {
   // The steps for the lines a card can carry come after Coming up, each only when one is on screen.
   const lines = async () => [...((await page.locator('.bk-calview .vn-chip').count()) ? ['House rules'] : []), ...((await page.locator('.bk-calview .bk-overlap').count()) ? ['Overlapping sets'] : [])];
   let walk = await tourTitles(page);
-  ok('a day with bookings: its walkthrough shows The calendar and the step for its bookings', same(walk, ['New booking', 'Export calendar', 'Filters', 'Views', 'The calendar', 'Add to this day', 'Bookings', 'Coming up', ...(await lines())]), walk.join(', '));
+  ok('a day with bookings: its walkthrough shows The calendar and the step for its bookings, then the filter chips under them', same(walk, ['New booking', 'Export calendar', 'Views', 'The calendar', 'Add to this day', 'Bookings', 'Filters', 'Coming up', ...(await lines())]), walk.join(', '));
 
   // the hours fit what is on
   await page.click('[aria-label="Next day"]'); await sleep(250);
@@ -446,7 +496,7 @@ async function press(page, loc, ms) {
   await page.click('[aria-label="Next day"]'); await sleep(250);
   ok('a day with nothing on draws no grid', (await title(page)) === (await wantTitle(page, 'day', T3, T3)) && (await page.locator('.bk-grid').count()) === 0 && (await page.locator('.bk-dayview .bk-none').textContent()) === 'Nothing booked on this day.' && (await page.locator('.bk-new-day').count()) === 1);
   walk = await tourTitles(page);
-  ok('…and its walkthrough leaves out The calendar’s hours and the bookings to tap, which are not there', same(walk, ['New booking', 'Export calendar', 'Filters', 'Views', 'Add to this day', 'Coming up', ...(await lines())]), walk.join(', '));
+  ok('…and its walkthrough leaves out The calendar’s hours and the bookings to tap, which are not there', same(walk, ['New booking', 'Export calendar', 'Views', 'Add to this day', 'Filters', 'Coming up', ...(await lines())]), walk.join(', '));
   // only "any time": no empty hours
   await put(page, 'bookings', { id: 'c-U', kind: 'other', status: 'hold', title: 'Untimed', date: T3 }); await sleep(300);
   ok('a day with nothing timed shows the “any time” row and “No times set yet.”, without empty hours', (await page.locator('.bk-any #bk-ev-c-U-any').count()) === 1 && (await page.locator('.bk-grid-body').count()) === 0 && (await page.locator('.bk-grid-note').textContent()) === 'No times set yet.' && (await page.locator('.bk-cal-panel .bk-none').count()) === 0);
@@ -564,8 +614,8 @@ async function press(page, loc, ms) {
   if (await page.locator('#bk-agenda-more').count()) { await page.click('#bk-agenda-more'); await sleep(200); }
   for (const v of ['two', 'week', 'three', 'day', 'month']) {
     await view(page, v);
-    const u = await page.evaluate(() => ({ cards: document.querySelectorAll('.bk-calview > .bk-agenda .bk-card[data-id]').length, head: document.querySelector('.bk-calview > .bk-agenda-head').textContent, after: document.querySelector('.bk-cal-panel').compareDocumentPosition(document.querySelector('.bk-agenda')) & Node.DOCUMENT_POSITION_FOLLOWING, more: !!document.getElementById('bk-agenda-more'), nodate: document.querySelectorAll('.bk-calview [data-id="c-nodate"]').length, filters: document.querySelectorAll('.bk-calview > .bk-filters .chips').length, money: /[$£€]|\bfee\b|guarantee/i.test(document.querySelector('.bk-calview').textContent) }));
-    ok(`${v}: Coming up is under the view, eight cards and “Show all”, with the filter chips above; the booking with no date is nowhere, and no money is on the page`, u.cards === 8 && u.head === 'Coming up' && !!u.after && u.more && u.nodate === 0 && u.filters === 2 && !u.money, JSON.stringify(u));
+    const u = await page.evaluate(() => ({ cards: document.querySelectorAll('.bk-calview > .bk-agenda .bk-card[data-id]').length, head: document.querySelector('.bk-calview > .bk-agenda-head').textContent, after: document.querySelector('.bk-cal-panel').compareDocumentPosition(document.querySelector('.bk-agenda')) & Node.DOCUMENT_POSITION_FOLLOWING, more: !!document.getElementById('bk-agenda-more'), nodate: document.querySelectorAll('.bk-calview [data-id="c-nodate"]').length, filters: document.querySelectorAll('.bk-calview > .bk-cal-panel + .bk-filters + .bk-agenda-head + .bk-agenda').length && document.querySelectorAll('.bk-calview > .bk-filters .chips').length, money: /[$£€]|\bfee\b|guarantee/i.test(document.querySelector('.bk-calview').textContent) }));
+    ok(`${v}: Coming up is under the view, eight cards and “Show all”, with the filter chips between them; the booking with no date is nowhere, and no money is on the page`, u.cards === 8 && u.head === 'Coming up' && !!u.after && u.more && u.nodate === 0 && u.filters === 2 && !u.money, JSON.stringify(u));
   }
 
   /* ---------------- before 06:00: a show's time is the end of its night, anything else's the morning ---------------- */
@@ -775,6 +825,17 @@ async function press(page, loc, ms) {
     const stages = await n.page.evaluate(D3 => { const col = document.querySelector(`.bk-col[data-day="${D3}"]`), c = col.getBoundingClientRect(), bs = [...col.querySelectorAll('.bk-ev')].map(e => e.getBoundingClientRect()).sort((a, b) => a.left - b.left);
       return { n: bs.length, spill: Math.max(...bs.map(b => b.right)) - c.right, over: Math.max(...bs.slice(1).map((b, i) => bs[i].right - b.left)), page: document.documentElement.scrollWidth }; }, D3);
     ok(`320 px, ${scheme}, three days: six sets at once are six lanes side by side, none over another or over the next day`, stages.n === 6 && stages.spill <= 0.5 && stages.over <= 0.5 && stages.page <= 320, JSON.stringify(stages));
+    // The chips under the calendar, with a big menu over a small screen: a tap keeps the chip on screen and clear of the
+    // menu, which comes back over the top of the page when the week above the chips gets shorter.
+    await view(n.page, 'week');
+    for (const t of ['Sable', 'All acts']) {
+      await n.page.evaluate(t => { const c = [...document.querySelectorAll('.bk-filters .chip')].find(x => x.textContent.includes(t)); window.scrollTo(0, c.getBoundingClientRect().top + scrollY - 140); }, t); await sleep(400);
+      const b = await n.page.locator('.bk-filters .chip', { hasText: t }).boundingBox();
+      await n.page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); await sleep(500);
+      const at = await n.page.evaluate(t => { const c = [...document.querySelectorAll('.bk-filters .chip')].find(x => x.textContent.includes(t)), r = c.getBoundingClientRect(), nav = document.getElementById('deck'), p = document.querySelector('.bk-cal-panel').getBoundingClientRect(), f = document.querySelector('.bk-filters').getBoundingClientRect();
+        return { top: Math.round(r.top), inView: r.top >= 0 && r.bottom <= innerHeight, clear: nav.classList.contains('tucked') || r.top >= nav.getBoundingClientRect().bottom, focus: document.activeElement === c, pressed: c.getAttribute('aria-pressed'), under: f.top >= p.bottom, page: document.documentElement.scrollWidth }; }, t);
+      ok(`320 px, ${scheme}, ${menu}: ${t} under the week keeps the chip on screen, clear of the menu, pressed and with the focus`, at.inView && at.clear && at.focus && at.pressed === 'true' && at.under && at.page <= 320, JSON.stringify(at));
+    }
     ok(`no errors in the console (320 px, ${scheme})`, n.errors.length === 0, n.errors.slice(0, 5).join(' | '));
     await n.browser.close();
   }

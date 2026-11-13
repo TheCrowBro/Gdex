@@ -512,19 +512,34 @@ Hooks the specs and walkthroughs rely on, whatever the view: `.bk-calview` (the 
 `.bk-mode-<mode>`), `.bk-monthview` (on it only in the month), `.bk-dayview` (only in the Day view),
 `.bk-day[data-date]` (a day square; today is `.today[aria-current="date"]`; `.bk-day-tall` in two weeks),
 `.bk-ev[data-id]` (an entry in the view's own body, never a Coming up card), `.bk-agenda .bk-card[data-id]`,
-`#bk-agenda-more`, `.bk-agenda-head`, `.bk-filters .chips`, `.bk-export`, `.bk-new`, `.bk-new-day`, `.bk-none` (the
-"nothing on" line), `.bk-cal-panel .cal-title`, `#bk-view-<mode>` (the view buttons, in `.bk-views`), `.bk-body` (the
-view's body, which takes the swipe). Ids, because the page is rebuilt after every change and the focus is given back
-by id: `#bk-wd-<iso>` (a Week day's name), `#bk-gh-<iso>` (a day's name over its grid column),
+`#bk-agenda-more`, `.bk-agenda-head`, `.bk-filters .chips` (straight after the panel: `.bk-cal-panel + .bk-filters`),
+`.bk-export`, `.bk-new`, `.bk-new-day`, `.bk-none` (the "nothing on" line), `.bk-filtered` (the line for a view the
+filters leave empty, with `#bk-filters-clear`; Coming up's own is `#bk-agenda-clear`), `.bk-cal-panel .cal-title`,
+`#bk-view-<mode>` (the view buttons, in `.bk-views`), `.bk-body` (the view's body, which takes the swipe). Ids, because
+the page is rebuilt after every change and the focus is given back by id: `#bk-f-kind`, `#bk-f-kind-<kind>`,
+`#bk-f-act`, `#bk-f-act-<actId>` (the filter chips), `#bk-wd-<iso>` (a Week day's name), `#bk-gh-<iso>` (a day's name over its grid column),
 `#bk-ev-<bookingId>-<iso>` (a Week row, `.bk-wrow`, or a grid block, `.bk-block`), `#bk-ev-<bookingId>-any` (a pill in
 the grid's "any time" row, `.bk-ev-any`), `.bk-col[data-day]` (a grid column).
 **Under `.bk-dayview` a bare `[data-id]` also matches the Coming up card of the same booking: use `.bk-ev[data-id]`.**
 
 ### The calendar's five views (`js/bookings-cal.js`)
 
-One frame around every view: the head, the filter chips (they apply in every view), the panel (the row of view
-buttons, one control: ← → move the focus between them, round from the last to the first, and Enter or Space picks; ‹ title Today ›, the view's body, the legend under squares) and Coming up. Only a view button saves the view
+One frame around every view: the head, the panel (the row of view
+buttons, one control: ← → move the focus between them, round from the last to the first, and Enter or Space picks; ‹ title Today ›, the view's body, the legend under squares), the filter chips and Coming up. Only a view button saves the view
 (`saveCalMode`); a day opened from a square, a day's name or Back from a booking is the Day view for this visit.
+
+* **The filter chips** (one kind of booking, one act; shown once there are two of either to pick from) are right under
+  the calendar box and above Coming up, in every view and every role, and apply to both. On a laptop (1000 px and
+  wider), where Coming up is beside the calendar, they stay under it, in its column. A keyboard and a screen reader
+  meet them after the calendar, and so does the walkthrough: its Filters step ("Under the calendar: …") comes after The
+  calendar (and the Day view's own steps) and before Coming up. What is drawn above them grows or shrinks with a
+  filter (a week's rows, a grid's hours), so a tap scrolls the page by as much (`filterGo`): the chip stays where it
+  was on screen, with the focus, as far as the page is long enough; when the page moves up, the section menu slides
+  back over the top of the screen, and the chip is kept below it. A view the filters leave with nothing in it says so
+  where the person is looking, with Clear the filters (`.bk-filtered`, `#bk-filters-clear`): at the top of the month,
+  the two weeks and the week (each of whose days then reads "Nothing on"), in place of the grid's own line in three
+  days and Day. Clear the filters there puts the focus on the view's heading; Coming up's (when it is empty) on the
+  first chip. Both say "Filters cleared" aloud, and neither moves the page.
 
 * **‹ › and Today** step by the length of the view. The title is not a live region (the page is drawn again at every
   step, and a live region that arrives with its words in it is not read out): each step says the new title through
