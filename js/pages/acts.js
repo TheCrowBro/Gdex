@@ -20,9 +20,13 @@ import { openInputList, openRiders, stagePlot } from '../acts-rider.js';
 import { sectionName, pageOpt, moneyShown, newKind } from '../roles.js';
 // An act's earlier names ("formerly The Night Owls"): every reading of them is the model's.
 import { earlierNames, earlierSpans, formerName, nameSince, formerlyOn, formerlyOf, cleanFormer, sameName } from '../model.js';
+// Main genres (the list's fold-down groups, the form's Main genre): every reading of them is the model's too.
+import { MAIN_GENRES, genreOf, mainGenreOf, mainGenreLabel } from '../model.js';
+import { actWord } from '../roles.js';
 
 // View state survives the redraw after every change: which act is open, which part of it, the search.
-const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set() }; // open: the act cards dropped open on the list
+const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set(), // open: the act cards dropped open on the list
+  groups: new Set(), shut: new Set() }; // the main genres' groups opened this visit; those folded again during the search typed now
 const people = fn => import('./people.js').then(fn).catch(e => { console.error(e); toast('People could not be opened.'); });
 const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
 const toTop = () => setTimeout(() => window.scrollTo(0, 0), 0);
@@ -61,6 +65,7 @@ export function openSeen(actId, seenId) {
   if (!byId('acts', actId)) { toast(`That act is no longer in ${secName()}.`); return Promise.resolve(null); }
   Object.assign(S, { view: 'list', id: null, q: '' }); // the list unfiltered, so the act's card is on it
   S.open.add(actId);
+  S.groups.add(mainGenreOf(byId('acts', actId)).id); // and its main genre's group open, when the list is in groups
   return Promise.resolve(window.logiGo ? window.logiGo('acts') : null).then(() => new Promise(done => {
     redraw();
     setTimeout(() => { // after the draw that follows
@@ -77,8 +82,8 @@ export function openSeen(actId, seenId) {
 // search opens an act this way). Resolves once it is drawn.
 export const openActCard = id => openSeen(id, null);
 // The words the acts list's search looks through (and the search at the top of every page): the name, every earlier
-// name, the genre, the members' names and the notes.
-export const actSearchText = a => [a.name, a.genre, ...membersOf(a).map(p => p.name), ...earlierNames(a).map(n => n.name), a.notes].filter(Boolean).join(' ').toLowerCase();
+// name, the genre and its main genre ("rock" finds a doom folk band set to Rock by hand), the members' names and the notes.
+export const actSearchText = a => [a.name, a.genre, mainGenreOf(a).id && mainGenreOf(a).label, ...membersOf(a).map(p => p.name), ...earlierNames(a).map(n => n.name), a.notes].filter(Boolean).join(' ').toLowerCase();
 
 // The act's form. A new act gets the next colour no other act uses. onSaved(record) after a save.
 const FORM_KEYS = ['name', 'genre', 'color', 'bio', 'links', 'email', 'phone', 'notes'];
@@ -92,10 +97,11 @@ export function editAct(a = {}, onSaved) {
   let names = null, pick = null; // the form's Earlier names (names.read()); the answer to "New name?" while its save runs
   openForm({
     title: isNew ? 'New act' : 'Edit act',
-    values: { ...cur, color: isNew && cur.color == null ? fresh : colorOf(cur) || cur.color || '' },
+    values: { ...cur, color: isNew && cur.color == null ? fresh : colorOf(cur) || cur.color || '', mainGenre: mainGenreOf(cur).auto ? '' : mainGenreOf(cur).id },
     fields: [
       { key: 'name', label: 'Name', required: true, placeholder: 'Band or artist name' },
       { key: 'genre', label: 'Genre', list: GENRES, placeholder: 'e.g. Indie rock' },
+      { key: 'mainGenre', label: 'Main genre', type: 'select', options: [['', autoGenre(cur.genre)], ...MAIN_GENRES], hint: `The heading it’s listed under in ${secName()}. Automatic goes by the genre above.` },
       { key: 'color', label: 'Colour', type: 'select', options: colors, hint: 'The stripe on the act’s cards.' },
       { key: 'email', label: 'Email', type: 'email', placeholder: 'band@…' },
       { key: 'phone', label: 'Phone', type: 'tel' },
@@ -108,6 +114,9 @@ export function editAct(a = {}, onSaved) {
       const name = form.querySelector('input[data-key=name]');
       names = namesEditor(cur);
       (name && name.closest('.field') ? name.closest('.field') : form.firstElementChild).after(names.node);
+      // "Automatic (Rock)" follows the genre as it is typed.
+      const genre = form.querySelector('input[data-key=genre]'), main = form.querySelector('select[data-key=mainGenre]');
+      if (genre && main && main.options[0]) genre.addEventListener('input', () => { main.options[0].textContent = autoGenre(genre.value); });
       if (isNew || !name || !form.parentNode) return;
       // A changed name is asked about once, as it is saved: a new name, or a spelling fix? The sheet's body hears the
       // submit before the form's own handler (js/form.js, which closes the form and saves), so the form stays open
@@ -131,7 +140,7 @@ export function editAct(a = {}, onSaved) {
       // name" (a spelling fix keeps nothing). An act that never had any is not given an empty list.
       const kept = pick && pick.kind === 'new' && typeof latest.name === 'string' && latest.name.trim() ? { name: latest.name.trim(), until: pick.since } : null;
       const former = cleanFormer([...(names ? names.read() : earlierNames(latest)), kept], fields.name); // no editor (it failed to draw): the stored names stay
-      const rec = upsert('acts', { members: [], inputList: [], stagePlot: [], riderTech: '', riderHospitality: '', ...cur, ...latest, ...fields, ...(former.length || 'formerNames' in latest ? { formerNames: former } : {}) });
+      const rec = upsert('acts', withMainGenre({ members: [], inputList: [], stagePlot: [], riderTech: '', riderHospitality: '', ...cur, ...latest, ...fields, ...(former.length || 'formerNames' in latest ? { formerNames: former } : {}) }, v.mainGenre));
       toast(isNew ? `${rec.name} added` : kept ? `Saved. ${kept.name} is kept as an earlier name.` : 'Saved');
       if (onSaved) onSaved(rec);
     },
@@ -450,18 +459,54 @@ function ordered(list) {
 const emptyText = () => pageOpt('acts', 'empty', '') || (secName() === 'Acts' ? '' : `Nothing in ${secName()} yet. `) +
   'An act is a band or artist you play in, manage or produce. Its card counts the times you have seen them play, with your scores out of 100 and its dates coming up; it also keeps its members, links, press kit and tech rider.';
 
+/* ------------------------------- main genres ------------------------------- */
+// The list folds its acts under their main genre (model.mainGenreOf: worked out from the genre typed, or set by hand in
+// the act's form), A to Z, then Unique, then No genre yet; inside each group the role's own order. Only when the acts
+// span two or more main genres (an act with no genre has none): otherwise the list is as it always was. Each group is
+// folded at first, and one opened stays open for the visit (S.groups). The page's own search opens every group with a
+// match and leaves out the others; a group folded during a search (S.shut) opens again when the words change, and
+// clearing the search puts the folds back as they were. The heading is a button (aria-expanded) with an id, so it keeps
+// the focus as it folds and unfolds and after any redraw.
+const GROUP_ORDER = [...MAIN_GENRES.map(([id]) => id), ''];
+const grouped = list => new Set(list.map(a => mainGenreOf(a).id).filter(Boolean)).size > 1;
+const groupId = key => 'ac-grp-' + (key || 'none');
+// "Automatic (Rock)": the form's first choice, with what the genre typed gives.
+const autoGenre = text => `Automatic (${genreOf(text) ? mainGenreLabel(genreOf(text)) : 'no genre yet'})`;
+// The record to store with the form's choice: a main genre set by hand, or none (automatic: the key is left off, as on
+// an act that never had one).
+const withMainGenre = (rec, pick) => { const out = { ...rec }; if (MAIN_GENRES.some(([id]) => id === pick)) out.mainGenre = pick; else delete out.mainGenre; return out; };
+function foldGroup(key, searching) {
+  const set = searching ? S.shut : S.groups;
+  if (set.has(key)) set.delete(key); else set.add(key);
+  redraw(); focusSoon('#' + groupId(key));
+}
+// The groups for the acts shown (all of them, or the search's matches), each with its acts in the order given.
+function groupNodes(list, searching) {
+  const keyOf = new Map(list.map(a => [a, mainGenreOf(a).id]));
+  return GROUP_ORDER.map(key => [key, list.filter(a => keyOf.get(a) === key)]).filter(([, acts]) => acts.length).map(([key, acts]) => {
+    const id = groupId(key), open = searching ? !S.shut.has(key) : S.groups.has(key), label = mainGenreLabel(key);
+    // Its name is given whole ("Rock, 3 bands"): read from the spans, a browser puts a space before the comma.
+    return h('section', { class: 'ac-group' + (open ? ' open' : ''), 'data-group': key || 'none' },
+      h('h2', { class: 'ac-group-h' }, h('button', { type: 'button', class: 'ac-group-head', id, 'aria-label': `${label}, ${plural(acts.length, actWord())}`, 'aria-expanded': String(open), 'aria-controls': id + '-list', onclick: () => foldGroup(key, searching) },
+        h('span', { class: 'ac-group-name' }, label),
+        h('span', { class: 'ac-group-n', 'aria-hidden': 'true' }, String(acts.length)),
+        h('span', { class: 'ac-chev', 'aria-hidden': 'true' }, '▾'))),
+      h('div', { class: 'list ac-group-list', id: id + '-list', role: 'group', 'aria-labelledby': id, hidden: !open }, open ? acts.map(actCard) : []));
+  });
+}
+
 function listView() {
-  const all = ordered([...db.acts]);
-  const listBox = h('div', { class: 'list ac-list' });
+  const all = ordered([...db.acts]), groups = grouped(all);
+  const listBox = h('div', { class: 'list ac-list' + (groups ? ' ac-groups' : '') });
   const fill = () => {
     const q = all.length > 5 ? S.q.trim().toLowerCase() : ''; // no search box, no filter
     const shown = q ? all.filter(a => actSearchText(a).includes(q)) : all;
-    listBox.replaceChildren(...(shown.length ? shown.map(actCard) : [h('p', { class: 'muted ac-nomatch' }, `No act matches “${S.q.trim()}”.`)]));
+    listBox.replaceChildren(...(shown.length ? (groups ? groupNodes(shown, !!q) : shown.map(actCard)) : [h('p', { class: 'muted ac-nomatch' }, `No act matches “${S.q.trim()}”.`)]));
   };
   if (all.length) fill();
   return h('div', { class: 'ac-page' },
     h('div', { class: 'page-head' }, h('h1', null, secName()), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, '+ New act')),
-    all.length > 5 && h('input', { class: 'search', id: 'ac-search', type: 'search', placeholder: 'Search acts, genres, members…', 'aria-label': 'Search acts', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; fill(); } }),
+    all.length > 5 && h('input', { class: 'search', id: 'ac-search', type: 'search', placeholder: 'Search acts, genres, members…', 'aria-label': 'Search acts', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; S.shut.clear(); fill(); } }),
     all.length ? listBox : empty(emptyText(), h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, '+ New act')));
 }
 
@@ -688,16 +733,26 @@ const yours = () => { const n = secName(); return /^my\s/i.test(n) ? 'Your ' + n
 const listSteps = () => {
   const follows = seenOnPage(), logged = pageOpt('acts', 'seen', 'always') === 'logged', how = pageOpt('acts', 'order', 'name');
   const parts = andList(keptTabs().map(([id]) => ({ about: follows ? 'bookings and members' : 'members', epk: 'press kit', rider: 'rider' })[id]));
+  const inGroups = grouped(db.acts), w = actWord(); // the list in main genres: the cards' step opens the first group when none is open
   return [
     { title: secName(), text: follows ? 'The bands and artists you go to see. Each keeps its links, members and notes and the log of each time you saw them; bookings point back to it.' : 'The bands and artists you play in, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
     { title: 'Add an act', text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] },
     { title: yours(), text: (logged ? 'Each card shows their dates coming up on the calendar and, once you log a time you saw them play, how many times, your average and latest score out of 100.' : 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.')
       + (db.acts.some(x => formerName(x)) ? ' “formerly …” under a name is the name they had before.' : '')
-      + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'] },
+      + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'], before: inGroups ? openFirstGroup : undefined },
+    inGroups && { title: 'Main genres', text: `Your ${w}s are grouped by main genre, A to Z. Gdex works it out from the genre typed: indie rock and folk rock are Rock, doom folk is Folk, and a genre it doesn’t know goes under Unique; ${w}s with no genre come last, under No genre yet. Tap a heading to drop its ${w}s down or fold them away. ${/^[aeiou]/.test(w) ? 'An' : 'A'} ${w}’s ✎ Edit sets its main genre by hand.`, target: ['.ac-group-head'] },
     { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. You can log a time you saw them play there too; once you have, the card keeps the log: when, where, the score and your notes.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
     { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
-    { title: 'Search', text: 'Find an act by its name, a name it had before, its genre, a member’s name or its notes.', target: ['#ac-search'] },
-  ];
+    { title: 'Search', text: 'Find an act by its name, a name it had before, its genre, its main genre, a member’s name or its notes.' + (inGroups ? ' The groups with a match open; clear the search and they are as they were.' : ''), target: ['#ac-search'] },
+  ].filter(Boolean);
+};
+// The walkthrough's cards step, on a list in groups that are all folded: a group drops open (and stays open for the
+// visit, as if tapped), so there is a card to point at: the first with dates coming up, for the step after, else the first.
+const openFirstGroup = () => {
+  const keys = [...document.querySelectorAll('.ac-group')].map(g => (g.dataset.group === 'none' ? '' : g.dataset.group));
+  if (!keys.length || document.querySelector('.ac-group-head[aria-expanded="true"]')) return;
+  const busy = keys.find(k => db.acts.some(a => mainGenreOf(a).id === k && actUpcoming(a).length));
+  S.groups.add(busy ?? keys[0]); redraw();
 };
 const PART_TEXT = { about: 'Overview for bookings and members', epk: 'Press kit for promoters and fans', rider: 'Tech rider for the sound engineer' };
 const actSteps = () => {
@@ -743,6 +798,8 @@ const RENAME_HELP = ' Change it and Gdex asks whether it is a new name or a spel
 const formSteps = () => [
   { title: 'Name', text: (hasTab('epk') ? 'The band or artist name, as it goes on posters and the press kit.' : 'The band or artist name, as it goes on posters.') + (document.querySelector('.sheet[aria-label="Edit act"]') ? RENAME_HELP : ''), target: ['input[data-key=name]'] },
   { title: 'Earlier names', text: 'Names the act had before, each with the day it stopped using that name. The latest shows under the name as “formerly …”, and bookings and scores from before that day say which name it had. Add one by hand if the name changed before you kept the act here; ✕ takes one away.', target: ['.ac-was'] },
+  // In words that fit a band and a solo artist alike, as the rest of the form's walkthrough (the hint names the list).
+  { title: 'Main genre', text: 'The heading it sits under on the list. Automatic works it out from the genre and shows what it found: indie rock and folk rock are Rock, and a genre Gdex doesn’t know is Unique. Pick a main genre to choose it yourself.', target: ['select[data-key=mainGenre]'] },
   { title: 'Colour', text: 'The stripe on the act’s cards, so its bookings and songs are quick to tell apart.', target: ['select[id$="-color"]'] },
   { title: 'Links', text: hasTab('epk') ? 'One per line: a name, a colon, the address. They become buttons on the act, lines on the press kit, and the first one is its QR code.' : 'One per line: a name, a colon, the address. They become buttons on the act.', target: ['textarea[data-key=links]'] },
   { title: 'Bio', text: hasTab('epk') ? 'Two or three sentences for promoters and press. It heads the press kit.' : 'A few lines on who they are, what they sound like and where they’ve played.', target: ['textarea[data-key=bio]'] },

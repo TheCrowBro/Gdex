@@ -276,6 +276,113 @@ export const formerlyNote = b => {
   return own && now && !own.toLowerCase().includes(now.toLowerCase()) ? `${now}, formerly ${was}` : `formerly ${was}`;
 };
 
+/* ------------------------------- main genres ------------------------------- */
+// The acts list folds its bands under their main genre (js/pages/acts.js). The genre stays as typed ("Indie rock"); the
+// main genre is worked out from it, or set by hand on the act: act.mainGenre is one of the ids below, and absent (or
+// anything else) is automatic. Nothing printed or sent carries the main genre: the press kit keeps the genre as typed.
+// [id, label] in A to Z order, then Unique, for a genre that fits none of the sixteen. The list's groups and the act
+// form's choices come in this order; a band with no genre at all goes under "No genre yet" (NO_GENRE), after Unique.
+export const MAIN_GENRES = [['blues', 'Blues'], ['classical', 'Classical'], ['country', 'Country'], ['electronic', 'Electronic'], ['folk', 'Folk'],
+  ['gospel', 'Gospel & Christian'], ['hiphop', 'Hip hop & rap'], ['jazz', 'Jazz'], ['latin', 'Latin'], ['metal', 'Metal'], ['pop', 'Pop'], ['punk', 'Punk'],
+  ['rnb', 'R&B & soul'], ['reggae', 'Reggae & ska'], ['rock', 'Rock'], ['world', 'World'], ['unique', 'Unique']];
+export const NO_GENRE = 'No genre yet';
+// The words and phrases each main genre knows, written as genreOf reads them (no capitals or accents, a hyphen as a
+// space, no apostrophes). A phrase is matched whole before its words, so a phrase is also how an exception is written:
+// "punk rock" is Punk, though "rock" comes last. A word marked ~ is weak: it decides only when nothing else in the
+// genre is known ("indie" alone is Rock, "indie pop" is Pop and "hip hop alternative" is Hip hop; "gospel choir" is
+// Gospel; "dance" alone is Electronic, "Latin dance" is Latin). The '' row holds phrases that are no genre, so their
+// words decide nothing ("house band", "covers band").
+const GENRE_TABLE = {
+  rock: 'rock|~indie|~alt|~alternative|garage|grunge|shoegaze|shoegazer|shoegazing|post rock|post punk|psych|psychedelic|psychedelia|prog|' +
+    'progressive|stoner|surf|emo|britpop|madchester|rocknroll|rockabilly|psychobilly|krautrock|new wave|~goth|~gothic|glam|slowcore|sadcore|coldwave|deathrock|postpunk|postrock|' +
+    'jam band|jamband|nugaze|nu gaze',
+  metal: 'metal|~heavy|doom|thrash|sludge|djent|metalcore|deathcore|grindcore|grind|mathcore|blackgaze|nwobhm|numetal',
+  punk: 'punk|punk rock|hardcore|oi|crust|riot grrrl|riot grrl|screamo|skacore|d beat|cowpunk|poppunk',
+  pop: 'pop|synthpop|electropop|europop|hyperpop|kpop|jpop|cpop|cantopop|mandopop|bubblegum|easy listening|adult contemporary|schlager|top 40|boy band|girl group|dreampop',
+  hiphop: 'hip hop|hiphop|rap|~rapper|trap|drill|grime|boom bap|chillhop|crunk|horrorcore|phonk|turntablism|g funk|gangsta|~mc|~emcee|hyphy',
+  rnb: 'rnb|soul|neosoul|funk|funky|motown|doo wop|doowop|new jack swing|quiet storm|~urban|swingbeat',
+  electronic: 'electronic|electronica|electro|edm|idm|house|techno|trance|psytrance|dnb|drumnbass|jungle|dubstep|brostep|ambient|synthwave|retrowave|' +
+    'outrun|vaporwave|chillwave|darkwave|ebm|industrial|breakbeat|breaks|big beat|uk garage|speed garage|future garage|2 step|bass music|future bass|uk funky|' +
+    'hardstyle|gabber|happy hardcore|electro swing|glitch|footwork|juke|downtempo|chillout|chill out|trip hop|triphop|~dance|eurodance|disco|italo|hi nrg|' +
+    'electroclash|synth|synths|modular|~dj|rave|acid|moombahton|gqom|folktronica|indietronica|livetronica|chiptune|8 bit|lofi beats|lo fi beats|' +
+    'deep house|breakcore|neurofunk|big room',
+  folk: 'folk|singer songwriter|singersongwriter|songwriter|~acoustic|celtic|~trad|~traditional|shanty|shanties|antifolk|neofolk|skiffle|cajun|zydeco|polka|~roots|ceilidh|ceili|barn dance|irish dance',
+  country: 'country|americana|bluegrass|honky tonk|honkytonk|~western|western swing|hillbilly|line dance|line dancing',
+  jazz: 'jazz|swing|bebop|bop|big band|dixieland|ragtime|~fusion|manouche|lounge|jazz funk',
+  blues: 'blues|bluesy|boogie woogie',
+  classical: 'classical|neoclassical|~opera|~orchestra|~orchestral|~choir|~choral|symphony|~symphonic|baroque|chamber music|string quartet|early music|' +
+    'film score|~soundtrack|~composer|lieder|art song|minimalism',
+  reggae: 'reggae|ska|dub|dancehall|rocksteady|ragga|raggamuffin|lovers rock|two tone|2 tone|mento|riddim|dance hall',
+  latin: 'latin|latino|latina|salsa|reggaeton|bachata|merengue|cumbia|tango|bossa nova|bossa|samba|mariachi|ranchera|norteno|banda|tejano|corrido|' +
+    'corridos|regional mexican|bolero|mambo|cha cha|chachacha|flamenco|vallenato|mpb|forro|dembow|urbano|son cubano|nueva cancion|~tropical|rumba|' +
+    'tex mex|musica mexicana|latin pop|latin rock|latin rap|latin trap|latin hip hop|latin urban|latin alternative|latin soul|baile funk|funk carioca|afro cuban|rock en espanol',
+  world: 'world|global|afrobeat|afrobeats|afropop|~afro|highlife|juju|soukous|mbalax|makossa|kwaito|amapiano|bhangra|bollywood|qawwali|carnatic|hindustani|' +
+    'raga|fado|klezmer|balkan|gypsy|rai|gnawa|tuareg|arabic|middle eastern|calypso|soca|zouk|kompa|gamelan|chanson|enka|throat singing|indian classical|desert blues',
+  gospel: 'gospel|~christian|worship|praise|ccm|hymn|hymns|spirituals|contemporary christian|christian rock|christian metal|christian pop|christian rap|' +
+    'christian hip hop|christian punk|christian country|christian folk|church',
+  '': 'house band|covers band|cover band|tribute band|tribute act|wedding band|function band|pop up|coffee house',
+};
+const GENRE_WORDS = new Map(), GENRE_WEAK = new Set();
+for (const [id, list] of Object.entries(GENRE_TABLE)) for (const w of list.split('|')) { const p = w.replace(/^~/, ''); GENRE_WORDS.set(p, id); if (w !== p) GENRE_WEAK.add(p); }
+const GENRE_LONGEST = Math.max(...[...GENRE_WORDS.keys()].map(p => p.split(' ').length));
+// Words that say there is no genre yet ("TBC", "n/a"): a genre made only of them is no genre.
+const NOT_A_GENRE = new Set(['none', 'n', 'a', 'na', 'tbc', 'tba', 'tbd', 'unknown']);
+// Two words joined by "&", "+", "/", " and " or " n " that are one genre, never two: R&B, rhythm and blues, drum and bass,
+// D&B, rock and roll, country and western, C&W, singer/songwriter.
+const GENRE_JOINED = [['r', 'b', 'rnb'], ['rhythm', 'blues', 'rnb'], ['drum', 'bass', 'dnb'], ['d', 'b', 'dnb'], ['rock', 'roll', 'rocknroll'],
+  ['country', 'western', 'country'], ['c', 'w', 'country'], ['singer', 'songwriter', 'singersongwriter']]
+  .map(([x, y, to]) => [new RegExp(`\\b${x}(?:\\s*[&+/]\\s*|\\s+(?:and|n)\\s+)${y}\\b`, 'g'), ` ${to} `]);
+// Where one genre ends and the next begins: commas, slashes, "&", "+", brackets, semicolons, new lines, and the words
+// "and", "or", "with", "featuring", "meets", "vs" and "influenced by" between them ("Folk with jazz influences" is Folk).
+const GENRE_SPLIT = /[,;/|+&()[\]{}\n\r–—]|\b(?:and|or|with|featuring|feat|ft|meets|vs|versus|plus|influenced by|inspired by)\b/;
+// A main genre id for one genre's words, or '' when none of them is known: the last word or phrase known decides (English
+// puts the main word last: "indie rock", "folk rock" and "post-rock" are Rock, "doom folk" is Folk, "pop punk" is Punk),
+// a weak one only when no other is known.
+function genreFromWords(words) {
+  let strong = '', weak = '';
+  for (let i = 0; i < words.length;) {
+    let n = Math.min(GENRE_LONGEST, words.length - i);
+    while (n > 0 && !GENRE_WORDS.has(words.slice(i, i + n).join(' '))) n--;
+    if (!n) { i++; continue; }
+    const p = words.slice(i, i + n).join(' '), id = GENRE_WORDS.get(p);
+    if (id) { if (GENRE_WEAK.has(p)) weak = id; else strong = id; }
+    i += n;
+  }
+  return strong || weak;
+}
+const genreSeen = new Map(); // genreOf's answers, by the text: every act on the list asks at every draw
+// The main genre id of a typed genre: '' when there is none (empty, not text, no letter or digit in it, or only words
+// like "TBC"), 'unique' when Gdex cannot place it. Several genres ("Indie rock, electronic"): the first written that
+// Gdex can place decides. Capitals, accents, hyphens and apostrophes are ignored. Never throws.
+export function genreOf(text) {
+  if (typeof text !== 'string') return '';
+  if (genreSeen.has(text)) return genreSeen.get(text);
+  let s = text.normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().replace(/['’‘`´]/g, '').replace(/[-_‐‑‒]/g, ' ');
+  for (const [re, to] of GENRE_JOINED) s = s.replace(re, to);
+  let any = false, id = '';
+  for (const part of s.split(GENRE_SPLIT)) {
+    const words = (part || '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    if (!words.length || words.every(w => NOT_A_GENRE.has(w))) continue;
+    any = true;
+    id = genreFromWords(words);
+    if (id) break;
+  }
+  const out = id || (any ? 'unique' : '');
+  if (genreSeen.size > 2000) genreSeen.clear();
+  genreSeen.set(text, out);
+  return out;
+}
+// A main genre's label ('Rock', 'R&B & soul', 'Unique'), NO_GENRE for '' or an id that is none of them.
+export const mainGenreLabel = id => (MAIN_GENRES.find(([g]) => g === id) || ['', NO_GENRE])[1];
+// An act's main genre: { id, label, auto }. The one set by hand when act.mainGenre is one of MAIN_GENRES' ids (auto
+// false), else the one its genre gives (auto true; id '' and label "No genre yet" when it has no genre). Never throws.
+export function mainGenreOf(a) {
+  const set = a && typeof a.mainGenre === 'string' ? MAIN_GENRES.find(([g]) => g === a.mainGenre) : null;
+  if (set) return { id: set[0], label: set[1], auto: false };
+  const id = genreOf(a ? a.genre : '');
+  return { id, label: mainGenreLabel(id), auto: true };
+}
+
 /* ------------------------------- people & gear ------------------------------- */
 export const PEOPLE_GROUPS = [['band', 'Band members'], ['session', 'Session players'], ['crew', 'Crew'], ['contact', 'Industry contacts']];
 export const ROLES = ['Vocals', 'Guitar', 'Bass', 'Drums', 'Keys', 'Producer', 'Engineer', 'Mix engineer', 'Mastering engineer', 'Session musician',

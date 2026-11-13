@@ -47,6 +47,20 @@
 @media (forced-colors: active) { .ac-score-bar { border: 1px solid CanvasText; } .ac-score-bar i { background: Highlight; forced-color-adjust: none; } }
 .ac-nomatch { padding: 8px 2px; }
 
+/* main genres: the list folded under a heading per main genre, a button with the name, the count and the chevron (as
+   on a card); an open group's cards sit under its heading, a little in from it. */
+.ac-groups { gap: 10px; }
+.ac-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.ac-group-h { margin: 0; font-size: 1rem; line-height: 1.25; }
+.ac-group-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--hit); padding: 7px 10px 7px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); color: inherit; font: inherit; font-size: 1.05rem; font-weight: 800; text-align: left; cursor: pointer; }
+.ac-group-head:hover { border-color: var(--accent); }
+.ac-group-head:hover .ac-group-name, .ac-group-head:focus-visible .ac-group-name { color: var(--accent); }
+.ac-group-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.ac-group-n { flex: none; min-width: 2em; padding: 2px 8px; border-radius: 999px; background: var(--bg2); color: color-mix(in srgb, var(--muted) 70%, var(--text)); font-size: .85rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.ac-group-head[aria-expanded="true"] .ac-chev { transform: rotate(180deg); color: var(--accent); }
+.ac-group-list { padding-left: 10px; }
+.ac-group-list > .card:last-child { margin-bottom: 4px; }
+
 /* earlier names (an act that changed its name): "formerly The Night Owls" in small type under the name, on the act's
    card, its page and its row in "Did you see them?"; "as The Night Owls" on a night in its log from before the change;
    the list of them on the act's page; their rows in the act form (the name, the day it stopped being used and ✕; on
