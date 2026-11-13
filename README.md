@@ -84,11 +84,12 @@ never goes on the press kit, the rider or anything else you send, and the search
 
 **Songs folded by band, then by album.** Each song has an **Album or release** box, which offers the albums already
 typed for the same band. With songs of two or more bands (or some with no band), the songs list folds them under each
-band, A to Z, with **No act** (in your role's word: No artist, No band) last, and inside a band under each album, A to Z,
-with **Singles & unreleased** last for the songs with none (in every band, once any song has an album; until then a
-band's fold lists its songs straight under its name). With songs of one band, only its album folds, once a song has
-an album. Folded at first; the ones you open stay open while Gdex is open. The list's search opens the folds with a match, and both searches find a song by its album. The
-setlists keep their band chips; the press kit and the printed setlists are unchanged.
+band, A to Z, with **No act** (in your role's word: No artist, No band) last, and inside a band under each album, A to
+Z, with **Singles & unreleased** last for the songs with none (in every band, once any song has an album; until then a
+band's fold lists its songs straight under its name). With songs of one band, only its album folds, once a song has an
+album. Folded at first; the ones you open stay open while Gdex is open. The list's search opens the folds with a match,
+and both searches find a song by its album. The setlists keep their band chips; the press kit and the printed setlists
+are unchanged.
 
 ## The calendar
 
