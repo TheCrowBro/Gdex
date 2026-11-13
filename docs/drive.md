@@ -78,8 +78,11 @@ Then:
 - **In the desktop app** Google's sign-in opens in your web browser (Google does not allow it inside an app window).
   Sign in there, then come back to Gdex when the page says so.
 - **The dated copies:** **Bring back a daily copy…** lists them, newest first. Pick one to merge it into this device,
-  or to replace everything with it. While Google Drive is connected, **Replace** makes every connected device exactly
-  like that copy at its next sync, and anything added since is gone from all of them.
+  or to replace everything with it. **Merge** names the records the copy holds that were deleted on this device since,
+  with **Also bring back** ticked: so a booking deleted by mistake comes back, on every connected device, and nothing
+  else is undone. (A backup file shows the same box, not ticked: its deletions stay unless you tick it.) While Google
+  Drive is connected, **Replace** makes every connected device exactly like that copy at its next sync, and anything
+  added since is gone from all of them.
 - **Disconnect** stops syncing on this device. Both copies stay: this device's and the one in your Drive.
 - **Delete Gdex's copy from Google Drive…** removes the shared copy and every dated copy from your Drive and disconnects
   this device. This device keeps everything. Another device still connected puts its copy back the next time it syncs,
@@ -151,7 +154,9 @@ step without adopting or writing anything.
 Every record follows its newer copy (`updatedAt`); a tombstone in `db.deleted` later than a record's `updatedAt` removes
 it. An act's `seen` and a take log's `takes` are joined entry by entry: the newer copy wins and gets every entry of the
 older copy whose id it lacks and that has no tombstone; an entry of the newer copy whose tombstone is later than that
-copy's `updatedAt` goes. Removing a time seen or a take writes a tombstone for its id (Part 0), and Replace with Drive
+copy's `updatedAt` goes. Merge from a daily copy or a backup file with Also bring back (`mergeIn(data, { revive: true })`)
+stamps the records it holds that were deleted here since now and drops their tombstones here, so they are newer than
+every device's tombstone and come back everywhere. Removing a time seen or a take writes a tombstone for its id (Part 0), and Replace with Drive
 linked tombstones every record, time seen and take the backup lacks and stamps every restored record now, so every
 device follows it. Device clocks decide clashes; tombstones last 180 days.
 
@@ -183,7 +188,8 @@ the desktop app refuses to sign in (Google knows only 47861).
   script not loading, then Try again); the walkthroughs of the Backups sheet, the connect sheet and the daily copies;
   first device, second device, edits and deletions travelling; the hour up and one tap; a 401; status changes not
   redrawing the page; the store's gate refusing; the daily and monthly copies; a failed sync and a failed daily copy;
-  bringing a daily copy back and Replace on every device; Disconnect, Delete, Erase (the changes Drive lacks copied
+  bringing a daily copy back and Replace on every device; a booking deleted by mistake brought back by Merge (Also bring
+  back: ticked for a daily copy, not for a backup file) on both devices; Disconnect, Delete, Erase (the changes Drive lacks copied
   first, signing in again from the tap; with no internet nothing erased until Erase anyway); a first sync that fails, then Not
   now; where the focus goes when the card is redrawn (after connecting, Sign in again, Disconnect, Delete, Not now);
   `freeDaysFrom` with a stand-in licence state.

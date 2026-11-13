@@ -254,7 +254,9 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   `personBookings(id)`, `gearBookings(id)`, `personClash(b, personId)`, `gearClash(b, gearId)` (other overlapping bookings
   when together they need more than are owned; both in playing order, `byDayPlay`, so a clash line names them as the day runs), `gearShort(b, gearId)` (this booking alone needs more than are owned), `qtyOf(g)`,
   `usedQty(booking, gearId)` (counts in `booking.gearQty`), `packQty(kit, gearId)` (counts in `kit.qty`; applying a pack
-  to a booking copies them into `gearQty`), `totalValue(g)`, `exportJSON()`, `replaceAll(data)`, `mergeIn(data)`, `eraseAll()`.
+  to a booking copies them into `gearQty`), `totalValue(g)`, `exportJSON()`, `replaceAll(data)`, `mergeIn(data, { revive })` (with `revive`, the records the
+  file holds that were deleted here since, `deletedSince(data)`, come back stamped now so every device takes them back;
+  returns how many), `eraseAll()`.
 
 ### Records
 

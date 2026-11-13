@@ -3,7 +3,7 @@
 // walkthroughs of the Backups sheet, the connect sheet and the daily copies; the first device writes the copy, a second
 // joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
 // page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
-// and Replace reaching every device; Disconnect, Delete Gdex's copy and Erase (the changes Drive lacks copied first, or
+// and Replace reaching every device; a record deleted by mistake brought back by Merge (Also bring back); Disconnect, Delete Gdex's copy and Erase (the changes Drive lacks copied first, or
 // said, with Erase anyway); where the focus goes when the Drive card
 // is redrawn; and the earliest free day carried in the Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in
 // script is served by the test, and one Google Drive held here in Node answers every device (each browser context is
@@ -446,6 +446,53 @@ if (require.main === module) (async () => {
   await syncOn(pa); await syncOn(pb);
   ok('…and it does not come back', !(await data(pa)).acts.some(a => a.id === 'a-after') && !(await data(pb)).acts.some(a => a.id === 'a-after'));
   await closeSheets(pa);
+
+  /* ------------------------------ a record deleted by mistake, brought back by Merge ------------------------------ */
+  // The daily copies are there to undo mistakes: Merge from one offers to bring back the records deleted here since that
+  // copy (ticked for a daily copy, not for a backup file, whose deletions stay unless asked), keeps everything else, and
+  // the other devices follow.
+  {
+    const D5 = fakeDrive();
+    const K = await device(browser, D5, { who: 'K' }); all.push(K);
+    const L = await device(browser, D5, { who: 'L' }); all.push(L);
+    const pk = K.page, pl = L.page;
+    await pk.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { id: 'keep-me', kind: 'show', status: 'confirmed', date: '2026-12-05', title: 'Keep me' })));
+    await connect(pk); await waitCloud(pk, 'synced'); await closeSheets(pk);
+    await connect(pl); await waitCloud(pl, 'synced'); await closeSheets(pl);
+    await until(() => D5.named(weekdayName()).length);
+    const dayCopy = D5.named(weekdayName())[0].body;
+    ok('(today’s copy holds the booking)', JSON.parse(dayCopy).bookings.some(b => b.id === 'keep-me'));
+    await pk.evaluate(() => import('./js/store.js').then(s => s.remove('bookings', 'keep-me'))); // the mistake
+    await pl.evaluate(() => import('./js/store.js').then(s => s.upsert('venues', { id: 'v-later', name: 'Added after the copy' })));
+    await sleep(1500); await syncOn(pl); await syncOn(pk);
+    ok('(the booking is deleted here and in Drive; the other device’s later venue is here)', !(await data(pk)).bookings.some(b => b.id === 'keep-me') && !D5.json().bookings.some(b => b.id === 'keep-me') && (await data(pk)).venues.some(v => v.id === 'v-later'));
+    // a backup file holding it: its deletions stay unless asked
+    await openBackups(pk);
+    await pk.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'gdex-backup-today.json', mimeType: 'application/json', buffer: Buffer.from(dayCopy) });
+    await pk.waitForSelector(`${sheetOf('Bring back a backup')} .se-imp-merge`, { timeout: 10000 });
+    const fileChooser = (await pk.locator(sheetOf('Bring back a backup')).innerText()).replace(/\s+/g, ' ');
+    const fileBox = pk.locator(`${sheetOf('Bring back a backup')} .se-imp-revive input`);
+    ok('a backup file holding a record deleted here since: the chooser names it, with Also bring back, not ticked', (await fileBox.count()) === 1 && !(await fileBox.isChecked()) && /Also bring back the 1 record deleted on this device since this backup: “Keep me”\./.test(fileChooser) && !/Keeps everything on both/.test(fileChooser), fileChooser);
+    await pk.click(`${sheetOf('Bring back a backup')} .se-imp-merge`);
+    await sleep(400);
+    ok('…and Merge without it keeps the deletion and says so, rather than “already had all of it”', !(await data(pk)).bookings.some(b => b.id === 'keep-me') && /Merged\. Nothing changed: the 1 record in that backup deleted on this device since stays deleted\./.test(await toasts(pk)) && !/already had all of it/.test(await toasts(pk)), await toasts(pk));
+    // the daily copy: ticked
+    await pk.click(`${sheetOf('Backups')} .se-bk-drive-restore`);
+    await pk.waitForSelector(`${sheetOf('Bring back a daily copy')} .se-bk-copy`, { timeout: 10000 });
+    await pk.locator(`${sheetOf('Bring back a daily copy')} .se-bk-copy`).first().click();
+    await pk.waitForSelector(`${sheetOf('Bring back a backup')} .se-imp-merge`, { timeout: 10000 });
+    const copyBox = pk.locator(`${sheetOf('Bring back a backup')} .se-imp-revive input`);
+    ok('a daily copy: Also bring back is ticked', (await copyBox.count()) === 1 && (await copyBox.isChecked()) && /Also bring back the 1 record deleted on this device since this copy: “Keep me”\./.test(await pk.locator(sheetOf('Bring back a backup')).innerText()));
+    await pk.click(`${sheetOf('Bring back a backup')} .se-imp-merge`);
+    await sleep(400);
+    const back = await data(pk);
+    ok('Merge from the daily copy brings the deleted booking back and keeps everything else', back.bookings.some(b => b.id === 'keep-me') && back.venues.some(v => v.id === 'v-later') && /Merged: 1 brought back \(deleted here since that copy\), 0 new, 0 updated\./.test(await toasts(pk)), await toasts(pk));
+    ok('…and it reaches Drive and the other device', !!(await until(() => D5.json().bookings.some(b => b.id === 'keep-me'))) && (await syncOn(pl), (await data(pl)).bookings.some(b => b.id === 'keep-me') && (await data(pl)).venues.some(v => v.id === 'v-later')));
+    await syncOn(pk); await syncOn(pl); await syncOn(pk);
+    ok('…and stays, round after round', (await data(pk)).bookings.some(b => b.id === 'keep-me') && (await data(pl)).bookings.some(b => b.id === 'keep-me'));
+    await closeSheets(pk);
+    await K.ctx.close(); await L.ctx.close();
+  }
 
   /* ------------------------------ Disconnect, Delete, Erase ------------------------------ */
   const nFiles = D.files.length, beforeA = (await data(pa)).bookings.length;

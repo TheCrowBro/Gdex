@@ -307,7 +307,29 @@ export function mergeDb(local, remote) {
   out.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
   return out;
 }
-export function mergeIn(remote) { db = mergeDb(db, remote); db.updatedAt = Date.now(); persist(); emit(); wrote(); }
+// The records a backup or a daily copy holds that were deleted on this device after that copy's version of them: a merge
+// leaves them out (the deletion is newer). [{ c, r }]
+export function deletedSince(data) {
+  const d = normalise(data), out = [];
+  for (const c of COLLECTIONS) for (const r of d[c]) if (db.deleted[r.id] > ts(r) && !db[c].some(x => x.id === r.id)) out.push({ c, r });
+  return out;
+}
+// A backup file or a daily copy merged into this device. With { revive: true } the records it holds that were deleted
+// here since (deletedSince) come back too: stamped now, so the other devices connected to Google Drive take them back
+// as well (their tombstones are older). Returns how many came back.
+export function mergeIn(remote, { revive = false } = {}) {
+  let src = remote, back = 0;
+  const dead = revive ? deletedSince(remote) : [];
+  if (dead.length) {
+    const ids = new Set(dead.map(x => x.r.id)), now = Date.now();
+    src = normalise(remote);
+    for (const c of COLLECTIONS) src[c] = src[c].map(r => (ids.has(r.id) ? { ...r, updatedAt: now } : r));
+    for (const id of ids) delete db.deleted[id];
+    back = ids.size;
+  }
+  db = mergeDb(db, src); db.updatedAt = Date.now(); persist(); emit(); wrote();
+  return back;
+}
 // A merged copy from Google Drive (js/sync.js) becomes this device's data as it is: no new updatedAt and no afterWrite,
 // so it is never pushed straight back. It does not ask the licence's gate: sync keeps flowing in a read-only role.
 export function adopt(data) { db = normalise(data); persist(); emit('sync'); }

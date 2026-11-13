@@ -199,16 +199,21 @@ export async function importBackup(file) {
 
 // Every record's id and time, to say what a merge did.
 const snapshot = () => { const m = new Map(); for (const c of store.COLLECTIONS) for (const r of store.db[c]) m.set(c + ':' + r.id, Number(r.updatedAt) || 0); return m; };
-function merge(data) {
-  const before = snapshot();
-  store.mergeIn(data);
+// revive: the records deleted here since that file or copy come back too (store.mergeIn). what: 'backup' or 'copy'.
+function merge(data, { revive = false, what = 'backup' } = {}) {
+  const before = snapshot(), dead = store.deletedSince(data).length;
+  const back = store.mergeIn(data, { revive });
   const after = snapshot();
-  let added = 0, updated = 0, removed = 0;
+  let added = -back, updated = 0, removed = 0;
   for (const [k, t] of after) { if (!before.has(k)) added++; else if (before.get(k) !== t) updated++; }
   for (const k of before.keys()) if (!after.has(k)) removed++;
-  const msg = added || updated || removed ? `Merged: ${added} new, ${updated} updated${removed ? `, ${removed} removed (deleted on the other device)` : ''}.` : 'Merged. Nothing new in that file: this device already had all of it.';
+  const msg = back || added || updated || removed ? `Merged: ${back ? `${back} brought back (deleted here since that ${what}), ` : ''}${added} new, ${updated} updated${removed ? `, ${removed} removed (deleted on the other device)` : ''}.`
+    : dead ? `Merged. Nothing changed: the ${plural(dead, 'record')} in that ${what} deleted on this device since ${dead === 1 ? 'stays' : 'stay'} deleted.`
+      : `Merged. Nothing new in that ${what}: this device already had all of it.`;
   toast(msg); announce(msg);
 }
+// A record's name, to say which ones were deleted here since a backup.
+const nameOf = (c, r) => String(r.title || r.name || r.type || r.date || (NAMES[c] || [c])[0]).trim() || (NAMES[c] || [c])[0];
 
 // The chooser for a backup file and for a daily copy from Google Drive (copy: true). With Drive linked (drive: true),
 // Replace reaches every connected device: the restored records are stamped now and everything the backup lacks gets a
@@ -221,6 +226,11 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
     const nFile = totalOf(inFile), nHere = totalOf(here);
     const at = Number(data.updatedAt) || 0;
     const what = copy ? 'copy' : 'backup', where = copy ? 'in the copy' : 'in the file';
+    // Records the file holds that were deleted on this device since: a merge leaves them out unless asked. A daily copy
+    // is there to undo a mistake, so it asks by default; a backup file's deletions stay unless ticked.
+    const dead = store.deletedSince(data);
+    const names = dead.slice(0, 3).map(x => `“${nameOf(x.c, x.r)}”`).join(', ') + (dead.length > 3 ? ` and ${dead.length - 3} more` : '');
+    const revive = dead.length ? h('input', { type: 'checkbox', checked: copy }) : null;
     const go = how => {
       if (!store.canChange()) return; // bringing a backup back is a change: the chooser stays open and the licence's sheet explains
       if (how === 'replace' && !confirm(linked
@@ -231,8 +241,10 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
         store.replaceAll(data, { everywhere: linked });
         const msg = `${copy ? 'Daily copy' : 'Backup'} brought back: ${plural(nFile, 'record')}.${linked ? ' Every device connected to this Google Drive follows at its next sync.' : ''}`;
         toast(msg); announce(msg);
-      } else merge(data);
+      } else merge(data, { revive: !!(revive && revive.checked), what });
     };
+    const reviveLine = revive && h('label', { class: 'check se-imp-revive' }, revive,
+      h('span', { class: 'small' }, `Also bring back the ${plural(dead.length, 'record')} deleted on this device since this ${what}: ${names}.`));
     const body = h('div', { class: 'stack se-imp' },
       h('div', { class: 'card se-imp-file' },
         h('strong', { class: 'se-imp-name' }, name),
@@ -240,14 +252,16 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
         h('p', { class: 'small se-imp-counts' }, h('b', null, copy ? 'In the copy: ' : 'In the file: '), countText(inFile)),
         h('p', { class: 'small muted' }, h('b', null, 'On this device now: '), countText(here))),
       nHere
-        ? [h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Merge into this device'),
-          h('p', { class: 'small muted' }, 'Keeps everything on both. Where a record is in both, the copy changed last wins. Nothing here is lost.'),
+        ? [reviveLine,
+          h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Merge into this device'),
+          h('p', { class: 'small muted' }, `Keeps everything here and adds what the ${what} has that this device lacks${dead.length ? ' (what was deleted here since, only when ticked above)' : ''}. Where a record is in both, the one changed last wins. Nothing here is lost.`),
           h('button', { type: 'button', class: 'btn danger se-imp-replace', onclick: () => go('replace') }, 'Replace this device’s data'),
           h('p', { class: 'small muted se-imp-replace-note' }, linked
             ? `Every device connected to this Google Drive ends up exactly like this ${what}, and anything added since is gone from all of them. Save a backup of this device first if you might want it back.`
             : `This device ends up exactly like the ${copy ? 'copy' : 'file'}, and anything added here since that ${what} is gone. Save a backup of this device first if you might want it back.`)]
-        : [h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Bring it in'),
-          h('p', { class: 'small muted' }, `This device has nothing of its own yet, so everything ${where} comes in as it is.`)],
+        : [reviveLine,
+          h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Bring it in'),
+          h('p', { class: 'small muted' }, dead.length ? `This device has nothing of its own now, so everything ${where} comes in as it is (what was deleted here since, only when ticked above).` : `This device has nothing of its own yet, so everything ${where} comes in as it is.`)],
       h('button', { type: 'button', class: 'btn ghost', onclick: () => s.close() }, 'Cancel'));
     const s = sheet('Bring back a backup', body, { onClose: () => finish(null) });
   });
@@ -614,7 +628,7 @@ export const backupSteps = STEPS;
 sheetTutorial('Backups', STEPS);
 sheetTutorial('Bring back a backup', [
   { title: 'What is in the file', text: 'How many bookings, songs, people and so on the backup holds, next to what is on this device now.', target: ['.se-imp-file'] },
-  { title: 'Merge', text: 'Keeps everything on both. Where the same record is in both, the one changed last wins, and records deleted on one side stay deleted.', target: ['.se-imp-merge'] },
+  { title: 'Merge', text: 'Keeps everything here and adds what the backup has that this device lacks. Where the same record is in both, the one changed last wins. Records deleted here since the backup stay deleted, unless you tick Also bring back (ticked for a daily copy).', target: ['.se-imp-merge'] },
   { title: 'Replace', text: 'Makes this device exactly like the file. Anything added here since the backup is lost, so Gdex asks first.', target: ['.se-imp-replace'] },
 ]);
 sheetTutorial('Save with a passphrase', [
