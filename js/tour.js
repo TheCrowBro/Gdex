@@ -1,7 +1,7 @@
 // Spotlight walkthrough: dims the page, cuts a hole over the thing being explained, moves the section menu as it goes.
 // A step can carry a form (its body) that is saved on Next, so a walkthrough can set things up as well as point.
 import { h, nodes } from './util.js';
-import { db, update } from './store.js';
+import { db, update, canChangeQuietly } from './store.js';
 import { role, roleChosen, menuSections, offMenu, sectionName, moneyShown, startSection } from './roles.js';
 
 // The first-run walkthrough (also Settings → Help → Take the welcome tour). It follows the role (js/roles.js): its own
@@ -19,7 +19,7 @@ const profileStep = {
   onNext: () => {
     const patch = {};
     document.querySelectorAll('.tour-form input[data-key]').forEach(i => { const v = i.value.trim(); if ((db.profile[i.dataset.key] || '') !== v && !(i.dataset.key === 'currency' && !v)) patch[i.dataset.key] = v; });
-    if (Object.keys(patch).length) update(d => { d.profile = { ...d.profile, ...patch, updatedAt: Date.now() }; });
+    if (Object.keys(patch).length && canChangeQuietly()) update(d => { d.profile = { ...d.profile, ...patch, updatedAt: Date.now() }; }); // a read-only role (the licence) keeps what is stored, without a word
   },
 };
 // What each section is, for a role that does not say it its own way.
@@ -68,7 +68,7 @@ export function welcomeSteps() {
       get text() {
         const what = moneyShown() ? 'your details, quotes and invoices, backups, display and this tour again' : 'your details, backups, display and this tour again';
         const more = bonus.length ? ` Not on your menu: ${listWords(bonus)}. ${{ tape: 'Tap Tracks', digital: 'Tap ☰', record: 'Tap the record' }[menuKind()]} to open any of them.` : '';
-        return `Your role (${roleChosen() ? r.label : 'not chosen yet'}), ${what}. Change your role there any time: the menu follows, and nothing is deleted.${more} Everything stays on this device unless you save a backup.`;
+        return `Your role (${roleChosen() ? r.label : 'not chosen yet'}), ${what}. Change your role there any time: the menu follows, and nothing is deleted.${more} Everything stays on this device unless you save a backup or connect Google Drive.`;
       } },
   ];
 }

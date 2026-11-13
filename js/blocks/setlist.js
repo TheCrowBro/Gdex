@@ -30,6 +30,7 @@ function detach(b) {
 function createFor(b) {
   const name = [venueOf(b).name, b.date && fmtShort(b.date)].filter(Boolean).join(' · ') || `${bookingTitle(b)} setlist`;
   const rec = newSetlist({ actId: (b.actId && byId('acts', b.actId) ? b.actId : ''), name });
+  if (!rec) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
   patch('bookings', b.id, { setlistId: rec.id });
   openSetlist(rec.id, { target: slotOf(b) || undefined, bookingId: b.id });
 }

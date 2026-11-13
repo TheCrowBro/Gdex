@@ -1,6 +1,7 @@
 // Schema-driven edit form shown in a sheet.
 import { h, sheet, groupBy, toast } from './util.js';
 import { parseMapLink, geocode } from './map.js';
+import { canChange } from './store.js';
 
 /*
  fields: [{ key, label, type, options, required, placeholder, list, rows, columns, empty, hint }]
@@ -140,6 +141,9 @@ export function openForm({ title, fields, values = {}, onSave, onDelete, saveLab
   form.append(actions);
   form.addEventListener('submit', e => {
     e.preventDefault();
+    // A read-only role (the licence: js/licence-state.js) keeps the form open with what was typed; the licence's sheet
+    // opens over it and says why.
+    if (!canChange()) return;
     const out = { ...values };
     readers.forEach(r => { const [k, v] = r(); out[k] = v; });
     close();

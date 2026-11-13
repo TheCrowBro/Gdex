@@ -9,6 +9,7 @@ import { earlierNames } from './model.js'; // an act's earlier names: the song s
 import { openForm } from './form.js';
 import { printElement } from './print.js';
 import { sheetTutorial } from './tour.js';
+import { gateWork } from './licence-state.js'; // the working boxes and paid records a free role reaches (the build spec [S-3])
 
 /* --------------------------------- helpers --------------------------------- */
 export const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
@@ -101,7 +102,7 @@ export function setlistText(list) {
 }
 
 /* --------------------------------- records --------------------------------- */
-// Makes a setlist and returns the stored record. preset: { name, actId, gap, items, notes }.
+// Makes a setlist and returns the stored record, or null when the licence refused it (read-only). preset: { name, actId, gap, items, notes }.
 export function newSetlist(preset = {}) {
   const p = preset || {};
   return upsert('setlists', {
@@ -199,7 +200,10 @@ const stat = (value, text, cls = '') => h('div', { class: ('stat ' + cls).trim()
 
 // Opens the editor. opts: { target: slot in minutes (from a booking's set length), bookingId (the booking it was
 // opened from: its set time and curfew are shown, and its date and venue go on the printout) }.
-export function openSetlist(id, opts = {}) {
+// A free role reaches it from its own sections (a booking's boxes, a band's members): it comes with the working roles
+// (js/licence-state.js gateWork: at once while it may be used, else the free days start or the licence is offered).
+export function openSetlist(id, opts = {}) { let out = null; gateWork(() => { out = openSetlistNow(id, opts); }); return out; }
+function openSetlistNow(id, opts = {}) {
   if (!byId('setlists', id)) { toast('That setlist is not there any more.'); return null; }
   ensureIds(id);
   const st = { id, target: Number(opts && opts.target) > 0 ? Number(opts.target) : '', bookingId: (opts && opts.bookingId) || '' };
@@ -513,6 +517,7 @@ function duplicate(id, st, ctx) {
   const list = byId('setlists', id);
   if (!list) return;
   const copy = newSetlist({ name: `${list.name || 'Setlist'} (copy)`, actId: list.actId, gap: gapOf(list), notes: list.notes, items: (list.items || []).filter(Boolean).map(it => ({ ...it, id: uid() })) });
+  if (!copy) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
   ctx.close();
   openSetlist(copy.id, { target: st.target, bookingId: st.bookingId });
   toast(`Copy made: now editing “${copy.name}”`);

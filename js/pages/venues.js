@@ -10,6 +10,7 @@ import { openForm } from '../form.js';
 import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
 import { sectionName, moneyShown } from '../roles.js';
+import { workMark } from '../licence-state.js';
 import { venueChip, rulesFull, rulesEditor } from '../venues-rules.js';
 import { formerlyNote } from '../model.js'; // "formerly The Night Owls": a booking from before its act changed its name
 
@@ -21,7 +22,8 @@ const ICON = { venue: '🏛️', studio: '🎚️', rehearsal: '🥁', festival:
 const kindOf = v => (!v || !v.kind ? 'venue' : VENUE_KINDS.some(k => k[0] === v.kind) ? v.kind : 'other');
 const kindText = v => `${ICON[kindOf(v)]} ${venueKindLabel(kindOf(v))}`;
 // A booking made from a venue: studio time at a studio, a rehearsal at a rehearsal room, a show anywhere else.
-const bookKind = v => ({ studio: 'session', rehearsal: 'rehearsal' }[kindOf(v)] || 'show');
+// A free Audiophile without the working roles adds only shows (the owner's answer 1: workMark() is set then).
+const bookKind = v => (workMark() ? 'show' : ({ studio: 'session', rehearsal: 'rehearsal' }[kindOf(v)] || 'show'));
 const num = x => (x !== '' && x != null && Number.isFinite(Number(x)) ? Number(x) : 0);
 const isTime = t => /^\d{1,2}:\d{2}$/.test(t || '');
 const venueName = v => String((v && v.name) || '').trim() || 'Unnamed place';
@@ -299,6 +301,7 @@ export function editVenue(v = {}, onSaved) {
       const stored = upsert('venues', { ...val, name: nm, capacity: numOrBlank(val.capacity, true), noiseLimit: numOrBlank(val.noiseLimit), rate: numOrBlank(val.rate),
         website: String(val.website || '').trim(), email: String(val.email || '').trim(), phone: String(val.phone || '').trim(),
         rules: { ...unknownRules(byId('venues', cur.id) || cur), ...editor.read() }, rulesNote: String(val.rulesNote || '').trim(), rulesTone: RULE_TONES.some(t => t[0] === val.rulesTone) ? val.rulesTone : '' });
+      if (!stored) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       toast(cur.id ? 'Saved' : `${nm} added`);
       onSaved && onSaved(stored);
     },

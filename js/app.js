@@ -8,7 +8,9 @@ import { startTour, tourSeen } from './tour.js';
 import { initClockBar } from './clock.js';
 import { initUpdates } from './update.js';
 import { bookings, dayTurned } from './pages/bookings.js';
-import { roleChosen, menuSections, offMenu, startSection, sectionName, askSeen, moneyShown } from './roles.js';
+import { roleChosen, menuSections, offMenu, startSection, sectionName, askSeen, moneyShown, roleId, roleNeedsLicence } from './roles.js';
+// The licence (decisions §9): whether a section opens, starts the free days or is offered; switched off, everything opens.
+import { LICENCE_EVENT, licenceOn, licenceNow, mayOpen, sectionMark, startFreeDays, toastStarted, canWrite, refreshLicence, initLicenceSource, firstRunSettled, termsDeclined } from './licence-state.js';
 import { waitingShows, comingUp, tonightShows, showEnd } from './model.js';
 
 applyPrefs();
@@ -55,7 +57,9 @@ function buildTabs() {
   return list;
 }
 let tabs = buildTabs();
-const extras = () => offMenu().map(tabOf).filter(Boolean);
+// The bonus tracks, each with its licence mark ("30 days free", "🔒 Licence"; null while licences are off). The label
+// itself never changes: the mark is drawn beside it (js/deck.js).
+const extras = () => offMenu().map(tabOf).filter(Boolean).map(t => ({ ...t, mark: sectionMark(t.id) }));
 // Every section, the role's menu first (the tutorials' chooser lists them all).
 window.gdexPages = () => [...tabs.filter(t => !t.bonus).map(t => tabOf(t.id)), ...extras()].map(t => ({ id: t.id, label: t.label, icon: t.icon, page: t.page || null }));
 const pageOf = x => { const t = tabOf(x.id); return t.page ? Promise.resolve(t.page) : (t.loading || (t.loading = t.load().then(p => { t.page = p; return p; }).catch(e => { t.loading = null; throw e; }))); };
@@ -113,8 +117,12 @@ store.subscribe(() => { deck && deck.refresh(); tonightCheck(); if (redrawQueued
 // Where to start: always the role's start section, the calendar (js/roles.js).
 const start = Math.max(0, tabs.findIndex(t => t.id === startSection()));
 const nav = document.getElementById('deck');
+// A section the licence keeps closed (only the desktop app's files opened in a web browser have one on the menu): the
+// licence's sheet says why, and the menu stays where it was.
+const refuse = id => import('./licence.js').then(m => (licenceNow().mode === 'away' ? m.awaySheet() : m.offerSection(id))).catch(e => console.error(e));
 // Moving to any other track puts the bonus track back on the sleeve.
 function select(i, dir) {
+  if (tabs[i] && mayOpen(tabs[i].id) === 'locked') { deck.setTabs(tabs, current); refuse(tabs[i].id); return; }
   if (guest && tabs[i] && tabs[i].id !== guest) { guest = null; tabs = buildTabs(); deck.setTabs(tabs, i); }
   showNav(); show(i, dir);
 }
@@ -137,32 +145,60 @@ window.logiShowNav = showNav;
   nav.addEventListener('focusin', showNav);
 }
 show(start);
-// Jump to a section by id ('venues') and resolve once it is drawn. Unknown ids stay where they are. A section that is
-// not on the role's menu comes onto the record as the bonus track.
-window.logiGo = id => {
+// Jump to a section by id ('venues'). Resolves true once it is drawn, false when it was not opened (an unknown id, or
+// one the licence keeps closed: the licence is offered instead). A section that is not on the role's menu comes onto
+// the record as the bonus track. A paid section an Audiophile opens before the free days have started starts them (the
+// terms sheet first, the first time), with a toast: there is no question first (the build spec [S-4], [S-30]).
+window.logiGo = async id => {
+  if (typeof id === 'string' && tabOf(id)) {
+    const may = mayOpen(id);
+    if (may === 'locked') { refuse(id); return false; }
+    if (may === 'start') { if (!(await startFreeDays())) return false; toastStarted(); }
+  }
   let i = typeof id === 'number' ? id : tabs.findIndex(t => t.id === id);
   if (i < 0 && typeof id === 'string' && tabOf(id)) {
     const onGuest = !!(guest && tabs[current] && tabs[current].id === guest);
     guest = id; tabs = buildTabs(); i = tabs.length - 1;
-    if (onGuest) { deck.setTabs(tabs, i); showNav(); return show(i, 1); } // one bonus track for another
+    if (onGuest) { deck.setTabs(tabs, i); showNav(); await show(i, 1); return true; } // one bonus track for another
     deck.setTabs(tabs, current);
   }
-  if (i < 0 || i >= tabs.length) return showing;
-  if (i === current) return showing;
-  deck.go(i);
-  return showing;
+  if (i < 0 || i >= tabs.length) { await showing; return false; }
+  if (i !== current) deck.go(i);
+  await showing;
+  return true;
 };
 // A new role (Settings → Your role, or the first-run question): the menu changes in place. From Settings you stay on
 // Settings; a role chosen at the first-run question opens on its start section, the calendar.
 window.addEventListener('gdex-role', e => {
   const was = tabs[current] ? tabs[current].id : null;
   guest = null; tabs = buildTabs();
-  const want = (e.detail && e.detail.start) || !was ? startSection() : was;
+  // A section the new role may not open (a working one, for an Audiophile without a licence) is not kept on screen.
+  const want = (e.detail && e.detail.start) || !was || mayOpen(was) === 'locked' ? startSection() : was;
   let i = tabs.findIndex(t => t.id === want);
   if (i < 0) { guest = want; tabs = buildTabs(); i = tabs.length - 1; } // still on screen: kept as the bonus track
   deck.setTabs(tabs, i);
   if (want !== was) show(i, 0);
   else { current = i; page.firstElementChild?.setAttribute('aria-label', tabs[i].label); redraw(); } // the same page, perhaps with its role's name and boxes
+  noteUse();
+});
+// The licence changed (the free days started or ran out, a sign-in, a pause): the menu's marks, the bar, Settings and
+// the page follow; a section that may not be open any more goes back to the calendar. A working role in use starts the
+// free days once it is on (the owner switched it on while Gdex was open, or a pause was lifted).
+let barLoaded = false;
+const loadBar = () => { if (barLoaded || !licenceOn()) return; barLoaded = true; import('./licence.js').then(m => m.initBar()).catch(e => { barLoaded = false; console.error(e); }); };
+window.addEventListener(LICENCE_EVENT, () => {
+  loadBar();
+  const was = tabs[current] ? tabs[current].id : null;
+  if (was && mayOpen(was) === 'locked') {
+    guest = null; tabs = buildTabs();
+    const i = Math.max(0, tabs.findIndex(t => t.id === startSection()));
+    deck.setTabs(tabs, i); show(i, 0);
+  } else {
+    const ids = tabs.map(t => t.id).join(); tabs = buildTabs();
+    if (tabs.map(t => t.id).join() !== ids) deck.setTabs(tabs, Math.max(0, tabs.findIndex(t => t.id === was))); else deck.refresh();
+    redraw();
+  }
+  noteUse();
 });
 window.logiPage = () => (tabs[current] ? tabs[current].id : null); // which section is open (the tutorials use it)
 
@@ -187,9 +223,25 @@ const askSeenNow = () => {
   import('./acts-ask.js').then(m => whenClear(() => { asking = false; if (!due.length) return; m.askAtOpen(due); askSheet = document.querySelector('.sheet-back'); })).catch(e => { asking = false; console.error(e); });
 };
 const askSeenAtOpen = () => { askedAtOpen = true; askSeenNow(); };
+// Gdex opened (or came back) in a working role: the free days start, once the first run is settled (a role picked, the
+// welcome tour done or the first-run question closed), so a newcomer is never counted while "Who's using Gdex?" is up
+// ([S-2]). The terms sheet comes first, the first time; after its Not now it is not asked again on its own this visit.
+// Resolves once that is done.
+const noteUse = () => {
+  if (!licenceOn() || !roleNeedsLicence(roleId()) || !firstRunSettled() || termsDeclined()) return Promise.resolve(false);
+  return startFreeDays().then(started => { if (started) toastStarted(); return started; }).catch(e => { console.error(e); return false; });
+};
+// The sheets at an opening, in order: the free days start (or the terms sheet), then the free-days-over sheet when a
+// working role is read-only, then "Did you see them?", which is not asked while the role cannot answer it. With licences
+// off, only the question, as before.
+const licenceThenAsk = () => {
+  if (!licenceOn()) return askSeenAtOpen();
+  whenClear(() => noteUse().then(() => import('./licence.js')).then(m => m.overSheetIfDue()).catch(e => console.error(e))
+    .then(() => { if (canWrite()) askSeenAtOpen(); else askedAtOpen = true; }));
+};
 // The tour is on screen at once, so the question waits for it to end; the first-run tour ends on the calendar, so the
 // question is asked there.
-const tourThenAsk = () => { startTour(0, { first: true }); askSeenAtOpen(); };
+const tourThenAsk = () => { startTour(0, { first: true }); licenceThenAsk(); };
 // Coming back counts as opening, for the question only. An installed app is seldom loaded afresh: it is brought back from
 // the background, sometimes days later, and someone who went to a show last night would never be asked. So after three
 // hours or more out of sight (the screen hidden, or the page kept by the browser and restored), the waiting shows are
@@ -203,9 +255,10 @@ const cameBack = () => {
   const away = Date.now() - hiddenAt; hiddenAt = null;
   if (away < AWAY_MS || (askSheet && askSheet.isConnected)) return;
   if (!askedAtOpen) { due = waitingIds(true); return; } // the first-run question is still up: the question at open has yet to have its turn, and takes the list as it is now
-  if (!askSeen()) return;
-  due = waitingIds(!moneyShown());
-  askSeenNow();
+  const ask = () => { if (!askSeen() || !canWrite()) return; due = waitingIds(!moneyShown()); askSeenNow(); };
+  if (!licenceOn()) return ask();
+  // The free-days-over sheet comes back too (installed apps are seldom reloaded), always before the question ([S-5]).
+  whenClear(() => import('./licence.js').then(m => m.overSheetIfDue()).catch(e => console.error(e)).then(ask));
 };
 // The day turns while Gdex is open, or while it is out of sight: the calendar moves on to the new today and the page is
 // drawn again (today's mark, Coming up, "Tomorrow" on an act's card, the menu's count). A timer set for just after the
@@ -218,6 +271,7 @@ const dayCheck = () => {
   midnight = setTimeout(dayCheck, new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) - n + 1000);
   if (dayTurned()) store.redraw();
   tonightCheck();
+  refreshLicence(); // a free day may have gone by
 };
 // In the small hours Coming up keeps last night's shows that are still to play (model.tonightShows): when the first of
 // them is over, or at 06:00, when none of them is tonight's any more, the page and the menu's count are drawn again.
@@ -238,6 +292,8 @@ if (!tourSeen()) {
 } else {
   // Gdex was in use before roles came: say once, without getting in the way, that it can set itself up for a role.
   if (!roleChosen()) idle(() => import('./role-pick.js').then(m => m.nudgeRole(document.getElementById('clockbar'))).catch(e => console.error(e)));
-  setTimeout(askSeenAtOpen, 900);
+  setTimeout(licenceThenAsk, 900);
 }
+// The licence's sources (the desktop app's bridge, or the website's licence server where it is live) and its bar.
+idle(() => { initLicenceSource().catch(e => console.error(e)); loadBar(); });
 initUpdates(); // service worker, offline copy, and the "new version" bar

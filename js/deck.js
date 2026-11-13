@@ -206,8 +206,11 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
     const cur = tabs[index] && tabs[index].id;
     const bonus = more.length > 0 && h('div', { class: 'dk-side dk-bonus' }, h('span', { class: 'dk-side-head' }, 'Bonus tracks'), h('div', { class: 'dk-bonus-list' },
       ...more.map(x => { let c = null; try { c = x.count && x.count(); } catch { c = null; } const on = x.id === cur;
-        return h('button', { type: 'button', class: 'dk-track' + (on ? ' on' : ''), 'aria-current': on ? 'true' : null, 'data-section': x.id, onclick: () => { close(); pickSection(x.id); } },
-          h('span', { class: 'dk-track-id', 'aria-hidden': 'true' }, '★'), h('span', { class: 'dk-track-name' }, x.label), h('span', { class: 'dk-track-n' }, c && Number.isFinite(c.n) ? String(c.n) : '')); })));
+        // A licence mark ("30 days free", "🔒 Licence": js/licence-state.js sectionMark) follows the name, inside it so it
+        // wraps with the words in a narrow column, and is said with it; without one (licences off, or the section opens)
+        // the entry is as it always was.
+        return h('button', { type: 'button', class: 'dk-track' + (on ? ' on' : ''), 'aria-current': on ? 'true' : null, 'data-section': x.id, 'aria-label': x.mark ? `${x.label}, ${x.mark.label}` : null, onclick: () => { close(); pickSection(x.id); } },
+          h('span', { class: 'dk-track-id', 'aria-hidden': 'true' }, '★'), h('span', { class: 'dk-track-name' }, x.label, x.mark && h('span', { class: 'dk-track-lock', 'aria-hidden': 'true' }, x.mark.text)), h('span', { class: 'dk-track-n' }, c && Number.isFinite(c.n) ? String(c.n) : '')); })));
     const tape = style === 'tape', digital = style === 'digital';
     const howMany = (tracks === 1 ? '1 track' : `${tracks} tracks`) + (more.length ? ` · ${more.length} bonus` : '');
     const head = tape ? h('p', { class: 'dk-jcard-title' }, 'Gdex, the booking deck')

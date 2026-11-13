@@ -17,6 +17,7 @@ import { sheetTutorial } from '../tour.js';
 import { haptic } from '../a11y.js';
 import { fmtClock, clockTime } from '../clock.js';
 import { sectionName } from '../roles.js';
+import { gateWork } from '../licence-state.js'; // the working boxes and paid records a free role reaches (the build spec [S-3])
 
 const H = 36e5;
 const KEY = 'gdex-studio-log'; // the open log, so a reload comes back to it
@@ -79,26 +80,40 @@ const defaultTitle = (song, b) => (song ? `${song.title} takes` : b ? `${booking
 
 /* ------------------------------- shared API ------------------------------- */
 // Go to the Studio log and open a log. Resolves once it is drawn, at the top, with the focus on + Take (the next thing to
-// press) when the button that opened it went with the page it was on.
+// press) when the button that opened it went with the page it was on. A free role reaches it from a session's Take log
+// box: it comes with the working roles (gateWork; the section itself may also be refused, and then nothing opens).
 export function openLog(id) {
+  let out = Promise.resolve();
+  gateWork(() => { out = openLogNow(id); });
+  return out;
+}
+function openLogNow(id) {
   if (!id || !byId('logs', id)) { toast('That take log is no longer here.'); return Promise.resolve(); }
   setOpen(id);
   // On this page the app redraws on its next turn (js/app.js), so wait for that before looking for + Take.
   const go = window.logiPage && window.logiPage() === 'sessions' ? new Promise(r => { redraw(); setTimeout(r, 0); }) : (window.logiGo ? window.logiGo('sessions') : Promise.resolve());
-  return Promise.resolve(go).then(() => {
+  return Promise.resolve(go).then(shown => {
+    if (shown === false) return; // the licence kept the Studio log closed (and said why)
     window.scrollTo(0, 0);
     const now = document.activeElement, take = document.getElementById('sd-take');
     if (take && !document.querySelector('.sheet') && (!now || now === document.body)) take.focus({ preventScroll: true });
   });
 }
-// Create a log ({ bookingId, songId, title, date }) and open it. Returns the stored record.
+// Create a log ({ bookingId, songId, title, date }) and open it. Returns the stored record, or null when it was not made
+// (the licence: a free role without the working roles, or a read-only one).
 export function newLog(preset = {}) {
+  let out = null;
+  gateWork(() => { out = newLogNow(preset); });
+  return out;
+}
+function newLogNow(preset = {}) {
   const song = preset.songId ? byId('songs', preset.songId) : null;
   const b = preset.bookingId ? byId('bookings', preset.bookingId) : null;
   const rec = upsert('logs', {
     bookingId: b ? b.id : '', songId: song ? song.id : '', title: String(preset.title || '').trim() || defaultTitle(song, b),
     date: /^\d{4}-\d{2}-\d{2}$/.test(preset.date || '') ? preset.date : todayISO(), startedAt: Date.now(), takes: [], notes: '',
   });
+  if (!rec) return null; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
   openLog(rec.id);
   return rec;
 }
@@ -144,7 +159,7 @@ function newLogForm(preset = {}) {
       { key: 'date', label: 'Date', type: 'date', required: true },
     ],
     saveLabel: 'Start the log',
-    onSave: v => { newLog(v); toast('Log started. Tap + Take as each take starts.'); },
+    onSave: v => { if (newLog(v)) toast('Log started. Tap + Take as each take starts.'); },
   });
 }
 function editLog(l) {
