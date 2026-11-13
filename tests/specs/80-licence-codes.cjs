@@ -152,6 +152,14 @@ const throws = async fn => { try { await fn(); return null; } catch (e) { return
     await page.waitForTimeout(300);
     const linkNote = linked[0] && (await codes.readNote('admin', linked[0], { keys: genKeys, signers: codes.OWNER_KIDS }));
     ok('making keys and codes contacts nothing except, for a code with an email, one signed request to gdex.crowmade.app to link it', requests.length > 0 && requests.every(u => u === 'https://gdex.crowmade.app/licence/admin') && linked.length === 1 && linkNote && linkNote.op === 'link' && linkNote.code === made && linkNote.ref === mr.licence.ref, requests.join(', '));
+    // A typed ref is read as a number pair: "2:079" asks about 2:79, and a ref no Gdex code can carry is not sent at all.
+    const asked = linked.length;
+    await page.fill('#which', ' 2:079 '); await page.click('#look'); await page.waitForTimeout(400);
+    const padded = linked[asked] && (await codes.readNote('admin', linked[asked], { keys: genKeys, signers: codes.OWNER_KIDS }));
+    await page.fill('#which', '3:79'); await page.click('#look'); await page.waitForTimeout(400);
+    const noKey = await page.textContent('#msg');
+    await page.fill('#which', '2:0'); await page.click('#look'); await page.waitForTimeout(400);
+    ok('a ref typed with leading zeros is sent as the code\'s own (2:079 → 2:79), and one with a key Gdex has not got or serial 0 is refused in the page', padded && padded.op === 'look' && padded.ref === '2:79' && linked.length === asked + 1 && /^That is not the ref of a Gdex code/.test(noKey) && /^That is not the ref of a Gdex code/.test(await page.textContent('#msg')), JSON.stringify({ ref: padded && padded.ref, sent: linked.length - asked, noKey }));
     ok('no errors in the generator\'s console', errors.length === 0, errors.slice(0, 5).join(' | '));
     await ctx.close();
     fs.rmSync(tmp, { recursive: true, force: true });

@@ -444,15 +444,20 @@ async function sendSignIn(env, email, code) {
 }
 
 /* ------------------------------ the owner ------------------------------- */
+// A ref as a code carries it: one of Gdex's keys and a serial of 1 to 4294967295, without leading zeros (so "2:079" is
+// code 2:79); '' for a ref no code can have, which is refused rather than reported as looked up, cancelled or cleared.
+const cleanRef = v => {
+  const m = String(v).match(/^(\d{1,3}):(\d{1,10})$/), kid = m && Number(m[1]), serial = m && Number(m[2]);
+  return m && KEYS[kid] && serial >= 1 && serial <= 0xffffffff ? codes.refOf(kid, serial) : '';
+};
 // Requests from the generator page, signed with the owner's key (1, or the spare 9) and good for 10 minutes.
 async function admin(request, env) {
   const b = await readJson(request);
   const v = b && (await codes.readNote('admin', b, { keys: KEYS, signers: codes.OWNER_KIDS }));
   if (!v) return json(403, { error: 'not-signed' }, CORS);
   if (!Number.isFinite(v.at) || Math.abs(Date.now() - v.at) > 10 * 60e3) return json(403, { error: 'stale', now: Date.now() }, CORS);
-  if (!/^\d{1,3}:\d{1,10}$/.test(String(v.ref))) return json(400, { error: 'bad-ref' }, CORS);
+  const ref = cleanRef(v.ref); if (!ref) return json(400, { error: 'bad-ref' }, CORS);
   if (!env.LICENCES) return json(503, { error: 'not-ready' }, CORS);
-  const ref = v.ref;
   if (v.op === 'clear') await env.LICENCES.delete('c:' + ref);
   else if (v.op === 'cancel') await env.LICENCES.put('x:' + ref, JSON.stringify({ why: 'owner', at: Date.now() }));
   else if (v.op === 'restore') await env.LICENCES.delete('x:' + ref);

@@ -195,6 +195,16 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const stale = await adm('look', v.licence.ref, { at: Date.now() - 3600e3 });
     ok('an old signed request is refused, with the server\'s time so the page can retry', stale.status === 403 && stale.error === 'stale' && Math.abs(stale.now - Date.now()) < 60e3);
     ok('a bad ref or an unknown request is refused, and the address answers only POST', (await adm('look', 'x')).error === 'bad-ref' && (await adm('wipe', v.licence.ref)).error === 'bad-op' && (await get('/licence/admin')).status === 405);
+    { // a ref is read as a number pair: one written with leading zeros is the same code, and one no code can carry is refused
+      const impossible = [];
+      for (const r of ['5:79', '0:79', '2:0', '2:4294967296', '2:00000']) { const a = await adm('cancel', r); if (a.status !== 400 || a.error !== 'bad-ref') impossible.push(`${r} → ${a.status} ${JSON.stringify(a.cancelled || a.error)}`); }
+      ok('an owner request for a ref no code can have (a key Gdex does not have, serial 0 or past 4294967295) is refused (400 bad-ref), never reported as done', impossible.length === 0, impossible.join('; '));
+      const z79 = await codes.signCode(shopKey, 2, { name: 'Zero Padded', email: 'zero@example.com', serial: 79, issued: '2026-11-02' });
+      const before = (await post('/licence/activate', { code: z79, install: id(40) })).status, zc = await adm('cancel', '2:079');
+      const afterZ = await post('/licence/activate', { code: z79, install: id(40) });
+      ok('…and "2:079" is code 2:79: cancelling it cancels that code, and the answer names 2:79', before === 200 && zc.status === 200 && zc.ref === '2:79' && zc.cancelled && afterZ.status === 403, `${before} ${JSON.stringify(zc)} ${afterZ.status}`);
+      await adm('restore', '2:79');
+    }
 
     /* --------------------------- website sign-in --------------------------- */
     const web = (p, body, m = mf) => post('/licence/web/' + p, body, m).then(async r => ({ status: r.status, ...(await r.json()) }));
