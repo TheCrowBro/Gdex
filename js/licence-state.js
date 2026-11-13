@@ -263,6 +263,16 @@ export function sectionMark(id) {
   const a = mayOpen(id);
   return a === 'open' ? null : markFor(a);
 }
+// The welcome tour's and Settings → Your role's words while the working roles are not open to the role in use: what
+// its bonus tracks are (a tap offers the licence or starts the free days, §9.3), and why a working role cannot be
+// picked now. '' for each while they are open, and while off.
+export function closedWords() {
+  const away = licenceNow().mode === 'away';
+  const bonus = workOpen() ? '' : away ? 'They come with Gdex’s working roles, in Gdex’s desktop app.'
+    : mayWork() === 'start' ? 'They come with Gdex’s working roles: opening one starts your 30 free days.' : 'They come with Gdex’s working roles and need a licence.';
+  const roles = mayPickRole('all') !== 'locked' ? '' : away ? 'The working roles work only in Gdex’s desktop app.' : 'The working roles need a licence now.';
+  return { bonus, roles };
+}
 // The role picker's words for a role (§9.2); '' while off.
 export function roleBadge(id) {
   const s = licenceNow();

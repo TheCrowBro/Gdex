@@ -279,6 +279,22 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       ok('…Duplicate on a diary entry offers the licence and makes nothing (+ New makes only shows)', sh.join() === 'The working boxes need a licence' && (await ids()).length === n1, JSON.stringify(sh));
       await ctx.close();
     }
+    {
+      // The words about the bonus tracks match what a tap does: for a free Audiophile without the working roles the
+      // working sections come with them (a licence, or the 30 free days), never "open any of them" (the welcome tour's
+      // Settings stop, Settings → Your role).
+      for (const [when, seed, says] of [['free days over', ended(), /They come with Gdex’s working roles and need a licence\./], ['free days not started', null, /They come with Gdex’s working roles: opening one starts your 30 free days\./]]) {
+        const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), ...(seed ? { 'gdex-licence': seed } : {}) } });
+        await sleep(600);
+        const tour = await page.evaluate(() => import('./js/tour.js').then(m => m.welcomeSteps().map(x => x.text).find(x => /Not on your menu/.test(x)) || ''));
+        await go(page, 'settings'); await sleep(300);
+        await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
+        const about = await page.textContent('#se-role .rp-about');
+        ok(`an Audiophile, ${when}: the welcome tour and Your role say the working sections come with the working roles, not that a tap opens them`, says.test(tour) && !/to open any of them/.test(tour) && !/links to them still open them/.test(about) && says.test(about), JSON.stringify({ tour, about }));
+        if (seed) ok('…and the tour does not offer every role any time', !/Change your role there any time/.test(tour) && /The working roles need a licence now\./.test(tour), tour);
+        await ctx.close();
+      }
+    }
 
     /* =========== a working role after the free days: the sheet at opening, read-only =========== */
     {

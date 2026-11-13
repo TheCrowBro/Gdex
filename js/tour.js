@@ -3,6 +3,7 @@
 import { h, nodes } from './util.js';
 import { db, update, canChangeQuietly } from './store.js';
 import { role, roleChosen, menuSections, offMenu, sectionName, moneyShown, startSection } from './roles.js';
+import { closedWords } from './licence-state.js';
 
 // The first-run walkthrough (also Settings → Help → Take the welcome tour). It follows the role (js/roles.js): its own
 // welcome, then the sections on its menu in order. The profile card saves what is typed on Next.
@@ -72,8 +73,10 @@ export function welcomeSteps() {
     { go: 'settings', target: ['.page-head'], title: 'Settings',
       get text() {
         const what = moneyShown() ? 'your details, quotes and invoices, backups, display and this tour again' : 'your details, backups, display and this tour again';
-        const more = bonus.length ? ` Not on your menu: ${listWords(bonus)}. ${{ tape: 'Tap Tracks', digital: 'Tap ☰', record: 'Tap the record' }[menuKind()]} to open any of them.` : '';
-        return `Your role (${roleChosen() ? r.label : 'not chosen yet'}), ${what}. Change your role there any time: the menu follows, and nothing is deleted.${more} Everything stays on this device unless you save a backup or connect Google Drive.`;
+        // With the licence on and no licence, a tap on a working section offers the licence (or starts the free days).
+        const shut = closedWords(), tap = { tape: 'Tap Tracks', digital: 'Tap ☰', record: 'Tap the record' }[menuKind()];
+        const more = bonus.length ? ` Not on your menu: ${listWords(bonus)}. ${shut.bonus ? `${tap} to see them. ${shut.bonus}` : `${tap} to open any of them.`}` : '';
+        return `Your role (${roleChosen() ? r.label : 'not chosen yet'}), ${what}. ${shut.roles || 'Change your role there any time: the menu follows, and nothing is deleted.'}${more} Everything stays on this device unless you save a backup or connect Google Drive.`;
       } },
   ];
 }

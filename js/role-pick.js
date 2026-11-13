@@ -5,7 +5,7 @@ import { ROLES, EVERYTHING, roleId, roleChosen, roleOf, setRole, menuSections, o
 import { haptic, menuWords } from './a11y.js';
 // The licence (decisions §9): which roles are free, which need a licence, and the free days left. All of it says nothing
 // while licences are off.
-import { LICENCE_EVENT, licenceOn, mayPickRole, roleBadge } from './licence-state.js';
+import { LICENCE_EVENT, licenceOn, mayPickRole, roleBadge, closedWords } from './licence-state.js';
 import { termsDue, askTerms } from './terms.js';
 
 const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', settings: 'Settings' };
@@ -43,7 +43,8 @@ const nudged = () => { try { localStorage.setItem(NUDGED, '1'); } catch { /* pri
 const settled = r => `Set up for ${r.label}: ${menuSections(r).length} sections on your menu`;
 // The section menu in its own words (Aa → Section menu, js/a11y.js menuWords): the record player's sleeve, or the
 // track list of the tape deck and the digital player.
-const aboutText = () => `Your role sets the section menu: which sections are tracks and in what order, and the boxes on a booking. Gdex always opens on the calendar. Nothing is removed: sections not on the menu are bonus tracks on ${menuWords().list} (${menuWords().tap}), and links to them still open them.`;
+// With the licence on and no licence, the working sections among them come with the working roles (closedWords).
+const aboutText = () => { const shut = closedWords().bonus; return `Your role sets the section menu: which sections are tracks and in what order, and the boxes on a booking. Gdex always opens on the calendar. Nothing is removed: sections not on the menu are bonus tracks on ${menuWords().list} (${menuWords().tap})${shut ? `. ${shut}` : ', and links to them still open them.'}`; };
 const nudgeWords = () => [h('strong', null, 'New: a menu for the way you work. '), `Producer, manager, band, solo artist, scout or audiophile: Gdex puts the sections you use on the menu, and every other one stays on ${menuWords().list}.`];
 // Switching the section menu (Aa) with the role card or Settings → Your role on screen changes their words at once.
 window.addEventListener('gdex-prefs', () => {
