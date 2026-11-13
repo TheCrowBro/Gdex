@@ -23,6 +23,14 @@ export function normalise(raw) {
   for (const c of COLLECTIONS) out[c] = Array.isArray(raw && raw[c]) ? raw[c].filter(x => x && typeof x === 'object' && x.id) : [];
   out.shifts = out.shifts.map(s => ({ ...s, breaks: Array.isArray(s.breaks) ? s.breaks : [] }));
   out.logs = out.logs.map(l => ({ ...l, takes: Array.isArray(l.takes) ? l.takes : [] }));
+  // A booking's dates and names are text everywhere they are read (the calendar, every role's first page, compares and
+  // splits them): from a backup, a number becomes text and anything else that is not text is left out.
+  out.bookings = out.bookings.map(bk => {
+    const x = { ...bk };
+    for (const k of ['date', 'endDate']) if (k in x && typeof x[k] !== 'string') x[k] = '';
+    for (const k of ['title', 'client', 'venueName', 'address']) if (k in x && typeof x[k] !== 'string') x[k] = Number.isFinite(x[k]) ? String(x[k]) : '';
+    return x;
+  });
   out.deleted = Object.fromEntries(Object.entries(raw && raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {}).filter(([, t]) => Date.now() - t < 180 * 864e5));
   for (const k of ['templates', 'billing', 'priceList']) out[k] = raw && raw[k] && typeof raw[k] === 'object' ? raw[k] : b[k];
   out.app = 'gdex';

@@ -166,6 +166,30 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   ok('…with nothing in the console', errors.length === 0, errors.slice(0, 3).join(' | '));
   await store(page, s => { s.remove('bookings', 'g-nodate2'); });
 
+  /* ---------------- a backup whose booking has a number for a title, or a date that is not text ---------------- */
+  // A backup comes in through store.normalise, merged or in place of this device's copy. The calendar is every role's
+  // first page, so one odd booking in it must not blank the page on every open.
+  const D3 = dayIso(3);
+  await store(page, (s, D3) => s.mergeIn({ bookings: [
+    { id: 'g-j-title', kind: 'show', status: 'confirmed', actId: 's-owls', venueId: 's-lantern', date: D3, setTime: '21:00', title: 2026 },
+    { id: 'g-j-date', kind: 'show', status: 'confirmed', title: 'Date as an object', date: {} },
+    { id: 'g-j-dates', kind: 'show', status: 'confirmed', title: 'Date as a list', date: [D3] },
+    { id: 'g-j-end', kind: 'show', status: 'confirmed', title: 'Last day as an object', date: D3, endDate: {} },
+    { id: 'g-j-ends', kind: 'show', status: 'confirmed', title: 'Last day as a list', date: D3, endDate: [D3] },
+  ] }), D3);
+  await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
+  if (await page.locator('#bk-agenda-more').count()) { await page.click('#bk-agenda-more'); await sleep(300); }
+  const junkViews = [];
+  for (const v of ['month', 'two', 'week', 'three', 'day', 'month']) {
+    if (await page.locator('#bk-view-' + v).count()) { await page.click('#bk-view-' + v); await sleep(250); }
+    junkViews.push(await page.evaluate(() => (document.querySelector('#page .bk-calview') ? 'drawn' : 'blank') + ':' + document.querySelectorAll('#page .bk-agenda .bk-card').length));
+  }
+  const junkCard = await page.locator('.bk-agenda .bk-card[data-id="g-j-title"] .bk-card-title').allInnerTexts();
+  ok('after such a backup the calendar draws in every view, with Coming up in full', junkViews.every(x => /^drawn:[1-9]/.test(x)) && /2026/.test(junkCard.join('')), `${junkViews.join(' ')} | ${junkCard.join('')}`);
+  ok('…with nothing in the console', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await store(page, s => { for (const id of ['g-j-title', 'g-j-date', 'g-j-dates', 'g-j-end', 'g-j-ends']) s.remove('bookings', id); });
+  await sleep(300);
+
   /* ---------------- house rules: the model ---------------- */
   const hr = await page.evaluate(() => Promise.all([import('./js/model.js'), import('./js/store.js')]).then(([m, s]) => {
     const chip = v => { const t = m.rulesChipText(v); return t ? [t.level, t.label, t.spoken] : null; };

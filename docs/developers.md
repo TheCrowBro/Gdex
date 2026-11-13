@@ -176,6 +176,8 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   code), or `update(d => { …mutate d…; rec.updatedAt = Date.now(); })` for anything else. A change saves and redraws.
 * Ids: `uid()` from `util.js`. Dates: `'YYYY-MM-DD'`. Times of day: `'HH:MM'`. Instants (clocks, takes): ms epoch.
   Durations of songs: seconds. Money: plain numbers (the currency symbol is `db.profile.currency`).
+  Whatever is loaded or brought back from a backup goes through `normalise`: a booking's `date` and `endDate` are text
+  or `''`, and its `title`, `client`, `venueName` and `address` text (a number becomes text, anything else `''`).
 * Numbers typed in forms arrive as numbers from `type: 'number'` fields but as **strings** from `rows` columns:
   convert with `Number()` before sums.
 * `loadSample()` fills a realistic sample (ids start with `s-`: act `s-owls`, show `s-show1`, past show `s-past`,
