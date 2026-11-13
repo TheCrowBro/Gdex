@@ -1,6 +1,8 @@
 # The browser specs (tests/specs) on every push and pull request, and on demand. They run Gdex in Chromium with
-# Playwright against a local copy of the site. The run also fails when the offline file list in sw.js is out of date
-# (a file added or removed without running node tools/stamp-build.mjs --dev).
+# Playwright against a local copy of the site, twice side by side: with licences off, as the repository is until the
+# owner switches them on, and with GDEX_LICENCE=on, where the test server serves them as live on localhost and every
+# spec starts inside free days already under way (tests/lib.mjs, tests/helpers.cjs). The run also fails when the
+# offline file list in sw.js is out of date (a file added or removed without running node tools/stamp-build.mjs --dev).
 name: Tests
 on:
   push:
@@ -13,8 +15,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   web:
+    name: web (licences ${{ matrix.licence }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        licence: ['off', 'on'] # quoted: some YAML readers take bare on and off for true and false
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -24,15 +31,21 @@ jobs:
       - run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      - name: The licence server's runtime, for its specs (Wrangler and Miniflare)
+        if: hashFiles('cloudflare/package-lock.json') != ''
+        run: npm ci --prefix cloudflare
       - run: npx playwright install --with-deps chromium
       - name: The offline file list is up to date
         run: |
           node tools/stamp-build.mjs --dev
           git diff --exit-code -- sw.js js/version.js || { echo "::error::Run node tools/stamp-build.mjs --dev and commit sw.js"; exit 1; }
       - run: npm test
+        env:
+          GDEX_LICENCE: ${{ matrix.licence }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
-          name: test-output
+          name: test-output-${{ matrix.licence }}
           path: tests/output
           if-no-files-found: ignore

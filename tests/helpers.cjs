@@ -6,7 +6,11 @@
 //   const { browser, page, errors } = await open({ sample: true });
 //   open({ ask: true }) leaves gdex-ask-seen alone: a spec about the question seeds its shows, then reloads.
 // Gdex always opens on the calendar: after page.reload(), go(page, id) to be anywhere else.
+// With GDEX_LICENCE=on (CI's second leg; the test server then serves licences as live on localhost) every page starts
+// inside free days already under way, with the terms agreed, unless the spec has seeded its own (the build spec [S-34]).
 const { chromium } = require('playwright');
+// The terms' version as js/terms.js has it, so the terms sheet counts as agreed (GDEX_ROOT: the scratch copy).
+const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(require('fs').readFileSync(require('path').join(process.env.GDEX_ROOT || '.', 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
 const BASE = process.env.GDEX_URL || 'http://localhost:8124/';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
@@ -14,6 +18,8 @@ async function open({ sample = false, viewport = { width: 420, height: 900 }, ta
   const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   const ctx = await browser.newContext({ viewport, serviceWorkers: 'block', acceptDownloads: true, permissions });
   await ctx.addInitScript(keepAsk => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); if (!keepAsk) localStorage.setItem('gdex-ask-seen', 'off'); } catch (e) { /* ignore */ } }, ask); // no welcome tour, no role card, no question
+  // The licence leg: a trial already under way and the terms agreed, before the first page, only when absent (a spec's own later changes survive reloads).
+  if (process.env.GDEX_LICENCE === 'on') await ctx.addInitScript(v => { try { const t = Date.now(); if (!localStorage.getItem('gdex-licence')) localStorage.setItem('gdex-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); if (!localStorage.getItem('gdex-terms')) localStorage.setItem('gdex-terms', JSON.stringify({ v, at: t })); } catch (e) { /* ignore */ } }, TERMS_V);
   if (init) await ctx.addInitScript(init);
   const tile = { status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') }; // a 1×1 map tile: no network, no console error
   await ctx.route('https://tile.openstreetmap.org/**', r => r.fulfill(tile));

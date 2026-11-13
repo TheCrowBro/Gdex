@@ -15,7 +15,7 @@ import { startTour, sheetTutorial } from '../tour.js';
 import { VERSION, BUILD, BUILT } from '../version.js';
 import { updatePanel } from '../update.js';
 import { installState, openInstallHelp } from '../install.js';
-import { backupPanel, health, fileState, onBackupChange, unlinkFile } from '../backup.js';
+import { backupPanel, onBackupChange, beforeErase, backupLine } from '../backup.js';
 import { role, roleChosen, menuSections, sectionName, moneyShown } from '../roles.js';
 import { rolePanel } from '../role-pick.js';
 import { askPref } from '../acts-ask.js';
@@ -216,14 +216,6 @@ function billingBody() {
 }
 const billingSummary = () => { const list = db.priceList && Array.isArray(db.priceList.list) ? db.priceList.list.length : 0; return list ? `${plural(list, 'price')} on your list · numbering, tax, payment details` : 'Numbering, tax, payment details and your prices'; };
 
-/* ------------------------------- backups ------------------------------- */
-function backupSummary() {
-  const hl = health(), f = fileState();
-  const bits = [hl.level === 'ok' ? `Last backup ${hl.when}` : hl.level === 'old' ? `⚠ Last backup ${hl.when}` : hl.level === 'none' ? '⚠ No backup yet' : 'Nothing to back up yet'];
-  if (f.linked) bits.push(f.status === 'needs-permission' ? '⚠ the file copy needs your OK' : f.status === 'error' ? '⚠ the file copy wasn’t saved' : `copy in ${f.name}`);
-  return bits.join(' · ');
-}
-
 /* ------------------------------- the sample ------------------------------- */
 const roleSummary = () => { const r = role(); return roleChosen() ? `${r.label} · ${plural(menuSections(r).length, 'section')} on the menu` : 'Not chosen: every section is on the menu'; };
 const sampleCount = () => store.COLLECTIONS.reduce((n, c) => n + db[c].filter(r => r && r.sample).length, 0);
@@ -295,7 +287,7 @@ const eraseArmed = () => S.erase.trim().toUpperCase() === 'ERASE';
 async function eraseDevice() {
   if (!eraseArmed()) return;
   S.erase = '';
-  try { await unlinkFile(); } catch { /* nothing linked */ } // first, so the empty database is never written over the copy
+  try { await beforeErase(); } catch { /* nothing linked */ } // first, so the empty database is never written over the copy
   store.eraseAll();
   try { localStorage.removeItem(OPEN_KEY); } catch { /* ignore */ }
   toast('Everything on this device was erased');
@@ -341,7 +333,7 @@ export const settings = {
       role: section('role', '🎭', 'Your role', roleSummary(), [rolePanel(), askPref()]), // askPref: the “Did you see them?” question, on or off
       profile: section('profile', '🪪', 'Your details', profileSummary(), profile.body, profile.paint),
       billing: moneyShown() ? section('billing', '🧾', 'Quotes & invoices', billingSummary(), billingBody()) : null,
-      backups: section('backups', '☁️', 'Backups', backupSummary(), backupPanel()),
+      backups: section('backups', '☁️', 'Backups', backupLine(), backupPanel()),
       display: section('display', '🔆', 'Display & accessibility', cap(prefsSummary()), display.el),
       help: section('help', '🧭', 'Help', 'Page tutorials and the welcome tour', [
         h('p', { class: 'small muted' }, 'Every page has a short walkthrough: tap ? at the top of any page, or pick one here. The welcome tour shows the whole app in about a minute.'),
@@ -354,7 +346,7 @@ export const settings = {
       erase: section('erase', '🗑️', 'Erase this device', 'Remove everything Gdex keeps here', eraseBody()),
     };
     // A backup saved or the file copy written is not a change to the data, so the page is not redrawn: its line is.
-    done.push(onBackupChange(() => { sec.backups.sub.textContent = backupSummary(); }));
+    done.push(onBackupChange(() => { sec.backups.sub.textContent = backupLine(); }));
     // The display choices are kept on the device, not in the data: their line follows every change, made in the panel or in Aa.
     const onPrefs = () => { sec.display.sub.textContent = cap(prefsSummary()); };
     window.addEventListener('gdex-prefs', onPrefs); done.push(() => window.removeEventListener('gdex-prefs', onPrefs));

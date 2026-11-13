@@ -1,3 +1,8 @@
 tests/output/
 node_modules/
 .claude/
+dist/
+cloudflare/site/
+cloudflare/.wrangler/
+gdex-licence-key-*.json
+*ledger*.csv

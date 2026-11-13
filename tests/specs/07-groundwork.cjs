@@ -3,7 +3,19 @@
 // "Didn’t go" answer on a booking and on its card; who is asked; the calendar's view kept on the device; the section
 // menu's words for three menus; the house-rules model (levels, the chip's words, the lists); and that a booking with
 // no date can never blank the page. Every "is it over" sum uses a fixed now, never the clock.
-const { open, ok, sleep, go } = require('../helpers.cjs');
+// Last, the seams the licence, the desktop app and Google Drive are built on (the build spec §3-§4): which roles and
+// sections need a licence, the store's write gate and its hooks, Replace everywhere, Erase keeping the licence, the
+// IndexedDB store, the service worker leaving the Worker's addresses alone, the owner's two switches still off in the
+// repository, and, with licences off, every answer "open" and nothing asked of a licence server.
+const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const { pathToFileURL } = require('url');
+// The repository itself, not the test's scratch copy: desktop/ is left out of that, and in the licence leg the test
+// server serves its own js/licence-config.js (the build spec [S-26], [S-34]).
+const REPO = path.join(__dirname, '..', '..');
+const LEG = process.env.GDEX_LICENCE === 'on' ? 'on' : 'off';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // Runs fn(store, arg) in the page. The function's text is sent as part of the expression Playwright evaluates (the
@@ -399,5 +411,245 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     ok('with nothing waiting, nothing is asked and the question’s code is not even fetched', st.sheets === 0 && st.fetched === false && st.page === 'bookings', JSON.stringify(st));
     ok('no errors in the console (ask: true)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
+  }
+
+  /* ================= the seams for the licence, the desktop app and Google Drive ================= */
+  {
+    /* ---------------- read from the repository ---------------- */
+    const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
+    const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
+    const sw = read('sw.js');
+    const swRoutes = JSON.parse(((/^const WORKER_ROUTES = (\[[^\]]*\]);/m.exec(sw) || [])[1] || 'null').replace(/'/g, '"'));
+    const siteFiles = await esm('tools/site-files.mjs');
+    ok('the service worker leaves the same addresses to the Worker as tools/site-files.mjs lists (/buy, /licence/*)', same(swRoutes, siteFiles.WORKER_ROUTES) && same(swRoutes, ['/buy', '/licence/*']) && ['terms.html', 'download.html'].every(f => siteFiles.PAGES.includes(f)), JSON.stringify([swRoutes, siteFiles.WORKER_ROUTES]));
+    // The service worker's own test of an address, run as it is written, at the root and under a sub-folder.
+    const routeOf = scope => {
+      const box = { self: { registration: { scope } }, location: { origin: new URL(scope).origin }, URL };
+      vm.runInNewContext(`${(/^const WORKER_ROUTES = .*$/m.exec(sw) || [''])[0]}\n${(/^const workerRoute = .*$/m.exec(sw) || [''])[0]}\nthis.workerRoute = workerRoute;`, box);
+      return u => box.workerRoute(new URL(u));
+    };
+    const atRoot = routeOf('https://gdex.crowmade.app/'), inFolder = routeOf('https://example.org/gdex/');
+    const routes = {
+      root: ['/buy', '/licence/web/status', '/licence/price', '/licence/'].map(p => atRoot('https://gdex.crowmade.app' + p)),
+      notRoot: ['/', '/index.html', '/buy/x', '/buyer', '/licence', '/licences/x', '/js/licence-state.js'].map(p => atRoot('https://gdex.crowmade.app' + p)),
+      elsewhere: atRoot('https://example.org/buy'),
+      folder: [inFolder('https://example.org/gdex/buy'), inFolder('https://example.org/gdex/licence/web/check'), inFolder('https://example.org/buy')],
+    };
+    ok('…and its test sends exactly those past the cache, under a sub-folder too, and never another site’s', routes.root.every(Boolean) && !routes.notRoot.some(Boolean) && routes.elsewhere === false && same(routes.folder, [true, true, false]) && /if \(url\.pathname\.includes\('\/__gdex\/'\)\) return;/.test(sw), JSON.stringify(routes));
+    const csp = Object.fromEntries((/http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(read('index.html')) || [])[1].split(';').map(d => d.trim().split(/\s+/)).filter(d => d[0]).map(d => [d[0], d.slice(1)]));
+    ok('index.html’s CSP lets Google’s sign-in in: its script, style and frame, and nothing else changes for frames', ['script-src', 'style-src', 'frame-src'].every(d => (csp[d] || []).includes('https://accounts.google.com')) && same(csp['frame-src'], ["'self'", 'https://accounts.google.com']) && same(csp['script-src'], ["'self'", 'https://accounts.google.com']), JSON.stringify(csp));
+    const keysJson = JSON.parse(read('desktop/licence-keys.json'));
+    const keysJs = (await esm('js/licence-keys.js')).LICENCE_KEYS;
+    ok('js/licence-keys.js is desktop/licence-keys.json (run node tools/licence-keys.mjs after changing that file)', same(keysJs, keysJson) && read('js/licence-keys.js') === `// Generated by tools/licence-keys.mjs from desktop/licence-keys.json: public keys only. Do not edit.\nexport const LICENCE_KEYS = ${JSON.stringify(keysJson)};\n`, JSON.stringify([keysJs, keysJson]));
+    // The owner's two switches. Only the publish and the release the owner approves flip them, together with these two
+    // expectations (docs/go-live.md), so no session switches a licence on by accident.
+    const sites = (await esm('js/licence-config.js')).LICENCE_SITES, desk = JSON.parse(read('desktop/licence-on.json'));
+    ok('the owner’s switches are off in the repository: LICENCE_SITES is [] and desktop/licence-on.json is { "on": false }', same(sites, []) && same(desk, { on: false }), JSON.stringify([sites, desk]));
+    const ignored = read('.gitignore').split('\n').map(l => l.trim());
+    ok('.gitignore keeps keys, ledgers and builds out of the repository', ['dist/', 'cloudflare/site/', 'cloudflare/.wrangler/', 'gdex-licence-key-*.json', '*ledger*.csv'].every(l => ignored.includes(l)), ignored.join(' '));
+
+    /* ---------------- in the page ---------------- */
+    const { browser, ctx, page, errors } = await open({ sample: true });
+    await page.waitForSelector('.bk-monthview');
+    const roles = await page.evaluate(() => import('./js/roles.js').then(r => ({
+      free: r.FREE_SECTIONS, freeRole: r.FREE_ROLE, menu: r.menuSections(r.roleOf('audiophile')),
+      needs: Object.fromEntries(['', 'all', 'producer', 'manager', 'band', 'solo', 'scout', 'audiophile'].map(id => [id, r.roleNeedsLicence(id)])),
+      paid: r.SECTIONS.filter(r.sectionNeedsLicence), unknown: r.sectionNeedsLicence('nowhere'),
+    })));
+    ok('FREE_SECTIONS are the Audiophile’s own menu', same(roles.free, roles.menu) && roles.freeRole === 'audiophile', JSON.stringify(roles.menu));
+    ok('every role but the Audiophile needs a licence: none chosen, Everything and the other five', Object.entries(roles.needs).every(([id, v]) => v === (id !== 'audiophile')), JSON.stringify(roles.needs));
+    ok('exactly six sections need a licence (People, Songs, Studio log, Backline, Money, Insurance); an unknown one none', same(roles.paid, ['people', 'songs', 'sessions', 'backline', 'money', 'insurance']) && roles.unknown === false, JSON.stringify(roles.paid));
+
+    // The write gate: refused, nothing changes, nothing is saved, nothing is redrawn; the gate hears what is asked.
+    const gate = await store(page, s => {
+      const before = s.serialize(), rev = s.revision(), asked = [];
+      let redraws = 0; const unsub = s.subscribe(() => { redraws++; });
+      let hooks = 0; const unhook = s.afterWrite(() => { hooks++; });
+      s.setGate(a => { asked.push(a === undefined ? 'nothing' : JSON.stringify(a)); return false; });
+      const out = {
+        update: s.update(d => { d.acts.push({ id: 'gate-x', name: 'X' }); }),
+        upsert: s.upsert('acts', { id: 'gate-y', name: 'Y' }),
+        patch: s.patch('acts', 's-owls', { name: 'Z' }),
+        remove: s.remove('acts', 's-owls'),
+        canChange: s.canChange(), quietly: s.canChangeQuietly(),
+      };
+      out.same = s.serialize() === before && s.revision() === rev && redraws === 0 && hooks === 0;
+      out.asked = asked;
+      s.setGate(() => true); out.allowed = s.update(() => {}) === true;
+      s.setGate('not a function'); out.notFn = s.canChange() && s.canChangeQuietly();
+      s.setGate(null);
+      const y = s.upsert('acts', { id: 'gate-y', name: 'Y' });
+      out.after = { canChange: s.canChange(), quietly: s.canChangeQuietly(), upsert: !!y && y.id === 'gate-y', patch: (s.patch('acts', 'gate-y', { name: 'Y2' }) || {}).name, remove: s.remove('acts', 'gate-y') };
+      unsub(); unhook();
+      return out;
+    });
+    ok('with the gate refusing, update returns false, upsert and patch null, remove false, and nothing is changed, saved or redrawn', gate.update === false && gate.upsert === null && gate.patch === null && gate.remove === false && gate.same, JSON.stringify(gate));
+    ok('…canChange() and canChangeQuietly() say no, and the gate is asked with { form: true }, { quiet: true } and nothing for a write', gate.canChange === false && gate.quietly === false && same(gate.asked, ['nothing', 'nothing', 'nothing', 'nothing', '{"form":true}', '{"quiet":true}']), JSON.stringify(gate.asked));
+    ok('…a gate that allows, a gate that is not a function and setGate(null) all let changes through again', gate.allowed && gate.notFn && same(gate.after, { canChange: true, quietly: true, upsert: true, patch: 'Y2', remove: true }), JSON.stringify(gate.after));
+
+    // afterWrite: after update, replaceAll and mergeIn, never after adopt (a copy from Drive is not pushed straight back).
+    const hooks = await page.evaluate(() => import('./js/store.js').then(async s => {
+      let n = 0; const reasons = [];
+      const unhook = s.afterWrite(() => { n++; }), unsub = s.subscribe(r => reasons.push(r));
+      const out = {};
+      s.update(() => {}); out.update = n;
+      s.replaceAll(JSON.parse(s.serialize())); out.replaceAll = n;
+      s.mergeIn(JSON.parse(s.serialize())); out.mergeIn = n;
+      const copy = JSON.parse(s.serialize()); copy.updatedAt = 12345; copy.freeDaysFrom = 1; copy.acts.push({ id: 'from-drive', name: 'From Drive', updatedAt: 777 });
+      s.setGate(() => false); // a read-only role still takes in what Drive brings
+      s.adopt(copy); out.adopt = n;
+      s.setGate(null);
+      out.adoptedAt = s.db.updatedAt; out.adoptedAct = (s.byId('acts', 'from-drive') || {}).updatedAt; out.noField = !('freeDaysFrom' in s.db);
+      out.reasons = reasons.slice(-1);
+      await new Promise(r => setTimeout(r, 0));
+      out.saved = JSON.parse(localStorage.getItem('gdex-db-v1')).updatedAt;
+      unhook(); s.update(() => {}); out.unhooked = n;
+      unsub();
+      s.remove('acts', 'from-drive');
+      return out;
+    }));
+    ok('afterWrite fires after update, replaceAll and mergeIn, never after adopt, and stops when unsubscribed', hooks.update === 1 && hooks.replaceAll === 2 && hooks.mergeIn === 3 && hooks.adopt === 3 && hooks.unhooked === 3, JSON.stringify(hooks));
+    ok('adopt keeps the copy’s own times, saves it, redraws with the reason \'sync\', passes a refusing gate, and drops freeDaysFrom', hooks.adoptedAt === 12345 && hooks.saved === 12345 && hooks.adoptedAct === 777 && same(hooks.reasons, ['sync']) && hooks.noField, JSON.stringify(hooks));
+    const norm = await store(page, s => { const n = s.normalise({ app: 'gdex', freeDaysFrom: 1, acts: [{ id: 'a1', name: 'A' }] }); return { has: 'freeDaysFrom' in n, acts: n.acts.length }; });
+    ok('normalise drops the Drive copy’s freeDaysFrom: it never enters the database or a backup', norm.has === false && norm.acts === 1, JSON.stringify(norm));
+
+    // Replace: plainly, the backup's own times and no tombstones; everywhere (Drive linked), every device follows.
+    const repl = await page.evaluate(() => import('./js/store.js').then(s => {
+      const orig = JSON.parse(s.serialize());
+      const backup = JSON.parse(s.serialize());
+      backup.acts = backup.acts.filter(a => a.id !== 's-sablea'); // and with it its time seen sn4
+      const owls = backup.acts.find(a => a.id === 's-owls'); owls.seen = owls.seen.filter(e => e.id !== 'sn2');
+      const log = backup.logs.find(l => l.id === 's-log1'); log.takes = log.takes.filter(t => t.id !== 't2');
+      for (const c of s.COLLECTIONS) for (const r of backup[c]) r.updatedAt = 5;
+      backup.profile.updatedAt = 5; backup.billing = { ...backup.billing, updatedAt: 5 }; backup.priceList = { ...backup.priceList, updatedAt: 5 }; backup.templates = { ...backup.templates, updatedAt: 5 };
+      const dead = () => ['s-sablea', 'sn4', 'sn2', 't2', 's-owls', 'sn1', 't1', 's-log1'].filter(id => s.db.deleted[id]);
+      const out = {};
+      s.replaceAll(JSON.parse(JSON.stringify(backup)));
+      out.plain = { dead: dead(), times: s.COLLECTIONS.every(c => s.db[c].every(r => r.updatedAt === 5)), gone: !s.byId('acts', 's-sablea') };
+      s.replaceAll(orig);
+      const t0 = Date.now();
+      s.replaceAll(JSON.parse(JSON.stringify(backup)), { everywhere: true });
+      out.every = {
+        dead: dead(), atNow: ['s-sablea', 'sn4', 'sn2', 't2'].every(id => s.db.deleted[id] >= t0),
+        times: s.COLLECTIONS.every(c => s.db[c].every(r => r.updatedAt >= t0)), parts: ['templates', 'billing', 'priceList', 'profile'].every(k => s.db[k].updatedAt >= t0),
+        kept: { owls: (s.byId('acts', 's-owls').seen || []).map(e => e.id).sort(), takes: (s.byId('logs', 's-log1').takes || []).map(t => t.id).sort() },
+        name: s.db.profile.name === orig.profile.name,
+      };
+      s.replaceAll(orig);
+      out.back = !!s.byId('acts', 's-sablea') && !s.db.deleted['s-sablea'];
+      return out;
+    }));
+    ok('a plain replace keeps the backup’s own times and writes no tombstones', same(repl.plain.dead, []) && repl.plain.times && repl.plain.gone, JSON.stringify(repl.plain));
+    ok('replace everywhere tombstones every record, time seen and take the backup lacks, and nothing it has', same(repl.every.dead, ['s-sablea', 'sn4', 'sn2', 't2']) && repl.every.atNow && same(repl.every.kept, { owls: ['sn1', 'sn3'], takes: ['t1', 't3'] }), JSON.stringify(repl.every));
+    ok('…and stamps every record it brings, and the templates, billing, price list and profile, now', repl.every.times && repl.every.parts && repl.every.name && repl.back, JSON.stringify(repl.every));
+
+    // A time seen and a take removed by hand leave a tombstone, so Google Drive's entry-by-entry merge does not bring them back.
+    await go(page, 'acts');
+    await page.locator('.ac-card[data-id="s-owls"] .ac-card-head').click();
+    await page.waitForSelector('#ac-pnl-s-owls');
+    const t1 = Date.now();
+    await page.locator('.ac-card[data-id="s-owls"] .ac-seen').first().locator('button[aria-label^="Edit"]').click();
+    await page.waitForSelector('.sheet[aria-label="Edit a time seen"]');
+    await topSheet(page).locator('button.danger').click(); // the confirm is accepted
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    await go(page, 'sessions');
+    await page.click('.sd-log[data-id="s-log1"]');
+    await page.waitForSelector('.sd-log-view');
+    await page.locator('.sd-log-view button[aria-label^="Edit take 1 "]').first().click();
+    await page.waitForSelector('.sheet[aria-label="Edit take"]');
+    await topSheet(page).locator('button.danger').click();
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    const tomb = await store(page, (s, t1) => ({ sn1: s.db.deleted.sn1 >= t1, t1: s.db.deleted.t1 >= t1, seen: s.byId('acts', 's-owls').seen.map(e => e.id), takes: s.byId('logs', 's-log1').takes.map(t => t.id), logAt: s.byId('logs', 's-log1').updatedAt >= t1 }), t1);
+    ok('removing a time seen and a take writes db.deleted[their id]', tomb.sn1 && tomb.t1 && !tomb.seen.includes('sn1') && same(tomb.takes, ['t2', 't3']) && tomb.logAt, JSON.stringify(tomb));
+
+    // Bringing a backup back is a change: refused, the chooser stays open and nothing is merged or replaced.
+    await go(page, 'settings');
+    const refused = await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/backup.js')]).then(([s, b]) => {
+      const file = new File([JSON.stringify({ ...JSON.parse(s.serialize()), acts: [] })], 'gdex-backup-test.json', { type: 'application/json' });
+      window.__chosen = 'waiting'; b.importBackup(file).then(v => { window.__chosen = v; });
+      window.__before = s.serialize();
+    }));
+    await page.waitForSelector('.sheet[aria-label="Bring back a backup"]');
+    await page.evaluate(() => import('./js/store.js').then(s => s.setGate(() => false)));
+    await page.click('.sheet[aria-label="Bring back a backup"] .se-imp-merge');
+    await page.click('.sheet[aria-label="Bring back a backup"] .se-imp-replace');
+    await sleep(150);
+    const imp = await page.evaluate(() => import('./js/store.js').then(s => ({ open: !!document.querySelector('.sheet[aria-label="Bring back a backup"]'), same: s.serialize() === window.__before, chosen: window.__chosen })));
+    await page.evaluate(() => import('./js/store.js').then(s => s.setGate(null)));
+    await page.click('.sheet[aria-label="Bring back a backup"] button:has-text("Cancel")');
+    await page.waitForSelector('.sheet', { state: 'detached' });
+    ok('with the gate refusing, Merge and Replace leave the chooser open and change nothing', refused === undefined && imp.open && imp.same && imp.chosen === 'waiting', JSON.stringify(imp));
+    ok('…and Cancel still closes it', (await page.evaluate(() => window.__chosen)) === null);
+
+    // Settings → Backups' closed line now comes from js/backup.js.
+    const line = await page.evaluate(() => import('./js/backup.js').then(b => ({ fn: b.backupLine(), shown: document.querySelector('#se-backups .se-sub').textContent })));
+    ok('Settings → Backups’ closed line is backupLine()', line.fn === line.shown && /^(⚠ )?(Last backup|No backup yet|Nothing to back up yet)/.test(line.fn), JSON.stringify(line));
+
+    // The IndexedDB store: one database, gdex version 1, store kv, for the free days' copy and the linked file alike.
+    const idb = await page.evaluate(() => Promise.all([import('./js/kv.js'), import('./js/backup.js')]).then(async ([k, b]) => {
+      const out = {};
+      await k.kvSet('licence-days', { first: 11, seen: 22 });
+      out.round = await k.kvGet('licence-days');
+      out.direct = await new Promise((res, rej) => { const r = indexedDB.open('gdex', 1); r.onsuccess = () => { const d = r.result; const q = d.transaction('kv').objectStore('kv').get('licence-days'); q.onsuccess = () => { res({ v: q.result, version: d.version }); d.close(); }; q.onerror = () => rej(q.error); }; r.onerror = () => rej(r.error); });
+      await k.kvSet('fileHandle', 'stand-in');
+      out.before = await k.kvGet('fileHandle');
+      await b.beforeErase(); // Erase unlinks the copy in a file first: it deletes the handle from the same store
+      out.after = await k.kvGet('fileHandle');
+      return out;
+    }));
+    ok('kvSet and kvGet round-trip in IndexedDB gdex (version 1), store kv', same(idb.round, { first: 11, seen: 22 }) && same(idb.direct, { v: { first: 11, seen: 22 }, version: 1 }), JSON.stringify(idb));
+    ok('…and the linked file’s handle lives in the same store (beforeErase unlinks it there)', idb.before === 'stand-in' && idb.after === undefined, JSON.stringify(idb));
+    const src = read('js/backup.js');
+    ok('js/backup.js opens IndexedDB only through js/kv.js', /import \{ kv \} from '\.\/kv\.js';/.test(src) && !/indexedDB\.open/.test(src));
+
+    // Erase this device keeps the free-day count, the website sign-in and the terms agreed (and IndexedDB's copy).
+    const erase = await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/kv.js')]).then(async ([s, k]) => {
+      localStorage.setItem('gdex-licence', JSON.stringify({ first: 3, seen: 4 })); localStorage.setItem('gdex-terms', JSON.stringify({ v: 't', at: 5 }));
+      localStorage.setItem('gdex-drive', '1'); localStorage.setItem('gdex-role', 'band');
+      s.eraseAll();
+      return { licence: localStorage.getItem('gdex-licence'), terms: localStorage.getItem('gdex-terms'), drive: localStorage.getItem('gdex-drive'), role: localStorage.getItem('gdex-role'), days: await k.kvGet('licence-days'), acts: s.db.acts.length };
+    }));
+    ok('Erase this device keeps gdex-licence, gdex-terms and IndexedDB’s licence-days, and clears the rest', erase.licence === '{"first":3,"seen":4}' && erase.terms === '{"v":"t","at":5}' && erase.drive === null && erase.role === null && same(erase.days, { first: 11, seen: 22 }) && erase.acts === 0, JSON.stringify(erase));
+    ok('no errors in the console (the seams)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+
+    /* ---------------- the licence as every module asks it ---------------- */
+    const NAMES = ['LICENCE_EVENT', 'licenceNow', 'licenceOn', 'licenceReady', 'mayOpen', 'mayWork', 'mayPickRole', 'gateWork', 'workMark', 'canWrite', 'startFreeDays', 'freeDaysFrom', 'adoptFreeDaysFrom', 'refreshLicence', 'serverTime', 'setLicenceState', 'onLicenceChange', 'initLicenceSource', 'roleBadge', 'sectionMark', 'FREE_KEEPS_WORK'];
+    {
+      const { browser, ctx, page, errors } = await open({ sample: true });
+      const asked = []; let requests = 0;
+      ctx.on('request', r => { requests++; if (/\/licence\/|\/buy$/.test(new URL(r.url()).pathname)) asked.push(r.url()); });
+      await page.reload(); await page.waitForSelector('#deck .dk-next');
+      const sections = await page.evaluate(() => import('./js/roles.js').then(r => r.SECTIONS));
+      for (const id of sections) await go(page, id); // a whole visit: every section
+      await go(page, 'bookings'); await sleep(1500); // and the idle work after it
+      const L = await page.evaluate(names => Promise.all([import('./js/licence-state.js'), import('./js/roles.js'), import('./js/licence-config.js')]).then(async ([L, r, c]) => {
+        const roleIds = [...r.ROLES.map(x => x.id), 'all'];
+        let called = 0; L.gateWork(() => { called++; });
+        return {
+          missing: names.filter(n => !(n in L)), event: L.LICENCE_EVENT, keeps: L.FREE_KEEPS_WORK,
+          mode: L.licenceNow().mode, on: L.licenceOn(), ready: await L.licenceReady().then(() => true),
+          open: r.SECTIONS.every(id => L.mayOpen(id) === 'open'), work: L.mayWork(), pick: roleIds.every(id => L.mayPickRole(id) === 'open'),
+          called, mark: L.workMark(), write: L.canWrite(), start: await L.startFreeDays(), from: L.freeDaysFrom(),
+          badges: roleIds.every(id => L.roleBadge(id) === ''), marks: r.SECTIONS.every(id => L.sectionMark(id) === null),
+          sites: c.LICENCE_SITES, licence: localStorage.getItem('gdex-licence'), terms: localStorage.getItem('gdex-terms'),
+        };
+      }), NAMES);
+      ok('js/licence-state.js exports every name of the contract (the build spec §3.5), with the event gdex-licence and FREE_KEEPS_WORK false', same(L.missing, []) && L.event === 'gdex-licence' && L.keeps === false, JSON.stringify(L.missing));
+      if (LEG === 'off') {
+        ok('licences off: the mode is off and every answer is open (sections, work, roles, the gate calls through at once, the store gate allows)', L.mode === 'off' && L.on === false && L.ready && L.open && L.work === 'open' && L.pick && L.called === 1 && L.mark === null && L.write === true, JSON.stringify(L));
+        ok('…nothing is started, nothing is marked, no badge', L.start === false && L.from === 0 && L.badges && L.marks, JSON.stringify(L));
+        ok('…the site is not a licence site, and nothing about a licence is kept on the device', same(L.sites, []) && L.licence === null && L.terms === null, JSON.stringify(L));
+        ok('…and in a whole visit, every section opened, not one request goes to /licence/ or /buy', asked.length === 0 && requests > 20, `${requests} requests; ${asked.join(' | ')}`);
+      } else {
+        // The licence leg: the test server serves licences as live on this host, and the helper has seeded free days
+        // under way and the terms agreed before the first page (the build spec [S-34]).
+        const seeded = JSON.parse(L.licence || 'null');
+        ok('licence leg: this host is a licence site, and the free days are under way with the terms agreed', same(L.sites, ['localhost', '127.0.0.1']) && !!seeded && seeded.on === true && seeded.first > 0 && seeded.seen >= seeded.first && !!L.terms, JSON.stringify([L.sites, L.licence, L.terms]));
+        ok('…and the test server answers the status as on and the price, as JSON', await page.evaluate(() => Promise.all([fetch('/licence/web/status').then(r => r.json()), fetch('/licence/price').then(r => r.json())]).then(([st, pr]) => st.on === true && pr.price === '20.00' && pr.currency === 'USD')));
+      }
+      ok('no errors in the console (the licence as every module asks it)', errors.length === 0, errors.slice(0, 5).join(' | '));
+      await browser.close();
+    }
   }
 })().catch(e => { console.log('FAIL groundwork spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });

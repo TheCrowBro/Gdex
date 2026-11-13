@@ -113,6 +113,12 @@ export const ROLES = [
 ];
 // Before a role is chosen (and for anyone who wants it): every section, as Gdex has always been.
 export const EVERYTHING = { id: 'all', label: 'Everything', icon: '🗂️', what: '', blurb: 'Every section on the menu, as Gdex has always been.', sections: SECTIONS.slice(), start: 'bookings', names: {}, newKind: 'show', hide: [], money: true, pages: {} };
+// The licence (decisions §9): the Audiophile is free for ever; every other role, Everything included, needs a licence
+// after 30 free days. FREE_SECTIONS are the Audiophile's own sections (07-groundwork checks they match its menu).
+export const FREE_ROLE = 'audiophile';
+export const FREE_SECTIONS = ['bookings', 'acts', 'venues', 'tools', 'settings'];
+export const roleNeedsLicence = id => (id || 'all') !== FREE_ROLE;
+export const sectionNeedsLicence = id => SECTIONS.includes(id) && !FREE_SECTIONS.includes(id);
 const ALL = [...ROLES, EVERYTHING];
 
 const read = () => { try { const v = localStorage.getItem(KEY); return ALL.some(r => r.id === v) ? v : ''; } catch { return ''; } };

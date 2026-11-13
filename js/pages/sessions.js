@@ -173,7 +173,7 @@ function editTake(l, t) {
       { key: 'text', label: 'Notes', type: 'textarea', rows: 4, placeholder: 'Great feel, pitchy in the bridge…', hint: `Recorded ${clockTime(Number(t.at))}. A [0:42] at the start of a line is how far into the take the note was made.` },
     ],
     onSave: v => changeLog(l.id, x => { const y = x.takes.find(z => z.id === t.id); if (y) Object.assign(y, { n: Math.max(1, Math.round(Number(v.n)) || 1), songId: v.songId, rating: v.rating, text: v.text }); }),
-    onDelete: () => { changeLog(l.id, x => { x.takes = x.takes.filter(z => z.id !== t.id); }); toast(`Take ${t.n} deleted`); },
+    onDelete: () => { update(d => { const x = d.logs.find(y => y.id === l.id); if (!x) return; x.takes = (x.takes || []).filter(z => z.id !== t.id); x.updatedAt = Date.now(); d.deleted[t.id] = Date.now(); }); toast(`Take ${t.n} deleted`); },
   });
 }
 
