@@ -1,0 +1,7 @@
+{
+  "name": "gdex-cloudflare",
+  "private": true,
+  "devDependencies": {
+    "wrangler": "4.151.1"
+  }
+}

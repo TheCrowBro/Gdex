@@ -2,25 +2,164 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'">
+<!-- No script can run here (default-src 'none', no script-src). connect-src and worker-src 'self' only let Gdex's own
+     offline copy (sw.js) be installed and checked from this page (tests/specs/07-groundwork does so). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gdex privacy</title>
+<meta name="color-scheme" content="dark light">
+<title>Gdex privacy policy</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
+<style>
+  .legal { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; font-size: 1.0625rem; line-height: 1.55; }
+  .legal header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  .legal header img { width: 56px; height: 56px; border-radius: 14px; flex: none; }
+  .legal h1 { font-size: 1.7rem; line-height: 1.2; margin: 0; }
+  .legal .meta { color: var(--muted); margin: 0 0 24px; font-size: .95rem; }
+  .legal h2 { font-size: 1.25rem; margin: 36px 0 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .legal h3 { font-size: 1.05rem; text-transform: none; letter-spacing: 0; color: var(--text); margin: 22px 0 6px; }
+  .legal p, .legal li { max-width: 68ch; overflow-wrap: break-word; }
+  .legal ul, .legal ol { padding-left: 1.2em; }
+  .legal li { margin: 6px 0; }
+  .legal a { color: var(--accent); }
+  .legal .summary { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; margin: 0 0 8px; }
+  .legal .summary h2 { border: 0; margin: 0 0 8px; padding: 0; font-size: 1.1rem; }
+  .legal .summary ul { margin: 0; }
+  .legal table { border-collapse: collapse; width: 100%; font-size: .95rem; margin: 12px 0; }
+  .legal th, .legal td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); overflow-wrap: break-word; }
+  .legal th { color: var(--muted); font-weight: 600; }
+  @media (max-width: 560px) { .legal table, .legal thead, .legal tbody, .legal tr, .legal th, .legal td { display: block; } .legal thead { display: none; } .legal tr { padding: 10px 0; border-bottom: 1px solid var(--line); } .legal td { border: 0; padding: 2px 0; } .legal td[data-h]::before { content: attr(data-h) ": "; color: var(--muted); } }
+  .legal .important { border: 2px solid var(--accent); border-radius: var(--radius); padding: 4px 18px 14px; margin: 32px 0 8px; }
+  .legal .important > h2:first-child { border: 0; margin-top: 14px; padding-top: 0; color: var(--accent); }
+  .legal .important h3 { font-size: 1.15rem; margin: 22px 0 8px; }
+  .legal .foot { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .legal :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+</style>
 </head>
 <body>
-<main class="page" style="max-width:720px;margin:0 auto;padding:24px 16px">
-<h1>Privacy</h1>
-<p><b>Your information stays on your device.</b> Gdex keeps your bookings, people, songs, money and everything else in this browser's storage on this phone or computer. There is no Gdex account and no Gdex server that receives your data.</p>
-<h2>When something leaves your device</h2>
-<ul>
-<li><b>Backups</b> go only where you save or share the file.</li>
-<li><b>Share links</b> (a day sheet for the band, an invoice for a client) carry the document inside the link itself, after the # sign, which browsers never send to a server. Anyone you give the link to can read that document, so send it only to the people it is for.</li>
-<li><b>Maps:</b> a venue's map preview loads tiles from OpenStreetMap, and “Find from address” asks OpenStreetMap's address search, which sees that address and your internet address. Directions buttons open Google Maps or Apple Maps.</li>
-<li><b>The microphone</b> (tuner and sound meter) is used only while that tool is open, on the device, and nothing is recorded or sent.</li>
-</ul>
-<h2>Removing your data</h2>
-<p>Settings → Erase this device removes everything Gdex keeps in this browser. Uninstalling the app or clearing the site's data in your browser does the same.</p>
-<p><a href="index.html">Back to Gdex</a></p>
+<main class="legal">
+  <header>
+    <img src="icons/icon.svg" alt="">
+    <h1>Gdex privacy policy</h1>
+  </header>
+  <p class="meta">Last updated 13 November 2026. Applies to the Gdex web app at gdex.crowmade.app and the Gdex desktop app for Windows, Mac and Linux.</p>
+
+  <section class="summary">
+    <h2>The short version</h2>
+    <ul>
+      <li>Gdex has no advertising, no analytics and no tracking, and no account for your work.</li>
+      <li>Everything you enter stays on your phone or computer, and in your own Google Drive if you connect it. The people who make Gdex never receive it.</li>
+      <li>Gdex’s only server of its own, the licence server at gdex.crowmade.app, sells and checks licences for the working roles, and never sees your work. An Audiophile who never uses a working role sends it nothing.</li>
+      <li>Information leaves your device only when you use a feature that needs it. Every case is listed below.</li>
+    </ul>
+  </section>
+
+  <p>Using Gdex is also covered by the <a href="terms.html">terms of service</a>.</p>
+
+  <h2>1. Who is responsible</h2>
+  <p>Gdex is made and published by Laurence Simmonds, known online as TheCrowBro ("we" and "us" below), in California, USA, at <a href="https://gdex.crowmade.app/">gdex.crowmade.app</a>. We are responsible for the information this policy describes. Questions about this policy can be sent to <!--email_off--><a href="mailto:support@crowmade.app">support@crowmade.app</a><!--/email_off-->.</p>
+
+  <h2>2. What Gdex stores, and where</h2>
+  <p>Gdex keeps the information you enter in the app’s own storage on your device: the browser’s storage for the web app, and the app’s folder for the desktop app. That information can include:</p>
+  <ul>
+    <li>Bookings: shows, studio sessions and rehearsals, with their dates and times, venues, deals and fees, advancing, line-ups, running orders, guest lists, setlists, settlements, the session clock, take logs, deliverables and notes.</li>
+    <li>Acts: names (and the names a band had before), members, links, press kits, tech riders, your scores and the times you saw them.</li>
+    <li>People: names, roles, phone numbers, email addresses, rates and notes.</li>
+    <li>Songs and setlists: keys, tempos, lengths, and the writers on a split sheet with their shares.</li>
+    <li>Backline: instruments and gear, serial numbers and values, and stage packs.</li>
+    <li>Venues: addresses, capacities, curfews, contacts, house rules and map coordinates.</li>
+    <li>Money: quotes, invoices, deposits and payments you record, and your payment details for the Pay buttons.</li>
+    <li>Insurance policies and their dates.</li>
+    <li>Your own details for quotes and invoices, and your settings.</li>
+  </ul>
+  <p>Beside that, on this device only: your role and your display settings; whether you agreed to the terms; and the licence record: when the working roles’ free days started on this device and, once you sign in on the website, a signed note with your email address and your licence’s number. The web app keeps a second copy of the day the free days started in the browser’s IndexedDB storage, so clearing one alone does not restart them. Erase this device keeps the licence record, that second copy and your agreement to the terms, so erasing never restarts the free days or signs you out.</p>
+  <p>With Google Drive connected, this device also keeps the Google account’s address and name, shown as “Signed in as …” and used as Google’s sign-in hint, until you disconnect; and Google’s access token, for its hour.</p>
+  <p>None of this is sent to us. You can save a copy of all your information, or erase it, at any time under Settings → Backups and Settings → Erase this device. A backup file never carries your licence or your role.</p>
+
+  <h2>3. When information leaves your device</h2>
+  <p>Each of the following is optional. You switch it on, or trigger it, yourself.</p>
+
+  <h3>Backup files</h3>
+  <p>A backup file goes only where you save or share it. If you keep a copy in a file inside a folder that a cloud storage app syncs, that app copies it under its own terms.</p>
+
+  <h3>Google Drive</h3>
+  <p>Only when you connect it (☁ → Google Drive → Connect Google Drive…). Google’s sign-in script then loads from Google, and you sign in on Google’s own page, so Gdex never sees your password. Gdex receives a token that reaches only a hidden folder of your Drive that only Gdex can open (Google calls it the app data folder), not your other files, and keeps that token on this device for its hour; Google asks you to sign in again about once an hour while you use Gdex. In the desktop app, Google’s sign-in opens in your web browser and the answer comes back to Gdex through the app’s own address on your computer.</p>
+  <p>Gdex then keeps the whole of its information in that folder, as one file every device you connect with the same Google account shares, and a dated copy each day you use it: one for each day of the week (the last 7 days) and one for each month (the last 12). That copy also holds the day the working roles’ free days first started on any of your devices, so your devices share one count. Google holds all of it as part of your Google account, under its own privacy policy; we have no access to it. Google sees which Google account uses Gdex, and when.</p>
+  <p>To remove it: Disconnect stops syncing on a device (both copies stay); “Delete Gdex’s copy from Google Drive…” removes the copy and every daily copy; your Google Account’s third-party connections take Gdex’s access away; and in Google Drive, Settings → Manage apps → Gdex → Delete hidden app data removes anything Gdex kept there. If you never connect Google Drive, Gdex never contacts Google.</p>
+
+  <h3>Share links</h3>
+  <p>A link you make for someone (a day sheet for the band, a quote or an invoice for a client) carries the whole document inside the link itself, after the # sign, which browsers never send to a server. Opening it loads only Gdex’s own page files; the document never reaches us or any server, and nothing is stored online. Anyone you give the link to can read it, so send it only to the people it is for. A day sheet never carries money (the deal, fees, settlement or budget).</p>
+
+  <h3>Addresses and maps</h3>
+  <p>A venue’s map loads map images for the area shown from OpenStreetMap’s tile servers, and “Find from address” sends the address text to OpenStreetMap’s address search (Nominatim), which sees that address and your internet address. Directions buttons open Google Maps or Apple Maps on your device with the address.</p>
+
+  <h3>Pay buttons and calendar files</h3>
+  <p>The Pay buttons on an invoice open the payment service you chose (PayPal, Venmo, Cash App, Monzo, Revolut or a payment page of your own), with the amount filled in where that service allows it; what happens from there is between your client and that service, under its privacy policy. Gdex is never told whether a payment was made. “Add to calendar” saves a calendar file on your device and sends nothing.</p>
+
+  <h3>The microphone</h3>
+  <p>The tuner and the sound level meter listen live, on the device, only while one is open. Nothing is recorded, stored or sent.</p>
+
+  <h3>Licences: buying, activating and signing in</h3>
+  <p>Gdex’s working roles (Producer, Manager, Band, Solo artist, Scout and Everything) are free for 30 days on each device, then need a licence; the Audiophile role is free. The free days are counted on your device; nothing is sent for them. Until licences are switched on at gdex.crowmade.app, Gdex sends nothing at all to the licence server.</p>
+  <p>Once they are, a browser on gdex.crowmade.app asks our licence server, at most every six hours, whether licences are live, but only while it uses a working role, has started its free days, or is signed in. That request carries nothing about you or your free days. An Audiophile who never used a working role sends nothing to the licence server at all. The server’s answers carry the time, which Gdex uses to check this device’s clock (a clock set wrong by more than a day stops the free days counting until it is right). When a Buy button shows, the website and the desktop app also ask the server for the price with tax where you are: it reads only the country the request comes from, as any website can, and keeps nothing.</p>
+  <p>If you buy a licence, you pay on Stripe’s checkout page: Link, LLC is the seller, and Stripe handles your payment details under its own privacy policy. We never see your card. Stripe gives us your name, email address and the order, which stay in our Stripe account. We put your name and email address inside your licence code, so Gdex can show whom it is licensed to, and send the code to your email address through Resend. If we give you a free licence, we keep your name, email address and the code in our own records.</p>
+  <p>When a code is activated on a computer, the desktop app sends our licence server at gdex.crowmade.app (run on Cloudflare) the code, a random number made for that installation of Gdex, and whether the computer is a Mac, Windows or Linux. For each code, the server keeps the list of those numbers, with the type of computer and the dates each was added and last checked, so a code can be used on up to 3 computers. It also notes codes that have been cancelled, for example after a refund. The app checks again about once a week; more often while it cannot get through (about once an hour) or while a code is waiting to be activated, has been moved to another computer or has been cancelled (about once a day), and not at all once a code has ended. Nothing else is sent: no hardware details, network names, location or anything from your work. Ask us and we will delete a code’s list of computers.</p>
+  <p>To sign in on the website, you type your email address. If a licence belongs to it, our licence server emails you a 6-digit code through Resend; if none does, no email is sent. An address not yet linked to a licence is looked up among the orders in our Stripe account, in case it was used to buy one. The server keeps which email addresses belong to which licences (from purchases, from codes we give, and from codes activated in the desktop app), a scrambled form of each sign-in code with its tries, and when codes were sent, for up to a day, so no address gets more than 5 an hour or 4 a day; and a count of the sign-in emails sent each day. Once you are signed in, your browser keeps a signed note with your email address and your licence’s number, checks its signature itself, and sends it to the server about once a day to check the licence is still good. Signing out deletes it from that browser. The link between your email address and your licence is kept, including after the licence ends or is cancelled, until you delete it (Delete my licence records) or ask us to, because signing in depends on it.</p>
+
+  <h3>The website and updates</h3>
+  <p>Gdex’s files are served from gdex.crowmade.app by Cloudflare. When you open the app, or it checks for a new version, your browser requests files from Cloudflare, which keeps ordinary web server logs such as your internet address, browser type and the time, under its own privacy statement. The desktop app downloads itself, and checks for new versions, from gdex-download.crowmade.app, which Cloudflare also runs, in the same way: it sees your computer’s internet address and the app’s version. The desktop app downloads no spelling dictionaries: on a Mac it uses the Mac’s own spell checker, and on Windows and Linux it has none.</p>
+
+  <h3>The services Gdex may contact</h3>
+  <table>
+    <thead><tr><th>Service</th><th>When</th><th>What it receives</th></tr></thead>
+    <tbody>
+      <tr><td data-h="Service"><a href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap</a></td><td data-h="When">A venue’s map, and address search</td><td data-h="What it receives">The address text and the map area shown</td></tr>
+      <tr><td data-h="Service"><a href="https://policies.google.com/privacy">Google</a> (its sign-in and Google Drive)</td><td data-h="When">Only once you connect Google Drive</td><td data-h="What it receives">Your Google sign-in, and Gdex’s copy of your information with its daily copies, kept in your own Drive</td></tr>
+      <tr><td data-h="Service"><a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a> (gdex.crowmade.app)</td><td data-h="When">Opening the app, and its update check</td><td data-h="What it receives">Ordinary web server logs</td></tr>
+      <tr><td data-h="Service"><a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a> (gdex-download.crowmade.app)</td><td data-h="When">Downloading the desktop app, and its update check</td><td data-h="What it receives">Ordinary web server logs, and the app’s version</td></tr>
+      <tr><td data-h="Service">Gdex’s licence server (gdex.crowmade.app, on <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a>)</td><td data-h="When">Only once licences are switched on, and only for the working roles: whether licences are live (at most every 6 hours), the price when a Buy button shows, signing in and the daily check, and the desktop app’s activation and weekly check</td><td data-h="What it receives">Nothing about you for the status and the price (it reads the country from the request); your email address to sign in; your signed note to check it; the licence code, a random number for that installation, and Mac, Windows or Linux for an activation</td></tr>
+      <tr><td data-h="Service"><a href="https://stripe.com/privacy">Stripe</a> and <a href="https://link.com/privacy">Link</a></td><td data-h="When">Buying a licence, or signing in with an email address not yet linked to one (to look up the order)</td><td data-h="What it receives">What you enter at checkout, including your payment details; or, for a sign-in lookup, the email address you typed</td></tr>
+      <tr><td data-h="Service"><a href="https://resend.com/legal/privacy-policy">Resend</a></td><td data-h="When">Emailing a bought licence code, or a sign-in code</td><td data-h="What it receives">Your email address, and your name and licence code or the sign-in code</td></tr>
+      <tr><td data-h="Service">PayPal, Venmo, Cash App, Monzo, Revolut</td><td data-h="When">When someone taps a Pay button on an invoice</td><td data-h="What it receives">What that service asks for, under its own terms</td></tr>
+      <tr><td data-h="Service">Google Maps, Apple Maps</td><td data-h="When">Directions buttons</td><td data-h="What it receives">The address</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4. Device permissions and why Gdex asks for them</h2>
+  <ul>
+    <li><strong>Microphone:</strong> the tuner and the sound level meter listen live. Nothing is recorded or stored.</li>
+    <li><strong>Location:</strong> the “use my location” button for a venue. A position is kept only where you save it, in that venue.</li>
+    <li><strong>Files:</strong> saving and bringing back backup files, and keeping a copy in a file.</li>
+    <li><strong>Keeping the screen on:</strong> the set timer and the sound level meter keep the screen awake while they run.</li>
+  </ul>
+  <p>Gdex never uses the camera. Each permission is asked for the first time a feature needs it, and can be withdrawn at any time in your device’s settings.</p>
+
+  <h2>5. Children</h2>
+  <p>Gdex is for adults: people who make, manage and play music, and the people who go to their shows. It is not meant for anyone under 18, and we do not knowingly hold any information about children.</p>
+
+  <h2>6. Your choices</h2>
+  <ul>
+    <li>Save a backup of everything, or erase everything, under Settings → Backups and Settings → Erase this device.</li>
+    <li>Disconnect Google Drive in Gdex, delete Gdex’s copy there, and take Gdex’s access away in your Google Account.</li>
+    <li>Deny or withdraw any device permission in your device’s settings.</li>
+    <li>Delete what our licence server keeps about you (the email address your licence is linked to, and the computers on it): Settings → About &amp; licence → Delete my licence records, while you are signed in, or email us. Stripe and Link keep their own records of a purchase under their own policies.</li>
+    <li>Do Not Track: Gdex does no tracking across websites or apps, and no third party collects information about your activity over time through it, so a browser’s Do Not Track setting changes nothing.</li>
+    <li>Uninstalling Gdex does not always remove what it stored: the desktop app leaves its data on the computer. To remove it, use Settings → Erase this device before you uninstall. The copy in your Google Drive, with its daily copies, stays there until you delete it.</li>
+  </ul>
+
+  <h2>7. Security</h2>
+  <p>Gdex is delivered over HTTPS, runs only code from its own address (and Google’s sign-in script, only once you connect Google Drive), and stores none of your work on any server of ours (the licence server keeps only what is described above). Gdex has no PIN or lock of its own: anyone who can use your device and its browser can open Gdex and see what is in it.</p>
+
+  <h2>8. Changes to this policy</h2>
+  <p>When this policy changes, the date at the top changes with it. A change that matters is also shown in the app.</p>
+
+  <h2>9. Contact</h2>
+  <p>Email <!--email_off--><a href="mailto:support@crowmade.app">support@crowmade.app</a><!--/email_off-->. Our postal address and phone number are available upon request.</p>
+
+  <nav class="foot" aria-label="More">
+    <a href="terms.html">Terms of service</a>
+    <a href="index.html">← Back to Gdex</a>
+  </nav>
 </main>
 </body>
 </html>
