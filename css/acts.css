@@ -47,6 +47,29 @@
 @media (forced-colors: active) { .ac-score-bar { border: 1px solid CanvasText; } .ac-score-bar i { background: Highlight; forced-color-adjust: none; } }
 .ac-nomatch { padding: 8px 2px; }
 
+/* earlier names (an act that changed its name): "formerly The Night Owls" in small type under the name, on the act's
+   card, its page and its row in "Did you see them?"; "as The Night Owls" on a night in its log from before the change;
+   the list of them on the act's page; their rows in the act form (the name, the day it stopped being used and ✕; on
+   a phone the name has a line of its own); the "New name?" sheet. */
+.ac-formerly, .ac-as { display: block; margin: 0; font-size: .85rem; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
+.ac-names { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
+.ac-names li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; background: var(--bg2); border-radius: 10px; padding: 8px 10px; overflow-wrap: anywhere; }
+.ac-names li > * { min-width: 0; }
+.ac-was-label, .ac-was-until { font-size: .8rem; color: var(--muted); font-weight: 600; }
+.ac-was-rows { display: grid; gap: 8px; }
+.ac-was-rows:empty { display: none; }
+.ac-was-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: end; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.ac-was-name { grid-column: 1 / -1; }
+.ac-was-until { display: grid; gap: 2px; min-width: 0; }
+.ac-was-more { display: flex; }
+.ac-was-del:hover { color: var(--danger); }
+@media (min-width: 700px) { .ac-was-row { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; } .ac-was-name { grid-column: auto; } }
+.ac-rename > p { margin: 0; }
+.ac-rename-names { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 1.1rem; overflow-wrap: anywhere; }
+.ac-rename-names > * { min-width: 0; }
+.ac-rename-old, .ac-rename-arrow { color: var(--muted); }
+.ac-rename-q { font-weight: 700; font-size: 1rem; } /* in rem, as the names above it: it follows the Text size setting */
+
 /* one act */
 .ac-view .page-head { flex-wrap: wrap; }
 .ac-hero { border-left: 6px solid var(--ac-color, var(--accent)); display: grid; gap: 4px; padding-left: 14px; }

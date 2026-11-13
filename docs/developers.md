@@ -248,6 +248,13 @@ on one day, the last saved first: `savedAt`, else the later in the list. `bookin
 every save links it again, so it follows the entry's date. An entry without one counts for the act's show on its day
 only when that is the act's only show that day: `model.seenEntryFor(a, b)`, `model.onlyShowOn(actId, iso)`)
 
+An act that changed its name also carries `formerNames: [{ name, until }]`: each earlier name with the day it stopped
+being used (`'YYYY-MM-DD'`: the day the next name began, so a booking on that day already has the new name), or `''`
+when nobody knows the day (a name added by hand: it shows on the act and is found by search, but dates no record).
+The key is absent on an act that never had one, and such an act reads exactly as before. Every record keeps using
+the act's current `name`; the earlier names are only ever read through the model's helpers ("Earlier names" below),
+which clean whatever is stored. They travel in backups, and in nothing printed, sent or exported for another program.
+
 `people`: `{ id, name, group: 'band'|'session'|'crew'|'contact', role, instrument, company, phone, email, rate,
 rateUnit: 'day'|'hour'|'show', notes }`. Act membership lives on the act (`act.members`).
 
@@ -335,6 +342,21 @@ strict`), and `rulesList(v).tone` gives it for the full rules (`Strict, set by h
 `spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both are text: set them with
 `textContent`.
 
+Earlier names (an act that changed its name): `sameName(a, b)` (the same but for capitals, spaces and punctuation;
+a name made only of punctuation is compared as written), `cleanFormer(list, current)` (a stored list made safe:
+`[{ name, until }]`, names with no day first in stored order, then the dated ones oldest first; entries that are no
+name are dropped, a day that is no date reads as not known, the same name twice running is one name with its later
+day, and a last name equal to the current one was no change and is dropped), `earlierNames(a)` (that, for an act),
+`earlierSpans(a)` (the same with `from`, the day each began, `''` when unknown), `formerName(a)` (the latest: the
+one for "formerly …" under the name), `nameSince(a)` (the day the current name began, or `''`), `nameOn(a, iso)`
+(the name on a day: an earlier name up to the day before its `until`, the current name from that day on, and for a
+date that is no date), `formerlyOn(a, iso)` (what to say beside a record of that day: the name then, or `''` when
+that is the current name, also for a band that went back to an old name), `formerlyOf(b)` (the same for a booking
+of any kind, by its **last** day: a festival weekend that reaches the day of the change has the new name),
+`formerlyNote(b)` (the words by a booking's name: `formerly The Night Owls`, or `Owl Parliament, formerly The Night
+Owls` when the booking has a title of its own that does not hold the act's name). None of them throws, whatever is
+stored. **No page works a name out by itself.**
+
 Use these instead of re-implementing them, so a show's numbers agree on every page. If one is wrong or missing, say
 so in your report rather than forking it.
 
@@ -412,6 +434,7 @@ may call it.
 | `pages/bookings.js` `openBooking(id)` | bookings | Go to Bookings and show that booking's page. Returns a promise. |
 | `js/bookings-cal.js` `calendarView(ctx)` / `calendarSteps(ctx)` | calendar | The page while no booking is open (every view, with Coming up under it) / its walkthrough as drawn now. `ctx` is built once in `pages/bookings.js`: `{ S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }`. The calendar never imports the page. |
 | `js/bookings-kit.js` `cardExtras(b)` / `overlapNote(b)` / `wentMark(b)` | core | What a Coming up card and a Week row add under their own lines, in order: the overlap note (`span.bk-overlap`), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. They are direct children of `.bk-card-main` / `.bk-wrow-main`. |
+| `js/bookings-kit.js` `formerlyLine(b)` | core | `span.bk-formerly` with `model.formerlyNote(b)`, or `null`: the line under the name of a booking from before its act changed its name. A Coming up card and a Week row put it straight after their top line (`.bk-card-top`, `.bk-wrow-top`), the booking's header after `.bk-hero-top`. |
 | `js/deck.js` `createDeck(root, tabs, { start, onSelect, extras, onExtra })` | core | The section menu. `tabs`: `[{ id, label, icon?, bonus?, count?() }]`; the icon is the digital player's cover art and the picture on its tab. Returns `{ go(i), index, refresh(), setTabs(tabs, index) }`. |
 | `js/bookings-kit.js` `calMode()` / `saveCalMode(mode)` / `CAL_MODES`; `isoOk`, `monthStart`, `addDays`, `daysBetween`, `multi`, `dateRange`, `safeColor`, `actOf`, `actStyle`, `tone`, `pill`, `plural`, `sortByName`, `capital`, `KIND_CHIP` | core | The calendar's view kept on the device; the small helpers the booking page and the calendar share. |
 | `js/acts-ask.js` `askAtOpen(ids)` / `askPref()` | acts | The "Did you see them?" sheet for the shows still waiting among `ids` (nothing when the person is not asked, none is left, or its sheet is already up: there are never two); it opens its sheet before it returns. `app.js` calls it at open and again after hours in the background / the control for Settings → Your role. It imports `pages/acts.js` (`logSighting`) and `acts-docs.js`, so Settings loads the acts page's code with it; `pages/acts.js` must not import it. |
@@ -579,6 +602,56 @@ ask; anyone else, "from the act’s card", because their ★ Score row is there 
 The "Log a time seen" form opens with a date and a score of 75 in it, so a single Enter saves it; a held Enter (the
 press that opened it, still down) does not.
 
+### Earlier names: "formerly …" (`js/model.js`, `js/pages/acts.js`)
+
+An act that changed its name keeps the old ones (`act.formerNames`, read only through the model's helpers above).
+Every record goes on using the current name, so lists and search stay in one piece; what is added is words.
+
+* **On the act.** `span.ac-formerly` ("formerly The Night Owls", the latest earlier name) straight after
+  `.ac-card-top` inside the card's head button, so it is part of the button's name, and `p.ac-formerly` straight
+  after `h1.ac-title` on the act's page. The Overview lists them all in `section#ac-names` ("Earlier names",
+  `ul.ac-names`, the latest first): `from <day> until <day>`, `until <day>` for the first dated one, `date not
+  known` for a name with no day. Days are written by `toLocaleDateString` with the year.
+* **Records from before a change.** Where a row names the act, `formerlyLine(b)` goes under the name: Coming up cards,
+  Week rows, the booking's header. A venue's rows have `span.vn-row-was`, a backline item's `span.bl-row-was`, a
+  person's `span.pp-bk-was`, a song's studio sessions a `span.sg-block` and a row of "Did you see them?"
+  `span.ac-formerly`, all after the name; a take log's card in the Studio log, and the link to its session on the
+  log's own page, add the words after the session's name. Where there is no room the words are only spoken: a day
+  square's `aria-label` has them after the booking's name (`Owl Parliament @ The Crown, formerly The Night Owls
+  (Confirmed)`), and a grid block's or pill's hidden words
+  start with them (`Formerly The Night Owls. Confirmed.`). In the act's own lists the name is not on each row, so a
+  row says `as The Night Owls`: `span.ac-as` in the log of times seen (`model.formerlyOn(a, entry.date)`), and ` · as
+  …` at the end of a date on the card, of a past show in "From a past show" and of a booking on the act's page. A
+  booking is dated by its last day, a time seen by its date. Coming up can only show the line when a stored day is
+  still to come (a clock set wrong, a file edited by hand): the form and the question both refuse a day after today.
+* **The question.** `editAct`'s form asks once, as a changed name is saved: the sheet "New name?" (`div.ac-rename`:
+  `.ac-rename-old`, `.ac-rename-now`, `input#ac-rename-since`, `p#ac-rename-err[role=alert]`, `#ac-rename-new`
+  "It’s a new name", `#ac-rename-fix` "Just fixing the spelling"). It is asked only for an act that is already
+  stored, whose stored name is not empty, when the names are not `sameName`. `form.js` closes a form before it
+  calls `onSave`, so the act form listens for `submit` on the sheet's body in the capture phase and stops it there:
+  the form stays open under the question with everything typed in it, and an answer calls `form.requestSubmit()`,
+  which saves as any save does (the other fields with it). Closing the question without an answer saves nothing
+  and puts the focus back in the form (on Save, or in the name box when Enter asked). The day starts on today,
+  cannot be after it, and cannot be before the day the old name began (`model.nameSince`, from the form's rows as
+  they stand); a day outside that is refused in words, with the focus on the date. "It’s a new name" adds
+  `{ name: <old name>, until: <day> }`; a spelling fix adds nothing. The focus arrives on the date, never on an
+  answer, so a held Enter answers nothing; the dialog is described (`aria-describedby`) by a hidden sentence,
+  `<old name> becomes <new name>.`, and the question.
+* **The form's part.** `div.field.wide.ac-was[role=group]` straight after the Name field: `div.ac-was-row` per name
+  (the latest first) with `input.ac-was-name`, `label.ac-was-until > input[type=date]` (`max` today, so the form's
+  own validation refuses a later day; it may be empty) and `button.ac-was-del`, then `#ac-was-add`. With no name
+  there is only the button (the label and the hint are `hidden`). Every save stores `cleanFormer(rows, name)`,
+  oldest first, and gives an act that never had the key no empty list.
+* **Walkthroughs.** The act form's has an "Earlier names" step (`.ac-was`), and its Name step speaks of the question
+  only in the Edit form; "New name?" has three steps of its own; the act's page gets an "Earlier names" step
+  (`#ac-names`) only when the act has one, so an act that never changed its name keeps the tour it had.
+* **Search.** Every search that finds things by an act's name matches its earlier names too: the acts list, People,
+  Songs, the Studio log and the two song pickers (a setlist's + Songs, the metronome's song tempo); the booking form
+  lists an act as `Owl Parliament (formerly The Night Owls)`.
+* **Never outside Gdex.** Documents, calendar files and spreadsheets call `actName` / `bookingTitle` / `a.name`,
+  which are the current name; `44-formerly` checks each of them. A document made before the change keeps the
+  words it was made with (an invoice's lines are stored text), as does a booking's own typed title.
+
 ### House rules, drawn (`js/venues-rules.js`, `js/pages/venues.js`)
 
 * The chip: `span.vn-chip.vn-chip-<ok|some|strict>` with the visible words in `> [aria-hidden=true]` and the spoken
@@ -694,8 +767,8 @@ backline, take, comp, stems, split sheet.
 * Spec files by owner: `00-smoke` (core), `05-deck` and `06-roles` (core), `07-groundwork` (core: the model and the
   contracts under the calendar, the question, the menus and house rules), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
-  `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `45-people`, `50-backline`, `55-venues`, `56-rules`,
-  `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
+  `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
+  `50-backline`, `55-venues`, `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
   meter, timer, wake lock): a spec can check that leaving a page leaves nothing listening.
@@ -717,7 +790,7 @@ need a change there, describe it in your report instead.
 | money | `js/money.js`, `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs` |
 | studio | `js/clock.js`, `js/blocks/clock.js`, `js/blocks/takes.js`, `js/blocks/worksongs.js`, `js/blocks/deliverables.js`, `js/pages/sessions.js`, `css/studio.css`, `tests/specs/30-studio.cjs` |
 | songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs` |
-| acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs` |
+| acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs` |
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |

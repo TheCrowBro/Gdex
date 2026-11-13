@@ -5,6 +5,8 @@
 import { h, sheet, toast } from './util.js';
 import { db } from './store.js';
 import { actName, fmtDur } from './model.js';
+import { byId } from './store.js';
+import { earlierNames } from './model.js'; // an act's earlier names: the song search finds its songs by them too
 import { wakeAudio, registerState } from './audio.js';
 import { pref, clamp, num, repeatButton, switchBox } from './tools-ui.js';
 import { createTapper } from './tools-tempo.js';
@@ -193,7 +195,7 @@ export function metronome(panel, ctx) {
     let close = () => {};
     const draw = () => {
       const t = q.value.trim().toLowerCase();
-      const hits = withTempo.filter(s => !t || [s.title, actName(s.actId), s.key].join(' ').toLowerCase().includes(t))
+      const hits = withTempo.filter(s => !t || [s.title, actName(s.actId), ...earlierNames(byId('acts', s.actId)).map(n => n.name), s.key].join(' ').toLowerCase().includes(t))
         .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
       list.replaceChildren(...(hits.length ? hits.map(s => h('button', { type: 'button', class: 'card tap tl-song', 'data-song': s.id,
         onclick: () => { setBpm(Number(s.bpm), null, s.title || 'Untitled'); close(); toast(`Tempo set to ${M.bpm} BPM from “${s.title || 'Untitled'}”`); } },

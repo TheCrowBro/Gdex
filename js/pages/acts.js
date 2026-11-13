@@ -18,6 +18,8 @@ import { parseLinks, ACT_COLORS, colorOf, stripeStyle, roleOf, membersOf, initia
   inputTable, inputRows, dupChannels, saveInputCsv, plotOf, saveRider, printRider as printRiderDoc } from '../acts-docs.js';
 import { openInputList, openRiders, stagePlot } from '../acts-rider.js';
 import { sectionName, pageOpt, moneyShown, newKind } from '../roles.js';
+// An act's earlier names ("formerly The Night Owls"): every reading of them is the model's.
+import { earlierNames, earlierSpans, formerName, nameSince, formerlyOn, formerlyOf, cleanFormer, sameName } from '../model.js';
 
 // View state survives the redraw after every change: which act is open, which part of it, the search.
 const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set() }; // open: the act cards dropped open on the list
@@ -62,6 +64,7 @@ export function editAct(a = {}, onSaved) {
   if (cur.color && !colors.some(c => c[0] === cur.color)) colors.push([cur.color, 'Its own colour']);
   const used = new Set(db.acts.map(x => x.color));
   const fresh = (ACT_COLORS.find(([c]) => c && !used.has(c)) || ACT_COLORS[1])[0];
+  let names = null, pick = null; // the form's Earlier names (names.read()); the answer to "New name?" while its save runs
   openForm({
     title: isNew ? 'New act' : 'Edit act',
     values: { ...cur, color: isNew && cur.color == null ? fresh : colorOf(cur) || cur.color || '' },
@@ -76,19 +79,114 @@ export function editAct(a = {}, onSaved) {
       { key: 'notes', label: 'Notes', type: 'textarea', rows: 3, placeholder: 'Only you see these.' },
     ],
     saveLabel: isNew ? 'Add act' : 'Save',
+    onReady: form => {
+      const name = form.querySelector('input[data-key=name]');
+      names = namesEditor(cur);
+      (name && name.closest('.field') ? name.closest('.field') : form.firstElementChild).after(names.node);
+      if (isNew || !name || !form.parentNode) return;
+      // A changed name is asked about once, as it is saved: a new name, or a spelling fix? The sheet's body hears the
+      // submit before the form's own handler (js/form.js, which closes the form and saves), so the form stays open
+      // under the question with everything typed in it; the answer sends the same submit again, and that one saves.
+      // No question when the names differ only in capitals, spaces or punctuation, or when the old name was empty.
+      form.parentNode.addEventListener('submit', e => {
+        const old = (byId('acts', cur.id) || {}).name, now = name.value.trim();
+        if (e.target !== form || pick || typeof old !== 'string' || !old.trim() || !now || sameName(old, now)) return;
+        e.preventDefault(); e.stopPropagation();
+        askRename({ old: old.trim(), now, since: nameSince({ name: old, formerNames: names.read() }),
+          onPick: answer => { pick = answer; try { if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); } finally { pick = null; } },
+          back: () => { if (form.isConnected && !form.contains(document.activeElement)) name.focus(); } });
+      }, true);
+    },
     onSave: v => {
       const latest = (cur.id && byId('acts', cur.id)) || {};
       if (cur.id && !latest.id) return toast('That act was deleted meanwhile.');
       const fields = Object.fromEntries(FORM_KEYS.map(k => [k, typeof v[k] === 'string' ? v[k].trim() : (v[k] ?? '')]));
       if (!fields.name) fields.name = latest.name || 'Untitled act';
-      const rec = upsert('acts', { members: [], inputList: [], stagePlot: [], riderTech: '', riderHospitality: '', ...cur, ...latest, ...fields });
-      toast(isNew ? `${rec.name} added` : 'Saved');
+      // The earlier names as the form has them, and with them the name being replaced when the answer was "It’s a new
+      // name" (a spelling fix keeps nothing). An act that never had any is not given an empty list.
+      const kept = pick && pick.kind === 'new' && typeof latest.name === 'string' && latest.name.trim() ? { name: latest.name.trim(), until: pick.since } : null;
+      const former = cleanFormer([...(names ? names.read() : earlierNames(latest)), kept], fields.name); // no editor (it failed to draw): the stored names stay
+      const rec = upsert('acts', { members: [], inputList: [], stagePlot: [], riderTech: '', riderHospitality: '', ...cur, ...latest, ...fields, ...(former.length || 'formerNames' in latest ? { formerNames: former } : {}) });
+      toast(isNew ? `${rec.name} added` : kept ? `Saved. ${kept.name} is kept as an earlier name.` : 'Saved');
       if (onSaved) onSaved(rec);
     },
     onDelete: isNew ? null : () => deleteAct(cur.id, true),
   });
 }
 export const printRider = actId => printRiderDoc(actId);
+
+/* ------------------------------- earlier names ------------------------------- */
+const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+const longDay = iso => parseISO(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+// When a name was in use, for the act's page: "from 3 Mar 2021 until 12 Nov 2026", "until 3 Mar 2021" for the first
+// one (nobody said when it began), "date not known" for a name added without a day.
+const spanText = n => (!n.until ? 'date not known' : n.from ? `from ${longDay(n.from)} until ${longDay(n.until)}` : `until ${longDay(n.until)}`);
+// In an act's own lists (its dates, its past shows, its log) the act's name is not on each row, so a row from before
+// it changed its name says which name it had that night: "as The Night Owls".
+const asName = b => { const was = formerlyOf(b); return was ? ` · as ${was}` : ''; };
+
+// The Earlier names part of the act form, under Name: a row for each name with the day it stopped being used (it can
+// be corrected, or left empty when nobody knows it), ✕ to take a name away, and a button to add one by hand (an act
+// that changed its name before it was kept here). With no name yet there is only the button, so a new act's form
+// stays short. read() gives the rows as typed, [{ name, until }], the last row first: oldest first, as they are
+// stored, so names without a day keep their order from save to save. The save cleans them (model.cleanFormer).
+function namesEditor(a) {
+  const rows = earlierNames(a).reverse().map(n => ({ ...n })), today = todayISO(); // the latest first, as on the act's page
+  const list = h('div', { class: 'ac-was-rows' });
+  const label = h('span', { class: 'ac-was-label' }, 'Earlier names');
+  const hint = h('small', { class: 'muted' }, 'A name used before, and the day it stopped being used (leave the day empty if you don’t know it). Shows and scores from before that day say “formerly …”.');
+  const delLabel = r => (r.name.trim() ? `Remove the earlier name ${r.name.trim()}` : 'Remove this earlier name');
+  const draw = (focusAt = -1) => {
+    label.hidden = hint.hidden = !rows.length;
+    list.replaceChildren(...rows.map((r, i) => {
+      const del = h('button', { type: 'button', class: 'icon-btn ac-was-del', 'aria-label': delLabel(r), onclick: () => { rows.splice(i, 1); draw(i); } }, '✕');
+      return h('div', { class: 'ac-was-row', role: 'group', 'aria-label': `Earlier name ${i + 1}` },
+        h('input', { type: 'text', class: 'ac-was-name', 'aria-label': 'Earlier name', placeholder: 'Earlier name', value: r.name, autocomplete: 'off', oninput: e => { r.name = e.target.value; del.setAttribute('aria-label', delLabel(r)); } }),
+        h('label', { class: 'ac-was-until' }, h('span', null, 'Used until'), h('input', { type: 'date', max: today, value: r.until, oninput: e => { r.until = e.target.value; } })),
+        del);
+    }));
+    // After ✕ the next name takes the focus (the last one, when the last was removed), or the button when none is left.
+    if (focusAt >= 0) (list.querySelectorAll('.ac-was-name')[Math.min(focusAt, rows.length - 1)] || add).focus();
+  };
+  const add = h('button', { type: 'button', class: 'btn ghost small', id: 'ac-was-add', onclick: () => { rows.push({ name: '', until: '' }); draw(rows.length - 1); } }, '+ Add an earlier name');
+  draw();
+  const node = h('div', { class: 'field wide ac-was', role: 'group', 'aria-label': 'Earlier names' }, label, list, h('div', { class: 'ac-was-more' }, add), hint);
+  return { node, read: () => rows.map(r => ({ name: r.name.trim(), until: r.until })).reverse() };
+}
+
+// "New name?": one of Gdex's own sheets, over the act form, asked once as a changed name is saved. It shows the old
+// and the new name, a "Since when?" day (today; it can go back to the day the old name began, `since`, never past
+// today) and two answers. onPick({ kind: 'new' | 'fix', since }) after an answer; closing it without one gives none:
+// the form under it is as it was, and back() puts the focus in it.
+const RENAME = 'New name?';
+function askRename({ old, now, since, onPick, back }) {
+  const today = todayISO(), min = isDay(since) && since <= today ? since : '';
+  const date = h('input', { type: 'date', id: 'ac-rename-since', value: today, max: today, min: min || null, 'aria-describedby': 'ac-rename-hint ac-rename-err' });
+  const err = h('p', { class: 'warn small', id: 'ac-rename-err', role: 'alert', hidden: true });
+  let el = null, close = () => {}, answered = false;
+  const wrong = msg => { err.textContent = msg; err.hidden = false; date.focus(); };
+  const choose = kind => {
+    const day = kind === 'new' ? date.value : '';
+    if (kind === 'new' && !isDay(day)) return wrong('Pick the day the new name began.');
+    if (kind === 'new' && day > today) return wrong('That day hasn’t come yet. Pick today or an earlier day.');
+    if (kind === 'new' && min && day < min) return wrong(`${old} only began on ${longDay(min)}. Pick that day or a later one.`);
+    answered = true; close(); onPick({ kind, since: day });
+  };
+  date.addEventListener('input', () => { err.hidden = true; });
+  const body = h('div', { class: 'stack ac-rename' },
+    h('p', { class: 'ac-rename-names', id: 'ac-rename-names' }, h('span', { class: 'ac-rename-old' }, old), h('span', { class: 'ac-rename-arrow', 'aria-hidden': 'true' }, '→'), h('span', { class: 'sr-only' }, ' becomes '), h('strong', { class: 'ac-rename-now' }, now)),
+    h('span', { id: 'ac-rename-said', hidden: true }, `${old} becomes ${now}.`), // what the sheet is read out with: a sentence of its own before the question
+    h('p', { class: 'ac-rename-q', id: 'ac-rename-q' }, 'Did the name change, or are you fixing the spelling?'),
+    h('div', { class: 'field' }, h('label', { for: 'ac-rename-since' }, 'Since when?'), date, h('small', { class: 'muted', id: 'ac-rename-hint' }, 'The day the new name began. Move it back if the name changed a while ago.')),
+    err,
+    h('div', { class: 'actions ac-rename-answers' },
+      h('button', { type: 'button', class: 'btn primary', id: 'ac-rename-new', onclick: () => choose('new') }, 'It’s a new name'),
+      h('button', { type: 'button', class: 'btn ghost', id: 'ac-rename-fix', onclick: () => choose('fix') }, 'Just fixing the spelling')),
+    h('p', { class: 'small muted' }, `A new name keeps ${old} as an earlier name: shows and scores from before that day say “formerly ${old}”. A spelling fix keeps nothing of the old spelling.`));
+  ({ el, close } = sheet(RENAME, body, { onClose: () => { if (!answered) back(); } }));
+  el.setAttribute('aria-describedby', 'ac-rename-said ac-rename-q'); // read out with the sheet's name as the focus arrives
+  setTimeout(() => { if (el.isConnected && !body.contains(document.activeElement)) date.focus(); }, 60);
+}
 
 function deleteAct(id, confirmed = false) {
   const a = byId('acts', id);
@@ -113,7 +211,7 @@ function whenText(b) {
   const n = daysUntil(b.date);
   return n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : fmtShort(b.date);
 }
-const whereText = b => { const v = venueOf(b).name; return v ? `${kindLabel(b.kind)} at ${v}` : kindLabel(b.kind); };
+const whereText = b => { const v = venueOf(b).name; return (v ? `${kindLabel(b.kind)} at ${v}` : kindLabel(b.kind)) + asName(b); };
 
 /* ------------------------------- the drop-down cards ------------------------------- */
 const yearOf = iso => String(iso).slice(0, 4);
@@ -132,6 +230,7 @@ function actCard(a) {
     : h('span', { class: 'muted' }, 'Not seen live yet');
   const head = h('button', { type: 'button', class: 'ac-card-head', id: 'ac-head-' + a.id, 'aria-expanded': String(open), 'aria-controls': panelId, onclick: () => toggle(a.id) },
     h('span', { class: 'ac-card-top' }, h('span', { class: 'ac-card-name' }, name), h('span', { class: 'ac-chev', 'aria-hidden': 'true' }, '▾')),
+    formerName(a) && h('span', { class: 'ac-formerly' }, 'formerly ' + formerName(a)),
     !!sub && h('span', { class: 'ac-card-sub muted' }, sub),
     !seenHidden(a) && h('span', { class: 'ac-seen-line' }, seenLine));
   const dates = h('div', { class: 'ac-dates', role: 'list', 'aria-label': `${name}: coming up on the calendar` },
@@ -157,10 +256,11 @@ function seenPanel(a, onPage = false) {
   return [
     h('div', { class: 'ac-pnl-head' }, onPage ? h('h3', { id: 'ac-h-seen' }, 'Times seen') : h('strong', null, 'Times seen'), best),
     list.length ? h('ol', { class: 'ac-seen-list', 'aria-label': `Times you saw ${a.name || 'this act'}` }, list.map(s => {
-      const r = ratingOf(s), where = seenWhere(s);
+      const r = ratingOf(s), where = seenWhere(s), was = formerlyOn(a, s.date);
       return h('li', { class: 'ac-seen' },
         h('div', { class: 'ac-seen-main' },
           h('span', { class: 'ac-seen-when' }, h('b', null, seenDate(s.date)), where && h('span', { class: 'muted' }, ' · ' + where)),
+          was && h('span', { class: 'ac-as' }, `as ${was}`), // a night from before the act changed its name
           r != null ? scoreBar(r) : h('span', { class: 'small muted' }, 'No score'),
           s.notes && h('p', { class: 'small ac-seen-notes' }, s.notes)),
         h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Edit the time you saw them on ${seenDate(s.date)}`, onclick: () => logSighting(a, s) }, '✎'));
@@ -317,7 +417,7 @@ function listView() {
   const listBox = h('div', { class: 'list ac-list' });
   const fill = () => {
     const q = all.length > 5 ? S.q.trim().toLowerCase() : ''; // no search box, no filter
-    const shown = q ? all.filter(a => [a.name, a.genre, ...membersOf(a).map(p => p.name)].join(' ').toLowerCase().includes(q)) : all;
+    const shown = q ? all.filter(a => [a.name, a.genre, ...membersOf(a).map(p => p.name), ...earlierNames(a).map(n => n.name)].join(' ').toLowerCase().includes(q)) : all;
     listBox.replaceChildren(...(shown.length ? shown.map(actCard) : [h('p', { class: 'muted ac-nomatch' }, `No act matches “${S.q.trim()}”.`)]));
   };
   if (all.length) fill();
@@ -335,6 +435,7 @@ function hero(a) {
   const links = parseLinks(a.links), sub = [a.genre, membersText(membersOf(a).length)].filter(Boolean).join(' · ');
   return h('div', { class: 'card ac-hero', style: stripeStyle(a) },
     h('h1', { class: 'ac-title' }, a.name || 'Untitled act'),
+    formerName(a) && h('p', { class: 'ac-formerly' }, 'formerly ' + formerName(a)),
     !!sub && h('div', { class: 'muted' }, sub),
     links.length > 0 && h('div', { class: 'actions ac-links', role: 'list', 'aria-label': 'Links' }, links.map(l =>
       h('a', { class: 'btn ghost small', role: 'listitem', href: l.url, target: '_blank', rel: 'noopener noreferrer', title: l.url, 'aria-label': `${l.label} (opens ${l.url})` }, h('span', { 'aria-hidden': 'true' }, l.icon), ' ' + l.label))),
@@ -375,7 +476,7 @@ function bookingRow(b) {
       h('span', { class: 'ac-bk-main' },
         h('span', { class: 'sr-only' }, fmtShort(b.date) + (b.endDate && b.endDate > b.date ? ' to ' + fmtShort(b.endDate) : '') + ': '),
         h('strong', null, main === kind ? `${kindIcon(b.kind)} ${kind}` : main),
-        h('span', { class: 'muted small' }, [main !== kind && `${kindIcon(b.kind)} ${kind}`, b.title && v, !v && 'Venue to be confirmed', t, b.endDate && b.endDate > b.date && 'until ' + fmtShort(b.endDate)].filter(Boolean).join(' · '))),
+        h('span', { class: 'muted small' }, [main !== kind && `${kindIcon(b.kind)} ${kind}`, b.title && v, !v && 'Venue to be confirmed', t, b.endDate && b.endDate > b.date && 'until ' + fmtShort(b.endDate), formerlyOf(b) && 'as ' + formerlyOf(b)].filter(Boolean).join(' · '))),
       h('span', { class: 'pill ' + statusTone(b.status) }, statusLabel(b.status))));
 }
 function aboutTab(a) {
@@ -412,6 +513,10 @@ function aboutTab(a) {
     h('section', { class: 'ac-sec', id: 'ac-bio', 'aria-labelledby': 'ac-h-bio' },
       h('h3', { id: 'ac-h-bio' }, 'Bio'),
       a.bio ? h('p', { class: 'prewrap ac-text' }, a.bio) : h('p', { class: 'muted ac-none' }, hasTab('epk') ? 'No bio yet. A few lines for promoters and press go on the press kit: ✎ Edit to add them.' : 'No bio yet. ✎ Edit adds a few lines on who they are.')),
+    // Every name the act had before, the latest first, with the days it changed.
+    earlierNames(a).length > 0 && h('section', { class: 'ac-sec', id: 'ac-names', 'aria-labelledby': 'ac-h-names' },
+      h('h3', { id: 'ac-h-names' }, 'Earlier names'),
+      h('ul', { class: 'ac-names', role: 'list' }, earlierSpans(a).reverse().map(n => h('li', null, h('strong', null, n.name), h('span', { class: 'small muted' }, spanText(n)))))),
     a.notes && h('section', { class: 'ac-sec', id: 'ac-notes', 'aria-labelledby': 'ac-h-notes' }, h('h3', { id: 'ac-h-notes' }, 'Notes'), h('p', { class: 'prewrap ac-text' }, a.notes)),
     h('div', { class: 'ac-sec ac-danger' }, h('button', { type: 'button', class: 'btn danger small', id: 'ac-delete', onclick: () => deleteAct(a.id) }, 'Delete this act')));
 }
@@ -549,23 +654,26 @@ const listSteps = () => {
     { title: secName(), text: follows ? 'The bands and artists you go to see. Each keeps its links, members and notes and the log of each time you saw them; bookings point back to it.' : 'The bands and artists you play in, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
     { title: 'Add an act', text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] },
     { title: yours(), text: (logged ? 'Each card shows their dates coming up on the calendar and, once you log a time you saw them play, how many times, your average and latest score out of 100.' : 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.')
+      + (db.acts.some(x => formerName(x)) ? ' “formerly …” under a name is the name they had before.' : '')
       + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'] },
     { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. You can log a time you saw them play there too; once you have, the card keeps the log: when, where, the score and your notes.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
     { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
-    { title: 'Search', text: 'Find an act by its name, genre or a member’s name.', target: ['#ac-search'] },
+    { title: 'Search', text: 'Find an act by its name, a name it had before, its genre or a member’s name.', target: ['#ac-search'] },
   ];
 };
 const PART_TEXT = { about: 'Overview for bookings and members', epk: 'Press kit for promoters and fans', rider: 'Tech rider for the sound engineer' };
 const actSteps = () => {
   const tabs = keptTabs(), has = id => tabs.some(([t]) => t === id);
+  const was = formerName(byId('acts', S.id)); // an act that changed its name: its page says so, and so does its tour
   return [
-    { title: 'The act', text: 'Name, genre and members, with its links as buttons and its contact. ✎ Edit changes them.', target: ['.ac-hero'], before: () => setTab('about') },
+    { title: 'The act', text: 'Name, genre and members, with its links as buttons and its contact. ✎ Edit changes them.' + (was ? ' “formerly …” under the name is the name it had before.' : ''), target: ['.ac-hero'], before: () => setTab('about') },
     tabs.length > 1 && { title: tabs.length === 3 ? 'Three parts' : 'Two parts', text: tabs.map(([id]) => PART_TEXT[id]).join(', ') + '.', target: ['.ac-tabs'] },
     seenOnPage() && { title: 'Times seen', text: 'Each time you saw them play, newest first: when, where, the score and your notes. Log another, or pick one of their past shows.', target: ['#ac-seen'] },
     ...(has('about') ? [
       { title: 'Coming up', text: moneyShown() ? `This act’s bookings from today on. Tap one to open it, or book a new ${book()[1]} for the act.` : 'Their shows on your calendar from today on. Tap one to open it, or add a show of theirs you’re going to.', target: ['#ac-coming'] },
       { title: 'Members', text: 'People from the People section. Add someone already there or a new person; ✕ takes them out of the act (they stay in People).', target: ['#ac-members'] },
       { title: 'Songs & setlists', text: 'How many songs and setlists the act has. Tap to open Songs.', target: ['#ac-songs'] },
+      !!was && { title: 'Earlier names', text: 'Every name the act had before, the latest first, with the days it changed. Bookings and scores from before a change say the name it had that night. ✎ Edit corrects a day, takes a name away or adds one.', target: ['#ac-names'] },
     ] : []),
     ...(has('epk') ? [
       { title: 'Press kit', text: 'A one-page press kit from the act’s details: bio, links, line-up, confirmed shows and contact. Print it, or save it as a web page to send.', target: ['.ac-epk'], before: () => setTab('epk') },
@@ -592,8 +700,11 @@ export const acts = {
 };
 
 // The press kit is named only for a role that keeps it on the act's page.
+// Changing a name is asked about only in the Edit form (a new act has no name to change).
+const RENAME_HELP = ' Change it and Gdex asks whether it is a new name or a spelling fix: a new name keeps the old one, shown as “formerly …”.';
 const formSteps = () => [
-  { title: 'Name', text: hasTab('epk') ? 'The band or artist name, as it goes on posters and the press kit.' : 'The band or artist name, as it goes on posters.', target: ['input[data-key=name]'] },
+  { title: 'Name', text: (hasTab('epk') ? 'The band or artist name, as it goes on posters and the press kit.' : 'The band or artist name, as it goes on posters.') + (document.querySelector('.sheet[aria-label="Edit act"]') ? RENAME_HELP : ''), target: ['input[data-key=name]'] },
+  { title: 'Earlier names', text: 'Names the act had before, each with the day it stopped using that name. The latest shows under the name as “formerly …”, and bookings and scores from before that day say which name it had. Add one by hand if the name changed before you kept the act here; ✕ takes one away.', target: ['.ac-was'] },
   { title: 'Colour', text: 'The stripe on the act’s cards, so its bookings and songs are quick to tell apart.', target: ['select[id$="-color"]'] },
   { title: 'Links', text: hasTab('epk') ? 'One per line: a name, a colon, the address. They become buttons on the act, lines on the press kit, and the first one is its QR code.' : 'One per line: a name, a colon, the address. They become buttons on the act.', target: ['textarea[data-key=links]'] },
   { title: 'Bio', text: hasTab('epk') ? 'Two or three sentences for promoters and press. It heads the press kit.' : 'A few lines on who they are, what they sound like and where they’ve played.', target: ['textarea[data-key=bio]'] },
@@ -607,6 +718,11 @@ const seenSteps = [
 sheetTutorial('Log a time seen', seenSteps);
 sheetTutorial('Edit a time seen', seenSteps);
 sheetTutorial('Edit act', formSteps);
+sheetTutorial(RENAME, [
+  { title: 'Old and new', text: 'The name as it was saved, and the name you typed.', target: ['.ac-rename-names'] },
+  { title: 'Since when?', text: 'The day the new name began. It starts on today; move it back if the name changed a while ago. Bookings and scores from before that day say “formerly …”.', target: ['#ac-rename-since'] },
+  { title: 'A new name, or a fix', text: 'It’s a new name keeps the old one as an earlier name. Just fixing the spelling saves the name and keeps nothing else. ✕ goes back to the form with nothing saved.', target: ['.ac-rename-answers'] },
+]);
 sheetTutorial('Add members', [
   { title: 'Add members', text: 'Tap someone to add them to the act. Each tap adds one, and the sheet stays open for the next.', target: ['.ac-addm-list'] },
   { title: 'Someone new', text: 'Makes a person in People and adds them to this act in one go.', target: ['#ac-addm-new'] },

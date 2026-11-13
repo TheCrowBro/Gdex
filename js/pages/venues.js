@@ -11,6 +11,7 @@ import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
 import { sectionName, moneyShown } from '../roles.js';
 import { venueChip, rulesFull, rulesEditor } from '../venues-rules.js';
+import { formerlyNote } from '../model.js'; // "formerly The Night Owls": a booking from before its act changed its name
 
 // What the page is showing. Kept here so it survives the redraw after every change.
 const S = { kind: '', q: '' };
@@ -160,6 +161,7 @@ function bookingRow(b, close, withWarnings) {
     h('span', { class: 'vn-row-date' }, dateText(b)),
     h('span', { class: 'pill ' + statusTone(b.status) }, statusLabel(b.status)),
     h('span', { class: 'vn-row-main' }, `${kindIcon(b.kind)} ${who(b)}`),
+    formerlyNote(b) && h('span', { class: 'vn-row-was muted small' }, formerlyNote(b)),
     // A show the person said they missed ("Did you see them?" → No) says so here too: this is the list of what they went to.
     b.kind === 'show' && b.status !== 'cancelled' && b.went === 'no' && seenAnswer(b) === 'no' && h('span', { class: 'vn-row-went muted small' }, 'Didn’t go'),
     issues.map(x => h('span', { class: 'vn-row-warn' }, '⚠ ' + x.text)));

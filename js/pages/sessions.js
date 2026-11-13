@@ -10,6 +10,7 @@
 import { h, uid, toast, announce, empty, backBtn, fmtShort, fmtLong, todayISO, ymd, parseISO, groupBy, sheet, pad } from '../util.js';
 import { db, byId, update, upsert, remove, redraw, covers } from '../store.js';
 import { bookingTitle, actName, fmtDur, kindIcon } from '../model.js';
+import { formerlyNote, earlierNames } from '../model.js'; // "formerly The Night Owls": a session from before its act changed its name; the search finds it by that name too
 import { openForm } from '../form.js';
 import { csv, saveFile, fileName } from '../print.js';
 import { sheetTutorial } from '../tour.js';
@@ -238,7 +239,7 @@ function logCard(l) {
       h('div', null,
         h('strong', null, l.title || 'Take log'),
         h('div', { class: 'muted small' }, [fmtShort(logDate(l)), songs.slice(0, 3).join(', ') + (songs.length > 3 ? ` +${songs.length - 3}` : '')].filter(Boolean).join(' · ')),
-        b && h('div', { class: 'muted small sd-log-booking' }, `${kindIcon(b.kind)} ${bookingTitle(b)}`)),
+        b && h('div', { class: 'muted small sd-log-booking' }, `${kindIcon(b.kind)} ${bookingTitle(b)}`, formerlyNote(b) && `, ${formerlyNote(b)}`)),
       h('div', { class: 'sd-log-pills' }, h('span', { class: 'pill' }, plural(n, 'take')), k > 0 && h('span', { class: 'pill st-confirmed' }, `★ ${plural(k, 'keeper')}`))));
 }
 function listView() {
@@ -246,7 +247,7 @@ function listView() {
   const today = todayISO();
   const todays = db.bookings.filter(b => b.kind === 'session' && b.status !== 'cancelled' && covers(b, today));
   const box = h('div', { class: 'sd-logs' });
-  const match = l => { const q = S.q.trim().toLowerCase(); if (!q) return true; const b = l.bookingId && byId('bookings', l.bookingId); return [l.title, ...songsOf(l), b && bookingTitle(b), l.notes].some(x => String(x || '').toLowerCase().includes(q)); };
+  const match = l => { const q = S.q.trim().toLowerCase(); if (!q) return true; const b = l.bookingId && byId('bookings', l.bookingId); return [l.title, ...songsOf(l), b && bookingTitle(b), ...(b ? earlierNames(byId('acts', b.actId)).map(n => n.name) : []), l.notes].some(x => String(x || '').toLowerCase().includes(q)); };
   const fill = () => {
     const shown = logs.filter(match);
     if (!logs.length) { box.replaceChildren(empty('Log takes while you record: tap + Take as each one starts, rate them Keep, Maybe or No, and jot notes for the comp. Start a log here, or from a studio session’s Take log box.', h('button', { type: 'button', class: 'btn primary', onclick: () => newLogForm() }, '+ New take log'))); return; }
@@ -342,7 +343,7 @@ function logView(l, setTimer) {
 
   const shown = takes.filter(t => !S.keepers || t.rating === 'keep').sort((a, c) => Number(c.at) - Number(a.at));
   const setKeepers = on => { S.keepers = on; redraw(); refocus(on ? 'sd-f-keep' : 'sd-f-all'); };
-  const bk = b && h('button', { type: 'button', class: 'sd-link', onclick: () => import('./bookings.js').then(m => m.openBooking(b.id)) }, `${kindIcon(b.kind)} ${bookingTitle(b)}`);
+  const bk = b && h('button', { type: 'button', class: 'sd-link', onclick: () => import('./bookings.js').then(m => m.openBooking(b.id)) }, `${kindIcon(b.kind)} ${bookingTitle(b)}`, formerlyNote(b) && `, ${formerlyNote(b)}`);
 
   return h('div', { class: 'sd-page sd-log-view' },
     h('div', { class: 'page-head' },

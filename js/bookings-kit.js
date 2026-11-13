@@ -53,6 +53,12 @@ export function wentMark(b) {
   if (!b || b.went !== 'no' || b.kind !== 'show' || b.status === 'cancelled') return null;
   return model.seenAnswer(b) === 'no' ? h('span', { class: 'pill bk-went' }, 'Didn’t go') : null;
 }
+// "formerly The Night Owls": the line under the name of a booking from before its act changed its name
+// (model.formerlyNote: the name the act had that night). null when there is nothing to say.
+export function formerlyLine(b) {
+  const text = model.formerlyNote(b);
+  return text ? h('span', { class: 'bk-formerly' }, text) : null;
+}
 // What a Coming up card, a day's card and a week row add under their own lines, in this order: the overlap note, the
 // venue's house rules (js/venues-rules.js) and "Didn’t go". A fault in the chip must not break a card.
 export function cardExtras(b) {

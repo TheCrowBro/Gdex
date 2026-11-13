@@ -109,6 +109,10 @@
    chip between them is css/backline.css's. The note's words carry its meaning, not its colour. */
 .bk-overlap { display: block; font-size: .78rem; color: var(--amber); overflow-wrap: anywhere; }
 .bk-went { justify-self: start; }
+/* "formerly The Night Owls": a booking from before its act changed its name, in small type under the booking's name
+   (a Coming up card, a Week row, the booking's own header). */
+.bk-formerly { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
+.bk-hero > .bk-formerly { margin-top: -8px; }
 .bk-none { margin: 4px 2px 0; }
 
 /* ------------------------------ week: a list for each day ------------------------------ */

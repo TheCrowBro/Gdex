@@ -8,6 +8,7 @@ import { openForm } from '../form.js';
 import { printElement, docPage, saveFile, fileName, csv } from '../print.js';
 import { sheetTutorial } from '../tour.js';
 import { sectionName } from '../roles.js';
+import { formerlyNote } from '../model.js'; // "formerly The Night Owls": a booking from before its act changed its name
 
 // What the page is showing. Kept here so it survives the redraw after every change.
 const S = { view: 'items', q: '', owner: '' }; // owner: '' everyone, 'band' (nobody's own), or a person's id
@@ -162,6 +163,7 @@ function bookingRow(b, g, close) {
     h('span', { class: 'bl-row-date' }, dateText(b)),
     h('span', { class: 'pill ' + statusTone(b.status) }, statusLabel(b.status)),
     h('span', { class: 'bl-row-main' }, `${kindIcon(b.kind)} ${bookingTitle(b)}`, q > 1 && h('b', { class: 'bl-qty' }, ` ×${q}`)),
+    formerlyNote(b) && h('span', { class: 'bl-row-was muted small' }, formerlyNote(b)),
     warn && h('span', { class: 'bl-row-warn' }, warn));
 }
 

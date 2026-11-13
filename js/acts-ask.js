@@ -11,6 +11,7 @@
 import { h, sheet, announce, fmtShort, fmtLong } from './util.js';
 import { byId, subscribe } from './store.js';
 import { waitingShows, seenAnswer, seenEntryFor, ratingOf, markWent, venueOf } from './model.js';
+import { formerlyOf } from './model.js'; // the name the act had on the night of a show from before it changed its name
 import { askSeen, askSetting, setAskSetting, askDefault, moneyShown, pageOpt } from './roles.js';
 import { haptic } from './a11y.js';
 import { sheetTutorial } from './tour.js';
@@ -84,7 +85,7 @@ export function askAtOpen(ids) {
       ];
     }
     return h('div', { class: 'card ac-ask-row', 'data-id': b.id, style: stripeStyle(act) },
-      h('span', { class: 'ac-ask-main' }, h('strong', null, name), h('span', { class: 'small muted' }, when + (venue ? ' · ' + venue : ''))),
+      h('span', { class: 'ac-ask-main' }, h('strong', null, name), formerlyOf(b) && h('span', { class: 'ac-formerly' }, 'formerly ' + formerlyOf(b)), h('span', { class: 'small muted' }, when + (venue ? ' · ' + venue : ''))),
       h('span', { class: 'ac-ask-answer' }, part));
   }
 
