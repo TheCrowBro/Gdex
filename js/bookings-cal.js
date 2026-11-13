@@ -323,7 +323,7 @@ function weekRow(b, iso) {
       h('span', { class: 'bk-wrow-top' }, h('strong', { class: 'bk-wrow-title' }, h('span', { 'aria-hidden': 'true' }, model.kindIcon(b.kind) + ' '), model.bookingTitle(b)), pill(b.status)),
       formerlyLine(b),
       sub && h('span', { class: 'bk-wrow-sub muted small' }, sub),
-      ...cardExtras(b)));
+      ...cardExtras(b, { day: iso }))); // the overlap note of this day only: a booking over several days has a row on each
   return X.holdToDelete(row, b);
 }
 

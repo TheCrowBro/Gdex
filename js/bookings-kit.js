@@ -43,8 +43,10 @@ export const saveCalMode = mode => {
 /* ------------------------------- extra lines on a booking's card ------------------------------- */
 // Cards and rows are buttons, so each of these is a span with no control inside.
 // "Overlaps with Chelsea Wolfe, 21:00": the other shows on the day whose sets run into this one's (model.overlapText).
-export function overlapNote(b) {
-  const text = model.overlapText(b);
+// day: the one day a row stands for (a Week row), so a booking over several days speaks only of that day's clashes;
+// without it (a Coming up card) it names every clash, each with its day.
+export function overlapNote(b, day = '') {
+  const text = model.overlapText(b, undefined, { day });
   return text ? h('span', { class: 'bk-overlap' }, text) : null;
 }
 // "Didn’t go": a show (not cancelled) the person said they missed, and have not scored since. The answer is tested
@@ -60,9 +62,10 @@ export function formerlyLine(b) {
   return text ? h('span', { class: 'bk-formerly' }, text) : null;
 }
 // What a Coming up card, a day's card and a week row add under their own lines, in this order: the overlap note, the
-// venue's house rules (js/venues-rules.js) and "Didn’t go". A fault in the chip must not break a card.
-export function cardExtras(b) {
+// venue's house rules (js/venues-rules.js) and "Didn’t go". A fault in the chip must not break a card. day: the day a
+// Week row stands for (overlapNote).
+export function cardExtras(b, { day = '' } = {}) {
   let chip = null;
   try { chip = rulesChip(b); } catch (e) { console.warn('house rules chip', e); }
-  return [overlapNote(b), chip, wentMark(b)].filter(Boolean);
+  return [overlapNote(b, day), chip, wentMark(b)].filter(Boolean);
 }

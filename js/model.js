@@ -59,10 +59,14 @@ export const setsOverlap = (a, b) => { if (!a || !b || !overlaps(a, b)) return f
 export const overlapsOf = (b, list = db.bookings) => (setWindow(b) ? (list || []).filter(o => o && o !== b && o.id !== b.id && setsOverlap(b, o)).sort(byPlay) : []);
 // The note on a card: "Overlaps with Chelsea Wolfe, 21:00", "… and Sable, 21:30", "… and 2 more"; '' when nothing
 // overlaps. The other show goes by its act (else its client, else its title); by its title when it is the same act.
-export const overlapText = (b, list = db.bookings) => {
-  const others = overlapsOf(b, list);
+// For a booking over several days: with { day }, only the shows it clashes with on that day (a Week row is one day);
+// without, every clash, each with the other show's day, as it stands for all its days ("Overlaps with Sable, Sat 21:30").
+export const overlapText = (b, list = db.bookings, { day = '' } = {}) => {
+  const several = !!b && isIso(b.date) && lastDate(b) > b.date;
+  const others = overlapsOf(b, list).filter(o => !day || coversDay(o, day));
   if (!others.length) return '';
-  const name = o => `${(o.actId && o.actId === b.actId ? '' : actName(o.actId) || o.client) || bookingTitle(o)}, ${nightClock(nightMin(o.setTime))}`;
+  const on = o => (several && !day ? parseISO(o.date > b.date ? o.date : b.date).toLocaleDateString(undefined, { weekday: 'short' }) + ' ' : ''); // the first day the two share
+  const name = o => `${(o.actId && o.actId === b.actId ? '' : actName(o.actId) || o.client) || bookingTitle(o)}, ${on(o)}${nightClock(nightMin(o.setTime))}`;
   return 'Overlaps with ' + (others.length === 1 ? name(others[0]) : others.length === 2 ? `${name(others[0])} and ${name(others[1])}` : `${name(others[0])} and ${others.length - 1} more`);
 };
 

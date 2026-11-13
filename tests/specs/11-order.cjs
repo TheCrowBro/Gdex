@@ -186,6 +186,41 @@ async function dayIds(page, iso) {
   const back = await page.evaluate(() => import('./js/model.js').then(m => [{ id: 'old', date: '2020-01-01', kind: 'show', setTime: '20:00' }, { id: 'new-late', date: '2020-01-02', kind: 'show', setTime: '22:00' }, { id: 'new-early', date: '2020-01-02', kind: 'show', setTime: '20:00' }].sort(m.byDayPlayDesc).map(x => x.id)));
   ok('past bookings read newest day first, a day in playing order', same(back, ['new-early', 'new-late', 'old']), back.join(','));
 
+  /* ---------------- a show over two days: the note on the day of the clash ---------------- */
+  // The Night Owls play a festival over two days (21:00), and Sable plays 21:30 on its second day only.
+  const F1 = await dayFromNow(page, 11), F2 = await dayFromNow(page, 12);
+  await put(page, 'bookings', { id: 'o-F', kind: 'show', status: 'confirmed', actId: 's-owls', venueName: 'Field Stage', date: F1, endDate: F2, setTime: '21:00' });
+  await put(page, 'bookings', { id: 'o-G', kind: 'show', status: 'confirmed', actId: 's-sablea', venueName: 'Tent Two', date: F2, setTime: '21:30' });
+  await sleep(300);
+  const wd = await page.evaluate(iso => import('./js/util.js').then(u => u.parseISO(iso).toLocaleDateString(undefined, { weekday: 'short' })), F2);
+  const sums = await page.evaluate(([F1, F2]) => Promise.all([import('./js/store.js'), import('./js/model.js')]).then(([s, m]) => { const f = s.byId('bookings', 'o-F'), g = s.byId('bookings', 'o-G');
+    return { f1: m.overlapText(f, undefined, { day: F1 }), f2: m.overlapText(f, undefined, { day: F2 }), whole: m.overlapText(f), g: m.overlapText(g), g2: m.overlapText(g, undefined, { day: F2 }) }; }), [F1, F2]);
+  ok('the model: a day given, only the clashes on that day; none given, a booking over several days names the other show’s day', sums.f1 === '' && sums.f2 === 'Overlaps with Sable, 21:30' && sums.whole === `Overlaps with Sable, ${wd} 21:30`
+    && sums.g === 'Overlaps with The Night Owls, 21:00' && sums.g2 === sums.g, JSON.stringify(sums));
+  await go(page, 'bookings'); await toMonth(page);
+  await page.click('#bk-view-week'); await page.waitForSelector('.bk-week');
+  await page.click('[aria-label="Today, this week"]'); await sleep(200);
+  const rowNote = (id, iso) => page.evaluate(([id, iso]) => { const r = document.getElementById(`bk-ev-${id}-${iso}`); return r ? (r.querySelector('.bk-overlap') || {}).textContent || '' : null; }, [id, iso]);
+  const wk = {};
+  for (const [id, iso] of [['o-F', F1], ['o-F', F2], ['o-G', F2]]) {
+    for (let i = 0; i < 4 && !(await page.locator(`#bk-ev-${id}-${iso}`).count()); i++) { await page.click('[aria-label="Next week"]'); await sleep(200); }
+    wk[`${id} ${iso === F1 ? 'first' : 'second'}`] = await rowNote(id, iso);
+  }
+  ok('Week: a show over two days carries the overlap note only on its row of the day the clash happens', wk['o-F first'] === '' && wk['o-F second'] === 'Overlaps with Sable, 21:30' && wk['o-G second'] === 'Overlaps with The Night Owls, 21:00', JSON.stringify(wk));
+  await page.click('#bk-view-month'); await sleep(250);
+  const cardNote = id => page.evaluate(id => { const c = document.querySelector(`.bk-agenda .bk-card[data-id="${id}"]`); return c ? (c.querySelector('.bk-overlap') || {}).textContent || '' : null; }, id);
+  if (await page.locator('#bk-agenda-more').count() && !(await page.locator('.bk-agenda .bk-card[data-id="o-F"]').count())) { await page.click('#bk-agenda-more'); await sleep(250); }
+  const fcards = { f: await cardNote('o-F'), g: await cardNote('o-G') };
+  ok(`Coming up: the card of the show over two days, which stands for both, keeps the whole note with the other show’s day (“Overlaps with Sable, ${wd} 21:30”)`, fcards.f === `Overlaps with Sable, ${wd} 21:30` && fcards.g === 'Overlaps with The Night Owls, 21:00', JSON.stringify(fcards));
+  await page.click('#bk-view-day'); await sleep(250);
+  await page.click('[aria-label="Today"]'); await sleep(200);
+  for (let i = 0; i < 14 && !(await page.locator('#bk-ev-o-F-any').count()); i++) { await page.click('[aria-label="Next day"]'); await sleep(150); }
+  const pill = await page.evaluate(() => { const p = document.getElementById('bk-ev-o-F-any'); return p ? p.querySelector('.sr-only').textContent : null; });
+  ok('…and so does its pill in the “any time” row, in the words a screen reader is given', !!pill && pill.includes(`Overlaps with Sable, ${wd} 21:30.`), pill);
+  await page.click('#bk-view-month'); await sleep(250);
+  for (const id of ['o-F', 'o-G']) await page.evaluate(id => import('./js/store.js').then(s => s.remove('bookings', id)), id);
+  await sleep(200);
+
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 })().catch(e => { console.log('FAIL order spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });
