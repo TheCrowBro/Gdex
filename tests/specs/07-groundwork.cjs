@@ -135,6 +135,14 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   await store(page, s => s.patch('bookings', 'w-no', { went: 'no' }));
   rec = await edit(f => f.locator('select[id$="-actId"]').selectOption('s-owls'));
   ok('…and so does another act', rec.actId === 's-owls' && !('went' in rec), JSON.stringify({ a: rec.actId, w: rec.went }));
+  // Deleting the act takes it off the show, as an edit to another act does: the show has no act to be asked about,
+  // and its page has nothing that could take a “Didn’t go” back.
+  rec = await store(page, s => {
+    s.upsert('acts', { id: 'g-gone', name: 'Gone Soon' }); s.patch('bookings', 'w-no', { actId: 'g-gone', went: 'no' }); s.remove('acts', 'g-gone');
+    return JSON.parse(JSON.stringify(s.byId('bookings', 'w-no')));
+  });
+  const goneMark = await page.evaluate(() => Promise.all([import('./js/bookings-kit.js'), import('./js/store.js')]).then(([k, s]) => k.wentMark(s.byId('bookings', 'w-no')) === null));
+  ok('…and so does deleting the act: no act, no “Didn’t go” on its card', rec.actId === '' && !('went' in rec) && goneMark, JSON.stringify({ a: rec.actId, w: rec.went }));
 
   /* ---------------- the booking page's seams ---------------- */
   await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1'))); await page.waitForSelector('.bk-page .bk-hero');

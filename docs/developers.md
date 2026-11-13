@@ -232,8 +232,9 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   notes, createdAt, updatedAt }
 ```
 `went` is the No to "Did you see them?" (`model.markWent`). A Yes is never stored on the booking: it is the act's
-`seen` entry. A duplicate never carries it, and an edit that changes the date, the last day or the act drops it. It
-travels in backups and is never put in a day sheet, a calendar file or any document.
+`seen` entry. A duplicate never carries it, and an edit that changes the date, the last day or the act drops it, as
+deleting the act does (`store.remove`). It travels in backups and is never put in a day sheet, a calendar file or any
+document.
 Statuses per kind: `model.statusesFor(kind)` (`hold`, `offer`, `confirmed`, `advanced`, `done`, `settled`,
 `cancelled`). Pills: `h('span', { class: 'pill ' + statusTone(s) }, statusLabel(s))`.
 

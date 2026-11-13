@@ -107,7 +107,8 @@ export function remove(list, id) {
       d.bookings.forEach(b => { if ((b.gear || []).includes(id)) { b.gear = without(b.gear, id); if (b.gearQty) delete b.gearQty[id]; touch(b); } });
       d.kits.forEach(k => { if ((k.items || []).includes(id)) { k.items = without(k.items, id); if (k.qty) delete k.qty[id]; touch(k); } });
     }
-    if (list === 'acts') for (const c of ['bookings', 'songs', 'setlists']) d[c].forEach(r => { if (r.actId === id) { r.actId = ''; touch(r); } });
+    // A show's "Didn’t go" goes with its act, as in an edit to another act: it is only ever an answer about an act.
+    if (list === 'acts') for (const c of ['bookings', 'songs', 'setlists']) d[c].forEach(r => { if (r.actId === id) { r.actId = ''; if (c === 'bookings') delete r.went; touch(r); } });
     if (list === 'venues') d.acts.forEach(a => { let hit = false; (a.seen || []).forEach(x => { if (x.venueId === id) { x.venueId = ''; x.where = x.where || (gone && gone.name) || ''; hit = true; } }); if (hit) touch(a); }); // a sighting keeps the place's name
     if (list === 'venues') d.bookings.forEach(b => { if (b.venueId === id) { b.venueId = ''; b.venueName = b.venueName || (gone && gone.name) || ''; b.address = b.address || (gone && gone.address) || ''; touch(b); } });
     if (list === 'songs') {
