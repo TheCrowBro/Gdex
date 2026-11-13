@@ -52,6 +52,12 @@ const STORES = /App Store|Google Play|iCloud|Dropbox|OneDrive/;
     ok('the sound level meter is not a calibrated instrument, and insurance records are notes, not cover', /sound level meter is not a calibrated instrument/.test(text(T)) && /notes, not insurance/.test(text(T)));
     ok('Erase keeps the licence sign-in, and Delete my licence records is explained', /Erase this device[^.]*\. Erasing[^.]*\. It keeps[^.]*your licence sign-in/.test(text(T)) && /Delete my licence records/.test(text(T)));
     ok('the terms ask agreement once before the working roles\' free days, and keep 18 or over', /Before the working roles’ free days start on a device, Gdex also shows you these terms/.test(text(T)) && /You must be 18 or over/.test(text(T)));
+    // The lead's decision 4: while licences are off, the terms say so in one sentence, in the short version and in section 11
+    // (as privacy.html does); docs/go-live.md 9(d) removes both with a TERMS_VERSION bump when the website's licence goes on.
+    const OFF = 'Until licences are switched on at gdex.crowmade.app, every role is free and the licence parts of these terms do not apply yet.';
+    const summary = text((T.split('<section class="summary">')[1] || '').split('</section>')[0]), stepD = (read('docs/go-live.md').split('**(d)')[1] || '').split('**(e)')[0];
+    ok('while licences are off, the terms say so in one sentence: in the short version and in section 11, nowhere else', summary.includes(OFF) && paidSection.includes(OFF) && text(T).split(OFF).length === 3, `${summary.includes(OFF)} ${paidSection.includes(OFF)} ${text(T).split(OFF).length - 1}`);
+    ok('…and docs/go-live.md 9(d) takes that sentence out of both in the same commit as the switch, with a TERMS_VERSION bump', stepD.replace(/\s+/g, ' ').includes(OFF) && /TERMS_VERSION/.test(stepD) && /js\/terms\.js/.test(stepD), stepD.slice(0, 200));
 
     /* ----------------------------- the privacy ----------------------------- */
     const P = text(pages.privacy);

@@ -72,6 +72,12 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   // an approved run of this job can read, never in repository secrets, which any pushed branch's workflow can read.
   const desk = read('docs/desktop.md'), signing = (desk.split('## Signing')[1] || '').split('\n## ')[0], live = read('docs/go-live.md'), step7 = (live.split('## 7.')[1] || '').split('## 8.')[0], table = (read('docs/licence-server.md').split('## What each key can reach')[1] || '').split('\n## ')[0];
   ok('…its build job takes the signing secrets from the protected Environment gdex-sign, and the guides say so and what each signing secret can reach', /^    environment: gdex-sign$/m.test(wf) && /Environment `gdex-sign`/.test(signing) && !/Repository secrets/.test(signing) && /`gdex-sign`/.test(step7) && /Vdex['’]s\s+included/.test(step7) && ['MAC_CERT_P12', 'APPLE_APP_PASSWORD', 'AZURE_CLIENT_SECRET'].every(k => table.includes('`' + k + '`')), JSON.stringify({ env: /environment: gdex-sign/.test(wf), step7: step7.trim().slice(0, 200) }));
+  // The lead's decision 4: while licences are off, the download page says so where it speaks of the licence; docs/go-live.md
+  // 9(e) takes the sentence out when the desktop app's licence goes on.
+  const OFF_DL = 'Until licences are switched on at gdex.crowmade.app, every role is free and the licence described on this page does not apply yet.';
+  const whichRoles = ((html.split('<h2>Which roles need a licence</h2>')[1] || '').split('<h2')[0]).replace(/\s+/g, ' '), stepE = (live.split('**(e)')[1] || '').split('## Questions')[0];
+  ok('while licences are off, the download page says so once, where it says which roles need a licence', whichRoles.includes(OFF_DL) && html.replace(/\s+/g, ' ').split(OFF_DL).length === 2, whichRoles.slice(-300));
+  ok('…and docs/go-live.md 9(e) takes it out when the desktop app’s licence goes on', stepE.replace(/\s+/g, ' ').includes(OFF_DL) && /download\.html/.test(stepE), stepE.slice(0, 200));
   const tests = read('.github/workflows/tests.yml');
   ok('the tests workflow has a desktop job that runs the smoke test under a virtual screen', /^  desktop:/m.test(tests) && /xvfb-run -a npm run test:desktop/.test(tests));
 

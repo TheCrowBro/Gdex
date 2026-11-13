@@ -143,6 +143,12 @@ becomes
 
 (the publish runs every test first, so a commit that changes one without the others is never published).
 
+In the same commit, the terms lose the sentence that says the licence is not on yet. In `terms.html` the sentence
+"Until licences are switched on at gdex.crowmade.app, every role is free and the licence parts of these terms do not
+apply yet." comes out of the short version and out of section 11; `TERMS_VERSION` in `js/terms.js` is raised to that
+day's date, so every device is asked to agree to the terms again; and the check in `tests/specs/83-legal-pages.cjs`
+that expects the sentence is changed to expect it gone. Read the terms once more before this step.
+
 The public keys must already be in `desktop/licence-keys.json` and `js/licence-keys.js` (step 3): the publish workflow's
 guard refuses to publish live licences without them. Then publish as in (a). From then on every browser at
 gdex.crowmade.app has the licence: the working roles have 30 free days from their first use on each browser, then need a
@@ -161,6 +167,10 @@ in `tests/specs/07-groundwork.cjs` becomes
 ```js
 ok('the owner’s switches are on: the website’s licence is live on gdex.crowmade.app, and the desktop app’s', same(sites, ['gdex.crowmade.app']) && same(desk, { on: true }), JSON.stringify([sites, desk]));
 ```
+
+In the same commit, `download.html` loses its sentence "Until licences are switched on at gdex.crowmade.app, every role
+is free and the licence described on this page does not apply yet.", and the check in
+`tests/specs/86-download-page.cjs` that expects it is changed to expect it gone.
 
 Built, signed if you chose to, and uploaded in the order `docs/desktop.md` gives.
 
