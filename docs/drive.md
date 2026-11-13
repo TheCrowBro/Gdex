@@ -73,7 +73,8 @@ Then:
   same Google account: both end up with everything from both.
 - **About once an hour** Google asks you to sign in again while you use Gdex (Google gives a web app one hour at a
   time). The ☁ button then says **Sign in**: one tap on **Sign in again** and you are back. Your changes are kept on the
-  device meanwhile and copied as soon as you have signed in.
+  device meanwhile and copied as soon as you have signed in (until then they are only on this device: Erase this device
+  says so before it erases them).
 - **In the desktop app** Google's sign-in opens in your web browser (Google does not allow it inside an app window).
   Sign in there, then come back to Gdex when the page says so.
 - **The dated copies:** **Bring back a daily copy…** lists them, newest first. Pick one to merge it into this device,
@@ -86,7 +87,10 @@ Then:
 - **To take Gdex's access away completely,** open your Google Account → Security → Your connections to third-party apps
   & services → Gdex → Delete all connections. To delete Gdex's hidden data from Drive without Gdex: Google Drive on the
   web → Settings → Manage apps → Gdex → Options → Delete hidden app data.
-- **Erase this device** (Settings) disconnects Google Drive first, so the copy in your Drive is left as it was.
+- **Erase this device** (Settings) first copies this device's last changes to your Drive (it asks you to sign in again
+  when Google's hour is up), then disconnects Google Drive, so the copy in your Drive holds everything and is not
+  overwritten by the empty device. When Drive can't be reached, nothing is erased yet: Gdex says which changes your Drive
+  lacks, with Try again (or Sign in again) and Save a backup, and only **Erase anyway** erases them.
 
 What leaves the device: the whole Gdex database goes to your own Google Drive (and nowhere else), with your Google
 account's address and name kept on the device to show who is signed in and to skip Google's account chooser. The
@@ -179,7 +183,8 @@ the desktop app refuses to sign in (Google knows only 47861).
   script not loading, then Try again); the walkthroughs of the Backups sheet, the connect sheet and the daily copies;
   first device, second device, edits and deletions travelling; the hour up and one tap; a 401; status changes not
   redrawing the page; the store's gate refusing; the daily and monthly copies; a failed sync and a failed daily copy;
-  bringing a daily copy back and Replace on every device; Disconnect, Delete, Erase; a first sync that fails, then Not
+  bringing a daily copy back and Replace on every device; Disconnect, Delete, Erase (the changes Drive lacks copied
+  first, signing in again from the tap; with no internet nothing erased until Erase anyway); a first sync that fails, then Not
   now; where the focus goes when the card is redrawn (after connecting, Sign in again, Disconnect, Delete, Not now);
   `freeDaysFrom` with a stand-in licence state.
 - `91-drive-merge`: `mergeDb` entry by entry; two devices logging at once; no ping-pong (records, or one act's times

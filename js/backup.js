@@ -340,6 +340,19 @@ export async function unlinkFile() {
 // Erase this device (Settings) calls this first, so nothing linked is written over by the empty database: Google Drive
 // is disconnected (its copy stays as it is), then the copy in a file is let go.
 export async function beforeErase() { await drive.disconnectDrive(); await unlinkFile(); }
+// Erase this device (Settings) asks this before it erases anything: with Google Drive linked, a last sync from the tap
+// (signing in again when Google's hour is up; on the desktop the browser's sign-in), so what was changed here reaches
+// Drive first. Resolves null when Drive holds everything this device has (or Drive is not linked); otherwise
+// { status, text }: what Drive lacks and why, in words.
+export async function driveBehind() {
+  let d = drive.driveState();
+  if (!d.linked) return null;
+  try { d = await drive.syncNow({ ask: true }); } catch { d = drive.driveState(); }
+  if (!d.linked || d.status === 'synced' || !((Number(store.db.updatedAt) || 0) > d.at)) return null;
+  const since = !d.at ? 'it was connected' : isToday(d.at) ? clock(d.at) : `${new Date(d.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}, ${clock(d.at)}`;
+  const why = d.status === 'needs-permission' ? 'Google Drive needs you to sign in again.' : isSentence(d.error || '') ? d.error : `Couldn’t reach Google Drive: ${d.error || 'something went wrong'}.`;
+  return { status: d.status, text: `⚠ What you changed on this device since ${since} isn’t in your Google Drive yet. ${why} Erase now and those changes are lost: ${d.status === 'needs-permission' ? 'sign in again' : 'try again'} first, or save a backup.` };
+}
 // Settings → Backups' closed line (moved here from js/pages/settings.js so Drive can add to it).
 export function backupLine() {
   const hl = health(), f = fileState(), d = drive.driveState();

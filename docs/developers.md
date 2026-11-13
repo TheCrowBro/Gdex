@@ -550,7 +550,7 @@ may call it.
 | `js/clock.js` `initClockBar(el)` / `clockCard(b)` | studio | The strip under the section menu while a clock runs / start-stop card. |
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
-| `js/backup.js` `beforeErase()` / `backupLine()` | drive | Erase this device calls it first: Google Drive is disconnected (its copy stays) and the linked file let go, so nothing linked is written over by the empty database / Settings → Backups' closed line, which names Google Drive's state. |
+| `js/backup.js` `driveBehind()` / `beforeErase()` / `backupLine()` | drive | Erase this device asks it first: with Drive linked, a last sync from the tap; null, or what Drive still lacks, in words / Erase this device calls it next: Google Drive is disconnected (its copy stays) and the linked file let go, so nothing linked is written over by the empty database / Settings → Backups' closed line, which names Google Drive's state. |
 | `js/licence-state.js` (the whole API is under "The licence" below) | licence | `mayOpen`, `mayWork`, `mayPickRole`, `gateWork`, `canWrite`, `licenceNow`, `onLicenceChange` / the window event `gdex-licence`… |
 | `js/update.js` `desktop()` / `js/version.js` `shareBase()` / `publicHref()` | desktop | The desktop bridge when it has the update controls, else `null` / where share links and a calendar entry point: **an address someone else will open comes from `shareBase()` or `publicHref()`, never `location.href`**: in the desktop app they give `https://gdex.crowmade.app/` (`PUBLIC_SITE`). |
 | `js/tour.js` `sheetTutorial(title, steps)` / `setSearchStep(step)` | core | Register walkthrough steps for a sheet by its title / the welcome tour's stop for the search box, just after the section menu (`js/search.js` gives it; the tour cannot import the search). |
@@ -1132,7 +1132,10 @@ contract is in `docs/licence-server.md` (for the developer).
   known; `normalise` drops it, so it never enters the database, a backup file or a restore.
 * Drive's state goes to `onDriveChange(fn)` listeners only (`js/backup.js`: the ☁ button and the panels), never
   through the store's redraw, so a sync never redraws the page or moves the focus.
-* Erase this device disconnects Drive first (`beforeErase`); the copy in Drive stays.
+* Erase this device first syncs from the tap (`driveBehind()` in `js/backup.js`: `syncNow({ ask: true })`, so a sign-in
+  opens when Google's hour is up). When Drive still lacks a change made here (not synced, and `db.updatedAt` after
+  `gdex-sync-at`), nothing is erased: the section says so with Try again or Sign in again and Save a backup, and the
+  button becomes Erase anyway. Then `beforeErase` disconnects Drive; the copy in Drive stays.
 
 ## The desktop app (`desktop/`; `docs/desktop.md`)
 

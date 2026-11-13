@@ -3,7 +3,8 @@
 // walkthroughs of the Backups sheet, the connect sheet and the daily copies; the first device writes the copy, a second
 // joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
 // page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
-// and Replace reaching every device; Disconnect, Delete Gdex's copy and Erase; where the focus goes when the Drive card
+// and Replace reaching every device; Disconnect, Delete Gdex's copy and Erase (the changes Drive lacks copied first, or
+// said, with Erase anyway); where the focus goes when the Drive card
 // is redrawn; and the earliest free day carried in the Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in
 // script is served by the test, and one Google Drive held here in Node answers every device (each browser context is
 // one device).
@@ -481,6 +482,64 @@ if (require.main === module) (async () => {
   await sleep(1500);
   ok('Erase disconnects Google Drive first', !(await state(pa)).linked && !(await pa.evaluate(() => localStorage.getItem('gdex-drive'))));
   ok('…and the copy in Drive is left exactly as it was', D.named('gdex-db.json')[0].body === copyBefore && D.writes() === writesBefore && (await data(pa)).bookings.length === 0);
+
+  /* ------------------------------ Erase with changes Google Drive lacks ------------------------------ */
+  // Before it erases, Gdex copies this device's last changes to Drive (signing in again from the tap when Google's hour
+  // is up). When it can't, nothing is erased yet: the warning says what Drive lacks, with a way to send it and Save a
+  // backup, and only a second tap (Erase anyway) erases.
+  {
+    const D4 = fakeDrive();
+    const openErase = async p => { await p.evaluate(() => window.logiGo('settings')); await sleep(400); await p.evaluate(() => { const d = document.getElementById('se-erase'); if (d && !d.open) d.open = true; }); };
+    const has = (doc, id) => !!doc && (doc.bookings || []).some(b => b.id === id);
+    const G = await device(browser, D4, { who: 'G' }); all.push(G);
+    const pg = G.page;
+    await pg.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { id: 'g-old', kind: 'show', date: '2026-12-01', title: 'Synced long ago' })));
+    await connect(pg); await waitCloud(pg, 'synced'); await closeSheets(pg);
+    await pg.evaluate(() => Promise.all([import('./js/drive.js'), import('./js/sync.js')]).then(([d, s]) => { d.forgetGoogleToken(); return s.sync({ quiet: true }); }));
+    await pg.evaluate(() => import('./js/store.js').then(s => { for (const i of [1, 2, 3]) s.upsert('bookings', { id: 'g-new' + i, kind: 'show', date: `2026-12-0${i + 1}`, title: 'New ' + i }); }));
+    await sleep(1200);
+    ok('(Google’s hour is up and three bookings were made since: Drive lacks them)', (await state(pg)).status === 'needs-permission' && !has(D4.json(), 'g-new1'));
+    await openErase(pg);
+    const warnG = (await pg.locator('#se-erase-warn').innerText()).replace(/\s+/g, ' ');
+    ok('the erase warning says this device’s last changes go to Google Drive first', /Google Drive gets this device’s last changes first/.test(warnG) && !/Google Drive is disconnected on this device first/.test(warnG), warnG);
+    const logG = D4.log.length;
+    await pg.fill('#se-erase-input', 'ERASE');
+    await Promise.all([pg.waitForNavigation({ timeout: 15000 }), pg.click('#se-erase-go')]); // Erase reloads Gdex
+    await pg.waitForSelector('#deck .dk-next');
+    await sleep(500);
+    ok('Erase signs in again from the tap and copies the changes Drive lacked before it erases', ['g-old', 'g-new1', 'g-new2', 'g-new3'].every(id => has(D4.json(), id)) && D4.log.slice(logG).some(l => l.who === 'G' && l.method === 'PATCH' && l.name === 'gdex-db.json'), (D4.json().bookings || []).map(b => b.id).join());
+    ok('…then disconnects Drive and erases this device', !(await state(pg)).linked && (await data(pg)).bookings.length === 0);
+
+    const H2 = await device(browser, D4, { who: 'H' }); all.push(H2);
+    const ph = H2.page;
+    await connect(ph); await waitCloud(ph, 'synced'); await closeSheets(ph);
+    H2.allow.push(/ERR_FAILED/);
+    D4.fail = { abort: true, keep: true, match: r => r.who === 'H' };
+    await ph.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { id: 'h-off', kind: 'show', date: '2026-12-09', title: 'Made offline' })));
+    await sleep(1200);
+    ok('(no internet: the new booking is not in Drive)', (await state(ph)).status === 'error' && !has(D4.json(), 'h-off'));
+    await openErase(ph);
+    await ph.fill('#se-erase-input', 'ERASE');
+    await ph.click('#se-erase-go');
+    await ph.waitForSelector('.se-erase-behind', { timeout: 10000 }).catch(() => {});
+    const behind = (await ph.locator('#se-erase').innerText()).replace(/\s+/g, ' ');
+    ok('Erase with no internet erases nothing yet: this device keeps the booking Drive lacks', (await data(ph)).bookings.some(b => b.id === 'h-off') && (await state(ph)).linked);
+    ok('…and says what Drive lacks and why, with Try again and Save a backup, and Erase anyway', /What you changed on this device since .+? isn’t in your Google Drive yet\. Can’t reach Google Drive \(no internet\?\)/.test(behind) && /Erase now and those changes are lost/.test(behind) && (await ph.locator('.se-erase-behind .se-erase-sync').innerText()) === 'Try again' && (await ph.locator('.se-erase-behind .se-erase-save').count()) === 1 && (await ph.locator('#se-erase-go').innerText()) === 'Erase anyway', behind);
+    D4.fail = null;
+    await ph.click('.se-erase-behind .se-erase-sync');
+    await ph.waitForSelector('.se-erase-behind', { state: 'detached', timeout: 10000 }).catch(() => {});
+    ok('Try again, back online, copies it to Drive: the warning goes and the button is Erase this device again', has(D4.json(), 'h-off') && (await ph.locator('.se-erase-behind').count()) === 0 && (await ph.locator('#se-erase-go').innerText()) === 'Erase this device' && /Google Drive has everything from this device now\./.test(await toasts(ph)));
+    D4.fail = { abort: true, keep: true, match: r => r.who === 'H' };
+    await ph.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { id: 'h-off2', kind: 'show', date: '2026-12-10', title: 'Also offline' })));
+    await sleep(1200);
+    await ph.click('#se-erase-go');
+    await ph.waitForSelector('.se-erase-behind', { timeout: 10000 }).catch(() => {});
+    await Promise.all([ph.waitForNavigation({ timeout: 15000 }), ph.click('#se-erase-go')]);
+    await ph.waitForSelector('#deck .dk-next');
+    D4.fail = null;
+    ok('…and Erase anyway, after the warning, erases', (await data(ph)).bookings.length === 0 && !(await state(ph)).linked && has(D4.json(), 'h-off') && !has(D4.json(), 'h-off2'));
+    H2.allow.pop();
+  }
 
   /* ------------------------------ Google's sign-in script not loading ------------------------------ */
   {

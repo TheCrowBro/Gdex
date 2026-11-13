@@ -3,7 +3,7 @@
 // accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here.
 // A role without money (scout, audiophile: moneyShown() false) has no Quotes & invoices section, and its details
 // are not said to go on quotes and invoices; the section comes back with a role that uses money.
-import { h, toast, announce, safeUrl, telUrl } from '../util.js';
+import { h, toast, announce, safeUrl, telUrl, nodes } from '../util.js';
 import * as store from '../store.js';
 import { db, update } from '../store.js';
 import { fmtMoney, currency } from '../model.js';
@@ -15,7 +15,7 @@ import { startTour, sheetTutorial } from '../tour.js';
 import { VERSION, BUILD, BUILT } from '../version.js';
 import { updatePanel } from '../update.js';
 import { installState, openInstallHelp } from '../install.js';
-import { backupPanel, onBackupChange, beforeErase, backupLine } from '../backup.js';
+import { backupPanel, onBackupChange, beforeErase, backupLine, driveBehind, exportBackup } from '../backup.js';
 import { role, roleChosen, menuSections, sectionName, moneyShown } from '../roles.js';
 import { rolePanel } from '../role-pick.js';
 import { askPref } from '../acts-ask.js';
@@ -26,7 +26,7 @@ import { roleNeedsLicence, roleId } from '../roles.js';
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
-const S = { erase: '' }; // what is typed in the erase box survives the redraw after every change
+const S = { erase: '', behind: null, busy: false }; // what is typed in the erase box (and what Drive lacks) survives the redraw after every change
 
 /* ------------------------------- open sections ------------------------------- */
 const OPEN_KEY = 'gdex-settings-open';
@@ -323,24 +323,55 @@ function aboutBody(up, done) {
 
 /* ------------------------------- erase ------------------------------- */
 const eraseArmed = () => S.erase.trim().toUpperCase() === 'ERASE';
+// With Google Drive linked, a tap on Erase first copies this device's last changes to Drive (backup.js driveBehind).
+// When Drive still lacks some, nothing is erased: S.behind holds what it lacks, the section says so with Try again (or
+// Sign in again) and Save a backup, and the button becomes Erase anyway. S.busy: that last sync is running.
 async function eraseDevice() {
-  if (!eraseArmed()) return;
-  S.erase = '';
+  if (!eraseArmed() || S.busy) return;
+  if (!S.behind && driveLinked()) {
+    if (await lastSync() || !eraseArmed()) return;
+  }
+  S.erase = ''; S.behind = null;
   try { await beforeErase(); } catch { /* nothing linked */ } // first, so the empty database is never written over the copy
   store.eraseAll();
   try { localStorage.removeItem(OPEN_KEY); } catch { /* ignore */ }
   toast('Everything on this device was erased');
   setTimeout(() => location.reload(), 400);
 }
+// The last sync before an erase (and its Try again): resolves what Drive still lacks, or null.
+async function lastSync() {
+  S.busy = true; paintErase();
+  try { S.behind = await driveBehind(); } catch { S.behind = null; } finally { S.busy = false; }
+  paintErase();
+  return S.behind;
+}
+async function eraseRetry() {
+  if (S.busy) return;
+  if (!(await lastSync())) { toast('Google Drive has everything from this device now.'); announce('Google Drive has everything from this device now'); }
+}
+// Redraw the erase section's body in place (the page itself may have been redrawn meanwhile). The focus, when it was
+// in the section or was lost with a redraw, goes to the erase button.
+function paintErase() {
+  const box = document.querySelector('#se-erase .se-body');
+  if (!box) return;
+  const a = document.activeElement, keep = !a || a === document.body || !a.isConnected || box.contains(a);
+  box.replaceChildren(...nodes(eraseBody()));
+  if (keep) { const el = document.getElementById('se-erase-go'); if (el) el.focus({ preventScroll: true }); }
+}
 function eraseBody() {
-  const go = h('button', { type: 'button', class: 'btn danger', id: 'se-erase-go', disabled: !eraseArmed(), onclick: eraseDevice }, 'Erase this device');
+  const go = h('button', { type: 'button', class: 'btn danger', id: 'se-erase-go', disabled: !eraseArmed(), 'aria-busy': S.busy ? 'true' : null, onclick: eraseDevice }, S.busy ? 'Copying to Google Drive…' : S.behind ? 'Erase anyway' : 'Erase this device');
   const input = h('input', { type: 'text', id: 'se-erase-input', value: S.erase, autocomplete: 'off', autocapitalize: 'characters', 'aria-describedby': 'se-erase-warn',
     oninput: e => { S.erase = e.target.value; go.disabled = !eraseArmed(); },
     onkeydown: e => { if (e.key === 'Enter' && eraseArmed()) { e.preventDefault(); eraseDevice(); } } });
   input.spellcheck = false;
   return [
-    h('p', { class: 'warn small', id: 'se-erase-warn' }, `This removes everything Gdex keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings, and your role (Gdex asks again when it next opens). Google Drive is disconnected on this device first; the copy in your Drive stays. Backup files, and a copy kept in a file, stay as they are.${licenceOn() ? ' Your licence sign-in and free-day count stay on this device.' : ''} There is no undo.`),
+    h('p', { class: 'warn small', id: 'se-erase-warn' }, `This removes everything Gdex keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings, and your role (Gdex asks again when it next opens).${driveLinked() ? ' Google Drive gets this device’s last changes first (Gdex tells you if it can’t), then is disconnected here; the copy in your Drive stays.' : ''} Backup files, and a copy kept in a file, stay as they are.${licenceOn() ? ' Your licence sign-in and free-day count stay on this device.' : ''} There is no undo.`),
     h('div', { class: 'field' }, h('label', { for: 'se-erase-input' }, 'Type ERASE to confirm'), input),
+    S.behind && h('div', { class: 'stack se-erase-behind', role: 'alert' },
+      h('p', { class: 'warn small' }, S.behind.text),
+      h('div', { class: 'actions' },
+        h('button', { type: 'button', class: 'btn primary se-erase-sync', disabled: !!S.busy, onclick: eraseRetry }, S.behind.status === 'needs-permission' ? 'Sign in again' : 'Try again'),
+        h('button', { type: 'button', class: 'btn ghost se-erase-save', onclick: () => exportBackup() }, '⤓ Save a backup'))),
     h('div', { class: 'actions' }, go),
   ];
 }
@@ -395,7 +426,7 @@ export const settings = {
       h('div', { class: 'se-list' }, Object.values(sec).filter(Boolean).map(s => s.el)));
     return () => {
       done.forEach(f => { try { f(); } catch { /* already gone */ } });
-      if (window.logiPage && window.logiPage() !== 'settings') S.erase = ''; // leaving Settings disarms the erase button
+      if (window.logiPage && window.logiPage() !== 'settings') { S.erase = ''; S.behind = null; } // leaving Settings disarms the erase button
     };
   },
   tutorial: () => [
