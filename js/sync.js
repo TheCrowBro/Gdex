@@ -8,7 +8,7 @@
 // Status changes go only to onDriveChange listeners (the ☁ button and the backups panel), never to the store's redraw.
 import * as store from './store.js';
 import { ymd } from './util.js';
-import { driveAdapter, configured, desktopFilesInBrowser, inDesktopApp, loadGIS, who, WORDS, COPY_NAME } from './drive.js';
+import { driveAdapter, configured, desktopFilesInBrowser, inDesktopApp, loadGIS, who, WORDS, COPY_NAME, clockSkew } from './drive.js';
 import { freeDaysFrom, adoptFreeDaysFrom } from './licence-state.js';
 
 const LS = {
@@ -20,15 +20,16 @@ const K = { on: 'gdex-drive', at: 'gdex-sync-at', copy: 'gdex-backup-cloud' };
 const fail = (message, name = 'DriveError') => { const e = new Error(message); e.name = name; return e; };
 
 // status: off | synced | saving | needs-permission | error. unreadable: the shared copy in Drive can't be read (an
-// error status; this device's copy can be put in its place).
-const S = { status: 'off', error: '', backupError: '', unreadable: false };
+// error status; this device's copy can be put in its place). clock: this device's clock minus Google's, in ms, as the
+// last answer from Drive showed it (js/drive.js clockSkew), told to the listeners when it changes.
+const S = { status: 'off', error: '', backupError: '', unreadable: false, clock: 0 };
 let adapter = LS.get(K.on) === '1' ? driveAdapter() : null;
 const lastCopy = () => { try { return JSON.parse(LS.get(K.copy)) || {}; } catch { return {}; } };
 
 export const driveState = () => ({
   linked: !!adapter, configured: configured(), away: desktopFilesInBrowser(), desktop: inDesktopApp(),
   status: adapter ? S.status : 'off', error: adapter ? S.error : '', backupError: adapter ? S.backupError : '', unreadable: !!adapter && S.unreadable,
-  at: Number(LS.get(K.at)) || 0, backupAt: Number(lastCopy().at) || 0, who: who(),
+  at: Number(LS.get(K.at)) || 0, backupAt: Number(lastCopy().at) || 0, who: who(), clock: adapter ? clockSkew() : 0,
 });
 const listeners = new Set();
 export const onDriveChange = fn => { listeners.add(fn); return () => listeners.delete(fn); };
@@ -68,6 +69,7 @@ export async function sync(opts = {}) {
   if (!adapter) return driveState();
   syncing = runSync(opts);
   try { await syncing; } finally { syncing = null; }
+  if (clockSkew() !== S.clock) { S.clock = clockSkew(); fire(); } // the Drive card says when this device's clock is off
   return driveState();
 }
 

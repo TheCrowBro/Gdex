@@ -141,13 +141,41 @@ async function googleWho(token) {
   } catch { /* the name is a nicety */ }
 }
 
+/* ------------------------------- Google's time ------------------------------- */
+// How far this device's clock is from Google's (the lead's decision 3): this device's time minus Google's, in ms (below 0:
+// slow, above 0: fast), from the last answer that said Google's time: the modifiedTime of a file just written, or an
+// answer's Date header where the browser lets the page read it. 0 until one has. Each record's newest change wins a
+// merge by this device's clock (js/store.js mergeDb), so a clock more than a couple of minutes off can undo changes.
+let skew = 0;
+export const clockSkew = () => skew;
+const timing = new WeakMap(); // an answer → [sent, got], this device's clock either side of it
+// Google's moment lies between the request going and its answer coming when the two clocks agree; outside, by how much.
+// slack: the Date header's own rounding (whole seconds, rounded down).
+function heard(googleMs, r, slack = 0) {
+  const t = timing.get(r);
+  if (!t || !Number.isFinite(googleMs) || googleMs <= 0) return;
+  const [sent, got] = t;
+  skew = googleMs > got ? -(googleMs - got) : googleMs + slack < sent ? sent - (googleMs + slack) : 0;
+}
+// A write's answer, asked for with fields=id,modifiedTime: its id, and Google's time from it.
+async function written(r) {
+  let j = {};
+  try { j = await r.json(); } catch { /* no body: nothing learnt */ }
+  heard(Date.parse(j.modifiedTime), r);
+  return j;
+}
+
 // A request to Drive with the token. No answer at all is "no internet"; 401 means the hour is up; a full Drive and
 // Google's rate limits are said in words. Every other answer is the caller's.
 async function gfetch(url, init = {}) {
   const token = await googleToken(false);
   let r;
+  const sent = Date.now();
   try { r = await fetch(url, { ...init, headers: { ...(init.headers || {}), Authorization: 'Bearer ' + token } }); }
   catch { throw fail(WORDS.offline); }
+  timing.set(r, [sent, Date.now()]);
+  const date = r.headers.get('date');
+  if (date) heard(Date.parse(date), r, 999);
   if (r.status === 401) { forgetGoogleToken(); throw notAllowed(); }
   if (r.status === 403 || r.status === 429) {
     let reason = '';
@@ -195,13 +223,13 @@ export function driveAdapter() {
     if (!r.ok) throw bad(r);
     return r.text();
   };
-  const patch = (id, text) => gfetch(`${UPLOAD}/files/${encodeURIComponent(id)}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: text });
+  const patch = async (id, text) => { const r = await gfetch(`${UPLOAD}/files/${encodeURIComponent(id)}?uploadType=media&fields=id,modifiedTime`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: text }); if (r.ok) await written(r); return r; }; // its body read here: callers look only at ok and status
   const create = async (name, text) => {
     const b = 'gdex' + Date.now().toString(36) + Math.random().toString(36).slice(2);
     const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, parents: ['appDataFolder'] })}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${text}\r\n--${b}--`;
-    const r = await gfetch(`${UPLOAD}/files?uploadType=multipart&fields=id`, { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body });
+    const r = await gfetch(`${UPLOAD}/files?uploadType=multipart&fields=id,modifiedTime`, { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body });
     if (!r.ok) throw bad(r);
-    return (await r.json()).id;
+    return (await written(r)).id;
   };
   const remove = async id => {
     const r = await gfetch(`${API}/files/${encodeURIComponent(id)}`, { method: 'DELETE' });

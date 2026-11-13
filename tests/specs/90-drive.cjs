@@ -29,13 +29,16 @@ const GIS = `window.google = { accounts: { oauth2: { initTokenClient: cfg => { w
 // One Google Drive, its hidden app folder held here. Requests: list (q name='…', orderBy createdTime), media read,
 // multipart create, media PATCH, DELETE, about. D.fail = { status, reason, match({ who, method, path, name }), abort,
 // keep } answers the next matching request (every one with keep) with an error, or no answer at all (abort). It
-// answers 404 only for a file that is not there.
+// answers 404 only for a file that is not there. Google's clock: D.ahead (ms ahead of this computer's); a write's answer
+// carries the file's modifiedTime only when its fields ask for it, as Google's does; D.dateHeader also lets the page
+// read each answer's Date header (Access-Control-Expose-Headers).
 function fakeDrive() {
   let seq = 0;
   const files = [];
   const D = {
-    files, log: [], fail: null, user: { displayName: 'Gee Test', emailAddress: 'gee@example.com' },
-    put(name, body, modified = new Date().toISOString()) {
+    files, log: [], fail: null, user: { displayName: 'Gee Test', emailAddress: 'gee@example.com' }, ahead: 0, dateHeader: false,
+    now: () => new Date(Date.now() + D.ahead),
+    put(name, body, modified = D.now().toISOString()) {
       const f = { id: 'f' + (++seq) + Math.random().toString(36).slice(2, 7), seq, name, body: typeof body === 'string' ? body : JSON.stringify(body, null, 2), modified, writes: 1 };
       files.push(f); return f;
     },
@@ -48,7 +51,9 @@ function fakeDrive() {
   async function handle(route, who) {
     const req = route.request(), method = req.method(), u = new URL(req.url()), p = u.pathname;
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-    const send = (status, body) => route.fulfill({ status, headers: { ...CORS, 'content-type': 'application/json; charset=utf-8' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+    const dated = D.dateHeader ? { date: D.now().toUTCString(), 'access-control-expose-headers': 'date' } : {};
+    const send = (status, body) => route.fulfill({ status, headers: { ...CORS, ...dated, 'content-type': 'application/json; charset=utf-8' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+    const asked = f => (u.searchParams.get('fields') || '').split(',').includes('modifiedTime') ? { modifiedTime: f.modified } : {}; // a write's fields
     const auth = req.headers().authorization || '';
     const body = () => (req.postDataBuffer() || Buffer.alloc(0)).toString('utf8');
     // The file a request is about, by name: the list's q, a file's id, or a new file's metadata.
@@ -79,14 +84,15 @@ function fakeDrive() {
       const parts = b ? body().split('--' + b).slice(1, -1).map(s => s.slice(s.indexOf('\r\n\r\n') + 4).replace(/\r\n$/, '')) : [];
       let meta = {}; try { meta = JSON.parse(parts[0]); } catch { /* checked below */ }
       if (!meta.name || !(meta.parents || []).includes('appDataFolder') || parts.length !== 2) return send(400, { error: { code: 400, message: 'bad upload' } });
-      return send(200, { id: D.put(meta.name, parts[1]).id });
+      const made = D.put(meta.name, parts[1]);
+      return send(200, { id: made.id, ...asked(made) });
     }
     m = /^\/upload\/drive\/v3\/files\/([^/]+)$/.exec(p);
     if (m && method === 'PATCH' && u.searchParams.get('uploadType') === 'media') {
       const f = files.find(x => x.id === m[1]);
       if (!f) return send(404, { error: { code: 404, message: 'File not found' } });
-      f.body = body(); f.modified = new Date().toISOString(); f.writes++;
-      return send(200, { id: f.id });
+      f.body = body(); f.modified = D.now().toISOString(); f.writes++;
+      return send(200, { id: f.id, ...asked(f) });
     }
     return send(400, { error: { code: 400, message: 'unknown request' } });
   }
@@ -703,6 +709,46 @@ if (require.main === module) (async () => {
     await syncOn(B2.page); await syncOn(A2.page); await syncOn(C2.page); await syncOn(B2.page);
     ok('…and once all agree, syncing writes nothing more', D2.writes() === w, `${D2.writes()} vs ${w}`);
     for (const d of [A2, B2, C2]) await d.ctx.close();
+  }
+
+  /* ------------------------------ a clock off Google's time (the lead's decision 3) ------------------------------ */
+  {
+    // Google's time comes from the file just written (its modifiedTime) or an answer's Date header. More than about two
+    // minutes off, the Drive card says so in plain words and suggests letting the clock set itself: a slow clock can lose
+    // this device's changes and deletions in a merge, a fast one the other devices'.
+    const D3 = fakeDrive();
+    const C3 = await device(browser, D3, { who: 'C3', sample: true }); all.push(C3);
+    const pc = C3.page;
+    const clockLine = async () => { await openBackups(pc); const l = pc.locator(`${sheetOf('Backups')} .se-bk-drive .se-bk-drive-clock`); return (await l.count()) ? (await l.innerText()) : ''; };
+    const change = async (id, name) => { await closeSheets(pc); await pc.evaluate(([i, n]) => import('./js/store.js').then(s => s.upsert('venues', { id: i, name: n })), [id, name]); await until(() => (D3.json() || { venues: [] }).venues.some(v => v.id === id)); await waitCloud(pc, 'synced'); await sleep(200); };
+    await connect(pc); await waitCloud(pc, 'synced');
+    ok('the writes ask Google for the file’s modifiedTime', D3.log.filter(l => l.who === 'C3' && (l.method === 'PATCH' || l.method === 'POST')).length > 0);
+    ok('this device and Google agree on the time: no clock line on the Drive card', (await clockLine()) === '');
+    D3.ahead = 7 * 60e3; // Google 7 minutes ahead: this device's clock is slow
+    await change('t-clock1', 'Clock Hall');
+    const slow = await clockLine();
+    ok('a clock 7 minutes slow: the card says so in plain words, what it can lose, and to let the clock set itself', slow === '⚠ This device’s clock is about 7 minutes behind Google’s. Gdex keeps the newest change of each record when it syncs, so with a slow clock what you change or delete here can be undone. Set this device’s date and time to set themselves automatically.', slow);
+    ok('…in the warning colour, under the line that says how the sync went, and read out as it appears', await pc.evaluate(() => {
+      const p = document.querySelector('.sheet .se-bk-drive .se-bk-drive-clock'), t = document.createElement('span'); t.style.color = 'var(--danger)'; document.body.append(t);
+      const want = getComputedStyle(t).color; t.remove();
+      return !!p && p.getAttribute('role') === 'status' && getComputedStyle(p).color === want && p.previousElementSibling === document.querySelector('.sheet .se-bk-drive .se-bk-drive-line');
+    }));
+    D3.ahead = -3 * 3600e3; // Google 3 hours behind: this device's clock is fast
+    await change('t-clock2', 'Clock Tower');
+    const fast = await clockLine();
+    ok('a clock 3 hours fast: it says ahead, and what the other devices can lose', fast === '⚠ This device’s clock is about 3 hours ahead of Google’s. Gdex keeps the newest change of each record when it syncs, so with a fast clock what you change on your other devices can be undone. Set this device’s date and time to set themselves automatically.', fast);
+    D3.ahead = 45e3; // within two minutes: nothing to say
+    await change('t-clock3', 'Clock Inn');
+    ok('within two minutes of Google’s time the line goes', (await clockLine()) === '');
+    // A sync that writes nothing: the Date header of Google's answers, where the page may read it.
+    D3.ahead = 10 * 60e3; D3.dateHeader = true;
+    await closeSheets(pc);
+    const w = D3.writes('C3');
+    await syncOn(pc); await sleep(200);
+    const byHeader = await clockLine();
+    ok('a sync that writes nothing reads Google’s time from its answers’ Date header: 10 minutes behind', D3.writes('C3') === w && /^⚠ This device’s clock is about 10 minutes behind Google’s\./.test(byHeader), byHeader);
+    await closeSheets(pc);
+    await C3.ctx.close();
   }
 
   const errs = all.flatMap(d => d.errors.map(e => `${d.who}: ${e}`));

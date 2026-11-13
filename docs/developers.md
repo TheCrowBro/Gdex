@@ -1377,6 +1377,12 @@ contract is in `docs/licence-server.md` (for the developer).
   restored record now and tombstones every record, time seen and take the backup lacks, so every connected device
   follows. The chooser syncs first, from the tap, so the records other devices have put in Drive are tombstoned too;
   when Drive can't be read it replaces nothing and says why. A record another device has not copied to Drive yet stays.
+* **This device's clock against Google's** (the lead's decision 3): each write asks for `fields=id,modifiedTime`, and an
+  answer's `Date` header counts too where the browser lets the page read it; `clockSkew()` in `js/drive.js` is this
+  device's time minus Google's (below 0: slow), from the last answer that said it, and `driveState().clock` carries it.
+  More than two minutes off, the Drive card has `p.se-bk-drive-clock[role=status]` under its status line: how far
+  behind or ahead, what that can undo (a slow clock: what is changed or deleted here; a fast one: what is changed on the
+  other devices), and to let the date and time set themselves. Checks in `90-drive`.
 * `freeDaysFrom` is taken out of every copy read and handed to `adoptFreeDaysFrom`; it is written back as the earliest
   known; `normalise` drops it, so it never enters the database, a backup file or a restore.
 * Drive's state goes to `onDriveChange(fn)` listeners only (`js/backup.js`: the ☁ button and the panels), never

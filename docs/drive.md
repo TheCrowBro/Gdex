@@ -89,6 +89,10 @@ Then:
   says so, keeps saving the day's dated copy from this device, and offers **Put this device's copy in its place…**: the
   unreadable one is kept in your Drive beside it, as it is, every dated copy stays, and your other devices add what
   they have the next time they sync.
+- **If this device's clock is wrong** by more than about two minutes, the Google Drive card says so. Gdex keeps the
+  newest change of each record when it syncs, by each device's clock, so a slow clock can undo what you change or
+  delete on that device, and a fast one what you change on the others. Set the device's date and time to set
+  themselves automatically.
 - **Disconnect** stops syncing on this device. Both copies stay: this device's and the one in your Drive.
 - **Delete Gdex's copy from Google Drive…** removes the shared copy and every dated copy from your Drive and disconnects
   this device. This device keeps everything. Another device still connected puts its copy back the next time it syncs,
@@ -172,7 +176,10 @@ stamps the records it holds that were deleted here since now and drops their tom
 every device's tombstone and come back everywhere. Removing a time seen or a take writes a tombstone for its id (Part 0), and Replace with Drive
 linked first syncs from the tap (so the records other devices have put in Drive are on this device too; when Drive
 can't be read nothing is replaced), then tombstones every record, time seen and take the backup lacks and stamps every restored record now, so every
-device follows it. Device clocks decide clashes; tombstones last 180 days.
+device follows it. Device clocks decide clashes; tombstones last 180 days. So each write asks Google for the file's
+`modifiedTime` (an answer's `Date` header counts too, where the browser exposes it), and `clockSkew()` in `js/drive.js`
+keeps this device's clock minus Google's: more than two minutes off, the Drive card says so and suggests letting the
+clock set itself (`.se-bk-drive-clock`).
 
 Two copies of the same time that differ (changed in the same millisecond on two devices, or never stamped) go the same
 way on every device, to the one whose JSON sorts last; otherwise each device would keep its own and write it back at

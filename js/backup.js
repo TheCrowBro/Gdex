@@ -519,6 +519,19 @@ async function deleteDriveCopy() {
   catch (e) { if (e.name !== 'AbortError') toast(e.message); }
 }
 
+// This device's clock against Google's, in words, once it is more than about two minutes off (the lead's decision 3): each
+// record's newest change wins a sync by the clock, so a slow clock can lose what is changed or deleted here, and a fast
+// one what is changed on the other devices. '' while it is close enough.
+const CLOCK_OFF = 2 * 60000;
+function clockWords(ms) {
+  const a = Math.abs(Number(ms) || 0);
+  if (a <= CLOCK_OFF) return '';
+  const m = a / 60000, amount = m < 120 ? `${Math.round(m)} minutes` : m < 48 * 60 ? `${Math.round(m / 60)} hours` : `${Math.round(m / 1440)} days`;
+  return ms < 0
+    ? `⚠ This device’s clock is about ${amount} behind Google’s. Gdex keeps the newest change of each record when it syncs, so with a slow clock what you change or delete here can be undone. Set this device’s date and time to set themselves automatically.`
+    : `⚠ This device’s clock is about ${amount} ahead of Google’s. Gdex keeps the newest change of each record when it syncs, so with a fast clock what you change on your other devices can be undone. Set this device’s date and time to set themselves automatically.`;
+}
+
 function driveCard() {
   const d = drive.driveState();
   const card = (state, ...kids) => h('div', { class: 'card stack se-bk-drive', 'data-state': state }, ...kids);
@@ -543,6 +556,7 @@ function driveCard() {
   return card(d.status || 'off',
     h('div', { class: 'se-bk-drive-head' }, h('strong', null, '☁ Connected to Google Drive'), d.who && h('span', { class: 'small muted se-bk-drive-who' }, 'Signed in as ' + d.who)),
     h('p', { class: 'small se-bk-drive-line', 'data-state': d.status }, line),
+    clockWords(d.clock) && h('p', { class: 'small se-bk-drive-clock', role: 'status' }, clockWords(d.clock)),
     h('p', { class: 'small se-bk-drive-copy', 'data-state': d.backupError ? 'error' : 'ok' }, copy),
     h('div', { class: 'actions se-bk-drive-actions' },
       needs && h('button', { type: 'button', class: 'btn primary se-bk-drive-again', onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Signed in again. Up to date.') }, 'Sign in again'),
