@@ -341,6 +341,29 @@ const page$ = page => page.evaluate(() => window.logiPage());
   ok('the line is the accent; with high contrast it stands out from its track by 3:1 or better, light and dark', line.plain.accent && line.light.ratio >= 3 && line.dark.ratio >= 3, JSON.stringify(line));
   await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
 
+  // The keyboard's focus ring stands out 3:1 or better from the page, the panels and the cards it is drawn on, in every
+  // theme, light and dark, at standard and high contrast (WCAG 1.4.11): high contrast is for people who see less.
+  const rings = await page.evaluate(() => import('./js/a11y.js').then(a => {
+    const r = document.documentElement, was = { ...r.dataset }, low = [];
+    const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
+    const lum = colour => { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1, 1); ctx.fillStyle = colour; ctx.fillRect(0, 0, 1, 1); const [x, y, z] = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * x + 0.7152 * y + 0.0722 * z; };
+    let n = 0;
+    for (const p of a.PALETTES) for (const scheme of ['light', 'dark']) for (const contrast of ['normal', 'high']) {
+      Object.assign(r.dataset, { palette: p.id, scheme, contrast });
+      const css = getComputedStyle(r), ring = lum(css.getPropertyValue('--focus').trim());
+      const worst = Math.min(...['--bg', '--bg2', '--card'].map(t => { const b = lum(css.getPropertyValue(t).trim()); return (Math.max(ring, b) + 0.05) / (Math.min(ring, b) + 0.05); }));
+      n++; if (!(worst >= 3)) low.push(`${p.name} ${scheme} ${contrast}: ${Math.round(worst * 100) / 100}`);
+    }
+    Object.assign(r.dataset, was); a.applyPrefs();
+    return { n, low };
+  }));
+  ok('the focus ring stands out 3:1 or better from the page, the panels and the cards in all ten themes, light and dark, standard and high contrast', rings.n === 40 && rings.low.length === 0, rings.low.join(' | '));
+  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital', scheme: 'light', contrast: 'high' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+  await page.keyboard.press('Tab'); await sleep(100);
+  const drawn = await page.evaluate(() => { const a = document.activeElement, cs = getComputedStyle(a), probe = document.createElement('i'); probe.style.color = 'var(--focus)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return { tag: a.tagName, style: cs.outlineStyle, width: cs.outlineWidth, colour: cs.outlineColor, want }; });
+  ok('…and that is the ring Tab draws: in light with high contrast, 3 px in that colour, not the yellow that suits the dark', drawn.tag !== 'BODY' && drawn.style === 'solid' && drawn.width === '3px' && drawn.colour === drawn.want && drawn.want !== 'rgb(255, 212, 0)', JSON.stringify(drawn));
+  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+
   // A menu of one track (no role has one, but a menu can be Settings alone): Track 1 of 1, the line full, one tab, and
   // ⏮ ⏭ go nowhere. Drawn beside the real menu, last in this spec because a deck listens to the whole page.
   const one = await page.evaluate(() => import('./js/deck.js').then(m => {

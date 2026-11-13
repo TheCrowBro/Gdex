@@ -287,6 +287,10 @@ button, .btn, a.btn, .chip, .check, .day, summary { touch-action: manipulation; 
 @media (max-width: 340px) { .form-actions .btn { min-width: 0; flex: 1 1 auto; padding-inline: 10px; } }
 .page-head .btn { min-width: 88px; }
 :root[data-contrast=high], :root[data-contrast=high][data-palette][data-scheme] { --muted: color-mix(in srgb, var(--text) 82%, var(--bg)); --line: color-mix(in srgb, var(--text) 55%, var(--bg)); --focus: #ffd400; }
+/* The focus ring in the light scheme: the light blue and the yellow above are for dark pages (under 2.3:1 and 1.2:1 on a light
+   theme's page, panels and cards). A dark blue reads at 4.7:1 or better on every light theme, and with high contrast a navy at 10:1. */
+:root[data-scheme=light] { --focus: #0b57d0; }
+:root[data-contrast=high][data-palette][data-scheme=light] { --focus: #00256b; }
 html[data-contrast=high] .btn.ghost, html[data-contrast=high] .chip, html[data-contrast=high] .card, html[data-contrast=high] input, html[data-contrast=high] select, html[data-contrast=high] textarea, html[data-contrast=high] .deck, html[data-contrast=high] .dk-btn, html[data-contrast=high] .dk-cassette, html[data-contrast=high] .dk-tab { border-width: 2px; }
 html[data-contrast=high] .pill { border-width: 2px; color: var(--text); }
 @media (forced-colors: none) { html[data-contrast=high] .dk-progress { background: color-mix(in srgb, var(--text) 25%, var(--bg2)); } html[data-contrast=high] .dk-fill { background: var(--text); } } /* the digital player's line: on the stronger --line the accent is almost the same grey (under 2:1 in most themes), so with high contrast it is drawn in the text colour on a quiet track */

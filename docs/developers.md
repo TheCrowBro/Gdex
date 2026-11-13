@@ -626,6 +626,9 @@ press that opened it, still down) does not.
 * Your own styles go in **your** `css/<feature>.css` only, with class names prefixed for your feature
   (`.bk-`, `.sh-`, `.ds-`, `.mn-`, `.st-` is taken by status pills so studio uses `.sd-`, `.sg-` songs, `.ac-` acts,
   `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance).
+* The keyboard's focus ring is a 3 px outline in `--focus`: a light blue on dark pages and a dark blue on light ones;
+  with high contrast yellow on dark and navy on light. It stands out 3:1 or better from `--bg`, `--bg2` and `--card`
+  in every theme (`05-deck` measures all forty).
 * Phone first (360–430px wide), and it must also look right on a laptop (the page widens past 900px).
 * Forms (`form.js`): the Save bar stays at the foot of the sheet, and `styles.css` gives every sheet with one a
   `scroll-padding-bottom`, so a control reached with Tab is scrolled clear of it (a tall notes box at least to its
