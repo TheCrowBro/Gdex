@@ -6,3 +6,4 @@ cloudflare/site/
 cloudflare/.wrangler/
 gdex-licence-key-*.json
 *ledger*.csv
+.wrangler/
