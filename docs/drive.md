@@ -85,6 +85,10 @@ Then:
   added since is gone from all of them. It reads your Drive first, so what the other devices have already copied there
   goes too (when Drive can't be read, nothing is replaced and Gdex says why); only what a device has not copied to Drive
   yet, a phone that is offline say, comes back when that device next syncs.
+- **If the copy in your Drive can't be read** (it is not a Gdex file, or it was cut short), Gdex leaves it alone and
+  says so, keeps saving the day's dated copy from this device, and offers **Put this device's copy in its place…**: the
+  unreadable one is kept in your Drive beside it, as it is, every dated copy stays, and your other devices add what
+  they have the next time they sync.
 - **Disconnect** stops syncing on this device. Both copies stay: this device's and the one in your Drive.
 - **Delete Gdex's copy from Google Drive…** removes the shared copy and every dated copy from your Drive and disconnects
   this device. This device keeps everything. Another device still connected puts its copy back the next time it syncs,
@@ -123,6 +127,8 @@ sign-in itself is kept on the device for its hour.
   spec [S-39]). `normalise` drops it, so it never enters the local database, a backup file or a restore.
 - `gdex-backup-mon.json` … `gdex-backup-sun.json` (overwritten each week) and `gdex-backup-YYYY-MM.json` (written when
   that month has none; monthly files beyond the last 12 are deleted). They carry `freeDaysFrom` too.
+- `gdex-db-unreadable-YYYY-MM-DD.json`: a shared copy Gdex could not read, kept as it was when the person chose Put
+  this device's copy in its place (`replaceUnreadable()` in `js/sync.js`). Gdex never reads it again.
 - Two `gdex-db.json` files (two devices linking at the same moment): the oldest (`orderBy=createdTime`) is the one
   every device uses; a sync merges the others into it and deletes them.
 
@@ -141,7 +147,9 @@ read-only role); when it differs from Drive, or Drive's `freeDaysFrom` is missin
 write. "Differs" compares both after `normalise`, with every list's records, and every act's times seen and log's
 takes, in id order, so two devices that list the same ones in different orders (two changes to one act in the same
 millisecond end that way) do not write each other's copies all day. Then `gdex-sync-at`, then the daily copy
-(`gdex-backup-cloud` says whether today's is done).
+(`gdex-backup-cloud` says whether today's is done). A shared copy that is not a Gdex file (`parseGdex` marks the error
+`unreadable`) stops the sync with an error and is left alone, but the daily copy is still written, from this device's
+data, and `driveState().unreadable` puts Put this device's copy in its place… in the card.
 
 When it runs: when Gdex opens with Drive linked (quietly: with the hour over it says "Sign in" and opens no window);
 800 ms after the last change made on this device (`store.afterWrite`; not while it needs a sign-in); at once when Gdex is
@@ -198,7 +206,8 @@ the desktop app refuses to sign in (Google knows only 47861).
   `freeDaysFrom` with a stand-in licence state.
 - `91-drive-merge`: `mergeDb` entry by entry; two devices logging at once; no ping-pong (records, or one act's times
   seen, in different orders); nothing pushed back after a copy is taken in; Replace everywhere with entries; duplicate
-  copies; a Vdex file refused; a copy deleted meanwhile; Drive's errors in words and the connection coming back; ties
+  copies; a Vdex file refused; a shared copy cut short (the daily copy still saved, then Put this device's copy in its
+  place, the bad one kept aside and the daily copies kept); a copy deleted meanwhile; Drive's errors in words and the connection coming back; ties
   (one record with the same time and different contents on two devices; the sample's stand-in profile on one device
   and an empty one on another, then Remove the sample) settle the same way everywhere and stop writing; Replace
   everywhere reading Drive first (another device's venue it had not taken in is replaced too; with no internet nothing

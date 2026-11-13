@@ -1118,7 +1118,9 @@ contract is in `docs/licence-server.md` (for the developer).
   app never loads it (`window.gdexDesktop.googleSignIn` opens the sign-in in the web browser).
 * One scope, `drive.appdata` (the desktop app accepts no other). Files in the hidden app folder: `gdex-db.json` (the
   shared copy: the database plus one top-level field `freeDaysFrom`, the earliest free-days start of any device on that
-  Drive) and the daily copies `gdex-backup-<mon…sun>.json` and `gdex-backup-YYYY-MM.json` (the last 12 months).
+  Drive) and the daily copies `gdex-backup-<mon…sun>.json` and `gdex-backup-YYYY-MM.json` (the last 12 months). A
+  shared copy Gdex can't read stops the sync but not the daily copy (written from this device); Put this device's copy
+  in its place keeps the bad one as `gdex-db-unreadable-YYYY-MM-DD.json` (`replaceUnreadable()` in `js/sync.js`).
 * `store.afterWrite(fn)` runs after `update`, `replaceAll` and `mergeIn` (never after `adopt`): `js/sync.js` syncs
   800 ms after the last change. A sync reads Drive's copy, merges it (`store.mergeDb`), takes in what changed with
   `store.adopt(data)` (no new `updatedAt`, no `afterWrite`, never asks the licence's gate: Drive keeps flowing in a

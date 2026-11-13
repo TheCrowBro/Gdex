@@ -19,14 +19,15 @@ const LS = {
 const K = { on: 'gdex-drive', at: 'gdex-sync-at', copy: 'gdex-backup-cloud' };
 const fail = (message, name = 'DriveError') => { const e = new Error(message); e.name = name; return e; };
 
-// status: off | synced | saving | needs-permission | error
-const S = { status: 'off', error: '', backupError: '' };
+// status: off | synced | saving | needs-permission | error. unreadable: the shared copy in Drive can't be read (an
+// error status; this device's copy can be put in its place).
+const S = { status: 'off', error: '', backupError: '', unreadable: false };
 let adapter = LS.get(K.on) === '1' ? driveAdapter() : null;
 const lastCopy = () => { try { return JSON.parse(LS.get(K.copy)) || {}; } catch { return {}; } };
 
 export const driveState = () => ({
   linked: !!adapter, configured: configured(), away: desktopFilesInBrowser(), desktop: inDesktopApp(),
-  status: adapter ? S.status : 'off', error: adapter ? S.error : '', backupError: adapter ? S.backupError : '',
+  status: adapter ? S.status : 'off', error: adapter ? S.error : '', backupError: adapter ? S.backupError : '', unreadable: !!adapter && S.unreadable,
   at: Number(LS.get(K.at)) || 0, backupAt: Number(lastCopy().at) || 0, who: who(),
 });
 const listeners = new Set();
@@ -79,6 +80,7 @@ async function runSync({ ask = false, quiet = false } = {}) {
     if (!quiet) setStatus('saving');
     const { data: raw, extras } = await a.read();
     if (!alive()) return;
+    S.unreadable = false;
     // The field comes out of every copy before anything else looks at it.
     const split = d => { if (!d) return [null, 0]; const { freeDaysFrom: f, ...rest } = d; return [rest, plausible(f)]; };
     const [remote, remoteFrom] = split(raw);
@@ -104,8 +106,11 @@ async function runSync({ ask = false, quiet = false } = {}) {
     await dailyCopy(a, from, alive);
   } catch (e) {
     if (!alive() || e.name === 'AbortError') return; // a newer sign-in took over: it reports
+    S.unreadable = !!e.unreadable;
     setStatus(e.name === 'NotAllowedError' ? 'needs-permission' : 'error', e.message);
     if (e.name === 'BusyError') { clearTimeout(busyTimer); busyTimer = setTimeout(() => { if (adapter) sync({ quiet: true }); }, 60000); }
+    // A shared copy Gdex can't read is left alone, but the day still gets its dated copy, from this device's data.
+    if (e.unreadable) await dailyCopy(a, earliest(freeDaysFrom()), alive);
   }
 }
 
@@ -178,7 +183,7 @@ export async function connectDrive() {
   gen++; clearTimeout(timer); timer = 0;
   adapter = a; LS.set(K.on, '1');
   LS.del(K.copy); // today's copy goes into this Drive too
-  S.status = 'off'; S.error = ''; S.backupError = '';
+  S.status = 'off'; S.error = ''; S.backupError = ''; S.unreadable = false;
   fire();
   await sync();
   if (adapter === a && (S.status === 'error' || S.status === 'needs-permission')) {
@@ -187,6 +192,33 @@ export async function connectDrive() {
     throw fail(msg);
   }
   return driveState();
+}
+
+// The shared copy in Drive can't be read (S.unreadable): it is kept aside, as it is, as gdex-db-unreadable-<day>.json, and
+// this device's copy goes in its place; the daily copies stay. Read again first: a copy that can be read now (another
+// device put it right) is merged as usual instead. From a tap (signs in again when the hour is up).
+export async function replaceUnreadable() {
+  const a = adapter;
+  if (!a) return driveState();
+  await a.ready(true);
+  while (syncing) await syncing.catch(() => {});
+  if (adapter !== a) return driveState();
+  const g = gen;
+  let done = false;
+  syncing = (async () => {
+    try {
+      setStatus('saving');
+      try { await a.read(); return; } catch (e) { if (!e.unreadable) throw e; } // readable after all: the sync below merges it
+      if (adapter !== a || gen !== g) return;
+      await a.setAside(`gdex-db-unreadable-${ymd(new Date())}.json`);
+      if (adapter !== a || gen !== g) return;
+      await a.write(payload(earliest(freeDaysFrom())));
+      S.unreadable = false;
+      done = true;
+    } catch (e) { if (adapter === a && gen === g && e.name !== 'AbortError') setStatus(e.name === 'NotAllowedError' ? 'needs-permission' : 'error', e.message); }
+  })();
+  try { await syncing; } finally { syncing = null; }
+  return done || S.status === 'saving' ? sync() : driveState();
 }
 
 // Sync now, and Sign in again (ask: Google's window when the hour is up).
@@ -199,7 +231,7 @@ export async function disconnectDrive() {
   gen++; clearTimeout(timer); timer = 0; clearTimeout(busyTimer);
   adapter = null;
   a.signOut();
-  S.status = 'off'; S.error = ''; S.backupError = '';
+  S.status = 'off'; S.error = ''; S.backupError = ''; S.unreadable = false;
   fire();
   return true;
 }

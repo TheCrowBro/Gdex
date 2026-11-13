@@ -155,13 +155,15 @@ const arr = Array.isArray;
 const isVdex = d => !!d && typeof d === 'object' && d.app !== 'gdex' && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
   || (arr(d.logs) && arr(d.shifts) && !arr(d.acts)) || (!d.app && (arr(d.bookings) || arr(d.gear)) && !arr(d.songs) && !arr(d.acts)));
 const isGdex = d => !!d && typeof d === 'object' && !arr(d) && (d.app === 'gdex' || (arr(d.songs) && arr(d.bookings)));
-// A file's text as Gdex's data; null when it is empty. Anything else is refused and left alone.
+// A file's text as Gdex's data; null when it is empty. Anything else is refused and left alone (the error is marked
+// unreadable: js/sync.js keeps the daily copies going and offers to put this device's copy in its place).
+const unreadable = message => Object.assign(fail(message), { unreadable: true });
 export function parseGdex(text) {
   if (!text || !String(text).trim()) return null;
   let d;
-  try { d = JSON.parse(text); } catch { throw fail(WORDS.notGdex); }
-  if (isVdex(d)) throw fail(WORDS.vdex);
-  if (!isGdex(d)) throw fail(WORDS.notGdex);
+  try { d = JSON.parse(text); } catch { throw unreadable(WORDS.notGdex); }
+  if (isVdex(d)) throw unreadable(WORDS.vdex);
+  if (!isGdex(d)) throw unreadable(WORDS.notGdex);
   return d;
 }
 
@@ -235,6 +237,15 @@ export function driveAdapter() {
         if (id) { r = await patch(id, text); if (r.ok) return; throw bad(r); }
       }
       LS.set(K.file, await create(DB_FILE, text));
+    },
+    // The shared copy kept, exactly as it is, as another file (name) in the same folder, so that write() can put this
+    // device's copy in its place: for a shared copy Gdex can't read. False when there is none.
+    setAside: async name => {
+      const id = (await find())[0];
+      if (!id) return false;
+      const text = await media(id);
+      if (text != null) await create(name, text);
+      return true;
     },
     // The daily copies, as Drive lists them: [{ id, name, modifiedTime }], oldest first. One request.
     listCopies: async () => {

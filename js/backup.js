@@ -506,6 +506,13 @@ async function openDailyCopies(panel = null) {
     done));
 }
 
+// The shared copy in Drive can't be read: this device's copy goes in its place. The unreadable one is kept in Drive as
+// it is, and the daily copies stay (js/sync.js replaceUnreadable).
+function putOursInPlace() {
+  if (!confirm('The copy in your Google Drive can’t be read. Put this device’s copy in its place? The one Gdex can’t read is kept in your Drive, as it is, beside it, and every daily copy stays. Your other devices add what they have the next time they sync.')) return;
+  driveRun(() => drive.replaceUnreadable(), 'This device’s copy is in your Google Drive now. Up to date.');
+}
+
 async function deleteDriveCopy() {
   if (!confirm('Delete Gdex’s copy and every daily copy from your Google Drive? This device keeps its own data. Other devices still connected will put their copy back the next time they sync: disconnect them first.')) return;
   try { await drive.deleteDriveCopy(); toast('Gdex’s copy was deleted from your Google Drive, and Drive is disconnected here. Everything is still on this device.'); }
@@ -539,7 +546,8 @@ function driveCard() {
     h('p', { class: 'small se-bk-drive-copy', 'data-state': d.backupError ? 'error' : 'ok' }, copy),
     h('div', { class: 'actions se-bk-drive-actions' },
       needs && h('button', { type: 'button', class: 'btn primary se-bk-drive-again', onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Signed in again. Up to date.') }, 'Sign in again'),
-      h('button', { type: 'button', class: `btn ${needs ? 'ghost' : 'primary'} se-bk-drive-sync`, onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Google Drive is up to date.') }, 'Sync now'),
+      d.unreadable && h('button', { type: 'button', class: 'btn primary se-bk-drive-fix', onclick: () => putOursInPlace() }, 'Put this device’s copy in its place…'),
+      h('button', { type: 'button', class: `btn ${needs || d.unreadable ? 'ghost' : 'primary'} se-bk-drive-sync`, onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Google Drive is up to date.') }, 'Sync now'),
       h('button', { type: 'button', class: 'btn ghost se-bk-drive-restore', onclick: e => openDailyCopies(e.currentTarget.closest('.se-bk')) }, 'Bring back a daily copy…'),
       h('button', { type: 'button', class: 'btn ghost se-bk-drive-off', onclick: async () => { if (await drive.disconnectDrive()) toast('Google Drive is disconnected on this device. Both copies stay.'); } }, 'Disconnect')),
     h('p', { class: 'small muted' }, 'Disconnect stops syncing on this device. Both copies stay: this device’s and the one in your Drive. To take Gdex’s access away completely, remove Gdex in your Google Account under third-party connections.'),

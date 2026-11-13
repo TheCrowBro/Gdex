@@ -6,8 +6,9 @@
 // in Drive refused; a copy deleted in Drive meanwhile made again; Google Drive's errors in words, with the
 // connection coming back; and ties (the same time, different contents) settled alike on every device, the sample's
 // stand-in profile included; and Replace everywhere reading Drive first (another device's records it had not taken in
-// are replaced too; with no internet nothing is replaced and the chooser says why). Uses 90-drive's fake Drive and
-// device opener.
+// are replaced too; with no internet nothing is replaced and the chooser says why); and a shared copy Gdex can't read
+// (the daily copy still saved, and Put this device's copy in its place keeping the bad one and the daily copies). Uses
+// 90-drive's fake Drive and device opener.
 const { chromium } = require('playwright');
 const { ok, sleep } = require('../helpers.cjs');
 const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, data, until, sheetOf, waitCloud, cloudState } = require('./90-drive.cjs');
@@ -245,6 +246,39 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
     const ids = async p => (await data(p)).venues.map(v => v.id).sort().join();
     ok('Replace everywhere also replaces what another device had put in Drive since this one last synced: every device ends up like the backup', (await ids(pr)) === 'v-kept' && (await ids(ps)) === 'v-kept' && D4.json().venues.map(v => v.id).join() === 'v-kept', `${await ids(pr)} | ${await ids(ps)} | ${D4.json().venues.map(v => v.id).join()}`);
     await R.ctx.close(); await S2.ctx.close();
+  }
+
+  /* ------------------------------ a shared copy Gdex can't read ------------------------------ */
+  // The daily copies carry on from this device's data, and the card offers to put this device's copy in its place,
+  // keeping the unreadable one aside and every daily copy.
+  {
+    const D6 = fakeDrive();
+    const U = await device(browser, D6, { who: 'U' }); all.push(U);
+    const pu = U.page;
+    await pu.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { id: 'u-old', kind: 'show', date: '2026-12-01', title: 'Before' })));
+    await connect(pu); await waitCloud(pu, 'synced'); await closeSheets(pu);
+    const wkName = `gdex-backup-${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]}.json`;
+    await until(() => D6.named(wkName).length);
+    const bad = '{"app":"gdex","bookings":[{"id":"u-old","title":"Bef'; // cut short
+    D6.named('gdex-db.json')[0].body = bad;
+    await pu.evaluate(() => localStorage.removeItem('gdex-backup-cloud')); // a new day's first sync
+    await pu.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { id: 'u-new', kind: 'show', date: '2026-12-02', title: 'Made today' })));
+    await sleep(1200); await syncOn(pu);
+    const st = await state(pu);
+    ok('(the shared copy can’t be read: the sync stops and says so, and leaves it alone)', st.status === 'error' && /isn’t a Gdex file, so Gdex left it alone/.test(st.error) && D6.named('gdex-db.json')[0].body === bad, st.error);
+    ok('…but today’s copy is still saved, from this device', JSON.parse(D6.named(wkName)[0].body).bookings.some(b => b.id === 'u-new') && !st.backupError, JSON.parse(D6.named(wkName)[0].body).bookings.map(b => b.id).join());
+    await openBackups(pu);
+    const cardU = pu.locator(`${sheetOf('Backups')} .se-bk-drive`);
+    ok('…and the card offers to put this device’s copy in its place', (await cardU.locator('.se-bk-drive-fix').count()) === 1 && (await cardU.locator('.se-bk-drive-fix').innerText()) === 'Put this device’s copy in its place…' && /Today’s copy: saved at/.test(await cardU.innerText()));
+    const copies = D6.files.filter(f => /^gdex-backup-/.test(f.name)).length;
+    await pu.click(`${sheetOf('Backups')} .se-bk-drive-fix`); // the confirm is accepted
+    await waitCloud(pu, 'synced');
+    const today = await pu.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+    const aside = D6.named(`gdex-db-unreadable-${today}.json`);
+    ok('Put this device’s copy in its place: Drive’s copy is this device’s, the unreadable one is kept aside, and every daily copy stays', D6.json().bookings.some(b => b.id === 'u-new') && aside.length === 1 && aside[0].body === bad && D6.files.filter(f => /^gdex-backup-/.test(f.name)).length === copies && (await state(pu)).status === 'synced', D6.files.map(f => f.name).join(' '));
+    ok('…and the card no longer offers it', (await cardU.locator('.se-bk-drive-fix').count()) === 0);
+    await closeSheets(pu);
+    await U.ctx.close();
   }
 
   const errs = all.flatMap(d => d.errors.map(e => `${d.who}: ${e}`));
