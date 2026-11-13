@@ -93,6 +93,10 @@ const STORES = /App Store|Google Play|iCloud|Dropbox|OneDrive/;
       ['desktop/licence.cjs', 'This is a Vdex licence code. Gdex has its own licence'],
       ['tools/licence-generator.template.html', 'That is a Vdex ledger, not Gdex’s'],
       ['tools/licence-generator.html', 'That is a Vdex ledger, not Gdex’s'],
+      // Google Drive refuses a Vdex file found in the hidden folder, and says why (Part D): the test and its words.
+      ['js/drive.js', 'is a Vdex file, not a Gdex one, so Gdex left it alone'],
+      ['js/drive.js', 'const isVdex = d => !!d && typeof d === \'object\' && d.app !== \'gdex\''],
+      ['js/drive.js', 'if (isVdex(d)) throw fail(WORDS.vdex);'],
     ];
     const LEFTOVER = /Vdex|Android|iPhone|App Store|Google Play|vdex-/i;
     const exists = f => fs.existsSync(path.join(REPO, f));
