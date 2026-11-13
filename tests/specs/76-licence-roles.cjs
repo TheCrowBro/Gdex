@@ -237,6 +237,16 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       ok('…and Your role says the free days are over and the Audiophile is free', line === 'Your free days are over. Audiophile is free; the other roles need a licence.' && /· free$/.test(await page.textContent('#se-role .se-sub')), line);
       ok('…and About’s line does not call the Audiophile read-only', /· the working roles need a licence$/.test(await page.textContent('#se-about .se-sub')), await page.textContent('#se-about .se-sub'));
       await closeTop(page);
+      // A session clock left running (started in the free days, as a Producer): the strip under the menu shows it on every
+      // page, and its Stop and Break go through the licence as the session's own boxes do (js/clock.js, gateWork).
+      await page.evaluate(h => import('./js/store.js').then(s => s.adopt({ ...JSON.parse(JSON.stringify(s.db)), shifts: [{ id: 't-shift', bookingId: 's-sess1', start: Date.now() - h, end: null, breaks: [] }] })), HOUR);
+      await page.waitForSelector('#sd-bar-stop', { timeout: 5000 });
+      const shift = () => page.evaluate(() => import('./js/store.js').then(s => { const x = (s.db.shifts || []).find(y => y.id === 't-shift'); return x ? { end: x.end, breaks: (x.breaks || []).length } : null; }));
+      await page.click('#sd-bar-stop'); await sleep(400);
+      const c1 = await sheets(page), s1c = await shift(); await closeTop(page);
+      await page.click('#sd-bar-break'); await sleep(400);
+      const c2 = await sheets(page), s2c = await shift(); await closeTop(page);
+      ok('a clock left running: the strip’s Stop and Break offer the licence, and the session keeps running untouched', c1.join() === 'The working boxes need a licence' && c2.join() === 'The working boxes need a licence' && s1c && s1c.end == null && s1c.breaks === 0 && s2c && s2c.end == null && s2c.breaks === 0, JSON.stringify([c1, s1c, c2, s2c]));
       await ctx.close();
     }
 
@@ -371,6 +381,40 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await Promise.all([page.waitForEvent('load', { timeout: 15000 }), page.click('#se-erase-go')]);
       await page.waitForSelector('#deck .dk-next'); await sleep(500);
       ok('Erase this device keeps the count: the free days are still over', (await stored(page)).first === before.first && (await second(page)).first === before.first, JSON.stringify([before, await stored(page)]));
+      await ctx.close();
+    }
+
+    /* =========== the search ([S-33]): a free Audiophile finds no working kind, All included =========== */
+    {
+      const PAID = ['people', 'songs', 'setlists', 'gear', 'logs', 'money'];
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile' } });
+      await sampleIn(page);
+      await page.evaluate(() => import('./js/search.js').then(m => m.searchReady()));
+      const found = () => page.evaluate(() => import('./js/search.js').then(m => { const r = m.searchAll('e'); return Object.keys(r).filter(k => r[k].length); }));
+      const tabs = () => page.$$eval('.srch-tab', els => els.map(e => e.dataset.tab));
+      const recs = () => page.$$eval('#srch-panel .card[data-rec]', els => [...new Set(els.map(e => e.dataset.rec))]);
+      const refresh = () => page.evaluate(() => import('./js/licence-state.js').then(m => { m.refreshLicence(); }));
+      const S = '.sheet[aria-label="Search"]';
+      ok('before its free days, an Audiophile’s search finds only gigs, bands and venues in the sample', JSON.stringify(await found()) === JSON.stringify(['gigs', 'bands', 'venues']), JSON.stringify(await found()));
+      await page.fill('#srch-box', 'e'); await page.waitForSelector('#srch-q'); await sleep(400);
+      const t0 = await tabs(), r0 = await recs(), st0 = await state(page);
+      ok('…its tabs and All hold no working kind', JSON.stringify(t0) === JSON.stringify(['all', 'gigs', 'bands', 'venues']) && r0.length > 0 && r0.every(k => !PAID.includes(k)), JSON.stringify({ t0, r0 }));
+      ok('…and a search starts nothing: the free days not started, no terms sheet, nothing asked of the licence server', st0.mode === 'unstarted' && !st0.started && JSON.stringify(await sheets(page)) === JSON.stringify(['Search']) && srv.asked.length === 0, JSON.stringify({ st0, sheets: await sheets(page), asked: srv.asked }));
+      // The free days start elsewhere (another tab, a working role picked): the licence event redraws the open results.
+      await setLicence(page, trialFrom(Date.now() - DAY)); await refresh(); await sleep(400);
+      const t1 = await tabs();
+      ok('once its free days run, the open results redraw with the working kinds (the licence event)', ['people', 'songs', 'setlists', 'gear', 'logs'].every(k => t1.includes(k)) && !t1.includes('money'), JSON.stringify(t1));
+      await page.click('#srch-tab-people'); await sleep(250);
+      // The free days end while the results are on screen: a tap on a person goes no further than the licence.
+      await setLicence(page, ended());
+      await page.click(`${S} #srch-panel .card[data-rec="people"]`); await sleep(600);
+      ok('…a person tapped after the free days ended opens nothing but the offer: logiGo said no (openThere stops)', JSON.stringify(await sheets(page)) === JSON.stringify(['People needs a licence']) && (await page.evaluate(() => window.logiPage())) === 'bookings', JSON.stringify(await sheets(page)));
+      await closeTop(page);
+      await refresh(); await sleep(200);
+      await page.click('#srch-box'); await page.waitForSelector('#srch-q'); await sleep(400);
+      const t2 = await tabs(), r2 = await recs();
+      ok('…and the search opened again has no working kind, All included', t2.every(k => !PAID.includes(k)) && r2.every(k => !PAID.includes(k)) && (await found()).every(k => !PAID.includes(k)), JSON.stringify({ t2, r2 }));
+      await closeTop(page);
       await ctx.close();
     }
 

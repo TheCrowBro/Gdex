@@ -9,6 +9,10 @@ import { h, toast, announce, uid } from './util.js';
 import { db, byId, update, subscribe } from './store.js';
 import { bookingTitle, fmtMin, fmtMoney, sessionFee, sessionHoursPlanned, daysSpan } from './model.js';
 import { haptic } from './a11y.js';
+// A free Audiophile without the working roles keeps its sessions and rehearsals to look at only (the owner's answer to
+// question 6): Break, Back and Stop on a clock left running go through the licence (gateWork: at once while it may be
+// used, else the free days start or the licence is offered).
+import { gateWork } from './licence-state.js';
 
 const H = 36e5;
 const num = v => Number(v) || 0;
@@ -139,6 +143,7 @@ function doStart(b, e) {
 }
 function doBreak(e) {
   const had = hadFocus(e), id = e.currentTarget.id;
+  if (!e.licensed) { const el = e.currentTarget; return gateWork(() => doBreak({ currentTarget: el, licensed: true })); }
   const live = runningShift(); if (!live) return;
   if (onBreak(live)) { endBreak(); haptic(); announce('Back from the break. The clock is running again.'); }
   else { startBreak(); haptic(20); announce('On a break. The clock is paused.'); }
@@ -146,6 +151,7 @@ function doBreak(e) {
 }
 function doStop(e) {
   const had = hadFocus(e), next = e.currentTarget.dataset.next;
+  if (!e.licensed) { const el = e.currentTarget; return gateWork(() => doStop({ currentTarget: el, licensed: true })); }
   const s = stopShift(); if (!s) return;
   haptic(30);
   toast(`Logged ${fmtHm(workedMs(s))} on ${titleOf(s)}`);
