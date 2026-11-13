@@ -176,10 +176,13 @@ Answered:
 Asked again before anything goes live (the build goes ahead with these defaults meanwhile):
 
 1. **Stripe:** the same Stripe account as Vdex, or a separate one? With one account, every card statement shows the
-   account's descriptor, unless you make it neutral. *Default: nothing in the code depends on it.*
+   account's descriptor, unless you make it neutral, and Gdex's Stripe key (Checkout Sessions: Read) reads every order
+   in it, Vdex's buyers' names, email addresses and billing addresses included; a separate account keeps them apart.
+   *Default: nothing in the code depends on it.*
 2. **Resend:** which address Gdex's emails come from, and where replies go. Sending from gdex.crowmade.app means
    verifying a second domain, which may need a paid Resend plan; one Resend account shares its 100 free emails a day
-   with Vdex. *Default: `MAIL_FROM` is a setting, defaulting to licences@gdex.crowmade.app.*
+   with Vdex. Sending from a domain Vdex already sends from instead means Gdex's Resend key can send email as Vdex.
+   *Default: `MAIL_FROM` is a setting, defaulting to licences@gdex.crowmade.app.*
 3. **Code signing:** the Apple and Windows signing you have for Vdex, for Gdex too (no new fee), or unsigned at first?
    *Default: the workflow signs only when the secrets exist.*
 4. **The contact address** in Gdex's terms, privacy page and emails: the same as Vdex's? *Default: copied from Vdex's

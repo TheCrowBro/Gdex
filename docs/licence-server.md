@@ -55,8 +55,8 @@ address. So a site published before the shop is ready never locks anyone out.
 | R2 token (only if you want CI uploads later) | GitHub, Environment `gdex-live` | only the bucket it is scoped to, `gdex-downloads`. It cannot touch Vdex's downloads. Uploading by hand needs no token at all. |
 | `LICENCE_SHOP_KEY` | a secret on the Worker `gdex` in Cloudflare | signs Gdex's paid codes, activations and website sign-ins. Not Vdex's: Vdex's apps never accept it. |
 | Your key (1) and the spare (9) | key files on your computer, locked with your passphrase, and paper backups | free codes, and your signed requests to look up, clear, cancel, restore and link codes |
-| Stripe restricted key | a secret on the Worker | reading Checkout Sessions only (no refunds, no payouts, no customers) |
-| Resend API key | a secret on the Worker | sending email from your verified domain only |
+| Stripe restricted key | a secret on the Worker | reading Checkout Sessions only (no refunds, no payouts, no customers), but **every Checkout Session in the Stripe account**: with one account for Gdex and Vdex (go-live question 1), Vdex's buyers' too, with their names, email addresses and billing addresses. A separate Stripe account for Gdex keeps them out of its reach. |
+| Resend API key | a secret on the Worker | sending email from the one domain it is made for (Part 5, step 3) only. Made for a domain Vdex also sends from (step 2's fallback, go-live question 2), it **can send email as Vdex**. |
 | `MAC_CERT_P12` and `MAC_CERT_PASSWORD` (your Developer ID Application certificate), only if you sign | **only** in the GitHub Environment `gdex-sign` | **signing any Mac app as you, Vdex's included**: whoever has both can ship software under your name. |
 | `APPLE_ID`, `APPLE_APP_PASSWORD` (an app-specific password) and `APPLE_TEAM_ID`, only if you sign | GitHub, Environment `gdex-sign` | notarizing any app under your Apple team; and the app-specific password signs in to your Apple Account wherever Apple accepts one (iCloud mail, contacts and calendars in other apps). Revoke it at account.apple.com if it leaks. |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET` (the signing app registration), only if you sign | GitHub, Environment `gdex-sign` | **signing any Windows file with your certificate profile, Vdex's included** (the "Artifact Signing Certificate Profile Signer" role you gave it). Delete the client secret in Microsoft Entra ID if it leaks. |
@@ -188,7 +188,8 @@ The sender address and where replies go are owner question 2 (`docs/go-live.md`)
 1. Sign in at https://resend.com (or sign up).
 2. **Domains → Add domain** → `gdex.crowmade.app` → **Sign in to Cloudflare** and allow it, so Resend adds its records
    itself. Wait for **Verified**. (A second domain may need a paid Resend plan; if so, a sender on a domain you already
-   verified works too: set `MAIL_FROM` to it.)
+   verified works too: set `MAIL_FROM` to it, and in step 3 make the key for that one domain. If Vdex sends from that
+   domain, Gdex's key can send email as Vdex: it lives only on the Worker, as Vdex's does.)
 3. **API Keys → Create API key** → name "Gdex licences", permission **Sending access**, domain `gdex.crowmade.app` →
    copy the value starting `re_` and add it in Cloudflare as `RESEND_API_KEY`.
 4. Add `REPLY_TO` in Cloudflare: the address where buyers' replies should go. To change the sender, add `MAIL_FROM` (for

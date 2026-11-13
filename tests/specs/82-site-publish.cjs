@@ -97,6 +97,12 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
     ok('`wrangler deploy` is the only Wrangler command in any workflow (no delete, kv, r2 or secret)', commands.length === 0 && flows.every(f => !/wrangler\s+(delete|kv|r2|secret)/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8'))) && (yml.match(/npx wrangler deploy/g) || []).length === 1, commands.join(' | '));
     const others = flows.filter(f => f !== 'publish.yml' && /CLOUDFLARE_API_TOKEN|environment: gdex-live/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8')));
     ok('no other workflow can publish (none uses the Cloudflare token or the Environment)', others.length === 0, others.join(', '));
+    // What each key can reach, with the owner's open questions 1 and 2 on their defaults (one Stripe account, one Resend
+    // account and maybe one domain for Gdex and Vdex): the Stripe key reads every order in the account, Vdex's buyers'
+    // too, and a Resend key for a domain Vdex sends from can send as Vdex.
+    const guide = fs.readFileSync(path.join(REPO, 'docs/licence-server.md'), 'utf8'), keyTable = (guide.split('## What each key can reach')[1] || '').split('\n## ')[0];
+    const part5 = (guide.split('## Part 5.')[1] || '').split('\n## ')[0], questions = (fs.readFileSync(path.join(REPO, 'docs/go-live.md'), 'utf8').split('## Questions for you')[1] || '');
+    ok('the key table, Part 5 and go-live questions 1 and 2 say the Stripe key reads every Checkout Session in the account (Vdex\'s buyers too, with one account) and a Resend key on a domain Vdex sends from can send as Vdex', /every Checkout Session in the Stripe account/.test(keyTable) && /Vdex['’]s buyers/.test(keyTable) && /can send email as Vdex/.test(keyTable) && /make the key for that one domain/.test(part5) && /can send email as Vdex/.test(part5) && /reads every order\s+in it, Vdex['’]s buyers/.test(questions) && /Resend key can send email as Vdex/.test(questions), keyTable.split('\n').filter(l => /Stripe|Resend/.test(l)).join(' / ').slice(0, 400));
     // The workflow runs only on main, and GitHub lists a by-hand workflow under Actions only once its file is on the
     // default branch: the owner's list puts the work there first, and CLAUDE.md says publishing runs from main.
     const live = fs.readFileSync(path.join(REPO, 'docs/go-live.md'), 'utf8'), before9a = (live.split('## 9.')[1] || '').split('**(a)')[0];
