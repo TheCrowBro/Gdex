@@ -517,7 +517,7 @@ async function firstOpen(dbJson) {
   await page.waitForSelector('.tour-card');
   await sleep(1500);
   ok('…then the welcome tour, with nothing over it', (await sheetsOf(page)).length === 0 && (await tours(page)) === 1, (await sheetsOf(page)).join(' | '));
-  for (let i = 0; i < 4; i++) { await page.click('.tour-actions .btn.primary'); await sleep(900); } // on to the acts page's card
+  for (let i = 0; i < 5; i++) { await page.click('.tour-actions .btn.primary'); await sleep(900); } // on to the acts page's card (past the search box's stop)
   const skippedOn = await page.evaluate(() => window.logiPage());
   await page.click('.tour-actions .btn.ghost.small'); // Skip
   await page.locator(Q).waitFor({ timeout: 4000 }).catch(() => {});

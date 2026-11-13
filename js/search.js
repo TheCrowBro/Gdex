@@ -286,7 +286,7 @@ function find(q) {
 }
 // For checks and measurements: what the bookings tab finds, without drawing it (as item 8 built it); what every tab
 // finds (ids, in each tab's own order); and how long the last index, search and draw took. Call searchReady() first for
-// the songs, the studio log and money.
+// the songs and the studio log.
 export const searchFor = q => { const F = find(q); return (F ? F.found.gigs : []).map(it => ({ type: it.type, id: it.id, kind: it.kind, date: it.date, place: it.place.name, guests: it.guests.map(g => g.s.id) })); };
 export const searchAll = q => { const F = find(q); return F ? Object.fromEntries(Object.entries(F.found).map(([k, list]) => [k, list.map(r => r.id)])) : {}; };
 export const searchStats = () => ({ ...STATS, records: INDEX ? Object.values(INDEX).reduce((t, l) => t + l.length, 0) : 0 });
