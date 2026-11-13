@@ -105,6 +105,28 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       await ctx.close();
     }
 
+    /* ---------------- the licence's own facts: its number of devices, and a readable end date ---------------- */
+    {
+      // A free licence for 5 devices, this computer moved off it: every sentence says 5, as About does.
+      const lic5 = { name: 'Sam Free', email: 'sam@example.com', ref: '1:7', seats: 5, comp: true, expires: '' };
+      const released = { kind: 'desktop', enabled: true, mode: 'released', canEdit: false, started: true, first: Date.now() - 40 * DAY, trialLeft: 0, trialEnds: '', seats: 5, licence: lic5, os: 'Linux' };
+      const { ctx, page } = await open({ start: released, seed: { 'gdex-role': 'producer', ...agreed } });
+      await page.waitForSelector('.sheet.licence-over', { timeout: 8000 });
+      const over = await page.textContent('.sheet.licence-over'); await closeTop(page);
+      await page.evaluate(() => import('./js/licence.js').then(m => m.offerSection('people'))); await sleep(300);
+      const offerWords = await page.textContent('.sheet.licence-needed').catch(() => ''); await closeTop(page);
+      await about(page);
+      const line = await page.textContent('.licence-panel .licence-line').catch(() => '');
+      ok('a licence for 5 devices, this computer moved off it: the sheet at opening, the offers and About all say 5 other devices', /It’s in use on 5 other devices\./.test(over) && /it’s in use on 5 other devices\./.test(offerWords) && /in use on 5 other devices, its limit/.test(line) && !/3 other devices/.test(over + offerWords), JSON.stringify({ over: over.slice(0, 160), offerWords: offerWords.slice(0, 160) }));
+      // An ended code pasted into Enter licence code: its end date written as About writes dates.
+      await page.evaluate(() => { window.gdexDesktop.licence.enter = async () => ({ error: 'expired', expires: '2026-10-31' }); return import('./js/licence.js').then(m => m.enterCode()); });
+      await page.waitForSelector('#lic-activate'); await page.fill('.sheet textarea.licence-code', 'GDEX-ENDED'); await page.click('#lic-activate'); await sleep(300);
+      const said = await page.textContent('.sheet[aria-label="Enter licence code"] p[role="status"]').catch(() => '');
+      const want = await page.evaluate(() => new Date('2026-10-31T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }));
+      ok('…an ended code entered: "This code ended on" its date as About writes it, not 2026-10-31', said === `This code ended on ${want}.`, said);
+      await ctx.close();
+    }
+
     /* ---------------- unstarted: a working role picked starts the free days through the bridge ---------------- */
     {
       const { ctx, page, asked } = await open({ start: UNSTARTED, seed: { 'gdex-role': 'audiophile', ...agreed } });

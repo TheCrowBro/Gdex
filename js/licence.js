@@ -70,7 +70,7 @@ function askLocalPrice() {
 // One line for Settings → About & licence, and the buttons that go with it (§9.6).
 function describe(s) {
   if (!s || s.mode === 'off') return null;
-  const l = s.licence, seats = (l && l.seats) || s.seats || 3;
+  const l = s.licence, seats = seatsOf(s);
   const until = desk() ? 'until you add a licence code' : 'until you sign in with the email address you bought a licence with';
   switch (s.mode) {
     case 'unstarted': return { line: ['Audiophile is free. The other roles have 30 free days on this device, counted from the first time you use one; then a licence: ', onceEl(), `, for up to ${seats} of your devices.`], buy: true, enter: true };
@@ -144,6 +144,8 @@ const staleWhen = (sh, gone) => { STALE.add({ el: sh.el, close: sh.close, gone, 
 const focusSheet = sh => { sh.el.tabIndex = -1; setTimeout(() => { if (sh.el.isConnected) sh.el.focus({ preventScroll: true }); }, 50); };
 
 /* ------------------------------------ the offers ------------------------------------ */
+// The number of devices the licence covers (3, or another number for a free licence), as About says it.
+const seatsOf = s => (s && s.licence && s.licence.seats) || (s && s.seats) || 3;
 // Why there is no licence now, in a sentence (the offers and the read-only sheet).
 function whyNot(s, what = 'working sections') {
   switch (s.mode) {
@@ -151,7 +153,7 @@ function whyNot(s, what = 'working sections') {
     case 'expired': return `Your licence ended on ${day(s.licence && s.licence.expires)}.`;
     case 'clock': return 'Gdex can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Gdex again.';
     case 'offline': return 'Gdex hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again.';
-    case 'released': return 'This computer is no longer on your licence: it’s in use on 3 other devices.';
+    case 'released': return `This computer is no longer on your licence: it’s in use on ${plural(seatsOf(s), 'other device')}.`;
     case 'pending': return 'Your licence isn’t activated on this computer yet: Gdex needs the internet once to do that.';
     default: return `Your 30 free days of Gdex’s ${what} are over on this device.`;
   }
@@ -213,7 +215,7 @@ export function overSheetIfDue() {
         cancelled: ['Your licence has been cancelled', ['This can happen after a refund. If you think that’s a mistake, reply to the email your licence came in. ', readOnly.replace('until there is a licence', 'until there is a licence again'), ' ', ...how]],
         expired: [`Your licence ended on ${day(s.licence && s.licence.expires)}`, [readOnly, ' ', ...how]],
         offline: ['Gdex needs to check your licence', [`It hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
-        released: ['This computer is no longer on your licence', [`It’s in use on 3 other devices. Activate it here again to choose which one to take off. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
+        released: ['This computer is no longer on your licence', [`It’s in use on ${plural(seatsOf(s), 'other device')}. Activate it here again to choose which one to take off. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
         pending: ['Gdex needs to activate your licence', [`It hasn’t been able to reach the licence server since the code was entered. Connect to the internet and tap Try again. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
         clock: ['Your device’s clock looks wrong', [`Gdex can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Gdex again. Nothing has been deleted. Until then Gdex is read-only ${role}.`]],
       }[s.mode] || ['Gdex is read-only here', [readOnly, ' ', ...how]];
@@ -417,6 +419,7 @@ export function enterCode(prefill = '') {
     const r = await Promise.resolve(src.enter(box.value, release ? { release } : {})).catch(e => ({ error: e.message }));
     go.disabled = false; go.textContent = 'Activate';
     if (r && r.error === 'full') return chooser(msg, r, send);
+    if (r && r.error === 'expired') { msg.textContent = `This code ended on ${day(r.expires) || r.expires}.`; msg.className = 'small licence-warn'; return; }
     if (!r || r.error) { msg.textContent = (r && typeof r.error === 'string' && r.error) || 'Something went wrong. Try again.'; msg.className = 'small licence-warn'; return; }
     told(r); sh.close();
     toast(r.mode === 'licensed' ? 'Licensed: every role on this device.' : r.mode === 'pending' ? 'Code saved. Gdex activates it the next time it is online.' : 'Gdex could not reach the licence server. Try again when you are online.');

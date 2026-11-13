@@ -189,7 +189,7 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     if (!enabled) return { error: MESSAGES.off };
     let r;
     try { r = await codes.verifyCode(text, { keys, now: now() }); } catch (e) { return { error: e.message || 'This code is not valid.' }; }
-    if (r.status === 'expired') return { error: `This code ended on ${r.licence.expires}.` };
+    if (r.status === 'expired') return { error: 'expired', expires: r.licence.expires }; // the page writes the date as it writes dates
     const code = r.licence.code, install = load().install;
     const a = await activate(code, install, typeof release === 'string' ? release.slice(0, 64) : '');
     if (a.full) return { error: 'full', computers: a.computers, swapsLeft: a.swapsLeft, seats: r.licence.seats };

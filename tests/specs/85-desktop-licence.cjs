@@ -254,7 +254,8 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     for (let h = 0; h < 48; h++) { pc7.c.t += 3600e3; await pc7.lic.recheck(); }
     s = await pc7.lic.state();
     ok('once it has ended it is "expired", and Gdex stops contacting the server for it', s.mode === 'expired' && server.calls.length === calls, `${server.calls.length - calls} calls`);
-    ok('…an expired code entered again is refused with its end date', /ended on 2026-11-10/.test((await make({ t: Date.parse('2026-11-20T10:00:00Z') }).lic.enter(short)).error || ''));
+    const ended = await make({ t: Date.parse('2026-11-20T10:00:00Z') }).lic.enter(short);
+    ok('…an expired code entered again is refused with its end date, for the page to write as it writes dates', ended.error === 'expired' && ended.expires === '2026-11-10', JSON.stringify(ended));
 
     server.mode = 'down'; s = await pc2.lic.release();
     ok('releasing needs the internet, so the place is really freed', /could not reach the licence server/.test(s.error || '') && !!(await pc2.lic.code()));
