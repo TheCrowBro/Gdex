@@ -37,6 +37,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     const menu = R.menus.producer.filter(id => id !== 'settings');
     ok('then the welcome tour runs through the role’s own sections', titles[0] === 'Welcome to Gdex' && titles.includes('Your sections are tracks') && titles[titles.length - 1] === 'Settings', titles.join(' › '));
     ok('…and ends on the calendar, where Gdex opens, not on Settings where its last card was', (await page.evaluate(() => window.logiPage())) === 'bookings' && (await page.locator('.bk-calview').count()) === 1, await page.evaluate(() => window.logiPage()));
+    ok('…with the focus on the page, not lost on its body', await page.evaluate(() => document.activeElement === document.getElementById('page')), await page.evaluate(() => (document.activeElement || {}).id || (document.activeElement || {}).tagName));
     const stops = titles.slice(4, -1); // after the welcome, the details, the section menu and the search box
     ok('…in its menu order, and only sections on its menu', stops.length > 0 && stops.length <= 5, stops.join(', '));
     const s = await sleeve(page);

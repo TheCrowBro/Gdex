@@ -9,7 +9,7 @@
 // pieces of gear. Then a browser with the rest of Gdex (the question, the calendar's views, a show's page, the menus, a
 // support act, a renamed band); then the date reader in four time zones with the page's clock moved (a Sunday, the turn
 // of a month and of a year); then a 320 px phone with extra-large text and large buttons, light and dark, with each of
-// the three section menus.
+// the three section menus; then the small hours, with last night's show still to play.
 // Nothing here depends on the hour or the time zone of the run: what must be over is dated five days back or more and
 // what must be ahead three days on or more; the two records dated today are on the same side of the line all day;
 // dates on screen are compared with the app's own formatters run in the page, and every date typed is made from the
@@ -906,5 +906,38 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
     await closeSearch(n.page);
     ok(`no errors in the console (320 px, ${scheme})`, n.errors.length === 0, n.errors.slice(0, 5).join(' | '));
     await n.browser.close();
+  }
+
+  /* ------------------------------ in the small hours: last night's show still to play ------------------------------ */
+  // The page's clock is Playwright's, at 00:10 on a day of the spec's own (worked out in the page, so in the run's own
+  // time zone). A show dated the day before, on stage at 00:30, is still to come: Coming up keeps it at its top marked
+  // "Tonight", and the search lists it with what is ahead, above the line for today; the one that played at 20:00 is
+  // over. Once its set is over (two hours after 00:30) the open search moves it below the line by itself.
+  {
+    const c = await open();
+    const D = '2031-07-10', N = '2031-07-11';
+    const at = (iso, hm) => c.page.evaluate(([iso, hm]) => { const [y, mo, d] = iso.split('-').map(Number), [hh, mm] = hm.split(':').map(Number); return new Date(y, mo - 1, d, hh, mm).getTime(); }, [iso, hm]);
+    await c.ctx.clock.install({ time: await at(N, '00:10') });
+    await c.page.reload(); await c.page.waitForSelector('#deck .dk-next');
+    await store(c.page, (s, x) => s.update(d => {
+      d.acts.push({ id: 'a-late', name: 'Late Band', color: '#8b5cf6' });
+      d.bookings.push(
+        { id: 'n-late', kind: 'show', status: 'confirmed', actId: 'a-late', date: x.D, venueName: 'The Crown', setTime: '00:30' },
+        { id: 'n-done', kind: 'show', status: 'confirmed', actId: 'a-late', date: x.D, venueName: 'The Crown', setTime: '20:00', setLength: 60 },
+        { id: 'n-next', kind: 'show', status: 'confirmed', actId: 'a-late', date: x.N, venueName: 'The Bell', setTime: '21:00' });
+    }), { D, N });
+    await sleep(300);
+    ok('the small hours: Coming up keeps last night’s show still to play at its top, marked “Tonight”', same(await c.page.$$eval('.bk-agenda .bk-card', els => els.map(e => [e.dataset.id, e.querySelector('.bk-card-sub').textContent.split(' · ')[0]])), [['n-late', 'Tonight'], ['n-next', 'Today']]));
+    await type(c.page, 'late band');
+    const best = await c.page.$$eval('.srch-all .srch-rec', els => els.map(e => e.dataset.id));
+    ok('…on All too it is with what is still to come: the band, last night’s show still to play, today’s, then the one that is over', same(best, ['a-late', 'n-late', 'n-next', 'n-done']), JSON.stringify(best));
+    await gigs(c.page);
+    const word = id => c.page.evaluate(id => { const e = document.querySelector(`.srch-list .card[data-id="${id}"] .bk-card-sub`); return e ? e.textContent.split(' · ')[0] : null; }, id);
+    ok('…and the search lists it with what is still ahead, above the line for today, as its card says “Tonight”', same(await rows(c.page), ['n-next', 'n-late', 'TODAY', 'n-done']) && (await word('n-late')) === 'Tonight', JSON.stringify([await rows(c.page), await word('n-late')]));
+    await c.page.clock.fastForward(150 * 60000); await sleep(400);
+    ok('…once its set is over, the open search moves it below the line, with the show that is over', same(await rows(c.page), ['n-next', 'TODAY', 'n-done', 'n-late']) && (await word('n-late')) === 'On stage 00:30', JSON.stringify([await rows(c.page), await word('n-late')]));
+    await closeSearch(c.page);
+    ok('no errors in the console (the small hours)', c.errors.length === 0, c.errors.slice(0, 5).join(' | '));
+    await c.browser.close();
   }
 })().catch(e => { console.log('FAIL search spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });

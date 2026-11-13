@@ -291,9 +291,10 @@ export const searchFor = q => { const F = find(q); return (F ? F.found.gigs : []
 export const searchAll = q => { const F = find(q); return F ? Object.fromEntries(Object.entries(F.found).map(([k, list]) => [k, list.map(r => r.id)])) : {}; };
 export const searchStats = () => ({ ...STATS, records: INDEX ? Object.values(INDEX).reduce((t, l) => t + l.length, 0) : 0 });
 
-// Still ahead, or over. A booking stays ahead until its last day ends (as Coming up keeps it); a time seen is over
-// from the day it is dated.
-const isAhead = (it, today) => (it.type === 'b' ? it.last >= today : it.date > today);
+// Still ahead, or over. A booking stays ahead until its last day ends, and in the small hours last night's show still to
+// play (model.tonightShows) is ahead too, as Coming up keeps it, marked "Tonight"; a time seen is over from the day it
+// is dated.
+const isAhead = (it, today, tonight) => (it.type === 'b' ? it.last >= today || tonight.has(it.b) : it.date > today);
 
 // All: one list, best match first. A record whose name starts with what was typed, then one with a word of its name
 // starting each word typed, then one whose name holds them, then the rest; within each, bands, venues, people, songs,
@@ -307,9 +308,9 @@ function tierOf(r, words) {
   return r.names.some(n => n.startsWith(typed)) ? 0 : r.names.some(n => words.every(w => startsWord(n, w))) ? 1 : r.names.some(n => words.every(w => n.includes(w))) ? 2 : 3;
 }
 function ranked(F) {
-  const today = todayISO(), list = [];
+  const today = todayISO(), tonight = new Set(model.tonightShows()), list = [];
   for (const [k, recs] of Object.entries(F.found)) for (const r of recs) {
-    const group = k === 'gigs' ? (isAhead(r, today) ? GROUP.ahead : GROUP.over) : GROUP[k];
+    const group = k === 'gigs' ? (isAhead(r, today, tonight) ? GROUP.ahead : GROUP.over) : GROUP[k];
     const when = k === 'gigs' ? r.date : k === 'logs' || k === 'money' ? (r.spans && r.spans[0] ? r.spans[0][0] : '') : '';
     list.push({ r, tier: tierOf(r, F.rest), group, when, name: r.title || '' });
   }
@@ -592,7 +593,7 @@ function gigsPanel(found, words) {
     groups.length > MAX_PLACES && h('span', { class: 'srch-more-places muted small' }, `and ${plural(groups.length - MAX_PLACES, 'more place')}: type one to find it`));
   // One list, newest first: what is still ahead, a line for today, what is over. The line is left out when everything
   // listed is on one side of it.
-  const today = todayISO(), ahead = listed.filter(it => isAhead(it, today)), over = listed.filter(it => !isAhead(it, today));
+  const today = todayISO(), tonight = new Set(model.tonightShows()), ahead = listed.filter(it => isAhead(it, today, tonight)), over = listed.filter(it => !isAhead(it, today, tonight));
   const all = [...ahead, ...over], shown = all.slice(0, S.limit), left = all.length - shown.length, rows = [];
   shown.forEach((it, i) => {
     if (i === ahead.length && ahead.length) rows.push(h('li', { class: 'srch-today' }, h('span', null, 'Today · ' + fmtShort(today)), h('span', { class: 'sr-only' }, '. Above this: still to come. Below it: over.')));
