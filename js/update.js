@@ -1,13 +1,17 @@
 // Keeps the app current. The service worker is registered here; when a new build has been deployed (every push
 // to the site stamps one), the new worker installs in the background and a bar offers to reload. Checks happen on
-// start, when the app comes back to the front, when the network returns, and every hour.
+// start, when the app comes back to the front, when the network returns, and every hour. The desktop app has no
+// service worker: its files come inside the installer, and its own updater (desktop/updater.cjs) is reached through
+// window.gdexDesktop, whose state { status, version, available, progress, url, error } the About panel follows.
 import { h, announce } from './util.js';
 import { VERSION, BUILD, BUILT } from './version.js';
 
-const S = { reg: null, ready: false, last: 0, bar: null, listeners: new Set() };
+const S = { reg: null, ready: false, last: 0, bar: null, desktop: null, listeners: new Set() };
+// The desktop app's update bridge, when Gdex runs there.
+export const desktop = () => (window.gdexDesktop && typeof window.gdexDesktop.onStatus === 'function' ? window.gdexDesktop : null);
 export const onChange = fn => { S.listeners.add(fn); return () => S.listeners.delete(fn); };
 const emit = () => S.listeners.forEach(f => { try { f(); } catch { /* ignore */ } });
-export const updateState = () => ({ version: VERSION, build: BUILD, built: BUILT, ready: S.ready, supported: !!S.reg, lastCheck: S.last });
+export const updateState = () => ({ version: VERSION, build: BUILD, built: BUILT, ready: S.ready, supported: !!S.reg, lastCheck: S.last, desktop: S.desktop });
 
 export function reloadNow() {
   if (document.querySelector('.sheet-back form') && !confirm('Reload now? Anything typed in the open form will be lost.')) return;
@@ -25,6 +29,8 @@ function showBar() {
 
 // Asks the browser to look for a new service worker now. Resolves once an update, if any, has taken over.
 export async function checkForUpdates() {
+  const d = desktop();
+  if (d) { S.last = Date.now(); const s = await d.checkForUpdates().catch(() => null); if (s && typeof s === 'object') S.desktop = s; emit(); return S.desktop || { status: 'error' }; }
   if (!S.reg) return { status: 'unsupported' };
   S.last = Date.now(); emit();
   try { await S.reg.update(); } catch { return { status: 'offline' }; }
@@ -37,6 +43,13 @@ export async function checkForUpdates() {
 }
 
 export function initUpdates() {
+  const d = desktop();
+  if (d) { // the desktop app: no offline copy to keep (one left by an older run would only serve stale files)
+    if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    d.updateState().then(s => { if (s && typeof s === 'object') { S.desktop = s; emit(); } }).catch(() => {});
+    d.onStatus(s => { if (s && typeof s === 'object') { S.desktop = s; emit(); } });
+    return;
+  }
   if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
   let controlled = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -58,14 +71,31 @@ export function updatePanel() {
   const el = h('div', { class: 'stack' });
   let busy = false;
   const draw = () => {
-    const st = updateState();
+    const st = updateState(), d = desktop();
     const when = st.lastCheck ? new Date(st.lastCheck).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const actions = [];
-    const line = st.ready ? 'A new version has been downloaded. Reload to use it.'
-      : !st.supported ? 'Updates arrive when the site is reloaded (this browser keeps no offline copy).'
-      : `Up to date${when ? ' · checked ' + when : ''}. New versions are fetched in the background whenever you open Gdex.`;
-    if (st.ready) actions.push(h('button', { class: 'btn primary', onclick: reloadNow }, '↻ Reload now'));
-    if (st.supported && !st.ready) actions.push(h('button', { class: 'btn ghost', disabled: busy, onclick: async () => { busy = true; draw(); try { await checkForUpdates(); } finally { busy = false; draw(); } } }, busy ? 'Checking…' : 'Check for updates'));
+    let line, canCheck;
+    if (d) { // the desktop app: its updater's state
+      const ds = st.desktop || { status: 'idle' }, s = ds.status, v = ds.available ? 'Gdex ' + ds.available : 'The new version of Gdex';
+      line = s === 'dev' ? 'A development copy: updates are only looked for in the installed app.'
+        : s === 'checking' ? 'Looking for a new version…'
+        : s === 'downloading' ? `Downloading ${v}… ${Math.round(Number(ds.progress) || 0)}%`
+        : s === 'ready' ? `${v} is ready to install.`
+        : s === 'available' ? `${v} is ready to download.`
+        : s === 'current' ? `Up to date${when ? ' · checked ' + when : ''}.`
+        : s === 'error' ? `Couldn’t look for a new version (${String(ds.error || 'no connection').slice(0, 120)}).`
+        : 'Gdex looks for a new version when it starts and every few hours, and installs it when you restart.';
+      if (s === 'ready') actions.push(h('button', { class: 'btn primary', onclick: () => d.installUpdate() }, '↻ Restart to update'));
+      if (s === 'available' || s === 'error') actions.push(h('button', { class: 'btn ghost', onclick: () => d.openDownload() }, '⤓ Download the new version'));
+      canCheck = s !== 'dev';
+    } else {
+      line = st.ready ? 'A new version has been downloaded. Reload to use it.'
+        : !st.supported ? 'Updates arrive when the site is reloaded (this browser keeps no offline copy).'
+        : `Up to date${when ? ' · checked ' + when : ''}. New versions are fetched in the background whenever you open Gdex.`;
+      if (st.ready) actions.push(h('button', { class: 'btn primary', onclick: reloadNow }, '↻ Reload now'));
+      canCheck = st.supported && !st.ready;
+    }
+    if (canCheck) actions.push(h('button', { class: 'btn ghost', disabled: busy, onclick: async () => { busy = true; draw(); try { await checkForUpdates(); } finally { busy = false; draw(); } } }, busy ? 'Checking…' : 'Check for updates'));
     el.replaceChildren(h('p', { class: 'small muted' }, line), actions.length ? h('div', { class: 'actions' }, ...actions) : '');
   };
   draw();
