@@ -25,7 +25,7 @@ import { openBooking } from './pages/bookings.js';
 import { openSeen, openActCard, actSearchText } from './pages/acts.js'; // already loaded with the app: the bookings page imports it
 import { venueText, venueMatches, openVenue } from './pages/venues.js'; // so are venues, people, backline and setlists
 import { personText, openPerson } from './pages/people.js';
-import { gearText, openGear } from './pages/backline.js';
+import { gearText, openGear, gearCard } from './pages/backline.js';
 import { setlistWords, openSetlist } from './setlist.js';
 import { docOf, docTotals } from './money.js'; // loaded with the app too: a booking's Quote & invoice box imports it
 import { statusPill } from './blocks/money.js';
@@ -233,7 +233,7 @@ function buildOthers() {
   out.setlists = someOf(db.setlists).filter(l => l && l.id).map(l => { const w = setlistWords(l);
     return record('setlists', l, l.name || 'Untitled setlist', [l.name], w.join('\n'), [['Songs', someOf(l.items).filter(it => it && !it.isBreak).map(model.itemTitle).join(', ')], ['Earlier name', earlier(byId('acts', l.actId))], ['Notes', l.notes]]); });
   out.gear = someOf(db.gear).filter(g => g && g.id).map(g => { const owner = g.owner && byId('people', g.owner);
-    return record('gear', g, g.name || 'Unnamed item', [g.name], gearText(g), [['Serial', g.serial], ['Where it is', g.location], ['Owner', owner && owner.name], ['Notes', g.notes]]); });
+    return record('gear', g, g.name || 'Unnamed item', [g.name], gearText(g), [['Serial', g.serial], ['Where it is', g.location], ['Owner', owner && owner.name], ['For ' + actWord(), model.actName(model.gearActId(g))], ['Earlier name', earlier(byId('acts', model.gearActId(g)))], ['Notes', g.notes]]); });
   if (MOD.songs) out.songs = someOf(db.songs).filter(s => s && s.id).map(s => record('songs', s, s.title || 'Untitled', [s.title], MOD.songs.songText(s),
     [['Writers', someOf(s.splits).filter(Boolean).map(p => p.name).join(', ')], ['Tuning', s.tuning], ['ISRC', s.isrc], ['Earlier name', earlier(byId('acts', s.actId))], ['Notes', s.notes]]));
   if (MOD.logs) out.logs = someOf(db.logs).filter(l => l && l.id).map(l => { const d = MOD.logs.logDate(l), b = l.bookingId && byId('bookings', l.bookingId);
@@ -747,7 +747,7 @@ const OPEN = {
   people: el => openThere('people', () => document.getElementById('pp-open-' + el.dataset.id), () => openPerson(el.dataset.id)),
   songs: el => songsPage().then(m => { m.showSongs('songs'); return openThere('songs', () => byFk('pg-song-' + el.dataset.id), () => m.openSong(el.dataset.id), window.logiPage?.() === 'songs'); }),
   setlists: el => songsPage().then(m => { m.showSongs('setlists'); return openThere('songs', () => byFk('pg-sl-' + el.dataset.id), () => openSetlist(el.dataset.id), window.logiPage?.() === 'songs'); }),
-  gear: el => openThere('backline', () => document.getElementById('bl-item-' + el.dataset.id), () => openGear(el.dataset.id)),
+  gear: el => openThere('backline', () => gearCard(el.dataset.id), () => openGear(el.dataset.id)), // its band's fold opened first (item 17)
   logs: el => MOD.logs.openLog(el.dataset.id),
   money: el => { const [, id] = el.dataset.id.split(':'); return openBooking(id, { box: 'money' }); },
 };

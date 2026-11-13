@@ -110,6 +110,7 @@ export function remove(list, id) {
       d.bookings.forEach(b => { if ((b.people || []).includes(id)) { b.people = without(b.people, id); if (b.settlement && b.settlement.shares) delete b.settlement.shares[id]; touch(b); } });
       d.acts.forEach(a => { if ((a.members || []).includes(id)) { a.members = without(a.members, id); touch(a); } });
       d.gear.forEach(g => { if (g.owner === id) { g.owner = ''; touch(g); } });
+      d.gear.forEach(g => { if (g.paidBy === id) { g.paidBy = ''; touch(g); } }); // paid by: not known now
     }
     if (list === 'gear') {
       d.bookings.forEach(b => { if ((b.gear || []).includes(id)) { b.gear = without(b.gear, id); if (b.gearQty) delete b.gearQty[id]; touch(b); } });
@@ -117,6 +118,7 @@ export function remove(list, id) {
     }
     // A show's "Didn’t go" goes with its act, as in an edit to another act: it is only ever an answer about an act.
     if (list === 'acts') for (const c of ['bookings', 'songs', 'setlists']) d[c].forEach(r => { if (r.actId === id) { r.actId = ''; if (c === 'bookings') delete r.went; touch(r); } });
+    if (list === 'acts') d.gear.forEach(g => { if (g.actId === id) { g.actId = ''; touch(g); } }); // gear for that act: for none now
     if (list === 'venues') d.acts.forEach(a => { let hit = false; (a.seen || []).forEach(x => { if (x.venueId === id) { x.venueId = ''; x.where = x.where || (gone && gone.name) || ''; hit = true; } }); if (hit) touch(a); }); // a sighting keeps the place's name
     if (list === 'venues') d.bookings.forEach(b => { if (b.venueId === id) { b.venueId = ''; b.venueName = b.venueName || (gone && gone.name) || ''; b.address = b.address || (gone && gone.address) || ''; touch(b); } });
     if (list === 'songs') {

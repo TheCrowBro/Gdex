@@ -28,8 +28,8 @@ is the first track on every menu:
 
 | Role | Menu (Side A, then Side B) | What changes |
 |---|---|---|
-| 🎛️ Producer | Bookings · Studio log · Songs · Artists · Money · People · Venues · Tools | + New starts a studio session; a session opens with the clock and take log; Tools opens on tap tempo. |
-| 💼 Manager | Bookings · Roster · Money · People · Venues · Insurance | A show opens with the deal and the advance checklist; new people start as industry contacts. |
+| 🎛️ Producer | Bookings · Studio log · Songs · Artists · Backline · Money · People · Venues · Tools | + New starts a studio session; a session opens with the clock and take log; Tools opens on tap tempo. |
+| 💼 Manager | Bookings · Roster · Backline · Money · People · Venues · Insurance | A show opens with the deal and the advance checklist; new people start as industry contacts. |
 | 🥁 Band | Bookings · Songs · Backline · Tools · Bands · Money · People · Venues | A show opens with the running order and setlist; Songs opens on your setlists. |
 | 🎤 Solo artist | Bookings · Songs · Money · My act · Venues · People · Tools | A show opens with the deal and setlist; private gigs (weddings, parties) are shows too. |
 | 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Gdex asks if you saw them and takes your score; no fees or settlements. |
@@ -72,6 +72,15 @@ Gdex is open. You still type the genre as you like ("Indie rock", "Doom folk"): 
 (indie rock and folk rock are Rock, doom folk is Folk, the first of two genres decides), and an act's form has **Main
 genre: Automatic (Rock)** to set it by hand. The list's search opens the groups with a match, and both searches find a
 band by its main genre. The press kit keeps the genre as you typed it.
+
+**Each band's gear in a fold, with what you put in.** An item of backline can be **for** one of your acts and **paid
+by** you, the band or a person (Paid by left empty is "not known"). For a producer, a manager and Everything, Backline
+then folds the gear by act, A to Z, with **Not for an act** last: each heading says how many items, their total value
+(each item's value times how many) and **your investment**, the value of what you paid for yourself. Tap a heading to
+drop its gear down; the ones you open stay open while Gdex is open, and the page's search and the owner chips open the
+folds with a match. Producers and managers have Backline on their menu, right after their acts. Every role's item form
+has the two boxes; the figures show only in a role that deals with money. Money in and out stays on the Money page, and
+the inventory, stage packs and everything printed are as they were. Search finds an item by its band's name too.
 
 ## The calendar
 

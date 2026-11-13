@@ -4,6 +4,7 @@
 // keeping their own lists, so a show reads the same on the calendar, the day sheet and the money page.
 import { db, byId, update, overlaps, upcoming, nightMin, playField, playKey, byPlay, byDayPlay, byDayPlayDesc } from './store.js';
 import { pad, ymd, parseISO } from './util.js';
+import { totalValue } from './store.js'; // gear by band: an item's value × how many
 
 /* ------------------------------- bookings ------------------------------- */
 // [id, label, icon]. A show is a gig (load-in, soundcheck, doors, set, curfew, a deal); a session is studio time
@@ -390,6 +391,15 @@ export const ROLES = ['Vocals', 'Guitar', 'Bass', 'Drums', 'Keys', 'Producer', '
   'Label', 'Publisher', 'Studio manager', 'Photographer / video', 'Other'];
 export const GEAR_CATS = ['Guitars', 'Basses', 'Amps & cabs', 'Drums & percussion', 'Keys & synths', 'Pedals & effects', 'Microphones', 'DI & interfaces',
   'Stands & hardware', 'Cables', 'PA & monitors', 'Lighting', 'Computers & software', 'Cases & transport', 'Other'];
+// Gear by band (item 17): an item can be for one act (gear.actId) and paid for by you, the person using Gdex ('me'), by
+// the act ('band') or by a person (their id); gear.paidBy '' is not known. Read them only through these: anything else
+// stored there (an act or a person deleted since, junk from a backup edited by hand) reads as no act and not known, so
+// old gear reads exactly as before. The sums are value × quantity (store.totalValue); only what you paid is yours.
+export const PAID_BY = ['me', 'band'];
+export const gearActId = g => { const id = g && g.actId; return typeof id === 'string' && id && byId('acts', id) ? id : ''; };
+export const gearPaidBy = g => { const p = g && g.paidBy; return typeof p !== 'string' || !p ? '' : PAID_BY.includes(p) || byId('people', p) ? p : ''; };
+export const gearWorth = list => (Array.isArray(list) ? list : []).reduce((s, g) => s + totalValue(g), 0);
+export const gearInvested = list => (Array.isArray(list) ? list : []).reduce((s, g) => s + (gearPaidBy(g) === 'me' ? totalValue(g) : 0), 0);
 export const VENUE_KINDS = [['venue', 'Venue'], ['studio', 'Studio'], ['rehearsal', 'Rehearsal room'], ['festival', 'Festival / outdoor'], ['other', 'Other']];
 export const venueKindLabel = k => (VENUE_KINDS.find(x => x[0] === k) || VENUE_KINDS[4])[1];
 // A booking's rate (studio time, a session player's job) and a person's usual rate share these units ('show' only for people).

@@ -54,7 +54,7 @@ npm run serve                   # http://localhost:8124/
 | `people` | People | `pages/people.js` | Band members, session players, crew, industry contacts (promoters, agents…). |
 | `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, split sheet) and setlists. |
 | `sessions` | Studio log | `pages/sessions.js` | Take logs for recording sessions: song, take number, time, keep/maybe/no, notes. |
-| `backline` | Backline | `pages/backline.js` | Instruments, amps, mics… with serials, values, owners; stage packs (kits). |
+| `backline` | Backline | `pages/backline.js` | Instruments, amps, mics… with serials, values, owners; stage packs (kits). For a producer, a manager and Everything, folded by the act each item is for, with its total value and your investment, once an item is for one. |
 | `venues` | Venues | `pages/venues.js` | Venues, studios, rehearsal rooms, festivals: capacity, stage, PA, curfew, noise limit, load-in, map. |
 | `money` | Money | `pages/money.js` | Overview: income by month and act, unpaid invoices, deposits due, settlements, payouts. |
 | `tools` | Tools | `pages/tools.js` | Tuner, metronome + tap tempo, delay/reverb times, sound level meter, set timer. |
@@ -101,6 +101,7 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act). |
 | `blockShown(id)`, `blockFolded(id)`, `MONEY_BLOCKS` | A booking box shown, under More boxes, or (a money box for a role without money) neither. `blocksFor(kind)` already leaves the others out. |
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
+| `gearByBand()` | Backline in a fold per act, with what you put in (item 17): true for a producer, a manager and Everything (the roles that invest in the acts they work with; Backline is on the producer's and the manager's menus, right after their acts). Kept in a list of its own in `js/roles.js`, so the roles' lines are not touched. |
 | `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
 | `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `gdex-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Everything, is asked). |
 
@@ -269,7 +270,14 @@ The act form stores it when one is picked and takes the key off when Automatic i
 `people`: `{ id, name, group: 'band'|'session'|'crew'|'contact', role, instrument, company, phone, email, rate,
 rateUnit: 'day'|'hour'|'show', notes }`. Act membership lives on the act (`act.members`).
 
-`gear`: `{ id, name, category, make, model, serial, value, qty, owner (personId), location, notes }`.
+`gear`: `{ id, name, category, make, model, serial, value, qty, owner (personId), location, notes, actId, paidBy }`.
+`actId` is the act the item is for and `paidBy` who paid for it: `'me'` (the person using Gdex, their profile),
+`'band'` (the act) or a person's id. Both keys are absent on an item that is for no act and whose payer is not known
+(the gear form leaves them off then, as on old gear), and anything else stored there, an act or a person since deleted
+or junk from a backup edited by hand, reads as none and not known: read them only through `model.gearActId(g)` and
+`model.gearPaidBy(g)` ("Gear by band" below). Deleting an act sets `actId` to `''` on its gear, and deleting a person
+sets `paidBy` to `''` where they paid (`store.remove`). They travel in backups; nothing printed (the inventory, its
+spreadsheet, a packing list) carries them.
 `kits` (stage packs): `{ id, name, items: [gearId], qty: { gearId: n }, notes }`.
 
 `venues`: `{ id, kind: 'venue'|'studio'|'rehearsal'|'festival'|'other', name, address, geo: { lat, lon }, capacity,
@@ -309,6 +317,11 @@ Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `seenEntryF
 `parseDur(text)`, `fmtMin(min)`, `addMinutes('HH:MM', min)`, `minutesBetween(a, b)`, `setlistLength(list)`,
 `itemTitle(item)`, `fmtMoney(n, sym?)`, `currency()`, `dealPays(deal, gross)`, `dealSummary(deal)`, `dealBest(deal)`,
 `settle(b)`, `sessionFee(b, hours?)`, `sessionHoursPlanned(b)`, `bookingIncome(b)`.
+
+Gear by band: `PAID_BY` (`['me', 'band']`), `gearActId(g)` (the act's id when it is in Acts, else `''`),
+`gearPaidBy(g)` (`'me'`, `'band'`, a person's id when they are in People, else `''`: not known), `gearWorth(list)` (the
+total value: each item's `store.totalValue`, its value times how many) and `gearInvested(list)` (the same for the items
+paid by `'me'` only: Paid by not known, the band or a person is not yours). None of them throws, whatever is stored.
 
 Checklists: `CHECKLISTS` (built-in lines per kind with stable ids such as `show-daysheet`, `show-invoice`,
 `show-paid`, `show-settled`, `ses-invoice`, `ses-paid`, `ses-deliver`), `MONEY_CHECKS` (the built-in money lines),
@@ -479,7 +492,7 @@ may call it.
 | `js/bookings-cal.js` `bookingCard(b)` | calendar | Coming up's card for a list outside the calendar (the search): drawn by the same code, without press-and-hold to delete or its title. Its own tap would open the booking inside the calendar's page, so the list it goes in takes the click in the capture phase. A card for a booking that is over says nothing where Coming up says "On now". |
 | `js/search.js` `initSearch(bar)` / `openSearch()` / `searchKinds()` / `actNames(a)` / `fold(s)` / `searchReady()` / `searchFor(q)` / `searchAll(q)` / `searchStats()` | search | Fill `#srch-bar` with the box and wire the `/` key (`app.js`, once) / jump into the box (its words selected) / the kinds the person may see, in tab order: **the one place that decides them** (Money only with `moneyShown()`; the licence will narrow it here) / every name an act is known by: its name now, then its earlier names, the latest first (`model.earlierNames`; the one place the search reads a band's names) / text as the search compares it (no capitals, no accents) / for checks: a promise once the songs and the studio log (loaded with their sections) are searched too, what the bookings tab finds, what every tab finds, and how long it took (below). |
 | `js/search-dates.js` `readDate(words, today, order)` / `dateOrder(locale)` | search | Pure: the first date in the words typed (`{ date: { from, to, start, len, words } \| null, rest }`), with today and the order of a day and a month given / that order in the device's language (`'dm'` or `'md'`). |
-| `pages/acts.js` `openActCard(id)` / `actSearchText(a)` (its words include the act's main genre: "rock" finds a doom folk band set to Rock by hand); `pages/venues.js` `venueText(v)` / `venueMatches(v, q)`; `pages/people.js` `personText(p)`; `pages/backline.js` `gearText(g)`; `pages/songs.js` `songText(s)`; `js/setlist.js` `setlistWords(list)`; `pages/sessions.js` `logWords(l)` / `logDate(l)` | each section | The acts list with the act's card dropped open and the focus on it (`openSeen(id, null)`) / the words each section's own search reads (the acts list's, Venues' with the house rules, People's, Backline's, Songs', the Studio log's), which the search at the top of every page reads too, so the two never disagree; a setlist's words (its name, act, songs and notes) / a log's day. |
+| `pages/acts.js` `openActCard(id)` / `actSearchText(a)` (its words include the act's main genre: "rock" finds a doom folk band set to Rock by hand); `pages/venues.js` `venueText(v)` / `venueMatches(v, q)`; `pages/people.js` `personText(p)`; `pages/backline.js` `gearText(g)` (with every name of the act the item is for); `pages/songs.js` `songText(s)`; `js/setlist.js` `setlistWords(list)`; `pages/sessions.js` `logWords(l)` / `logDate(l)` | each section | The acts list with the act's card dropped open and the focus on it (`openSeen(id, null)`) / the words each section's own search reads (the acts list's, Venues' with the house rules, People's, Backline's, Songs', the Studio log's), which the search at the top of every page reads too, so the two never disagree; a setlist's words (its name, act, songs and notes) / a log's day. |
 | `js/blocks/money.js` `statusPill(b, kind, doc)` | money | A quote's or an invoice's status as its box says it (Draft, Sent, Part paid, Paid, Overdue…), for the search's Money tab. |
 | `js/bookings-kit.js` `cardExtras(b, { day })` / `overlapNote(b, day)` / `wentMark(b)` | core | What a Coming up card adds under its own lines, in order: the overlap note (`span.bk-overlap`; with a `day`, a booking over several days has only that day's clash: nothing passes one since the Week became squares, whose spoken names say the day's note themselves), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. They are direct children of `.bk-card-main`. |
 | `js/bookings-kit.js` `formerlyLine(b)` | core | `span.bk-formerly` with `model.formerlyNote(b)`, or `null`: the line under the name of a booking from before its act changed its name. A Coming up card puts it straight after its top line (`.bk-card-top`), the booking's header after `.bk-hero-top`. |
@@ -495,7 +508,7 @@ may call it.
 | `pages/songs.js` `openSong(id)` / `editSong(s, onSaved)` | songs | View sheet / edit form. |
 | `js/setlist.js` `openSetlist(id, { target, bookingId })` / `newSetlist(preset)` / `printSetlist(id, { bookingId })` / `setlistText(list)` | songs | Editor sheet (target = slot minutes) / create and return the record / print the big stage copy (with the show's date, venue and set time) / plain text. |
 | `pages/sessions.js` `openLog(id)` / `newLog(preset)` | studio | Go to Studio log and open that log / create one (`{ bookingId, songId, title }`) and open it. Resolves once drawn, at the top, with the focus on + Take when the opener went away. |
-| `pages/backline.js` `openGear(id)` / `editGear(g, onSaved)` / `editKit(k, onSaved)` | backline | The item's sheet / edit forms. |
+| `pages/backline.js` `openGear(id)` / `editGear(g, onSaved)` / `editKit(k, onSaved)` / `gearCard(id)` | backline | The item's sheet / edit forms / the item's card on the Backline page with its act's fold opened first (`null` when the page is not drawn or its own filter leaves the item out): the search presses it there. |
 | `pages/venues.js` `openVenue(id)` / `editVenue(v, onSaved)` / `venueWarnings(b)` | venues | View sheet / edit form / warnings for a booking at that venue (curfew before the set ends, noise limit, capacity < tickets…) as strings. |
 | `js/daysheet.js` `openDaySheet(bookingId)` / `printDaySheet(bookingId)` | daysheet | Preview sheet / print. |
 | `js/money.js` `docOf(b, 'quote'|'invoice')` / `docTotals(doc)` / `isOverdue(b)` | money | The document or null / `{ net, tax, total, paid, due }` / unpaid past due. |
@@ -796,6 +809,54 @@ and the acts list folds the acts under it. Everything lives in one block of `pag
   and one about the role's order across the whole list (`42-roles-acts`) files Sable under Rock by hand, so the list
   has one main genre and no groups.
 
+### Gear by band: Backline in folds (`js/model.js`, `js/pages/backline.js`)
+
+Each item can be for one act and paid for by someone (`gear.actId`, `gear.paidBy`, above); for a producer, a manager
+and Everything (`gearByBand()`) Backline folds the gear by act, so they see what each act's gear is worth and what
+they put in. Everything lives in one block of `pages/backline.js` ("by band").
+
+* **When.** Only for those roles, and only once an item is for an act still in Acts. Otherwise the Items view is as it
+  always was, in categories, and none of the hooks below are drawn; every other role's Backline is as it was, but for
+  the two boxes in the form.
+* **The folds.** `div.bl-bands` holds a `section.bl-band[data-band=<act id>]` per act with an item (`data-band="none"`
+  for the rest; `.open` while open), A to Z by the act's name, then the rest, under "Not for an act" in the role's word
+  (`actWord()`: Not for an artist, Not for an act, Not for a band). Each starts with `h2.bl-band-h >
+  button.bl-band-head#bl-band-<id>` (`#bl-band-none`), a real disclosure button: `aria-expanded`,
+  `aria-controls="bl-band-<id>-list"`, the name in `span.bl-band-name`, the count of items (each item's quantity:
+  the page's own "items") in `span.bl-band-n`, the chevron `span.bl-chev` and, where money is shown (`moneyShown()`),
+  `span.bl-band-sum` with `span.bl-band-worth` ("Value $7,950") and `span.bl-band-mine` ("Your investment $4,300"):
+  `model.gearWorth` and `model.gearInvested` of the fold's items. The spans are hidden from a screen reader, which reads
+  the button's `aria-label` instead: "Sable, 4 items, total value $7,950, your investment $4,300" ("Sable, 4 items"
+  without money). Under it, `div.bl-band-list#bl-band-<id>-list[role=group]` labelled by the heading holds the items as
+  the page draws them otherwise (`div.bl-groups` of category sections and cards), and is empty and `hidden` while folded.
+* **Folding.** Every fold is folded at first; a tap, Enter or Space on a heading opens or folds it, and the page is
+  drawn again with the focus on the heading (it has an id, so the focus also comes back to it after any other redraw).
+  The folds opened are kept in memory for the visit (`F.open`): another section and back keeps them; a reload folds
+  them all. An item added or saved through the form opens its fold, so it is there to see; `gearCard(id)` (the search
+  at the top of every page) opens the item's fold and draws the page before it presses the card.
+* **The page's search and the owner chips** open every fold with a match and leave out the folds without one; the
+  counts and figures are then the matches'. A fold folded meanwhile (`F.shut`) opens again when the words or the chip
+  change; clearing them puts the folds back as they were. The page's stats, inventory and CSV are unchanged.
+* **The form.** `editGear` has "For <act word>" (`select[data-key=actId]`: "Not for an artist", then the acts A to Z)
+  and "Paid by" (`select[data-key=paidBy]`: Not known, You (the profile's name), The <act word>, then each person,
+  band first) straight after Whose it is, in every role. Only a role with the folds is told about them in the hints,
+  and only where money is shown about the investment. A save stores the picks, and leaves the keys off for none and
+  not known (`withBand`).
+* **The item's sheet** has For <act word> and Paid by rows for those roles only.
+* **Walkthroughs.** For those roles the page's has a "By artist" step (in the role's word) just before "An item": on
+  the folds it points at `.bl-band-head` (A to Z, Not for an act last, the count, and where money is shown the total
+  value at value times how many and your investment, what you paid for yourself), and "An item" drops the first fold
+  open when none is; before any item is for an act it points at `#bl-add` and says how to get the folds. Its "Whose
+  is it?" and "Find something" steps say the folds with a match open. The item form's walkthrough has a "For an
+  artist" step for every role (the investment only where it applies).
+* **Search.** `gearText(g)` has every name of the item's act (its name now, then the earlier ones), so the page's own
+  search and the search at the top of every page find an item by its act; the latter's row then says why ("For
+  artist: Sable").
+* **What it is not.** No earnings or return beside the figures: money in and out stays on the Money page. Stage packs,
+  bookings, clashes, insurance and everything printed are unchanged.
+* **Specs.** The sample's gear is for no act, so the sample's Backline is in categories for every role; `51-band-gear`
+  ties items to the sample's acts and adds three.
+
 ### House rules, drawn (`js/venues-rules.js`, `js/pages/venues.js`)
 
 * The chip: `span.vn-chip.vn-chip-<ok|some|strict>` with the visible words in `> [aria-hidden=true]` and the spoken
@@ -1088,7 +1149,7 @@ backline, take, comp, stems, split sheet.
   tapped with a finger and clicked), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
-  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `50-backline`, `55-venues`,
+  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `50-backline`, `51-band-gear` (each band's gear in a fold, with your investment), `55-venues`,
   `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
@@ -1113,7 +1174,7 @@ need a change there, describe it in your report instead.
 | songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs` |
 | acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs`, `tests/specs/47-genres.cjs` |
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
-| backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
+| backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/51-band-gear.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |
 | settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs` |
 | search | `js/search.js`, `css/search.css`, `tests/specs/46-search.cjs` |
