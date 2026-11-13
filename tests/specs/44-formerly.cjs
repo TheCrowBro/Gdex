@@ -325,7 +325,7 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     ok('Songs finds the act’s songs by its earlier name', (await page.locator('.sg-song').count()) === 1 && /Lanterns/.test(await page.locator('.sg-song').first().innerText()));
     await page.fill('#sg-q', ''); await sleep(100);
 
-    /* the calendar: Week rows, and the words a screen reader is given where there is no room */
+    /* the calendar: the words a screen reader is given where there is no room to write it */
     await openB(page, 'b-40');
     ok('the show’s own page adds “formerly” under its name', (await page.locator('.bk-hero .bk-formerly').innerText()) === 'formerly The Night Owls' && (await page.textContent('.bk-title')).trim().endsWith('Owl Parliament @ The Crown')
       && await page.evaluate(() => document.querySelector('.bk-hero-top').nextElementSibling === document.querySelector('.bk-hero .bk-formerly')));
@@ -344,10 +344,18 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     blk = await blockOf('b-40');
     ok('3 days: the block’s hidden words say it too', !!blk && !/formerly/i.test(blk.seen) && /^Formerly The Night Owls\. /.test(blk.hidden), JSON.stringify(blk));
     await page.click('#bk-view-week'); await sleep(250);
-    const rowOf = (id, iso) => page.evaluate(([id, iso]) => { const el = document.getElementById(`bk-ev-${id}-${iso}`); if (!el) return null; const f = el.querySelector('.bk-formerly'); return { was: f ? f.textContent : '', under: !!f && f.previousElementSibling === el.querySelector('.bk-wrow-top') && f.parentElement === el.querySelector('.bk-wrow-main'), title: el.querySelector('.bk-wrow-title').textContent.trim() }; }, [id, iso]);
-    let row = await rowOf('b-40', D[-40]);
-    ok('Week: a show from before the change adds “formerly” under its name, which is the new name', !!row && row.was === 'formerly The Night Owls' && row.under && row.title.endsWith('Owl Parliament @ The Crown'), JSON.stringify(row));
-    row = await rowOf('b-own', D[-40]);
+    // A Week square has no room to write it either: its spoken name has it after the booking's name (the new one), as
+    // two weeks and the month do. was: what follows the name there, up to the status in brackets ('' for nothing).
+    const sayOf = (id, iso) => page.evaluate(([id, iso]) => Promise.all([import('./js/store.js'), import('./js/model.js')]).then(([s, m]) => {
+      const sq = document.querySelector(`.bk-cal-week .bk-day[data-date="${iso}"]`), b = s.byId('bookings', id); if (!sq || !b) return null;
+      const label = sq.getAttribute('aria-label'), title = m.bookingTitle(b), k = m.playKey(b), head = (k == null ? '' : m.nightClock(k) + ' ') + title; // its time first, when it has one
+      const i = Math.max(label.indexOf(': ' + head), label.indexOf('. ' + head)); if (i < 0) return null;
+      const rest = label.slice(i + 2 + head.length);
+      return { was: rest.startsWith(', ') ? rest.slice(2, rest.indexOf(' (')) : '', title, seen: sq.innerText };
+    }), [id, iso]);
+    let row = await sayOf('b-40', D[-40]);
+    ok('Week: a show from before the change says “formerly” after its name, which is the new name, in its square’s spoken name only', !!row && row.was === 'formerly The Night Owls' && row.title.endsWith('Owl Parliament @ The Crown') && !/formerly/.test(row.seen), JSON.stringify(row));
+    row = await sayOf('b-own', D[-40]);
     ok('Week: a booking with a title of its own reads right', !!row && row.was === 'Owl Parliament, formerly The Night Owls' && row.title.endsWith('Album launch'), JSON.stringify(row));
     await page.click('#bk-view-two'); await sleep(250);
     let label = await page.getAttribute(`.bk-day[data-date="${D[-40]}"]`, 'aria-label');
@@ -356,14 +364,14 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     label = await page.getAttribute(`.bk-day[data-date="${D[-40]}"]`, 'aria-label');
     ok('Month: and so does the month’s', /Owl Parliament @ The Crown, formerly The Night Owls \(Confirmed\)/.test(label) && !/formerly/.test(await page.locator(`.bk-day[data-date="${D[-40]}"]`).innerText()), label);
     // each old show says the name the band had that night; sessions and rehearsals too; the day of the change does not
-    const weekRow = async (id, n) => { await openB(page, id); await page.click('.bk-page .back-btn'); await page.waitForSelector('.bk-dayview'); await page.click('#bk-view-week'); await sleep(250); return rowOf(id, D[n]); };
-    ok('a show from the first name’s days says “formerly The Owls”', ((await weekRow('b-400', -400)) || {}).was === 'formerly The Owls');
-    ok('a session from before the change says it', ((await weekRow('b-ses', -30)) || {}).was === 'formerly The Night Owls');
-    ok('a rehearsal from before the change says it', ((await weekRow('b-reh', -20)) || {}).was === 'formerly The Night Owls');
-    ok('a show the day before the change says it', ((await weekRow('b-11', -11)) || {}).was === 'formerly The Night Owls');
-    row = await weekRow('b-10', -10);
+    const weekSquare = async (id, n) => { await openB(page, id); await page.click('.bk-page .back-btn'); await page.waitForSelector('.bk-dayview'); await page.click('#bk-view-week'); await sleep(250); return sayOf(id, D[n]); };
+    ok('a show from the first name’s days says “formerly The Owls”', ((await weekSquare('b-400', -400)) || {}).was === 'formerly The Owls');
+    ok('a session from before the change says it', ((await weekSquare('b-ses', -30)) || {}).was === 'formerly The Night Owls');
+    ok('a rehearsal from before the change says it', ((await weekSquare('b-reh', -20)) || {}).was === 'formerly The Night Owls');
+    ok('a show the day before the change says it', ((await weekSquare('b-11', -11)) || {}).was === 'formerly The Night Owls');
+    row = await weekSquare('b-10', -10);
     ok('a show on the day of the change already has the new name', !!row && row.was === '' && row.title.endsWith('Owl Parliament @ The Crown'), JSON.stringify(row));
-    ok('a show after the change says nothing', ((await weekRow('b-3', -3)) || {}).was === '');
+    ok('a show after the change says nothing', ((await weekSquare('b-3', -3)) || {}).was === '');
     await openB(page, 'b-3');
     ok('…nor does its page', (await page.locator('.bk-hero .bk-formerly').count()) === 0);
     await openB(page, 'b-long');
@@ -772,7 +780,8 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     ok('320px: a show’s page with “formerly” under its name does not scroll sideways', (await wide(page)) <= 320 && await inside('.bk-hero .bk-formerly', '.bk-hero'), String(await wide(page)));
     await page.click('.bk-page .back-btn'); await page.waitForSelector('.bk-dayview');
     await page.click('#bk-view-week'); await sleep(300);
-    ok('320px: nor does the Week, with a row that says whose booking it was', (await wide(page)) <= 320 && (await page.locator('.bk-wrow .bk-formerly').count()) === 2 && await inside('.bk-wrow .bk-formerly', '.bk-wrow'), String(await wide(page)));
+    const wkSaid = await page.locator(`.bk-cal-week .bk-day[data-date="${D[-40]}"]`).getAttribute('aria-label');
+    ok('320px: nor does the Week, whose square says whose booking it was', (await wide(page)) <= 320 && (wkSaid.match(/formerly/g) || []).length === 2 && await inside('.bk-cal-week .bk-day', '.bk-cal-week'), `${await wide(page)} ${wkSaid}`);
     ok('no errors in the console (320px)', errors.length === 0, errors.join(' | '));
     await browser.close();
   }

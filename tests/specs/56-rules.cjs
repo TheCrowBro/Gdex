@@ -666,11 +666,13 @@ const all = []; // every console error of every browser below
       lines.sort((p, q) => p.y - q.y);
       return lines.length > 1 && /^\p{Extended_Pictographic}\uFE0F?$/u.test(lines[0].t) ? [lines.map(x => x.t).join(' / ')] : [];
     }), sel);
+    ok(`${scheme}, 320px: on Coming up a chip never leaves its icon alone on a line (“📷 Pro cameras ✗” at The Church among them)`, (await page.locator('.bk-agenda .bk-card[data-id="c92"] .vn-chip').count()) === 1 && (await iconAlone('.bk-agenda')).length === 0, (await iconAlone('.bk-agenda')).join(' | '));
+    // The Week is day squares, with no room for a chip: a square says the rules in its spoken name, in the model's words.
     await page.click('#bk-view-week'); await sleep(250);
-    for (let i = 0; i < 3 && !(await page.locator(`#bk-ev-c92-${D3}`).count()); i++) { await page.click('[aria-label="Next week"]'); await sleep(150); }
-    const weekChips = await page.locator('.bk-week .bk-wrow .vn-chip').count();
-    ok(`${scheme}, 320px: in a Week row a chip never leaves its icon alone on a line (“📷 Pro cameras ✗” at The Church among them)`, (await page.locator(`#bk-ev-c92-${D3} .vn-chip`).count()) === 1 && weekChips >= 2 && (await iconAlone('.bk-week')).length === 0, `${weekChips} ${(await iconAlone('.bk-week')).join(' | ')}`);
-    ok(`${scheme}, 320px: …nor on Coming up`, (await iconAlone('.bk-agenda')).length === 0, (await iconAlone('.bk-agenda')).join(' | '));
+    const sq92 = `.bk-cal-week .bk-day[data-date="${D3}"]`;
+    for (let i = 0; i < 3 && !(await page.locator(sq92).count()); i++) { await page.click('[aria-label="Next week"]'); await sleep(150); }
+    const wk = await page.evaluate(([sel, ids]) => import('./js/model.js').then(m => ({ said: document.querySelector(sel).getAttribute('aria-label'), want: ids.map(id => m.rulesChipText(m.showRulesVenue(window.__s.byId('bookings', id))).spoken), chips: document.querySelectorAll('.bk-cal-panel .vn-chip').length })), [sq92, ['c91', 'c92']]);
+    ok(`${scheme}, 320px: in the Week the day’s square says each show’s house rules in its spoken name (The Church’s “Pro cameras not allowed” among them), and draws no chip`, wk.want.every(w => w && wk.said.includes(w)) && wk.said.includes('House rules: Pro cameras not allowed') && wk.chips === 0 && (await wide(page)) <= 320, JSON.stringify(wk));
     await page.click('#bk-view-month'); await sleep(250);
     await openB(page, 'c91');
     fit = await inside('.bk-hero');

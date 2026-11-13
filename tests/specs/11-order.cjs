@@ -9,17 +9,29 @@ const dayFromNow = (page, n) => page.evaluate(n => import('./js/util.js').then(u
 const put = (page, list, rec) => page.evaluate(([l, r]) => import('./js/store.js').then(s => s.upsert(l, r).id), [list, rec]);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-// The ids of the bookings on a day, in the order the calendar draws them. This helper alone knows how the calendar
-// shows a day: it reads the day's rows in the Week view (stepping on a week at a time until the day is there), then
-// opens that day by its name, so the month it comes back to is the day's own, as the checks after it expect.
+// The ids of the bookings on a day, in the order the calendar names them. This helper alone knows how the calendar
+// shows a day: it reads the day's square in the Week view (stepping on a week at a time until the day is there), whose
+// spoken name says each booking by its time (when it has one) and its name, after “: ” or “. ”; then it opens that day
+// by its square, so the month it comes back to is the day's own, as the checks after it expect.
+const weekSq = iso => `.bk-cal-week .bk-day[data-date="${iso}"]`;
+const said = (page, iso) => page.locator(weekSq(iso)).getAttribute('aria-label');
+async function toWeekOf(page, iso) {
+  await page.click('#bk-view-week'); await page.waitForSelector('.bk-cal-week');
+  for (let i = 0; i < 12 && !(await page.locator(weekSq(iso)).count()); i++) { await page.click('[aria-label="Next week"]'); await sleep(200); }
+}
 async function dayIds(page, iso) {
-  await page.click('#bk-view-week'); await page.waitForSelector('.bk-week');
-  for (let i = 0; i < 12 && !(await page.locator(`#bk-wd-${iso}`).count()); i++) { await page.click('[aria-label="Next week"]'); await sleep(200); }
-  const ids = await page.locator(`.bk-wday:has(#bk-wd-${iso}) .bk-ev`).evaluateAll(els => els.map(e => e.dataset.id));
-  await page.click(`#bk-wd-${iso}`); await page.waitForSelector('.bk-dayview');
+  await toWeekOf(page, iso);
+  const ids = await page.evaluate(iso => Promise.all([import('./js/store.js'), import('./js/model.js')]).then(([s, m]) => {
+    const label = document.querySelector(`.bk-cal-week .bk-day[data-date="${iso}"]`).getAttribute('aria-label');
+    const at = b => { const k = m.playKey(b), head = (k == null ? '' : m.nightClock(k) + ' ') + m.bookingTitle(b) + ' ('; return Math.max(label.indexOf(': ' + head), label.indexOf('. ' + head)); };
+    return s.db.bookings.filter(b => s.covers(b, iso)).map(b => [b.id, at(b)]).filter(x => x[1] >= 0).sort((a, b) => a[1] - b[1]).map(x => x[0]);
+  }), iso);
+  await page.click(weekSq(iso)); await page.waitForSelector('.bk-dayview');
   await toMonth(page); await page.waitForSelector('.bk-monthview');
   return ids;
 }
+// One booking's sentence in a Week square's spoken name: from its time and name to the full stop before the next one.
+const sentence = (label, head) => { const i = Math.max(label.indexOf(': ' + head), label.indexOf('. ' + head)); if (i < 0) return null; const from = i + 2, end = label.indexOf('. ', from); return label.slice(from, end < 0 ? undefined : end); };
 
 (async () => {
   const { browser, page, errors } = await open({ sample: true });
@@ -198,15 +210,16 @@ async function dayIds(page, iso) {
   ok('the model: a day given, only the clashes on that day; none given, a booking over several days names the other show’s day', sums.f1 === '' && sums.f2 === 'Overlaps with Sable, 21:30' && sums.whole === `Overlaps with Sable, ${wd} 21:30`
     && sums.g === 'Overlaps with The Night Owls, 21:00' && sums.g2 === sums.g, JSON.stringify(sums));
   await go(page, 'bookings'); await toMonth(page);
-  await page.click('#bk-view-week'); await page.waitForSelector('.bk-week');
+  await page.click('#bk-view-week'); await page.waitForSelector('.bk-cal-week');
   await page.click('[aria-label="Today, this week"]'); await sleep(200);
-  const rowNote = (id, iso) => page.evaluate(([id, iso]) => { const r = document.getElementById(`bk-ev-${id}-${iso}`); return r ? (r.querySelector('.bk-overlap') || {}).textContent || '' : null; }, [id, iso]);
+  // In the Week each day is a square, which says the overlap note in its spoken name (no room to write it).
   const wk = {};
-  for (const [id, iso] of [['o-F', F1], ['o-F', F2], ['o-G', F2]]) {
-    for (let i = 0; i < 4 && !(await page.locator(`#bk-ev-${id}-${iso}`).count()); i++) { await page.click('[aria-label="Next week"]'); await sleep(200); }
-    wk[`${id} ${iso === F1 ? 'first' : 'second'}`] = await rowNote(id, iso);
+  for (const [id, head, iso] of [['o-F', '21:00 The Night Owls @ Field Stage (', F1], ['o-F', '21:00 The Night Owls @ Field Stage (', F2], ['o-G', '21:30 Sable @ Tent Two (', F2]]) {
+    await toWeekOf(page, iso);
+    wk[`${id} ${iso === F1 ? 'first' : 'second'}`] = sentence(await said(page, iso), head);
   }
-  ok('Week: a show over two days carries the overlap note only on its row of the day the clash happens', wk['o-F first'] === '' && wk['o-F second'] === 'Overlaps with Sable, 21:30' && wk['o-G second'] === 'Overlaps with The Night Owls, 21:00', JSON.stringify(wk));
+  const toF2 = `21:00 The Night Owls @ Field Stage (Confirmed): to ${await page.evaluate(iso => import('./js/util.js').then(u => u.fmtLong(iso)), F2)}`;
+  ok('Week: a show over two days says the overlap note only in the square of the day the clash happens', wk['o-F first'] === toF2 && wk['o-F second'] === `${toF2}; Overlaps with Sable, 21:30` && wk['o-G second'] === '21:30 Sable @ Tent Two (Confirmed): Overlaps with The Night Owls, 21:00', JSON.stringify(wk));
   await page.click('#bk-view-month'); await sleep(250);
   const cardNote = id => page.evaluate(id => { const c = document.querySelector(`.bk-agenda .bk-card[data-id="${id}"]`); return c ? (c.querySelector('.bk-overlap') || {}).textContent || '' : null; }, id);
   if (await page.locator('#bk-agenda-more').count() && !(await page.locator('.bk-agenda .bk-card[data-id="o-F"]').count())) { await page.click('#bk-agenda-more'); await sleep(250); }

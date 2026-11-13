@@ -1,6 +1,6 @@
 // The calendar: what the Bookings page shows while no booking is open. One frame (the heading, the filter chips, the
-// calendar panel with its row of view buttons, and "Coming up") around five views of the same bookings: the month and
-// two weeks as day squares, the week as a list for each day, three days and one day as a time grid.
+// calendar panel with its row of view buttons, and "Coming up") around five views of the same bookings: the month, two
+// weeks and the week as day squares, three days and one day as a time grid.
 // Everything it needs from the page (js/pages/bookings.js) arrives in ctx; it never imports the page.
 //   ctx = { S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }
 //   S: the page's state. Read S.mode ('month' | 'two' | 'week' | 'three' | 'day'), S.day (the one anchor day, always a
@@ -47,12 +47,13 @@ function venueLine(b, withAddress = false) {
 const pageName = () => sectionName('bookings', 'Bookings');
 // "All acts" in the role's words: "All bands", "All artists"; a roster is one thing, so "Whole roster".
 const allActs = () => { const n = sectionName('acts', 'Acts'), plural = actWord() + 's'; return n.toLowerCase() === plural || /^my\b/i.test(n) ? `All ${plural}` : `Whole ${n.toLowerCase()}`; };
+// The venue's house rules as a screen reader is given them ("House rules: Pro cameras not allowed, and 1 more"), from
+// the model, never read out of the chip's nodes; '' when there are none.
+const rulesSaid = b => { try { return (model.rulesChipText(model.showRulesVenue(b)) || {}).spoken || ''; } catch { return ''; } }; // a fault in the rules must not break a block or a square
 // What a block or a pill on the time grid tells a screen reader beyond the words on it (it is too small for the chip
 // and the note): its days (a pill), the status, the overlap note, the venue's house rules as spoken, "Didn’t go".
 function said(b, days = '') {
-  let rules = '';
-  try { rules = (model.rulesChipText(model.showRulesVenue(b)) || {}).spoken || ''; } catch { /* a fault in the rules must not break a block */ }
-  const parts = [days, model.statusLabel(b.status), model.overlapText(b), rules, didntGo(b) && 'Didn’t go'].filter(Boolean);
+  const parts = [days, model.statusLabel(b.status), model.overlapText(b), rulesSaid(b), didntGo(b) && 'Didn’t go'].filter(Boolean);
   const was = model.formerlyNote(b); // the name the act had that night comes first, straight after the name on the block
   if (was) parts.unshift(capital(was));
   return h('span', { class: 'sr-only' }, ' ' + parts.map(p => `${p}.`).join(' '));
@@ -101,7 +102,7 @@ const openDay = (iso, today) => `${fmtLong(iso)}${iso === today ? ', today' : ''
 export function calendarView(ctx) {
   X = ctx;
   const { S, go } = X;
-  const mode = modeOf(S), nav = NAV[mode], isDay = mode === 'day', squared = mode === 'month' || mode === 'two';
+  const mode = modeOf(S), nav = NAV[mode], isDay = mode === 'day', squared = mode === 'month' || mode === 'two' || mode === 'week';
   const today = todayISO(), R = rangeOf(mode, S.day);
   const title = mode === 'month' ? monthTitle(S.day) : isDay ? fmtLong(S.day) : rangeTitle(R.first, R.last);
   // ‹ › step by the length of the view; 0 is Today. Another month: the day in view becomes today when that is this
@@ -116,7 +117,7 @@ export function calendarView(ctx) {
     announce(isDay ? fmtLong(day) + (day === todayISO() ? ', today' : '') : mode === 'month' ? monthTitle(day) : rangeTitle(to.first, to.last));
   };
   const all = db.bookings.filter(b => isoOk(b.date) && X.passes(b)); // the filter chips apply in every view
-  const body = h('div', { class: 'bk-body' }, squared ? squares(mode, R, all, today, title) : mode === 'week' ? weekList(R, all, today) : timeGrid(mode, R, all, today));
+  const body = h('div', { class: 'bk-body' }, squared ? squares(mode, R, all, today, title) : timeGrid(mode, R, all, today));
   swipe(body, step);
 
   const views = h('div', { class: 'bk-views', role: 'group', 'aria-label': 'Calendar view' }, VIEWS.map(([id, label]) => h('button', {
@@ -241,14 +242,15 @@ function swipe(el, step) {
   el.addEventListener('click', e => { if (Date.now() - at < 500) { e.stopPropagation(); e.preventDefault(); } }, true); // the tap that ends a swipe opens nothing
 }
 
-/* ------------------------------- month and two weeks: day squares ------------------------------- */
+/* ------------------------------- month, two weeks and the week: day squares ------------------------------- */
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// The two weeks and the week are tall squares from a Monday: two rows of them, or one row that is taller still.
 function squares(mode, R, all, today, title) {
-  const two = mode === 'two', cells = [];
-  const lead = two ? 0 : (parseISO(R.first).getDay() + 6) % 7; // Monday first
+  const tall = mode === 'two' || mode === 'week', cells = [];
+  const lead = tall ? 0 : (parseISO(R.first).getDay() + 6) % 7; // Monday first
   for (let i = 0; i < lead; i++) cells.push(h('div', { class: 'day blank', 'aria-hidden': 'true' }));
-  for (const iso of R.days) cells.push(dayCell(iso, all, today, two, two && iso === R.first));
-  const grid = h('div', { class: 'cal bk-cal' + (two ? ' bk-cal-two' : ''), role: 'group', 'aria-label': title },
+  for (const iso of R.days) cells.push(dayCell(iso, all, today, { tall, named: tall && iso === R.first, week: mode === 'week' }));
+  const grid = h('div', { class: 'cal bk-cal' + (mode === 'two' ? ' bk-cal-two' : mode === 'week' ? ' bk-cal-week' : ''), role: 'group', 'aria-label': title },
     WEEKDAYS.map(w => h('div', { class: 'wd', 'aria-hidden': 'true' }, w)), cells);
   arrowKeys(grid, mode, R);
   return grid;
@@ -261,39 +263,50 @@ const squareOrder = list => [
   ...list.filter(b => !multi(b)).sort(byPlay),
 ];
 
-// A day square. tall: a square of the two weeks, with room for each booking's time and name on every screen; named:
-// its number also says the month (the first of the fourteen, and any 1st).
-function dayCell(iso, all, today, tall = false, named = false) {
-  const list = squareOrder(all.filter(b => covers(b, iso)));
+// A day square. tall: a square of the two weeks or the week, with room for each booking's time and name on every
+// screen; named: its number also says the month (the first square, and any 1st); week: a square of the week, alone in
+// its row, so it has room for six lines before "+N" (the others three).
+function dayCell(iso, all, today, { tall = false, named = false, week = false } = {}) {
+  const list = squareOrder(all.filter(b => covers(b, iso))), lines = week ? 6 : 3;
   const d = parseISO(iso), dow = (d.getDay() + 6) % 7;
   // A booking over several days shows on each: its line runs on from the day before, and the name shows on the first
   // day and at the start of each week row.
   const seg = b => (!multi(b) ? '' : iso === b.date ? ' bk-seg-start' : iso === lastDay(b) ? ' bk-seg-end' : ' bk-seg-mid');
-  const titled = b => !multi(b) || iso === b.date || dow === 0 || (!tall && iso.endsWith('-01')); // and in the month on the 1st, for one that began last month (the two weeks run on across a 1st)
+  const titled = b => !multi(b) || iso === b.date || dow === 0 || (!tall && iso.endsWith('-01')); // and in the month on the 1st, for one that began last month (the two weeks and the week run on across a 1st)
   // The month's line leads with where (the act is its colour): a typed title, else the venue, else the act or client.
   const short = b => `${model.kindIcon(b.kind)} ${b.title || model.venueOf(b).name || model.bookingTitle(b)}`;
-  // Two weeks: the time the band plays, then who: a typed title, else the act, the client, the venue, the kind. The
-  // time is a part of its own, so a narrow square cuts the name short and never the time.
+  // Two weeks and the week: the time the band plays, then who: a typed title, else the act, the client, the venue, the
+  // kind. The time is a part of its own, so a narrow square cuts the name short and never the time.
   const timed = b => [playClock(b) && [h('span', { class: 'bk-mini-time' }, playClock(b)), ' '], h('span', { class: 'bk-mini-name' }, b.title || model.actName(b.actId) || b.client || model.venueOf(b).name || model.kindLabel(b.kind))];
-  // A line that runs on from the day before carries no name: a no-break space keeps it a line high (in the two weeks, as
+  // A line that runs on from the day before carries no name: a no-break space keeps it a line high (in a tall square, as
   // high as the line it runs on from, where a phone puts the time over the name).
   const blank = b => (tall && playClock(b) ? [h('span', { class: 'bk-mini-time' }, '\u00a0'), h('span', { class: 'bk-mini-name' }, '\u00a0')] : '\u00a0');
   const mini = b => h('span', { class: `bk-mini ${tone(b.status)}${seg(b)}`, style: actStyle(b) }, !titled(b) ? blank(b) : tall ? timed(b) : short(b));
   const dot = b => h('i', { class: `bk-dot ${tone(b.status)}${multi(b) ? ' bk-bar' + seg(b) : ''}`, style: actStyle(b) });
   // A square has no room to write "Didn’t go" (a phone shows a dot, or a time): its spoken name says it, after the status.
   // Nor for "formerly The Night Owls" (a booking from before its act changed its name): that follows the booking's name.
-  const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(b => `${tall && playClock(b) ? playClock(b) + ' ' : ''}${model.bookingTitle(b)}${model.formerlyNote(b) ? ', ' + model.formerlyNote(b) : ''} (${model.statusLabel(b.status)}${didntGo(b) ? ', didn’t go' : ''})`).join(', ') : 'nothing booked'}`;
+  // A square of the week says, after the status, what a list of the day would print beside the name, as the time grid's
+  // hidden words do: the last day of a booking over several days, the time it is sorted by when that stands in for the
+  // time on stage ("Doors 19:30"), where it is, "after midnight" or "no time yet", the overlap note of this day only,
+  // and the venue's house rules; each booking a sentence of its own.
+  const spoken = b => {
+    const head = `${tall && playClock(b) ? playClock(b) + ' ' : ''}${model.bookingTitle(b)}${model.formerlyNote(b) ? ', ' + model.formerlyNote(b) : ''} (${model.statusLabel(b.status)}${didntGo(b) ? ', didn’t go' : ''})`;
+    const more = week ? [multi(b) && `to ${fmtLong(lastDay(b))}`, fallBack(b) && `${fallBack(b)} ${playClock(b)}`, venueLine(b), model.isAfterMidnight(b) && 'after midnight', !playClock(b) && 'no time yet', model.overlapText(b, undefined, { day: iso }), rulesSaid(b)].filter(Boolean) : [];
+    return more.length ? `${head}: ${more.join('; ')}` : head;
+  };
+  const label = `${fmtLong(iso)}${iso === today ? ', today' : ''}: ${list.length ? list.map(spoken).join(week ? '. ' : ', ') : 'nothing booked'}`;
   return h('button', {
     type: 'button', class: 'day bk-day' + (tall ? ' bk-day-tall' : '') + (iso === today ? ' today' : '') + (list.length ? ' has' : ''), 'data-date': iso, 'aria-label': label,
     'aria-current': iso === today ? 'date' : null, onclick: () => X.go({ mode: 'day', day: iso }),
   },
     h('span', { class: 'num' }, tall && (named || d.getDate() === 1) ? monthDay(d) : d.getDate()),
-    list.length > 0 && h('span', { class: 'bk-minis' }, list.slice(0, 3).map(mini), list.length > 3 && h('span', { class: 'more' }, `+${list.length - 3}`, h('span', { class: 'bk-more-word' }, ' more'))),
+    list.length > 0 && h('span', { class: 'bk-minis' }, list.slice(0, lines).map(mini), list.length > lines && h('span', { class: 'more' }, `+${list.length - lines}`, h('span', { class: 'bk-more-word' }, ' more'))),
     !tall && list.length > 0 && h('span', { class: 'bk-dots', 'aria-hidden': 'true' }, list.slice(0, 4).map(dot), list.length > 4 && h('span', { class: 'more' }, '+')));
 }
 
 // Arrow keys move between days (up and down by a week). Past the edge of the month the month follows; past the edge
-// of the two weeks they step as ‹ › do (so they always start on a Monday), and the focus lands on the day headed for.
+// of the two weeks or the week they step as ‹ › do (so they always start on a Monday), and the focus lands on the day
+// headed for.
 function arrowKeys(grid, mode, R) {
   grid.addEventListener('keydown', e => {
     const cell = e.target.closest && e.target.closest('[data-date]');
@@ -301,40 +314,11 @@ function arrowKeys(grid, mode, R) {
     if (!cell || !step) return;
     e.preventDefault(); // the section menu keeps its arrows for the rest of the page
     const iso = addDays(cell.dataset.date, step);
-    if (mode === 'two') { if (iso < R.first || iso > R.last) X.go({ day: addDays(X.S.day, iso < R.first ? -14 : 14) }, { top: false }); }
+    if (mode !== 'month') { if (iso < R.first || iso > R.last) X.go({ day: addDays(X.S.day, (iso < R.first ? -1 : 1) * NAV[mode].days) }, { top: false }); }
     else if (iso.slice(0, 7) !== cell.dataset.date.slice(0, 7)) X.go({ day: iso }, { top: false });
     const root = X.root(), next = root && root.querySelector(`[data-date="${iso}"]`);
     if (next) next.focus();
   });
-}
-
-/* ------------------------------- week: a list for each day ------------------------------- */
-function weekList(R, all, today) {
-  return h('div', { class: 'bk-week' }, R.days.map(iso => {
-    const list = all.filter(b => covers(b, iso)).sort(byPlay), now = iso === today;
-    return h('section', { class: 'bk-wday' + (now ? ' today' : '') + (list.length ? '' : ' bk-wday-empty') },
-      h('h3', { class: 'bk-wday-h' }, h('button', { type: 'button', class: 'bk-wday-head', id: 'bk-wd-' + iso, 'data-date': iso, 'aria-label': openDay(iso, today), 'aria-current': now ? 'date' : null,
-        onclick: () => X.go({ mode: 'day', day: iso }) }, dayShort(iso), now && ' · today')),
-      list.length ? h('div', { class: 'bk-wrows' }, list.map(b => weekRow(b, iso)))
-        : h('p', { class: 'muted bk-none' }, X.filtersOn() ? 'Nothing on with these filters' : 'Nothing on'));
-  }));
-}
-
-// A booking on one day of the week (class bk-ev: an entry in the view's own body, never a Coming up card). A booking
-// over several days has a row on each of them.
-function weekRow(b, iso) {
-  const time = playClock(b), by = fallBack(b);
-  // A show with no on-stage time yet says which time it is sorted by, as its card and its block do: "Doors 19:30".
-  const sub = [multi(b) && `to ${fmtShort(lastDay(b))}`, by && `${by} ${time}`, venueLine(b), model.isAfterMidnight(b) && 'after midnight', !time && 'no time yet'].filter(Boolean).join(' · ');
-  const row = h('button', { type: 'button', class: `bk-wrow bk-ev ${tone(b.status)}`, id: `bk-ev-${b.id}-${iso}`, 'data-id': b.id, style: actStyle(b), title: 'Tap to open; press and hold to delete',
-    onclick: () => { if (!wasHeld(row)) X.showBooking(b, iso); } },
-    h('span', { class: 'bk-wrow-time' }, time ? time + ' ' : h('span', { 'aria-hidden': 'true' }, '—')), // "no time yet" is in the line under the name
-    h('span', { class: 'bk-wrow-main' },
-      h('span', { class: 'bk-wrow-top' }, h('strong', { class: 'bk-wrow-title' }, h('span', { 'aria-hidden': 'true' }, model.kindIcon(b.kind) + ' '), model.bookingTitle(b)), pill(b.status)),
-      formerlyLine(b),
-      sub && h('span', { class: 'bk-wrow-sub muted small' }, sub),
-      ...cardExtras(b, { day: iso }))); // the overlap note of this day only: a booking over several days has a row on each
-  return X.holdToDelete(row, b);
 }
 
 /* ------------------------------- three days and one day: the time grid ------------------------------- */
@@ -457,7 +441,7 @@ function anyRow(loose, R, one) {
 const VIEW_HELP = {
   month: 'Each line or dot is a booking in its act’s colour. Hollow or dashed means a hold or an offer. Tap a day to open it; swipe, or use ‹ ›, for other months.',
   two: 'Two weeks of days, each booking with the time the band plays. Tap a day to open it; swipe, or use ‹ ›, to move two weeks.',
-  week: 'Each day lists what is on, in the order the bands play. Tap a booking to open it, or a day’s name to see that day alone.',
+  week: 'One week of tall days, each booking with the time the band plays, in the order they play. Tap a day to open it; swipe, or use ‹ ›, to move a week.',
   three: 'Hours run down the side and each booking sits at the time the band plays. Sets that overlap sit side by side; anything without a time is in the row at the top.',
 };
 // The time grid's step says what is drawn: hours only when there are some (a day or three with only the row at the
