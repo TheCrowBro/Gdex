@@ -46,6 +46,12 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.evaluate(() => import('./js/store.js').then(s => s.upsert('acts', { name: 'Test Pilots' }))); await sleep(300);
   await page.evaluate(() => window.logiGo('acts')); await sleep(500);
   ok('the count under Now playing follows the data (3 acts)', /3 acts$/.test(await page.textContent('#deck .dk-meta')), await page.textContent('#deck .dk-meta'));
+  // …in the role's own word for an act: the Bands page counts bands (a band, an audiophile), a producer's Artists counts
+  // artists, the others acts. Then back to Everything, on Acts, with no role kept, as the spec was.
+  const countAs = async id => { await page.evaluate(r => import('./js/roles.js').then(m => m.setRole(r)), id); await sleep(400); await page.evaluate(() => window.logiGo('acts')); await sleep(500); return page.textContent('#deck .dk-meta'); };
+  const words = {}; for (const id of ['band', 'audiophile', 'producer', 'manager', 'solo', 'scout', 'all']) words[id] = await countAs(id);
+  await page.evaluate(() => localStorage.removeItem('gdex-role'));
+  ok('the count says the role’s word for acts: 3 bands for a band and an audiophile, 3 artists for a producer, 3 acts for the others and Everything', /· 3 bands$/.test(words.band) && /· 3 bands$/.test(words.audiophile) && /· 3 artists$/.test(words.producer) && ['manager', 'solo', 'scout', 'all'].every(id => /· 3 acts$/.test(words[id])) && (await page$(page)) === 'acts', JSON.stringify(words));
 
   /* ---------------- the tape deck ---------------- */
   await page.click('#displayBtn'); await page.waitForSelector('.sheet[aria-label="Display & accessibility"]');
@@ -404,4 +410,18 @@ const page$ = page => page.evaluate(() => window.logiPage());
 
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
+
+  // One act is one band, one artist: the count's word in the singular, for a role whose acts have a word of their own.
+  {
+    const { browser, page, errors } = await open({ init: "localStorage.setItem('gdex-role','band')" });
+    await page.evaluate(() => import('./js/store.js').then(s => s.upsert('acts', { name: 'Lone Wolf' }))); await sleep(300);
+    await page.evaluate(() => window.logiGo('acts')); await sleep(500);
+    const band = await page.textContent('#deck .dk-meta');
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('producer'))); await sleep(400);
+    await page.evaluate(() => window.logiGo('acts')); await sleep(500);
+    const producer = await page.textContent('#deck .dk-meta');
+    ok('one act: “1 band” on a band’s Bands page, “1 artist” on a producer’s Artists', /· 1 band$/.test(band) && /· 1 artist$/.test(producer), `${band} | ${producer}`);
+    ok('no errors in the console (one act)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
 })().catch(e => { console.log('FAIL deck crashed — ' + e.message); process.exit(1); });

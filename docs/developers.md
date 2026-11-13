@@ -693,9 +693,11 @@ The digital player: `div.dk-player` (the bar: `button.dk-now.dk-swipe` with `spa
 `aria-label="<name>, bonus track"`). Its list sheet is `div.dk-sheet.dk-queue`, one list numbered from 1 ("1 track"
 for a menu of one).
 
-* `.dk-meta` holds two spans: `.dk-meta-at` ("Track 2 of 11", or "Bonus track") and `.dk-meta-n` (" · 2 acts"). The
-  line is one line high: the count shows when it fits and is left out whole when it does not (on a touch phone under
-  about 412 px wide it never fits). **A spec reads `.dk-meta`'s `textContent`, which is always complete.**
+* `.dk-meta` holds two spans: `.dk-meta-at` ("Track 2 of 12", or "Bonus track") and `.dk-meta-n` (" · 2 acts"). The
+  count of acts says the role's word for one (`actWord()`, in `js/app.js`): 2 bands for a band and an audiophile, 2
+  artists for a producer, 2 acts for the others; the record's line under Now playing says the same. The line is one
+  line high: the count shows when it fits and is left out whole when it does not (on a touch phone under about 412 px
+  wide it never fits). **A spec reads `.dk-meta`'s `textContent`, which is always complete.**
 * The bar is at most 72 px tall at standard sizes from 345 px wide; narrower, or with larger text or buttons, the keys
   take a line of their own. With the row of tabs the whole menu is about 150 px against the record's 197; with
   extra-large text *and* buttons at about 412 to 430 px wide it is taller than the record (239 px against 208).

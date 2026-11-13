@@ -10,6 +10,7 @@ import { initUpdates } from './update.js';
 import { bookings, dayTurned } from './pages/bookings.js';
 import { roleChosen, menuSections, offMenu, startSection, sectionName, askSeen, moneyShown } from './roles.js';
 import { waitingShows, comingUp, tonightShows, showEnd } from './model.js';
+import { actWord } from './roles.js'; // the menu's count of acts says the role's word: 7 bands, 7 artists, 7 acts
 
 applyPrefs();
 try { localStorage.removeItem('gdex-tab'); } catch { /* blocked storage */ } // the section open last no longer decides where Gdex opens
@@ -31,7 +32,7 @@ const section = (id, label, icon, load, count) => ({ id, label, icon, load, coun
 const many = (list, one, more) => () => ({ n: (store.db[list] || []).length, one, many: more });
 const ALL_TABS = [
   { id: bookings.id, label: bookings.label, icon: bookings.icon, page: bookings, count: () => ({ n: comingUp().length, one: 'coming up', many: 'coming up' }) }, // as Coming up counts: last night's show still to play too
-  section('acts', 'Acts', '🎸', () => import('./pages/acts.js').then(m => m.acts), many('acts', 'act', 'acts')),
+  section('acts', 'Acts', '🎸', () => import('./pages/acts.js').then(m => m.acts), () => ({ ...many('acts')(), one: actWord(), many: actWord() + 's' })),
   section('people', 'People', '👥', () => import('./pages/people.js').then(m => m.people), many('people', 'person', 'people')),
   section('songs', 'Songs', '🎼', () => import('./pages/songs.js').then(m => m.songs), many('songs', 'song', 'songs')),
   section('sessions', 'Studio log', '🎙️', () => import('./pages/sessions.js').then(m => m.sessions), many('logs', 'take log', 'take logs')),
