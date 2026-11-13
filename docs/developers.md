@@ -996,7 +996,9 @@ showing).
   only), `nodes`, `uid`, `pad`, `ymd`, `todayISO`, `parseISO`, `fmtLong`, `fmtShort`, `fmtTime`, `daysUntil`,
   `groupBy`, `toast(msg)`, `announce(msg)`, `sheet(title, body, { onClose, dismissOnBackdrop })` → `{ el, close }` (a dialog that takes
   the focus itself 100 ms after it opens, unless something in it already has it: place your own focus sooner, as
-  forms do at 50 ms and the track list at 60 ms; Escape or ✕ gives it back to the opener, and so does a tap on its dim
+  forms do at 50 ms and the track list at 60 ms, and only when nothing in the sheet has it yet (someone quick, or a check
+  under load, may already be typing in another box: the running order's Build, the input list and the passphrase sheet
+  check this too); Escape or ✕ gives it back to the opener, and so does a tap on its dim
   backdrop, which closes it on the click, never on the press, and only when the press began and ended on the
   backdrop: the click stops there, so nothing under it is pressed, and the press never takes the focus out of the
   sheet; with `dismissOnBackdrop: false`, as forms and "Did you see them?" have, the tap closes nothing and the focus

@@ -177,9 +177,13 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   await page.keyboard.press('Escape');
   await sleep(200);
 
-  // A backup locked with a passphrase
-  await tap(page, '#page .se-bk-lock');
+  // A backup locked with a passphrase. The second box takes the focus as the sheet opens, as someone quick does: the
+  // move to the first box 50 ms after it opens acts only when no box in it has the focus, so nothing typed is lost.
+  await page.waitForSelector('#page .se-bk-lock', { state: 'visible', timeout: 15000 });
+  await page.evaluate(() => { document.querySelector('#page .se-bk-lock').click(); document.getElementById('se-pass-2').focus(); });
   await page.waitForSelector(sheetOf('Save with a passphrase'));
+  await page.evaluate(() => new Promise(r => setTimeout(r, 200)));
+  ok('a passphrase box typed in as the sheet opens keeps the focus', (await page.evaluate(() => document.activeElement && document.activeElement.id)) === 'se-pass-2', await page.evaluate(() => document.activeElement && (document.activeElement.id || document.activeElement.tagName)));
   const passSheet = sheetOf('Save with a passphrase');
   await page.fill('#se-pass-1', 'short'); await page.fill('#se-pass-2', 'short');
   await page.click(`${passSheet} button[type=submit]`);

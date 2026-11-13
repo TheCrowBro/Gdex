@@ -178,13 +178,21 @@ const printed = async (page, click) => {
   a = await actNamed(page, 'The Test Pilots');
   const last = a.inputList[a.inputList.length - 1];
   ok('+ Add input adds a row with the next channel, saved on Done', a.inputList.length === 15 && last.source === 'Talkback' && last.ch === 15, JSON.stringify(last));
-  ok('the page shows the input list', (await page.locator('#ac-inputs tbody tr').count()) === 15 && /Talkback/.test(await page.textContent('#ac-inputs')));
-  await page.click('#ac-in-edit');
-  await page.waitForSelector('.sheet[aria-label="Input list"] .ac-in-row');
+  // The page is drawn again after Done: wait for what it should show rather than for a time.
+  const pageList = await page.waitForFunction(() => document.querySelectorAll('#ac-inputs tbody tr').length === 15 && /Talkback/.test(document.querySelector('#ac-inputs').textContent), null, { timeout: 5000 }).then(() => true, () => false);
+  ok('the page shows the input list', pageList, String(await page.locator('#ac-inputs tbody tr').count()));
+  ok('15 channels in order: no warning', !/on the list twice/.test(await page.textContent('#ac-inputs')));
+  // Opened again with the focus put straight into the fifth row's channel, as someone quick does: the editor's own move
+  // to the first source (60 ms after it opens) acts only when no box in it has the focus, so what is typed stays put.
+  const chId = await page.evaluate(() => { document.getElementById('ac-in-edit').click(); const el = document.querySelectorAll('.sheet[aria-label="Input list"] .ac-in-row')[4].querySelector('[data-k=ch]'); el.focus(); return el.id; });
+  await page.evaluate(() => new Promise(r => setTimeout(r, 200)));
+  ok('the input list: a box typed in as the editor opens keeps the focus', (await page.evaluate(() => document.activeElement && document.activeElement.id)) === chId, await page.evaluate(() => document.activeElement && (document.activeElement.id || document.activeElement.tagName)));
   await page.locator('.ac-in-row').nth(4).locator('[data-k=ch]').fill('2');
   await page.click('#ac-in-done');
-  await sleep(250);
-  ok('a channel number used twice shows a warning', /Channel 2 is on the list twice/.test(await page.textContent('#ac-inputs')));
+  // Wait for the warning (the page is drawn again after Done, later under load), not for a fixed time.
+  const dupShown = await page.waitForFunction(() => /Channel 2 is on the list twice/.test((document.querySelector('#ac-inputs') || {}).textContent || ''), null, { timeout: 5000 }).then(() => true, () => false);
+  a = await actNamed(page, 'The Test Pilots');
+  ok('a channel number used twice shows a warning', dupShown, a.inputList.map(r => r.ch).join(','));
 
   /* stage plot */
   await page.click('button[aria-label="Add Drum kit to the stage plot"]');

@@ -144,7 +144,7 @@ function askPassphrase({ title, intro, confirm = false, submit = 'OK', check = (
     } }, intro && h('p', { class: 'small muted' }, intro), f1, f2, show, err,
     h('div', { class: 'form-actions' }, h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn ghost', onclick: () => s.close() }, 'Cancel'), busy));
     const s = sheet(title, form, { onClose: () => finish(null), dismissOnBackdrop: false });
-    setTimeout(() => p1.focus(), 50);
+    setTimeout(() => { if (!form.contains(document.activeElement)) p1.focus(); }, 50); // never from a box already typed in
   });
 }
 

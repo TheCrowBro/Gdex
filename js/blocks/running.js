@@ -201,7 +201,9 @@ export function buildRunning(b) {
     h('div', { class: 'form-actions' }, h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn ghost', onclick: () => close() }, 'Cancel'), go));
   drawPreview();
   const { close } = sheet(BUILD_TITLE, form, { dismissOnBackdrop: false });
-  setTimeout(() => form.querySelector('input')?.focus(), 50);
+  // Doors first, unless a box in the sheet already has the focus: a person (or a check) quick enough to be typing by
+  // now would lose what they typed to Doors.
+  setTimeout(() => { if (!form.contains(document.activeElement)) form.querySelector('input')?.focus(); }, 50);
 }
 
 /* ------------------------------- the box ------------------------------- */

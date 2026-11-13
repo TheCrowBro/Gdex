@@ -141,7 +141,8 @@ export function openInputList(actId) {
       h('button', { type: 'button', class: 'btn primary', id: 'ac-in-done', onclick: () => close() }, 'Done')));
   draw();
   const { close } = sheet('Input list', body, { onClose: () => { commit(); } });
-  setTimeout(() => { const first = rowsBox.querySelector('[data-k="source"]'); (first || body.querySelector('#ac-in-preset')).focus({ preventScroll: true }); }, 60);
+  // The first source, unless a box in the sheet already has the focus: what someone quick is typing there stays there.
+  setTimeout(() => { if (body.contains(document.activeElement)) return; const first = rowsBox.querySelector('[data-k="source"]'); (first || body.querySelector('#ac-in-preset')).focus({ preventScroll: true }); }, 60);
 }
 
 /* ------------------------------- riders ------------------------------- */

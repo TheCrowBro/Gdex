@@ -134,6 +134,7 @@ const money = (page, n) => page.evaluate(v => import('./js/model.js').then(m => 
   await page.locator('#sh-ro-build').click();
   sh = topSheet(page);
   await sh.locator('#sh-b-doors').waitFor();
+  ok('build: the focus starts on Doors', await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'sh-b-doors', null, { timeout: 5000 }).then(() => true, () => false));
   ok('build: starts from the show times', (await sh.locator('#sh-b-doors').inputValue()) === '19:30' && (await sh.locator('#sh-b-setTime').inputValue()) === '21:15' && (await sh.locator('#sh-b-setLength').inputValue()) === '45' && (await sh.locator('#sh-b-curfew').inputValue()) === '23:00');
   ok('build: keeps the support act already in the order', (await sh.locator('#sh-b-before-0').inputValue()) === 'Paper Kites (support)' && (await sh.locator('#sh-b-before-0-len').inputValue()) === '35');
   await sh.locator('#sh-b-add-before').click();
@@ -241,7 +242,12 @@ const money = (page, n) => page.evaluate(v => import('./js/model.js').then(m => 
   const full = await page.$$eval('#blk-deal .sh-pays tbody tr', trs => trs.map(tr => tr.lastElementChild.textContent));
   ok('new deal: a full house of 200 at $10.50 pays 80% = $1,680', full[3] === '$1,680', full.join(' '));
   ok('new deal: the closed box reads 80% of the door', (await summary(page, 'deal')).includes('80% of the door'));
-  await page.locator('#sh-ro-build').click();
+  // A box already typed in keeps the focus: the move to Doors 50 ms after the sheet opens acts only when nothing in the
+  // sheet has the focus. Here the set length takes it as the sheet opens, then the page's own timer runs after the
+  // sheet's (a person typing fast, or a check under load, met Doors taking it and lost what was typed).
+  await page.evaluate(() => { document.getElementById('sh-ro-build').click(); document.getElementById('sh-b-setLength').focus(); });
+  await page.evaluate(() => new Promise(r => setTimeout(r, 200)));
+  ok('build: a box typed in as the sheet opens keeps the focus (Doors does not take it)', (await page.evaluate(() => document.activeElement && document.activeElement.id)) === 'sh-b-setLength', await page.evaluate(() => document.activeElement && (document.activeElement.id || document.activeElement.tagName)));
   sh = topSheet(page);
   await sh.locator('#sh-b-setTime').waitFor();
   ok('build with no times: it asks for doors or a set time first', await sh.locator('#sh-build-go').isDisabled());
