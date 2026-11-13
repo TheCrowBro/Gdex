@@ -265,7 +265,7 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
     const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (!d) return;
     // On a tab of the digital player the focus follows the section, so the arrows walk along the row; ← → there are
-    // the menu's, not the row's own sideways scroll. From a control on the page (a Week row, a block: the page is
+    // the menu's, not the row's own sideways scroll. From a control on the page (a Coming up card, a block: the page is
     // drawn afresh for the new section, and the control goes with the old one) the focus goes to the menu's current
     // control: the player's tab, else the record or the cassette; never to the page's body. From any other control
     // (the top bar, the menu's own buttons) it stays where it is.

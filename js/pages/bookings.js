@@ -405,8 +405,8 @@ function duplicateSheet(b) {
 // Press and hold a booking (its card, or its header on its own page) for three seconds: this sheet offers to delete
 // it. The Delete button on its page does the same for keyboards.
 const HOLD_MS = 3000;
-// What a booking was deleted from (its card, its row in the week, its block or pill on the grid) goes with it, and the
-// focus with that: the draw that follows puts it on the view's heading rather than nowhere.
+// What a booking was deleted from (its Coming up card, its block or pill on the grid) goes with it, and the focus with
+// that: the draw that follows puts it on the view's heading rather than nowhere.
 let HEAD_NEXT = false;
 function deleteSheet(b) {
   const { close } = sheet('Delete this booking?', h('div', { class: 'stack' },

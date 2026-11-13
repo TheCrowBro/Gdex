@@ -180,8 +180,9 @@ function filters() {
         [h('span', { class: 'bk-swatch', style: safeColor(a.color) ? `--act:${safeColor(a.color)}` : null, 'aria-hidden': 'true' }), a.name || 'Unnamed act'],
         { act: S.act === a.id ? '' : a.id }))));
 }
-// A chip's tap draws the page again, and the calendar above the chips can grow or shrink with the filter (a week's rows,
-// the hours of the grid): the chip is held where it was on screen (holdAt), under the finger and the focus.
+// A chip's tap draws the page again, and the calendar above the chips can grow or shrink with the filter (a square's
+// "+N", the hours of the grid, the line over the squares when nothing is left): the chip is held where it was on
+// screen (holdAt), under the finger and the focus.
 // A row too wide for the screen scrolls sideways (a phone, large text): the redraw would put it back at its start, the
 // chip tapped out of sight with the focus on it, so each row keeps where it was and the chip is kept whole in its row.
 function filterGo(p, id) {
@@ -324,7 +325,7 @@ function dayCell(iso, all, today, { tall = false, named = false, week = false } 
   const list = squareOrder(all.filter(b => covers(b, iso))), lines = week ? 6 : 3;
   const d = parseISO(iso), dow = (d.getDay() + 6) % 7;
   // A booking over several days shows on each: its line runs on from the day before, and the name shows on the first
-  // day and at the start of each week row.
+  // day and at the start of each row of squares (a Monday).
   const seg = b => (!multi(b) ? '' : iso === b.date ? ' bk-seg-start' : iso === lastDay(b) ? ' bk-seg-end' : ' bk-seg-mid');
   const titled = b => !multi(b) || iso === b.date || dow === 0 || (!tall && iso.endsWith('-01')); // and in the month on the 1st, for one that began last month (the two weeks and the week run on across a 1st)
   // The month's line leads with where (the act is its colour): a typed title, else the venue, else the act or client.

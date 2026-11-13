@@ -59,7 +59,7 @@ export const setsOverlap = (a, b) => { if (!a || !b || !overlaps(a, b)) return f
 export const overlapsOf = (b, list = db.bookings) => (setWindow(b) ? (list || []).filter(o => o && o !== b && o.id !== b.id && setsOverlap(b, o)).sort(byPlay) : []);
 // The note on a card: "Overlaps with Chelsea Wolfe, 21:00", "… and Sable, 21:30", "… and 2 more"; '' when nothing
 // overlaps. The other show goes by its act (else its client, else its title); by its title when it is the same act.
-// For a booking over several days: with { day }, only the shows it clashes with on that day (a Week row is one day);
+// For a booking over several days: with { day }, only the shows it clashes with on that day (a Week square is one day);
 // without, every clash, each with the other show's day, as it stands for all its days ("Overlaps with Sable, Sat 21:30").
 export const overlapText = (b, list = db.bookings, { day = '' } = {}) => {
   const several = !!b && isIso(b.date) && lastDate(b) > b.date;

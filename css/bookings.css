@@ -123,7 +123,7 @@
 .bk-none { margin: 4px 2px 0; }
 /* A view the filters leave empty: "Nothing on with these filters." and Clear the filters, at the top of what it draws. */
 .bk-filtered { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 8px; }
-.bk-filtered .bk-none { margin: 0 2px; font-size: .9rem; } /* in rem, as a week's "Nothing on": it follows Text size */
+.bk-filtered .bk-none { margin: 0 2px; font-size: .9rem; } /* in rem: it follows Text size */
 
 /* ------------------------------ three days and one day: the time grid ------------------------------ */
 /* --n: the days side by side (1 or 3); --hh: the height of an hour. The hours' gutter is sized in rem. */
