@@ -195,8 +195,9 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   tie and never throw on a missing date. `bookingsOn`, `upcoming`, `personBookings` and `gearBookings` use them; so
   must any new list of bookings. `model.firstTime(b)` (load-in first) is what a card and a calendar file *start* with,
   not an order.
-* **A row prints the time it is sorted by**, so a day never reads out of order. A Week row and a grid block print the
-  playing time (`Doors 20:00` when that stands in for the on-stage time). A Coming up card keeps its first time and
+* **A row prints the time it is sorted by**, so a day never reads out of order. A grid block prints the playing time
+  (`Doors 20:00` when that stands in for the on-stage time); a tall day square prints the time alone, and a Week
+  square's spoken name adds `Doors 20:00`. A Coming up card keeps its first time and
   adds the on-stage time (`Load-in 16:00 · On 21:00`) or, for a show with none yet, the time it is sorted by
   (`Load-in 15:00 · Doors 19:30`). A row on an act's own page prints `playLabel(b)` and `playTime(b)` for a show
   (`On stage 21:00`, `Doors 19:30`) and the start for anything else. A row on a person's sheet prints a show's load-in
@@ -318,7 +319,7 @@ night minutes for a live show with an on-stage time; it lasts its set length, el
 a cancelled show does not), `setsOverlap(a, b)` (on a day they share; sets that only touch do not overlap),
 `overlapsOf(b, list?)`, `overlapText(b, list?, { day }?)` (`Overlaps with Chelsea Wolfe, 21:00`, `… and Sable, 21:30`,
 `… and 2 more`; the other show goes by its act, else its client, else its title, and by its title when it is the same
-act. For a booking over several days, `day` keeps only that day's clashes (a Week row is one day); without it every
+act. For a booking over several days, `day` keeps only that day's clashes (a Week square is one day); without it every
 clash is named with the other show's day, the first the two share, as a Coming up card and an "any time" pill stand for
 all the days: `Overlaps with Sable, Sat 21:30`). The note ignores the filter chips and is the same for every role.
 
@@ -455,8 +456,8 @@ may call it.
 | `js/search-dates.js` `readDate(words, today, order)` / `dateOrder(locale)` | search | Pure: the first date in the words typed (`{ date: { from, to, start, len, words } \| null, rest }`), with today and the order of a day and a month given / that order in the device's language (`'dm'` or `'md'`). |
 | `pages/acts.js` `openActCard(id)` / `actSearchText(a)`; `pages/venues.js` `venueText(v)` / `venueMatches(v, q)`; `pages/people.js` `personText(p)`; `pages/backline.js` `gearText(g)`; `pages/songs.js` `songText(s)`; `js/setlist.js` `setlistWords(list)`; `pages/sessions.js` `logWords(l)` / `logDate(l)` | each section | The acts list with the act's card dropped open and the focus on it (`openSeen(id, null)`) / the words each section's own search reads (the acts list's, Venues' with the house rules, People's, Backline's, Songs', the Studio log's), which the search at the top of every page reads too, so the two never disagree; a setlist's words (its name, act, songs and notes) / a log's day. |
 | `js/blocks/money.js` `statusPill(b, kind, doc)` | money | A quote's or an invoice's status as its box says it (Draft, Sent, Part paid, Paid, Overdue…), for the search's Money tab. |
-| `js/bookings-kit.js` `cardExtras(b, { day })` / `overlapNote(b, day)` / `wentMark(b)` | core | What a Coming up card and a Week row add under their own lines, in order: the overlap note (`span.bk-overlap`; a Week row passes its `day`, so a booking over several days has the note only on the day of the clash), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. They are direct children of `.bk-card-main` / `.bk-wrow-main`. |
-| `js/bookings-kit.js` `formerlyLine(b)` | core | `span.bk-formerly` with `model.formerlyNote(b)`, or `null`: the line under the name of a booking from before its act changed its name. A Coming up card and a Week row put it straight after their top line (`.bk-card-top`, `.bk-wrow-top`), the booking's header after `.bk-hero-top`. |
+| `js/bookings-kit.js` `cardExtras(b, { day })` / `overlapNote(b, day)` / `wentMark(b)` | core | What a Coming up card adds under its own lines, in order: the overlap note (`span.bk-overlap`; with a `day`, a booking over several days has only that day's clash: nothing passes one since the Week became squares, whose spoken names say the day's note themselves), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. They are direct children of `.bk-card-main`. |
+| `js/bookings-kit.js` `formerlyLine(b)` | core | `span.bk-formerly` with `model.formerlyNote(b)`, or `null`: the line under the name of a booking from before its act changed its name. A Coming up card puts it straight after its top line (`.bk-card-top`), the booking's header after `.bk-hero-top`. |
 | `js/deck.js` `createDeck(root, tabs, { start, onSelect, extras, onExtra })` | core | The section menu. `tabs`: `[{ id, label, icon?, bonus?, count?() }]`; the icon is the digital player's cover art and the picture on its tab. Returns `{ go(i), index, refresh(), setTabs(tabs, index) }`. |
 | `js/bookings-kit.js` `calMode()` / `saveCalMode(mode)` / `CAL_MODES`; `isoOk`, `monthStart`, `addDays`, `daysBetween`, `multi`, `dateRange`, `safeColor`, `actOf`, `actStyle`, `tone`, `pill`, `plural`, `sortByName`, `capital`, `KIND_CHIP` | core | The calendar's view kept on the device; the small helpers the booking page and the calendar share. |
 | `js/acts-ask.js` `askAtOpen(ids)` / `askPref()` | acts | The "Did you see them?" sheet for the shows still waiting among `ids` (nothing when the person is not asked, none is left, or its sheet is already up: there are never two); it opens its sheet before it returns. `app.js` calls it at open and again after hours in the background / the control for Settings → Your role. It imports `pages/acts.js` (`logSighting`) and `acts-docs.js`, so Settings loads the acts page's code with it; `pages/acts.js` must not import it. |
@@ -510,15 +511,19 @@ for the checks that come back from out of sight).
 
 Hooks the specs and walkthroughs rely on, whatever the view: `.bk-calview` (the calendar's frame, also
 `.bk-mode-<mode>`), `.bk-monthview` (on it only in the month), `.bk-dayview` (only in the Day view),
-`.bk-day[data-date]` (a day square; today is `.today[aria-current="date"]`; `.bk-day-tall` in two weeks),
+`.bk-day[data-date]` (a day square; today is `.today[aria-current="date"]`; `.bk-day-tall` in two weeks and the week,
+whose grids are `.bk-cal-two` and `.bk-cal-week`),
 `.bk-ev[data-id]` (an entry in the view's own body, never a Coming up card), `.bk-agenda .bk-card[data-id]`,
 `#bk-agenda-more`, `.bk-agenda-head`, `.bk-filters .chips` (straight after the panel: `.bk-cal-panel + .bk-filters`),
 `.bk-export`, `.bk-new`, `.bk-new-day`, `.bk-none` (the "nothing on" line), `.bk-filtered` (the line for a view the
 filters leave empty, with `#bk-filters-clear`; Coming up's own is `#bk-agenda-clear`), `.bk-cal-panel .cal-title`,
 `#bk-view-<mode>` (the view buttons, in `.bk-views`), `.bk-body` (the view's body, which takes the swipe). Ids, because
-the page is rebuilt after every change and the focus is given back by id: `#bk-f-kind`, `#bk-f-kind-<kind>`,
-`#bk-f-act`, `#bk-f-act-<actId>` (the filter chips), `#bk-wd-<iso>` (a Week day's name), `#bk-gh-<iso>` (a day's name over its grid column),
-`#bk-ev-<bookingId>-<iso>` (a Week row, `.bk-wrow`, or a grid block, `.bk-block`), `#bk-ev-<bookingId>-any` (a pill in
+the page is rebuilt after every change and the focus is given back by id (a redraw from a change of the data, in
+`js/app.js`, knows a control by its id, else by its spoken name, which a day square's changes with its bookings):
+`#bk-f-kind`, `#bk-f-kind-<kind>`, `#bk-f-act`, `#bk-f-act-<actId>` (the filter chips), `#bk-sq-<iso>` (a day square,
+`.bk-day[data-date]`, in the month, two weeks and the week; the arrow keys find the next one by `data-date`),
+`#bk-gh-<iso>` (a day's name over its grid column), `#bk-ev-<bookingId>-<iso>` (a grid block, `.bk-block`),
+`#bk-ev-<bookingId>-any` (a pill in
 the grid's "any time" row, `.bk-ev-any`), `.bk-col[data-day]` (a grid column).
 **Under `.bk-dayview` a bare `[data-id]` also matches the Coming up card of the same booking: use `.bk-ev[data-id]`.**
 
@@ -530,20 +535,20 @@ buttons, one control: ← → move the focus between them, round from the last t
 
 * **The filter chips** (one kind of booking, one act; shown once there are two of either to pick from) are right under
   the calendar box and above Coming up, in every view and every role, and apply to both. On a laptop (1000 px and
-  wider), where Coming up is beside the calendar, they stay under it, in its column. A keyboard and a screen reader
-  meet them after the calendar, and so does the walkthrough: its Filters step ("Under the calendar: …") comes after The
-  calendar (and the Day view's own steps) and before Coming up. What is drawn above them grows or shrinks with a
-  filter (a week's rows, a grid's hours), so a tap scrolls the page by as much (`filterGo`, `holdAt`): the chip stays
-  where it was on screen, with the focus, as far as the page is long enough; when the page moves up, the section menu
-  slides back over the top of the screen, and the chip is kept below it. A row too wide for the screen scrolls
-  sideways (a phone, large text): after a tap each row keeps where it was, the chip whole in sight. A view the filters
-  leave with nothing in it says so where the person is looking, with Clear the filters (`.bk-filtered`,
-  `#bk-filters-clear`): at the top of the month, the two weeks and the week (each of whose days then reads "Nothing
-  on"), in place of the grid's own line in three days and Day. Clear the filters there puts the focus on what is drawn
-  where the line was: the view's first square, day's name or booking (on a Day with nothing on, + New on this day),
-  never a heading, which is often off the screen or under the section menu; the page moves only when that is out of
-  sight (`inSight`). Coming up's (when it is empty, `#bk-agenda-clear`) puts it on the first chip, just above, held
-  where it was on screen as after a tap. Both say "Filters cleared" aloud.
+  wider), where Coming up is beside the calendar, they stay under it, in its column. A keyboard and a screen reader meet
+  them after the calendar, and so does the walkthrough: its Filters step ("Under the calendar: …") comes after The
+  calendar (and the Day view's own steps) and before Coming up. What is drawn above them grows or shrinks with a filter
+  (a square's "+N", a grid's hours, the line for a view left empty), so a tap scrolls the page by as much (`filterGo`,
+  `holdAt`): the chip stays where it was on screen, with the focus, as far as the page is long enough; when the page
+  moves up, the section menu slides back over the top of the screen, and the chip is kept below it. A row too wide for
+  the screen scrolls sideways (a phone, large text): after a tap each row keeps where it was, the chip whole in sight. A
+  view the filters leave with nothing in it says so where the person is looking, with Clear the filters (`.bk-filtered`,
+  `#bk-filters-clear`): at the top of the month, the two weeks and the week, over their squares (each of which is then
+  spoken as "nothing booked"), in place of the grid's own line in three days and Day. Clear the filters there puts the
+  focus on what is drawn where the line was: the view's first square, day's name or booking (on a Day with nothing on, +
+  New on this day), never a heading, which is often off the screen or under the section menu; the page moves only when
+  that is out of sight (`inSight`). Coming up's (when it is empty, `#bk-agenda-clear`) puts it on the first chip, just
+  above, held where it was on screen as after a tap. Both say "Filters cleared" aloud.
 
 * **‹ › and Today** step by the length of the view. The title is not a live region (the page is drawn again at every
   step, and a live region that arrives with its words in it is not read out): each step says the new title through
@@ -552,7 +557,7 @@ buttons, one control: ← → move the focus between them, round from the last t
   takes a row of its own above the arrows under 480 px (every view's does under 360 px, and with extra-large text).
   A range's title comes from `Intl.DateTimeFormat(…).formatRange`, with the year whenever the range is not wholly in
   this year.
-* **Month and 2 weeks** are day squares. A tall square (two weeks) holds up to three lines, then "+N", the time
+* **Month, 2 weeks and Week** are day squares. A tall square (two weeks, `.bk-cal-two`) holds up to three lines, then "+N", the time
   (`span.bk-mini-time`) and the name (`span.bk-mini-name`) apart. In a square narrower than 6.5rem (every phone, and
   large text) the name is on a line of its own under the time, cut with an ellipsis, and the text shrinks with the
   square (to .7rem at most) so the time always shows whole; on a phone of 360 px or more the squares are 124 px tall
@@ -562,13 +567,17 @@ buttons, one control: ← → move the focus between them, round from the last t
   do not. A line that runs on from the day before is blank, as high as the line it runs on from. A square's spoken name lists its bookings in order,
   each with ", formerly <name>" after its name for a booking from before its act changed its name, then its status,
   and ", didn’t go" for a show answered so (there is no room to write either in a square).
-  Arrow keys move between squares; past the edge of two weeks they step as ‹ › do.
-* **Week** is `section.bk-wday` per day: `h3.bk-wday-h > button.bk-wday-head` (the day's name; a tap opens the day),
-  then its rows in playing order, each with `cardExtras(b)` as direct children of `span.bk-wrow-main`. A show with no
-  on-stage time yet starts its muted line with the time it is sorted by and that time's name, as its card and its block
-  do (`Doors 19:30`, `Soundcheck 17:00`; never a bare "doors"). An empty day
-  reads "Nothing on" on the same line as its name. A row with no time has a dash (`aria-hidden`) and says "no time
-  yet" once, in its muted line.
+  Arrow keys move between squares; past the edge of two weeks or the week they step as ‹ › do.
+* **Week** is the same tall squares in one row from a Monday (`.bk-cal-week`, drawn by the same `dayCell`), as tall as
+  the two weeks' two rows with the gap between them, so the panel keeps its height from one view to the other: 251 px
+  on a phone, 159 px under 360 px, 267 px from 560 px and 323 px from 1000 px, at least. A square holds up to six lines,
+  then "+N"; the time and the name, the bars over several days, today's mark and the first square's month are as in
+  two weeks, and the legend is under it. A tap on a square opens its Day view. A square has no room for what a list of
+  the day would print beside a name, so its spoken name says it, after each booking's status: `<time> <name>, formerly
+  <name> (<status>, didn’t go): to <last day>; Doors 19:30; <where>; after midnight; no time yet; <the overlap note of
+  that day>; <the house rules as spoken>`, each part only when it applies (where: `venueLine(b)`, the venue's name unless
+  the name already says it, else its address; the rules from `model.rulesChipText`), and each booking a sentence of its
+  own (`. ` between them, where two weeks and the month put `, `).
 * **3 days and Day** are a time grid (`.bk-grid`, `--n` columns, `--hh` px an hour: 44, or 52 in the Day view). Only
   bookings that are on one of its days are drawn (a date that is no day, a 30 February from an old backup, is on
   none). Blocks are placed by `playKey` (a show's times on the night clock); the hours run from the hour of the
@@ -595,7 +604,8 @@ buttons, one control: ← → move the focus between them, round from the last t
   `model.rulesChipText`, never read out of the chip's nodes) and "Didn’t go", each with a full stop. In the Day view a
   block's second line also shows where it is, or " · Didn’t go" in its place (`span.bk-block-went[aria-hidden]`, so a
   screen reader hears it once). In three days there is no room for it: the hidden words have it.
-* **Press and hold** a row, a block, a pill or a Coming up card for three seconds to delete it (`holdToDelete`). What
+* **Press and hold** a block, a pill or a Coming up card for three seconds to delete it (`holdToDelete`; a day square
+  holds several bookings, so it only opens its day). What
   was pressed goes with the booking, so the draw that follows puts the focus on the view's heading
   (`[data-view-head]`).
 
@@ -640,7 +650,7 @@ for a menu of one).
   section change, a fresh draw, a display-preference change and a change of width; a tab that takes the keyboard's
   focus is brought wholly into view too, never one that is tapped. ← → on a focused tab move the section and the
   focus with it. On every menu, an arrow key pressed on a control of the page where it has no meaning of its own (a
-  Week row, a block) steps the section and puts the focus on the menu's current control: the player's tab, else the
+  Coming up card, a block) steps the section and puts the focus on the menu's current control: the player's tab, else the
   record or the cassette; never on the page's body.
 * The line slides to its new place and nothing else moves; it follows the animation setting. With Contrast set to
   High the line is the text colour on a quiet track. The cover art and the current tab have a soft light of `--paper`
@@ -676,8 +686,8 @@ Every record goes on using the current name, so lists and search stay in one pie
   `ul.ac-names`, the latest first): `from <day> until <day>`, `until <day>` for the first dated one, `on <day>` for
   a name used for less than a day (renamed twice that day), `date not known` for a name with no day. Days are written
   by `toLocaleDateString` with the year.
-* **Records from before a change.** Where a row names the act, `formerlyLine(b)` goes under the name: Coming up cards,
-  Week rows, the booking's header. A venue's rows have `span.vn-row-was`, a backline item's `span.bl-row-was`, a
+* **Records from before a change.** Where a row names the act, `formerlyLine(b)` goes under the name: Coming up cards
+  and the booking's header. A venue's rows have `span.vn-row-was`, a backline item's `span.bl-row-was`, a
   person's `span.pp-bk-was`, a song's studio sessions a `span.sg-block` and a row of "Did you see them?"
   `span.ac-formerly`, all after the name; a take log's card in the Studio log, and the link to its session on the
   log's own page, add the words after the session's name. Where there is no room the words are only spoken: a day
@@ -723,8 +733,9 @@ Every record goes on using the current name, so lists and search stay in one pie
 ### House rules, drawn (`js/venues-rules.js`, `js/pages/venues.js`)
 
 * The chip: `span.vn-chip.vn-chip-<ok|some|strict>` with the visible words in `> [aria-hidden=true]` and the spoken
-  ones in `> .sr-only` (the chip's whole `textContent` runs both together). On Coming up cards and Week rows through
-  `cardExtras`, on the venue's card, and at the head of the full rules.
+  ones in `> .sr-only` (the chip's whole `textContent` runs both together). On Coming up cards through
+  `cardExtras`, on the venue's card, and at the head of the full rules (a Week square says the rules in its spoken
+  name).
 * The full rules: `div.vn-rules` (`.vn-rules-show` on a show's page, in a box of its own) with a head line and
   `dl.vn-rules-list` (Not allowed, Restricted, Allowed, Good to know, Other rules, and How strict when the colour was set by hand:
   `Strict, set by hand`). On the venue's sheet they sit in
@@ -964,7 +975,7 @@ showing).
   first line). At 340 px and narrower Delete, Cancel and Save share the row instead of forcing the form wider.
 * A toast (`util.js` `toast()`) sits at the foot of the screen for nearly three seconds and lets taps through to
   what is under it (`pointer-events: none`): the next row's Yes and No in "Did you see them?", a card.
-* A name beside a status pill (a Coming up card, a Week row, a booking's header) lets the pill drop under it where
+* A name beside a status pill (a Coming up card, a booking's header) lets the pill drop under it where
   the name would be squeezed, so no word is broken in two. The display choices (`.pref > .seg.wide`) do the same on a
   narrow phone with large text: a row that cannot hold every choice puts the last on a line of its own.
 
