@@ -159,7 +159,7 @@ const showsOnly = () => !!workMark();
 const workLocked = b => !!(b && WORK_KINDS.includes(b.kind) && showsOnly());
 // A change to such a booking goes through the licence: at once when it may be changed, else the free days start (then
 // the change goes on) or the licence is offered.
-const viaWork = (b, fn) => (workLocked(b) ? gateWork(fn) : fn());
+const viaWork = (b, fn) => (workLocked(b) ? gateWork(fn, b.kind) : fn());
 
 /* ------------------------------- new / edit ------------------------------- */
 function blank(kind, p = {}) {
@@ -372,7 +372,7 @@ function setStatus(b, s) {
 }
 
 function statusPicker(b) {
-  if (workLocked(b)) return gateWork(() => statusPicker(byId('bookings', b.id) || b));
+  if (workLocked(b)) return gateWork(() => statusPicker(byId('bookings', b.id) || b), b.kind);
   const { close } = sheet('Booking status', h('div', { class: 'bk-status-list', role: 'radiogroup', 'aria-label': 'Status' },
     statusChoices(b.kind, b.status).map(([id, label, t]) => h('button', {
       type: 'button', role: 'radio', 'aria-checked': String(b.status === id), class: 'bk-status-opt' + (b.status === id ? ' on' : ''), 'data-status': id,
@@ -404,7 +404,7 @@ export function copyOf(b, date) {
 function duplicateSheet(b) {
   // A free Audiophile without the working roles adds only shows (the owner's answer 1): a copy of anything else goes
   // through the licence, as a session's or a rehearsal's changes do.
-  if (showsOnly() && b.kind !== 'show') return gateWork(() => duplicateSheet(byId('bookings', b.id) || b));
+  if (showsOnly() && b.kind !== 'show') return gateWork(() => duplicateSheet(byId('bookings', b.id) || b), b.kind);
   const span = multi(b) ? daysBetween(b.date, lastDay(b)) : 0;
   const input = h('input', { type: 'date', id: 'bk-dup-date', required: true, value: isoOk(b.date) ? addDays(b.date, 7) : todayISO() });
   const note = h('p', { class: 'muted small', 'aria-live': 'polite' });
@@ -439,7 +439,7 @@ const HOLD_MS = 3000;
 // that: the draw that follows puts it on the view's heading rather than nowhere.
 let HEAD_NEXT = false;
 function deleteSheet(b) {
-  if (workLocked(b)) return gateWork(() => deleteSheet(byId('bookings', b.id) || b));
+  if (workLocked(b)) return gateWork(() => deleteSheet(byId('bookings', b.id) || b), b.kind);
   const { close } = sheet('Delete this booking?', h('div', { class: 'stack' },
     h('p', null, h('strong', null, model.bookingTitle(b)), h('span', { class: 'muted small bk-del-when' }, [dateRange(b, fmtShort), model.kindLabel(b.kind)].join(' · '))),
     h('p', { class: 'small muted' }, !moneyShown() // a role without money: only what it keeps on a booking

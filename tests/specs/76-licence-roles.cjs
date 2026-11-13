@@ -697,6 +697,26 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // A free Audiophile's studio session or rehearsal, its free days over: every button on it offers the licence in the
+      // words of what was tapped (the page's own note), not the working boxes'.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - 5 * DAY) } });
+      await sampleIn(page); await setLicence(page, ended()); await reload(page); await sleep(1000);
+      const ids = await page.evaluate(() => import('./js/store.js').then(s => ['session', 'rehearsal'].map(k => (s.db.bookings.find(b => b.kind === k) || {}).id)));
+      const seen = {};
+      for (const [kind, id] of [['session', ids[0]], ['rehearsal', ids[1]]]) for (const label of ['✎ Edit', 'Delete', 'Duplicate', 'Confirmed']) {
+        await page.evaluate(id => import('./js/pages/bookings.js').then(m => m.openBooking(id)), id); await sleep(500);
+        const btn = page.locator('#page button', { hasText: label }).first();
+        if (!(await btn.count())) { seen[`${kind} ${label}`] = 'no button'; continue; }
+        await btn.click(); await sleep(500);
+        seen[`${kind} ${label}`] = [(await sheets(page)).join(), (await page.textContent('.sheet.licence-needed .lic-offer p').catch(() => '')).slice(0, 200)];
+        for (let i = 0; i < 3; i++) { await page.keyboard.press('Escape'); await sleep(150); }
+      }
+      const want = { session: ['Studio sessions need a licence', 'Studio sessions come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence.'], rehearsal: ['Rehearsals need a licence', 'Rehearsals come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence.'] };
+      const wrong = Object.entries(seen).filter(([k, v]) => { const w = want[k.split(' ')[0]]; return v === 'no button' ? !/Confirmed/.test(k) : !(v[0] === w[0] && v[1].startsWith(w[1])); });
+      ok('a free Audiophile\'s studio session or rehearsal, free days over: Edit, Delete, Duplicate and the status offer "Studio sessions need a licence" or "Rehearsals need a licence", in the page note\'s words', ids.every(Boolean) && wrong.length === 0, JSON.stringify(wrong.length ? wrong : seen).slice(0, 400));
+      await ctx.close();
+    }
+    {
       // The terms changed since they were agreed ([S-37], §9.4), the free days under way: the terms sheet comes again at
       // opening ("The terms have changed"). Not now: read-only for this visit, a refused change asks for the updated terms;
       // agreed there, the form that stayed open saves.

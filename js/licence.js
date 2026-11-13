@@ -178,9 +178,12 @@ function offer(title, first, gone) {
   announce(title);
   return sh;
 }
-// A section (or 'work': a working box or a paid record) that needs a licence, offered (§9.4).
-export function offerSection(id) {
+// A section (or 'work': a working box or a paid record) that needs a licence, offered (§9.4). kind 'session' or
+// 'rehearsal': what was tapped is that booking itself (its Edit, Delete, Duplicate or status), in the page note's words.
+const KIND_WORDS = { session: 'Studio sessions', rehearsal: 'Rehearsals' };
+export function offerSection(id, kind = '') {
   const s = licenceNow();
+  if (id === 'work' && KIND_WORDS[kind]) return offer(`${KIND_WORDS[kind]} need a licence`, `${KIND_WORDS[kind]} come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
   if (id === 'work') return offer('The working boxes need a licence', `The line-up, setlist, take log and the other working boxes, and People, Songs and Backline’s cards, come with Gdex’s working roles. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
   const name = sectionName(id, NAMES[id] || id);
   return offer(`${name} needs a licence`, whyNot(s), () => mayOpen(id) === 'open');

@@ -231,11 +231,12 @@ export function canWrite() {
 const workOpen = () => !licenceOn() || roleNeedsLicence(roleId()) || FREE_KEEPS_WORK || mayWork() === 'open';
 // The one line of [S-3]: a working box or a paid record reached from a free section. fn runs at once while it is
 // open; on 'start' once the free days have started (the terms sheet first if due); on 'locked' the licence is offered.
-export function gateWork(fn) {
+// kind: the booking's kind when what was tapped is a studio session or a rehearsal itself, so the offer speaks of it.
+export function gateWork(fn, kind = '') {
   if (workOpen()) { fn(); return; }
   // Not started after all: open anyway when it has opened meanwhile (the licence server paused it as it was asked).
   if (mayWork() === 'start') { startFreeDays().then(ok => { if (ok) toastStarted(); if (ok || workOpen()) fn(); }).catch(e => console.error(e)); return; }
-  import('./licence.js').then(m => (licenceNow().mode === 'away' ? m.awaySheet() : m.offerSection('work'))).catch(e => console.error(e));
+  import('./licence.js').then(m => (licenceNow().mode === 'away' ? m.awaySheet() : m.offerSection('work', kind))).catch(e => console.error(e));
 }
 
 // The working roles close for the role in use (Carry on free as an Audiophile, the free days running out, a pause
