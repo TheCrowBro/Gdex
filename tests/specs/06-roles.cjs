@@ -97,7 +97,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- picking Jack of Trades: every section, and the tour and Settings call it by its name ---------------- */
   for (const [label, vp, prefs] of [['', { width: 420, height: 900 }, null], [' (320px, extra large text, large buttons)', { width: 320, height: 700 }, '{"text":"xlarge","targets":"large"}']]) {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+    const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' }); await licenceLeg(ctx);
     if (prefs) await ctx.addInitScript(p => { try { localStorage.setItem('gdex-prefs', p); } catch (e) { /* ignore */ } }, prefs);
     const page = await ctx.newPage();
     const errors = [];
@@ -105,6 +105,10 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
     await page.goto(BASE);
     await page.waitForSelector('.rp-ask .rp-card[data-role="all"]');
+    // With licences live (GDEX_LICENCE=on) this context starts as every spec's does (tests/helpers.cjs licenceLeg): inside
+    // the free days, the terms agreed, so picking Jack of Trades goes straight to the welcome tour; off, nothing is kept.
+    const leg = await page.evaluate(() => import('./js/licence-state.js').then(m => ({ mode: m.licenceNow().mode, terms: !!localStorage.getItem('gdex-terms') })));
+    ok(`Jack of Trades${label}: the page starts as the licence leg has it`, process.env.GDEX_LICENCE === 'on' ? leg.mode === 'trial' && leg.terms : leg.mode === 'off' && !leg.terms, JSON.stringify(leg));
     await page.locator('.rp-ask .rp-card[data-role="all"]').scrollIntoViewIfNeeded();
     const fit = await page.$eval('.rp-ask .rp-card[data-role="all"]', c => { const r = c.getBoundingClientRect(); return [...c.querySelectorAll('.rp-name, .rp-sub, .rp-blurb, .rp-menu')].every(e => { const b = e.getBoundingClientRect(); return b.left >= r.left - 1 && b.right <= r.right + 1 && e.scrollWidth <= e.clientWidth + 1; }) && r.right <= innerWidth; });
     ok(`Jack of Trades${label}: its name, sub name, blurb and menu fit in its card`, fit);
