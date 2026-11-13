@@ -542,6 +542,24 @@ async function press(page, loc, ms) {
     ok(`${v}: Coming up is under the view, eight cards and “Show all”, with the filter chips above; the booking with no date is nowhere, and no money is on the page`, u.cards === 8 && u.head === 'Coming up' && !!u.after && u.more && u.nodate === 0 && u.filters === 2 && !u.money, JSON.stringify(u));
   }
 
+  /* ---------------- before 06:00: a show's time is the end of its night, anything else's the morning ---------------- */
+  const AM = await dayFromNow(page, 30); // nothing in the sample
+  await put(page, 'bookings', { id: 'c-ln', kind: 'show', status: 'confirmed', title: 'Late Set', date: AM, venueName: 'The Barn', setTime: '01:00' });
+  await put(page, 'bookings', { id: 'c-pm', kind: 'show', status: 'confirmed', title: 'Night Set', date: AM, venueName: 'The Barn', setTime: '21:00' });
+  await put(page, 'bookings', { id: 'c-am', kind: 'rehearsal', status: 'confirmed', title: 'Dawn Rehearsal', date: AM, venueName: 'The Barn', start: '05:15', end: '07:00' });
+  await sleep(300);
+  await toWeek(page, AM);
+  const amRows = await page.evaluate(AM => ['c-am', 'c-ln'].map(id => { const r = document.getElementById(`bk-ev-${id}-${AM}`); return r ? { time: r.querySelector('.bk-wrow-time').textContent.trim(), sub: (r.querySelector('.bk-wrow-sub') || {}).textContent || '' } : null; }), AM);
+  ok('a rehearsal at 05:15 is the morning of its day: first in the Week, not “after midnight”, while a show’s 01:00 set still is', same(await weekIds(page, AM), ['c-am', 'c-pm', 'c-ln']) && amRows[0].time === '05:15' && !/after midnight/.test(amRows[0].sub) && /after midnight/.test(amRows[1].sub), JSON.stringify([await weekIds(page, AM), amRows]));
+  await page.click(`#bk-wd-${AM}`); await page.waitForSelector('.bk-dayview'); await sleep(200);
+  g = await geo();
+  ok('…and the Day grid starts early enough to hold it: from 05:00, the rehearsal a quarter of an hour down, the 01:00 set at the end of the night', g.hours[0][0] === '05:00' && Math.abs(blk('c-am').top - (line('05:00') + g.hh / 4)) < 0.6 && blk('c-ln').top > blk('c-pm').top && line('01:00') > line('23:00') && same(g.cols[0].blocks.map(b => b.id), ['c-am', 'c-pm', 'c-ln']), JSON.stringify([g.hours.slice(0, 2), blk('c-am')]));
+  const amSaid = await page.evaluate(AM => document.getElementById(`bk-ev-c-am-${AM}`).querySelector('.bk-block-sub').textContent.trim(), AM);
+  ok('…its block reads its start, 05:15', amSaid.startsWith('05:15'), amSaid);
+  await page.evaluate(() => import('./js/store.js').then(s => ['c-am', 'c-pm', 'c-ln'].forEach(id => s.remove('bookings', id)))); await sleep(300);
+
+  await view(page, 'month');
+
   /* ---------------- a date that is no day at all ---------------- */
   // The 0th of next month (as an old or hand-made backup could hold): it is on no day, so it is in no view, like a booking
   // with no date. Three days across the end of this month are the ones that could take it for one of theirs.

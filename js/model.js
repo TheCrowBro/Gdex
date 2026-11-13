@@ -44,7 +44,7 @@ export const nightClock = min => { const t = ((Math.round(Number(min) || 0) % 14
 const PLAY_LABELS = { setTime: 'On stage', doors: 'Doors', soundcheck: 'Soundcheck', loadIn: 'Load-in', start: 'Start' };
 // The name of the time a booking sorts by ('' when it has none).
 export const playLabel = b => PLAY_LABELS[playField(b)] || '';
-export const isAfterMidnight = b => (playKey(b) ?? 0) >= 1440;
+export const isAfterMidnight = b => (playKey(b) ?? 0) >= 1440; // a show's only: anything else before 06:00 is the morning
 // A show's set as night minutes { start, end }: a live show (holds and offers count, cancelled does not) with an
 // on-stage time; it lasts its set length, else an hour. null for anything else. The end is the real one, past 06:00 too.
 export const setWindow = b => {

@@ -148,8 +148,9 @@ export const overlaps = (a, b) => !!a.date && !!b.date && a.date <= lastDay(b) &
 export const activeBookings = () => db.bookings.filter(b => b.status !== 'cancelled');
 // The order of a day: by the time the band plays. A show's playing time is its on-stage time; with none, doors, then
 // soundcheck, then load-in (so a show with any time still sorts by it); a session, rehearsal or diary entry sorts by
-// its start. Times run on the night clock: minutes after midnight, and a time before 06:00 belongs to the night
-// before (+1440), so a 00:30 set comes after the evening's shows. A booking with no time goes last in its day.
+// its start. A show's times run on the night clock: minutes after midnight, and a time before 06:00 belongs to the
+// night before (+1440), so a 00:30 set comes after the evening's shows. That rule is for shows only: a session,
+// rehearsal or diary entry at 05:15 is that morning, the start of its day. A booking with no time goes last in its day.
 // 'HH:MM' or 'H:MM' → minutes on the night clock; null when it is not a time of day.
 export const nightMin = t => {
   const m = typeof t === 'string' ? /^(\d{1,2}):(\d{2})$/.exec(t) : null;
@@ -164,7 +165,8 @@ const PLAY_FIELDS = ['setTime', 'doors', 'soundcheck', 'loadIn'];
 export const playField = b => (!b ? '' : b.kind === 'show' ? PLAY_FIELDS.find(k => nightMin(b[k]) != null) || '' : nightMin(b.start) != null ? 'start' : '');
 // That time as stored, or ''.
 export const playTime = b => { const k = playField(b); return k ? b[k] : ''; };
-export const playKey = b => nightMin(playTime(b));
+// The minutes it sorts by: a show's on the night clock; anything else's on the plain clock (05:15 is 315, that morning).
+export const playKey = b => { const n = nightMin(playTime(b)); return n == null || (b && b.kind === 'show') ? n : n % 1440; };
 const NO_TIME = 1e9; // after every time of the night
 const dateOf = b => (b && typeof b.date === 'string' ? b.date : '');
 // Within a day: the order the bands play, a booking with no time last. Each comparator gives exactly 0 for a tie, so

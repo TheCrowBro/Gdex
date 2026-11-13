@@ -364,7 +364,7 @@ function timeGrid(mode, R, all, today) {
   const spans = new Map(timed.map(b => [b, blockSpan(b)]));
   let [from, to] = EVENING;
   for (const s of spans.values()) { from = Math.min(from, Math.floor(s.start / 60) * 60); to = Math.max(to, Math.ceil(s.end / 60) * 60); }
-  from = Math.max(NIGHT[0], from); to = Math.min(NIGHT[1], to);
+  from = Math.max(0, from); to = Math.min(NIGHT[1], to); // a show's set before 06:00 is at the end of the night; a session at 05:15 is that morning
   const height = (to - from) / 60 * hh;
   const hours = h('div', { class: 'bk-hours', 'aria-hidden': 'true' }, Array.from({ length: (to - from) / 60 }, (_, i) => {
     const min = from + i * 60;

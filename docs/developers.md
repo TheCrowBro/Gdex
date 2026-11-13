@@ -186,7 +186,9 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 * **The order of a day is the order the bands play.** `nightMin('HH:MM')` is minutes on the *night clock* (a time
   before 06:00 belongs to the night before: +1440; `null` when it is not a time); `playField(b)` is the time a booking
   sorts by (a show: `setTime`, else `doors`, `soundcheck`, `loadIn`; anything else: `start`), `playTime(b)` that time,
-  `playKey(b)` its night minutes. Comparators: `byPlay` (inside a day, no time last), `byDayPlay` (soonest day first,
+  `playKey(b)` the minutes it sorts by: a show's on the night clock, anything else's on the plain clock (the
+  after-midnight rule is for shows only: a session, rehearsal or diary entry at 05:15 is 315, the morning of its date,
+  first in its day, never "after midnight"). Comparators: `byPlay` (inside a day, no time last), `byDayPlay` (soonest day first,
   no date first of all), `byDayPlayDesc` (newest day first, a day still in playing order). They give exactly 0 for a
   tie and never throw on a missing date. `bookingsOn`, `upcoming`, `personBookings` and `gearBookings` use them; so
   must any new list of bookings. `model.firstTime(b)` (load-in first) is what a card and a calendar file *start* with,
@@ -468,7 +470,7 @@ may call it.
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
 | `blocks/guests.js` `guestCounts(b)`; `blocks/settlement.js` `isSettled(b)` / `settlementDoc(b)` | show | Names, heads and in / whether the night is settled / the printable settlement. |
 | `js/daysheet-doc.js` `cleanDaySheet(data)` / renderer | daysheet | Pure (no store): the whitelist and renderer shared by the app and `daysheet.html`. |
-| `js/ics.js` `bookingIcs(b)` / `allIcs(list)` | bookings | Calendar files (RFC 5545, past-midnight safe: an end after midnight is the next day, and a show that starts and plays before 06:00 starts the morning after its date; no money). |
+| `js/ics.js` `bookingIcs(b)` / `allIcs(list)` | bookings | Calendar files (RFC 5545, past-midnight safe: an end after midnight is the next day, and a show that starts and plays before 06:00 starts the morning after its date, while anything else before 06:00 is on its date, as Gdex shows it; no money). |
 | `js/print.js` `printElement(el, css)` / `docPage(title, el, css)` / `saveFile(text, name, type)` / `fileName(title, ext)` / `csv(rows)` | core | Printing and saving documents. |
 
 `onSaved(record)` is called with the stored record after a form saves.
@@ -536,7 +538,9 @@ buttons, ‹ title Today ›, the view's body, the legend under squares) and Com
   yet" once, in its muted line.
 * **3 days and Day** are a time grid (`.bk-grid`, `--n` columns, `--hh` px an hour: 44, or 52 in the Day view). Only
   bookings that are on one of its days are drawn (a date that is no day, a 30 February from an old backup, is on
-  none). Blocks are placed by the night clock; lanes follow where the blocks are drawn, so a set too short for its
+  none). Blocks are placed by `playKey` (a show's times on the night clock); the hours run from the hour of the
+  earliest block (05:00 for a 05:15 rehearsal, never before 00:00) to the latest end, 06:00 the next morning at most;
+  lanes follow where the blocks are drawn, so a set too short for its
   26 px minimum pushes the next one beside it rather than under it, and two that only touch share a lane. Past four
   lanes in three days, or eight in one, a block gives up its side padding (`bk-block-slim`). Bookings with no time,
   and every booking over several days, are pills in the "any time" row; "No times set yet." shows only when no pill

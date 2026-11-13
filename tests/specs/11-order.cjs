@@ -1,5 +1,6 @@
 // Same-day bookings run in the order the bands play: a show by its on-stage time (else doors, soundcheck, load-in),
-// anything else by its start, on the night clock (a time before 06:00 is after midnight), a booking with no time last.
+// anything else by its start; a show's times on the night clock (a time before 06:00 is after midnight; a session,
+// rehearsal or diary entry before 06:00 is that morning), a booking with no time last.
 // Everywhere bookings are listed by day: a day on the calendar, Coming up, the month's squares, an act's dates, a
 // person's and a venue's bookings. And the note on two shows whose sets overlap: "Overlaps with Sable, 21:30".
 const { open, ok, sleep, go, toMonth } = require('../helpers.cjs');
@@ -64,7 +65,19 @@ async function dayIds(page, iso) {
   ok('…and back to a clock time', same(m.clock, ['00:30', '06:00', '05:59', '21:00']), m.clock.join(' '));
   ok('a show plays at its on-stage time, else doors, soundcheck, load-in; anything else at its start', same(m.field, ['setTime', 'doors', 'soundcheck', 'loadIn', '', 'doors', 'start', '', 'start']) && m.time === '19:00', JSON.stringify(m.field));
   ok('…with a name for that time', same(m.label, ['On stage', 'Doors', 'Soundcheck', 'Load-in', 'Start', '']), m.label.join(','));
-  ok('a time before 06:00 is after midnight, for any kind', same(m.late, [true, false, false, true]), JSON.stringify(m.late));
+  ok('a time before 06:00 is after midnight for a show only: a session at 05:00 is that morning', same(m.late, [true, false, false, false]), JSON.stringify(m.late));
+  // The after-midnight rule is for shows only: a session, rehearsal or diary entry at 05:15 is the morning of its date.
+  const early = await page.evaluate(T => Promise.all([import('./js/model.js'), import('./js/ics.js')]).then(([m, ics]) => {
+    const at = (kind, x) => ({ id: kind, kind, status: 'confirmed', date: T, ...x });
+    const ses = at('session', { start: '05:15', end: '07:00' }), reh = at('rehearsal', { start: '05:15' }), oth = at('other', { start: '05:15' }), doors = at('show', { doors: '05:15' });
+    const w = ics.eventWhen(ses);
+    return { keys: [ses, reh, oth, doors].map(m.playKey), clock: m.nightClock(m.playKey(ses)), late: [ses, reh, oth, doors].map(m.isAfterMidnight),
+      order: [at('show', { id: 'late', setTime: '00:30' }), at('show', { id: 'eve', setTime: '21:00' }), at('session', { id: 'ses', start: '05:15' }), at('rehearsal', { id: 'noon', start: '12:00' })].sort(m.byPlay).map(x => x.id),
+      file: [w.start, w.end] };
+  }), T);
+  ok('a session, rehearsal or diary entry at 05:15 sorts by 05:15 that morning; a show’s doors at 05:15 are the end of the night', same(early.keys, [315, 315, 315, 1755]) && early.clock === '05:15' && same(early.late, [false, false, false, true]), JSON.stringify(early));
+  ok('…so it comes first in its day: the 05:15 session, noon, the evening’s show, then its set after midnight', same(early.order, ['ses', 'noon', 'eve', 'late']), early.order.join(','));
+  ok('…and the calendar file puts it on the same morning Gdex does', same(early.file, [T.replace(/-/g, '') + 'T051500', T.replace(/-/g, '') + 'T070000']), JSON.stringify(early.file));
   ok('a tie is exactly 0, so the stored order stands; a booking with no date sorts first and never throws', m.ties.every(x => x === 0) && m.noDate.every(Boolean), JSON.stringify([m.ties, m.noDate]));
   ok('a day sorts morning, evening, after midnight, then no time', same(m.sorted, ['am', 'eve', 'late', 'none']), m.sorted.join(','));
   ok('sets that only touch do not overlap; a minute over does; a 00:30 set never meets the next night’s', m.touch === false && m.over === true && m.nextNight === false);
