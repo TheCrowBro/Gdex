@@ -98,7 +98,8 @@ export const showOver = (b, now = new Date()) => { const end = showEnd(b); retur
 export const seenAnswer = b => {
   if (!b) return '';
   const a = b.actId ? byId('acts', b.actId) : null;
-  return a && seenEntryFor(a, b) ? 'seen' : b.went === 'no' ? 'no' : '';
+  // No act, no answer: a show whose act was deleted on another device before the two were merged says nothing.
+  return !a ? '' : seenEntryFor(a, b) ? 'seen' : b.went === 'no' ? 'no' : '';
 };
 // The shows waiting for "Did you see them?": over, not cancelled, with an act that is in Acts, at most ASK_DAYS days
 // after their last day, and with no answer yet. Newest first. holds: false leaves out holds and offers (a role with

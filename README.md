@@ -81,7 +81,7 @@ the band by any of its names. Press kits, riders, day sheets, invoices and calen
 - **House rules:** what a venue allows in (cameras, phones, the age limit, bags, anything unusual) is noted once on the
   venue and shows on every show there as a green, amber or red line, with the full rules on the show's page. Green
   means nothing is restricted; anything restricted, or any rule you wrote yourself, is amber; no phones, or no
-  cameras of any kind, is red. You can set the colour by hand too.
+  cameras of any kind, is red. You can set the colour by hand too, and the show then says so in words.
 
 ## Your first show
 

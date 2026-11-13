@@ -130,8 +130,12 @@ const asName = b => { const was = formerlyOf(b); return was ? ` · as ${was}` : 
 // that changed its name before it was kept here). With no name yet there is only the button, so a new act's form
 // stays short. read() gives the rows as typed, [{ name, until }], the last row first: oldest first, as they are
 // stored, so names without a day keep their order from save to save. The save cleans them (model.cleanFormer).
+// A day typed here may not be after today; a stored day that is (a backup made a time zone ahead, a clock set wrong)
+// is kept as it is until the person changes it, so it never stops a save of something else on the form.
 function namesEditor(a) {
-  const rows = earlierNames(a).reverse().map(n => ({ ...n })), today = todayISO(); // the latest first, as on the act's page
+  const today = todayISO(), rows = earlierNames(a).reverse().map(n => ({ ...n })); // the latest first, as on the act's page
+  const later = new Map(rows.filter(r => r.until > today).map(r => [r, r.until])); // each row whose stored day is after today
+  const maxOf = r => (later.has(r) && r.until === later.get(r) ? r.until : today);
   const list = h('div', { class: 'ac-was-rows' });
   const label = h('span', { class: 'ac-was-label' }, 'Earlier names');
   const hint = h('small', { class: 'muted' }, 'A name used before, and the day it stopped being used (leave the day empty if you don’t know it). Shows and scores from before that day say “formerly …”.');
@@ -142,7 +146,7 @@ function namesEditor(a) {
       const del = h('button', { type: 'button', class: 'icon-btn ac-was-del', 'aria-label': delLabel(r), onclick: () => { rows.splice(i, 1); draw(i); } }, '✕');
       return h('div', { class: 'ac-was-row', role: 'group', 'aria-label': `Earlier name ${i + 1}` },
         h('input', { type: 'text', class: 'ac-was-name', 'aria-label': 'Earlier name', placeholder: 'Earlier name', value: r.name, autocomplete: 'off', oninput: e => { r.name = e.target.value; del.setAttribute('aria-label', delLabel(r)); } }),
-        h('label', { class: 'ac-was-until' }, h('span', null, 'Used until'), h('input', { type: 'date', max: today, value: r.until, oninput: e => { r.until = e.target.value; } })),
+        h('label', { class: 'ac-was-until' }, h('span', null, 'Used until'), h('input', { type: 'date', max: maxOf(r), value: r.until, oninput: e => { r.until = e.target.value; e.target.max = maxOf(r); } })),
         del);
     }));
     // After ✕ the next name takes the focus (the last one, when the last was removed), or the button when none is left.

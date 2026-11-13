@@ -320,7 +320,8 @@ length, the curfew (the booking's own, else its saved venue's; with an on-stage 
 set; with none, a curfew before the doors, soundcheck or load-in the show is sorted by, or one alone and before noon,
 is the next morning's: an all-nighter, doors 22:00 and curfew 06:00); with an on-stage time and neither, two hours
 after it; with no times, or only doors, soundcheck or load-in, 06:00 the next morning. `ASK_DAYS` (14); `seenAnswer(b)` (`'seen'` when the act's log has the show, else `'no'` when
-`b.went === 'no'`, else `''`); `waitingShows(now?, { holds })` (shows that are over, not cancelled, with an act that
+`b.went === 'no'`, else `''`; always `''` when the booking's act is not in Acts, as after a merge that brought in a No
+for a show whose act was deleted on another device); `waitingShows(now?, { holds })` (shows that are over, not cancelled, with an act that
 is in Acts, at most `ASK_DAYS` days after their last day, with no answer; newest first; `holds: false` leaves out
 holds and offers, which a role with money is not asked about); `markWent(bookingId, no?)` (quiet).
 
@@ -515,7 +516,8 @@ buttons, ‹ title Today ›, the view's body, the legend under squares) and Com
   is alone, in squares no taller than the lines need (78 px at least). A booking over several days is named on its
   first day and on each Monday; the month also names it on a 1st (the days before are on another page), the two weeks
   do not. A line that runs on from the day before is blank, as high as the line it runs on from. A square's spoken name lists its bookings in order,
-  each with its status, and ", didn’t go" for a show answered so (there is no room to write it in a square).
+  each with ", formerly <name>" after its name for a booking from before its act changed its name, then its status,
+  and ", didn’t go" for a show answered so (there is no room to write either in a square).
   Arrow keys move between squares; past the edge of two weeks they step as ‹ › do.
 * **Week** is `section.bk-wday` per day: `h3.bk-wday-h > button.bk-wday-head` (the day's name; a tap opens the day),
   then its rows in playing order, each with `cardExtras(b)` as direct children of `span.bk-wrow-main`. An empty day
@@ -528,11 +530,14 @@ buttons, ‹ title Today ›, the view's body, the legend under squares) and Com
   lanes in three days, or eight in one, a block gives up its side padding (`bk-block-slim`). Bookings with no time,
   and every booking over several days, are pills in the "any time" row; "No times set yet." shows only when no pill
   has a time. Three days with nothing on keep their three day names above "Nothing on these three days."; a Day with
-  nothing on draws no grid. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
+  nothing on draws no grid. The walkthrough's "The calendar" step says what is drawn (`gridHelp`): hours when there
+  are some; with only the "any time" row, that nothing has a time yet (when "No times set yet." shows) or that a
+  booking over several days sits there; three days with nothing on are their names, to tap; an empty Day has no step. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
   shorter than two lines puts its name and time on one line, and a narrow one drops the kind's icon and the word
   before the time ("Doors"), which a screen reader still gets.
 * **What a block says.** A block or pill is too small for the overlap note and the house-rules chip: a hidden span
-  carries, in order, its days (a pill), the status, `model.overlapText(b)`, the house rules as spoken (from
+  carries, in order, the name the act had that night for a booking from before it changed its name (`Formerly The
+  Night Owls`), its days (a pill), the status, `model.overlapText(b)`, the house rules as spoken (from
   `model.rulesChipText`, never read out of the chip's nodes) and "Didn’t go", each with a full stop. In the Day view a
   block's second line also shows where it is, or " · Didn’t go" in its place (`span.bk-block-went[aria-hidden]`, so a
   screen reader hears it once). In three days there is no room for it: the hidden words have it.
@@ -639,7 +644,8 @@ Every record goes on using the current name, so lists and search stay in one pie
   `<old name> becomes <new name>.`, and the question.
 * **The form's part.** `div.field.wide.ac-was[role=group]` straight after the Name field: `div.ac-was-row` per name
   (the latest first) with `input.ac-was-name`, `label.ac-was-until > input[type=date]` (`max` today, so the form's
-  own validation refuses a later day; it may be empty) and `button.ac-was-del`, then `#ac-was-add`. With no name
+  own validation refuses a later day; a stored day after today, from a backup made a time zone ahead or a clock set
+  wrong, is its own `max` until it is changed, so it never stops a save of the rest of the form; it may be empty) and `button.ac-was-del`, then `#ac-was-add`. With no name
   there is only the button (the label and the hint are `hidden`). Every save stores `cleanFormer(rows, name)`,
   oldest first, and gives an act that never had the key no empty list.
 * **Walkthroughs.** The act form's has an "Earlier names" step (`.ac-was`), and its Name step speaks of the question

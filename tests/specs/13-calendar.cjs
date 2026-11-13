@@ -183,7 +183,7 @@ async function press(page, loc, ms) {
       const cal = (tour.find(s => s[0] === 'The calendar') || [])[1] || '';
       ok(`${v}: the walkthrough has New booking, Export calendar, Filters, Views, The calendar and Coming up`, same(names.filter(n => !['Add to this day', 'Bookings'].includes(n)), ['New booking', 'Export calendar', 'Filters', 'Views', 'The calendar', 'Coming up'])
         && (tour.find(s => s[0] === 'Views') || [])[1] === 'Month, 2 weeks, Week, 3 days or Day. Gdex opens on the one you picked here last.' && same((tour.find(s => s[0] === 'Coming up') || [])[2], ['.bk-agenda', '.bk-calview > .empty']), names.join(', '));
-      ok(`${v}: …and The calendar step speaks of this view`, cal.startsWith({ month: 'Each line or dot is a booking', two: 'Two weeks of days, each booking with the time the band plays.', week: 'Each day lists what is on, in the order the bands play.', three: 'Hours run down the side', day: 'Hours run down the side' }[v]), cal);
+      ok(`${v}: …and The calendar step speaks of this view`, cal.startsWith({ month: 'Each line or dot is a booking', two: 'Two weeks of days, each booking with the time the band plays.', week: 'Each day lists what is on, in the order the bands play.', three: 'Three days with nothing on. Tap a day’s name to see that day alone', day: 'Hours run down the side' }[v]), cal); // no hours on three empty days (an empty Day skips the step)
       ok(`${v}: only the Day view adds “Add to this day” and a step named after the page`, names.includes('Add to this day') === (v === 'day') && names.includes('Bookings') === (v === 'day'), names.join(', '));
     }
 
@@ -422,11 +422,15 @@ async function press(page, loc, ms) {
   // only "any time": no empty hours
   await put(page, 'bookings', { id: 'c-U', kind: 'other', status: 'hold', title: 'Untimed', date: T3 }); await sleep(300);
   ok('a day with nothing timed shows the “any time” row and “No times set yet.”, without empty hours', (await page.locator('.bk-any #bk-ev-c-U-any').count()) === 1 && (await page.locator('.bk-grid-body').count()) === 0 && (await page.locator('.bk-grid-note').textContent()) === 'No times set yet.' && (await page.locator('.bk-cal-panel .bk-none').count()) === 0);
+  let calStep = ((await steps(page)).find(s => s[0] === 'The calendar') || [])[1] || '';
+  ok('…and its walkthrough speaks of the row at the top, not of hours that are not there', calStep.startsWith('Nothing here has a time yet, so each booking sits in the row at the top.'), calStep);
   await page.evaluate(() => import('./js/store.js').then(s => s.remove('bookings', 'c-U'))); await sleep(300);
   // a booking over two days that has a time is in that row for its days, not for want of a time
   await put(page, 'bookings', { id: 'c-F', kind: 'show', status: 'hold', title: 'Two-day Fest', date: T3, endDate: T4, setTime: '16:30', setLength: 30 }); await sleep(300);
   const fest = await page.evaluate(() => ({ pill: (document.querySelector('#bk-ev-c-F-any .bk-any-text') || {}).textContent || '', notes: document.querySelectorAll('.bk-cal-panel .bk-grid-note').length, hours: document.querySelectorAll('.bk-grid-body').length, none: document.querySelectorAll('.bk-cal-panel .bk-none').length, said: /No times set yet/.test(document.querySelector('.bk-cal-panel').textContent) }));
   ok('a day whose only booking runs over two days and has a time shows its pill with the time first, and does not say “No times set yet.”', fest.pill.startsWith('16:30 ') && fest.pill.includes('Two-day Fest') && fest.notes === 0 && !fest.said && fest.hours === 0 && fest.none === 0, JSON.stringify(fest));
+  calStep = ((await steps(page)).find(s => s[0] === 'The calendar') || [])[1] || '';
+  ok('…and its walkthrough says why it is in the row at the top, without saying it has no time', calStep.startsWith('A booking over several days, or one without a time, sits in the row at the top.'), calStep);
   await put(page, 'bookings', { id: 'c-U', kind: 'other', status: 'hold', title: 'Untimed', date: T3 }); await sleep(300);
   ok('…with a booking that has no time beside it, the row has both and nothing is said about times (one of them has one)', (await page.locator('.bk-any .bk-ev').count()) === 2 && (await page.locator('.bk-cal-panel .bk-grid-note').count()) === 0);
   await page.evaluate(() => import('./js/store.js').then(s => { s.remove('bookings', 'c-U'); s.remove('bookings', 'c-F'); })); await sleep(300);
@@ -823,5 +827,74 @@ async function press(page, loc, ms) {
     }
     ok(`no errors in the console (digital player, 320 px, ${scheme})`, d.errors.length === 0, d.errors.slice(0, 5).join(' | '));
     await d.browser.close();
+  }
+
+  /* ------------------------------ a renamed act's show, with every other line, under the digital player ------------------------------ */
+  // Items 2, 3, 5, 6 and 7 on one row: a show from before its act changed its name, at a venue whose colour was set by
+  // hand, whose set overlaps another, answered No in the real question; on a narrow phone with extra-large text and
+  // large buttons, behind the digital player. Each view says "formerly" where it says the rest: written on the Week row
+  // and the show's page, in the hidden words of the grid's blocks and in a day square's spoken name.
+  {
+    const f = await open({ sample: true, ask: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('gdex-prefs', '${JSON.stringify({ scheme: 'light', menu: 'digital', text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });
+    const P4 = await dayFromNow(f.page, -4), C2 = await dayFromNow(f.page, -2); // the show four days back, the new name from two days back
+    await f.page.evaluate(C2 => import('./js/store.js').then(st => { st.patch('acts', 's-owls', { name: 'Owl Parliament', formerNames: [{ name: 'The Night Owls', until: C2 }] }); st.patch('venues', 's-lantern', { rulesTone: 'strict' }); }), C2);
+    await put(f.page, 'bookings', { id: 'c-f1', kind: 'show', status: 'confirmed', actId: 's-owls', date: P4, venueId: 's-lantern', setTime: '21:00', setLength: 60 });
+    await put(f.page, 'bookings', { id: 'c-f2', kind: 'show', status: 'confirmed', actId: 's-sablea', date: P4, venueId: 's-lantern', setTime: '21:30', setLength: 45 });
+    await sleep(200);
+    await f.page.reload(); await f.page.waitForSelector('#deck .dk-next');
+    const Q = '.sheet[aria-label="Did you see them?"]';
+    await f.page.locator(Q).waitFor({ timeout: 8000 }).catch(() => {}); await sleep(250);
+    const askRow = () => f.page.evaluate(Q => [...document.querySelectorAll(`${Q} .ac-ask-row`)].map(r => ({ id: r.dataset.id, parts: [...r.querySelector('.ac-ask-main').children].map(e => e.textContent), fits: r.scrollWidth <= r.clientWidth + 0.5 && r.getBoundingClientRect().right <= 320.5 })), Q);
+    let rows = await askRow();
+    const r1 = rows.find(r => r.id === 'c-f1'), r2 = rows.find(r => r.id === 'c-f2');
+    ok('renamed act, 320 px: “Did you see them?” lists the show under the new name, then “formerly” with the name that night, then its day and venue', !!r1 && r1.parts[0] === 'Owl Parliament' && r1.parts[1] === 'formerly The Night Owls' && r1.parts.length === 3 && r1.parts[2].endsWith('The Lantern Rooms') && r1.fits, JSON.stringify(rows));
+    ok('…and the other act’s row, never renamed, has no such line', !!r2 && r2.parts.length === 2 && r2.parts[0] === 'Sable', JSON.stringify(r2));
+    await f.page.click('#ac-ask-no-c-f1'); await sleep(300);
+    rows = await askRow();
+    ok('…answered No, the row keeps its “formerly” and says Didn’t go', (rows.find(r => r.id === 'c-f1') || {}).parts?.[1] === 'formerly The Night Owls' && (await f.page.locator(`${Q} .ac-ask-row[data-id="c-f1"] .ac-ask-done`).innerText()) === 'Didn’t go', JSON.stringify(rows));
+    await f.page.click('#ac-ask-close'); await sleep(300);
+    // What every view must say, from the model: the name that night first, then the status, the overlap note, the
+    // venue's rules as spoken (with the colour set by hand) and the answer.
+    const want = await f.page.evaluate(() => Promise.all([import('./js/model.js'), import('./js/store.js')]).then(([m, s]) => { const b = s.byId('bookings', 'c-f1');
+      return { said: ['Formerly The Night Owls', m.statusLabel(b.status), m.overlapText(b), m.rulesChipText(m.showRulesVenue(b)).spoken, 'Didn’t go'].map(x => x + '.').join(' '), overlap: m.overlapText(b), rules: m.rulesChipText(m.showRulesVenue(b)) }; }));
+    ok('(the model: the overlap note names the other act, and the rules say the colour was set by hand)', want.overlap === 'Overlaps with Sable, 21:30' && want.rules.spoken === 'House rules, set to strict: Pro cameras not allowed, and 1 more' && want.rules.level === 'strict', JSON.stringify(want));
+    const player = () => f.page.evaluate(() => { window.scrollTo(0, 0); const deck = document.querySelector('.deck').getBoundingClientRect(), inDeck = s => { const r = document.querySelector(s).getBoundingClientRect(); return r.width > 0 && r.left >= deck.left - 0.5 && r.right <= deck.right + 0.5; };
+      return { page: document.documentElement.scrollWidth, controls: ['#deck .dk-prev', '#deck .dk-list', '#deck .dk-next'].every(inDeck), tab: (document.querySelector('.dk-tab[aria-current=page]') || {}).dataset?.section }; });
+    const fits = p => p.page <= 320 && p.controls && p.tab === 'bookings';
+    await toWeek(f.page, P4, true);
+    const wrow = await f.page.evaluate(d => { const r = document.getElementById(`bk-ev-c-f1-${d}`); if (!r) return null; const box = r.getBoundingClientRect(), t = r.querySelector('.bk-wrow-main').innerText; // the time has a column of its own, before it
+      return { kids: [...r.querySelectorAll('.bk-wrow-main > *')].map(e => e.className.split(' ')[0]), was: (r.querySelector('.bk-formerly') || {}).textContent, chip: (r.querySelector('.vn-chip .sr-only') || {}).textContent,
+        inside: [...r.querySelectorAll('.bk-wrow-main > *')].every(e => { const x = e.getBoundingClientRect(); return x.left >= box.left - 0.5 && x.right <= box.right + 0.5; }),
+        order: ['Owl Parliament', 'formerly The Night Owls', 'Overlaps with Sable', 'Pro cameras', 'Didn’t go'].map(w => t.indexOf(w)) }; }, P4);
+    ok('Week: the row reads the name, “formerly The Night Owls”, its line of times, the overlap note, the chip and Didn’t go, in that order, inside the row', !!wrow && same(wrow.kids, ['bk-wrow-top', 'bk-formerly', 'bk-wrow-sub', 'bk-overlap', 'vn-chip', 'pill']) && wrow.was === 'formerly The Night Owls' && wrow.inside && wrow.order.every((n, i) => n >= 0 && (i === 0 || n > wrow.order[i - 1])), JSON.stringify(wrow));
+    ok('Week: …the chip says in words that the colour was set by hand', !!wrow && wrow.chip === want.rules.spoken, JSON.stringify(wrow && wrow.chip));
+    let p = await player();
+    ok('Week: …and the page is no wider than the phone, with the digital player whole', fits(p), JSON.stringify(p));
+    const said = () => f.page.evaluate(d => { const b = document.getElementById(`bk-ev-c-f1-${d}`); return b ? b.querySelector('.sr-only').textContent.trim() : null; }, P4);
+    await f.page.click(`#bk-wd-${P4}`); await f.page.waitForSelector('.bk-dayview'); await sleep(200);
+    const dayB = await said();
+    p = await player();
+    ok('Day: the block’s hidden words say “Formerly The Night Owls”, then the status, the overlap, the rules set by hand and Didn’t go', dayB === want.said && fits(p), JSON.stringify([dayB, want.said, p]));
+    await view(f.page, 'three');
+    const threeB = await said();
+    p = await player();
+    ok('3 days: the same words', threeB === want.said && fits(p), JSON.stringify([threeB, p]));
+    const square = () => f.page.evaluate(d => document.querySelector(`.bk-day[data-date="${d}"]`).getAttribute('aria-label'), P4);
+    await view(f.page, 'two');
+    const two = await square(), sq = await squareLines(f.page, P4);
+    p = await player();
+    ok('2 weeks: the day square’s spoken name has “formerly” after the booking’s name, and Didn’t go after the status', two.includes('21:00 Owl Parliament @ The Lantern Rooms, formerly The Night Owls (Confirmed, didn’t go)') && two.includes('21:30 Sable @ The Lantern Rooms (Confirmed)') && fits(p), two);
+    ok('2 weeks: …and each line of the square still shows its time whole, inside the square', sq.lines.length === 2 && sq.lines.every(l => l.timeWhole && l.inside), JSON.stringify(sq));
+    await view(f.page, 'month');
+    const mon = await square();
+    p = await player();
+    ok('Month: the same in the day’s spoken name', mon.includes('Owl Parliament @ The Lantern Rooms, formerly The Night Owls (Confirmed, didn’t go)') && fits(p), mon);
+    await f.page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('c-f1'))); await f.page.waitForSelector('.bk-page .bk-hero'); await sleep(300);
+    const hero = await f.page.evaluate(() => { const h = document.querySelector('.bk-hero'), kids = [...h.children].map(e => e.className.split(' ')[0]);
+      return { kids, was: (h.querySelector('.bk-formerly') || {}).textContent, title: h.querySelector('.bk-title').textContent, strict: [...h.querySelectorAll('.vn-rules dt')].some(dt => dt.textContent === 'How strict' && dt.nextElementSibling.textContent === 'Strict, set by hand'),
+        went: (document.querySelector('.bk-score-went .bk-score-text') || {}).textContent, page: document.documentElement.scrollWidth }; });
+    ok('the show’s page: the new name, “formerly The Night Owls” under it, the rules with How strict: Strict, and Didn’t go', hero.title.includes('Owl Parliament') && hero.was === 'formerly The Night Owls' && hero.kids.indexOf('bk-formerly') === hero.kids.indexOf('bk-hero-top') + 1 && hero.strict && hero.went === 'Didn’t go' && hero.page <= 320, JSON.stringify(hero));
+    ok('no errors in the console (a renamed act’s show, every line, the digital player)', f.errors.length === 0, f.errors.slice(0, 5).join(' | '));
+    await f.browser.close();
   }
 })().catch(e => { console.log('FAIL calendar spec crashed — ' + (e.stack || e.message).split('\n').slice(0, 3).join(' ')); process.exit(1); });

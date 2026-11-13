@@ -143,6 +143,14 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   });
   const goneMark = await page.evaluate(() => Promise.all([import('./js/bookings-kit.js'), import('./js/store.js')]).then(([k, s]) => k.wentMark(s.byId('bookings', 'w-no')) === null));
   ok('…and so does deleting the act: no act, no “Didn’t go” on its card', rec.actId === '' && !('went' in rec) && goneMark, JSON.stringify({ a: rec.actId, w: rec.went }));
+  // The act deleted on one device, the show marked No on another, the two merged: the show keeps the No and points at
+  // an act that is not there. Nothing on its page could take the answer back, so nothing says it.
+  const dangling = await page.evaluate(() => Promise.all([import('./js/bookings-kit.js'), import('./js/store.js'), import('./js/model.js')]).then(([k, s, m]) => {
+    s.patch('bookings', 'w-no', { actId: 'g-elsewhere', went: 'no' });
+    const b = s.byId('bookings', 'w-no');
+    return { act: b.actId, went: b.went, answer: m.seenAnswer(b), mark: k.wentMark(b) === null };
+  }));
+  ok('…and a show whose act is not there at all (deleted on another device before a merge) says no “Didn’t go” either', dangling.act === 'g-elsewhere' && dangling.went === 'no' && dangling.answer === '' && dangling.mark, JSON.stringify(dangling));
 
   /* ---------------- the booking page's seams ---------------- */
   await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1'))); await page.waitForSelector('.bk-page .bk-hero');

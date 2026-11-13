@@ -793,6 +793,24 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     await page.waitForSelector('.bk-dayview');
     for (const v of ['month', 'two', 'week', 'three', 'day']) { await page.click('#bk-view-' + v); await sleep(200); }
     ok('every view of the calendar draws the day of that show', (await page.locator('.bk-dayview .bk-ev[data-id="jb4"]').count()) === 1);
+    // a stored day after today (a backup made a time zone ahead, a clock set wrong) never stops a save of something else
+    await store(page, (s, D) => s.upsert('acts', { id: 'j5', name: 'Ahead Of Time', members: [], phone: '', formerNames: [{ name: 'Early Birds', until: D[3] }] }), D);
+    await openAct(page, 'j5');
+    const f5 = await editForm(page);
+    await f5.locator('input[data-key=phone]').fill('0123 456');
+    await f5.locator('button[type=submit]').click();
+    await sleep(300);
+    const a5 = await actOf(page, 'j5');
+    ok('a stored day after today does not stop a save of the act: the phone is saved and the day is kept', (await sheets(page)).length === 0 && a5.phone === '0123 456' && same(a5.formerNames, [{ name: 'Early Birds', until: D[3] }]), JSON.stringify([await sheets(page), a5]));
+    const f5b = await editForm(page);
+    await f5b.locator('.ac-was-until input').fill(D[5]);
+    await f5b.locator('button[type=submit]').click();
+    await sleep(300);
+    ok('…but a day typed after today is still refused there', same(await sheets(page), ['Edit act']) && await f5b.locator('.ac-was-until input').evaluate(el => el.validity.rangeOverflow) && (await actOf(page, 'j5')).formerNames[0].until === D[3]);
+    await f5b.locator('.ac-was-until input').fill(D[3]);
+    await f5b.locator('button[type=submit]').click();
+    await sleep(300);
+    ok('…and putting the stored day back lets it save again', (await sheets(page)).length === 0);
     ok('no errors in the console', errors.length === 0, errors.join(' | '));
     await browser.close();
   }

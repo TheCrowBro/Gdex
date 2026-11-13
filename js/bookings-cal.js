@@ -433,6 +433,19 @@ const VIEW_HELP = {
   week: 'Each day lists what is on, in the order the bands play. Tap a booking to open it, or a day’s name to see that day alone.',
   three: 'Hours run down the side and each booking sits at the time the band plays. Sets that overlap sit side by side; anything without a time is in the row at the top.',
 };
+// The time grid's step says what is drawn: hours only when there are some (a day or three with only the row at the
+// top have none), and three days with nothing on are only their days' names. An empty Day has no grid and no step.
+const GRID_HELP = {
+  untimed: 'Nothing here has a time yet, so each booking sits in the row at the top. Once one has a time, hours run down the side and it sits at that time.',
+  top: 'A booking over several days, or one without a time, sits in the row at the top. One on a single day with a time sits at that time, with hours down the side.',
+  empty: 'Three days with nothing on. Tap a day’s name to see that day alone, or use ‹ › to move three days.',
+};
+function gridHelp(mode) {
+  const panel = document.querySelector('.bk-calview .bk-cal-panel');
+  if (!panel || (mode !== 'three' && mode !== 'day') || panel.querySelector('.bk-grid-body')) return VIEW_HELP[mode] || VIEW_HELP.three;
+  if (panel.querySelector('.bk-grid .bk-ev')) return panel.querySelector('.bk-grid-note') ? GRID_HELP.untimed : GRID_HELP.top;
+  return mode === 'three' ? GRID_HELP.empty : VIEW_HELP.three;
+}
 export function calendarSteps(ctx) {
   X = ctx;
   const mode = modeOf(X.S);
@@ -442,7 +455,7 @@ export function calendarSteps(ctx) {
     { title: 'Filters', text: 'Show one act, or one kind of booking, on the calendar and in the list.', target: ['.bk-filters'] },
     { title: 'Views', text: 'Month, 2 weeks, Week, 3 days or Day. Gdex opens on the one you picked here last.', target: ['.bk-views'] },
     // A day with nothing on has no grid: no hours to speak of, and nothing to tap, so those two steps are skipped there.
-    { title: 'The calendar', text: VIEW_HELP[mode] || VIEW_HELP.three, target: [mode === 'day' ? '.bk-dayview .bk-grid' : '.bk-cal-panel'] },
+    { title: 'The calendar', text: gridHelp(mode), target: [mode === 'day' ? '.bk-dayview .bk-grid' : '.bk-cal-panel'] },
     ...(mode === 'day' ? [
       { title: 'Add to this day', text: 'A new booking with this date already filled in.', target: ['.bk-new-day'] },
       { title: pageName(), text: 'Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-dayview .bk-grid'] },
