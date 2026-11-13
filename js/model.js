@@ -53,8 +53,8 @@ export const setWindow = b => {
   return start == null ? null : { start, end: start + (Number(b.setLength) > 0 ? Number(b.setLength) : 60) };
 };
 // Two shows whose sets run at the same time on a day they share. Sets that only touch (one ends as the next starts)
-// do not overlap.
-export const setsOverlap = (a, b) => { const x = setWindow(a), y = setWindow(b); return !!x && !!y && overlaps(a, b) && x.start < y.end && y.start < x.end; };
+// do not overlap. The days are tested first: every card asks about the whole diary, and only its own days can overlap.
+export const setsOverlap = (a, b) => { if (!a || !b || !overlaps(a, b)) return false; const x = setWindow(a), y = setWindow(b); return !!x && !!y && x.start < y.end && y.start < x.end; };
 // The other shows whose sets overlap this one's, in the order they play; [] for a booking with no set.
 export const overlapsOf = (b, list = db.bookings) => (setWindow(b) ? (list || []).filter(o => o && o !== b && o.id !== b.id && setsOverlap(b, o)).sort(byPlay) : []);
 // The note on a card: "Overlaps with Chelsea Wolfe, 21:00", "… and Sable, 21:30", "… and 2 more"; '' when nothing

@@ -50,6 +50,14 @@ async function dayIds(page, iso) {
       more: m.overlapText(a, [a, b, c, d]),
       client: m.overlapText(c, [c, d]),
       self: m.overlapText(a, [a]),
+      // The cost of a card's note: it looks at the times of the shows on its own days only. Every card asks about the
+      // whole diary, so with 2,000 bookings reading every other show's times made Show all twice as slow.
+      far: (() => {
+        let reads = 0;
+        const counted = x => { const o = show(x), t = o.setTime; Object.defineProperty(o, 'setTime', { get() { reads++; return t; }, enumerable: true }); return o; };
+        const away = Array.from({ length: 50 }, (_, i) => counted({ id: 'far' + i, date: '2099-01-01', setTime: '20:30' }));
+        return { text: m.overlapText(a, [a, b, ...away]), reads };
+      })(),
     };
   }), T);
   ok('the night clock: 00:30 and 05:59 are after midnight, 06:00 is the morning; only a real time counts', same(m.night, [1470, 1799, 360, 540, null, null, null, null, null, null]), JSON.stringify(m.night));
@@ -64,6 +72,7 @@ async function dayIds(page, iso) {
   ok('two shows of the same act name each other by title', m.sameAct[0] === 'Overlaps with The Night Owls @ Room B, 20:30' && m.sameAct[1] === 'Overlaps with The Night Owls @ Room A, 20:00', m.sameAct.join(' | '));
   ok('two others are both named; with more, the first and a count', m.two === 'Overlaps with The Night Owls @ Room B, 20:30 and Sable, 20:45' && m.more === 'Overlaps with The Night Owls @ Room B, 20:30 and 2 more', `${m.two} | ${m.more}`);
   ok('a show with no act goes by its client; a show never overlaps itself', m.client === 'Overlaps with Juno, 20:50' && m.self === '', `${m.client} | ${m.self}`);
+  ok('a card’s note reads no times of shows on other days (the day is tested first)', m.far.text === 'Overlaps with The Night Owls @ Room B, 20:30' && m.far.reads === 0, JSON.stringify(m.far));
 
   /* ---------------- one day, stored out of order ---------------- */
   const seed = [
