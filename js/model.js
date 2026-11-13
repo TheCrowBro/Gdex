@@ -383,6 +383,25 @@ export function mainGenreOf(a) {
   return { id, label: mainGenreLabel(id), auto: true };
 }
 
+/* ------------------------------- sample work ------------------------------- */
+// An act's "Sample work" link (item 15): the address of a page of the person's work for the act (a SoundCloud, Drive or
+// Dropbox page of a producer's mixes, a private playlist), shared as a QR code from the act's card. act.sampleWork is
+// the text as typed (not act.sample: that marks a record of the sample data, which Settings → Remove the sample
+// deletes); read it only through sampleLink(a): { url, host } for one web address, read as every link a person
+// types is read (util.safeUrl: http or https, "https://" put in front when no scheme is typed) with a host that has a
+// dot in it ("soundcloud.com", "www." left off host); null for anything else: no key, empty, not text, words, a space
+// inside, a mailto: or javascript: address, a name and a password in it. Never throws. Nothing printed, sent or
+// exported for another program carries it, and the search does not read it.
+import { safeUrl } from './util.js';
+export function sampleLink(a) {
+  const raw = a && typeof a.sampleWork === 'string' ? a.sampleWork.trim() : '';
+  if (!raw || /\s/.test(raw)) return null;
+  let u = null;
+  try { u = new URL(safeUrl(raw)); } catch { return null; }
+  if (!/^https?:$/.test(u.protocol) || u.username || u.password || !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(u.hostname)) return null;
+  return { url: u.href, host: u.hostname.replace(/^www\./i, '') };
+}
+
 /* ------------------------------- people & gear ------------------------------- */
 export const PEOPLE_GROUPS = [['band', 'Band members'], ['session', 'Session players'], ['crew', 'Crew'], ['contact', 'Industry contacts']];
 export const ROLES = ['Vocals', 'Guitar', 'Bass', 'Drums', 'Keys', 'Producer', 'Engineer', 'Mix engineer', 'Mastering engineer', 'Session musician',

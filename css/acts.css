@@ -39,6 +39,23 @@
 /* An act nothing is logged for, for a role that doesn't score its own acts: Open the act on a line of its own, the ways
    to log a time seen under it. */
 .ac-pnl-lead .btn.primary { flex-basis: 100%; }
+/* Sample work (js/acts-sample.js), at the head of an open card for a producer, a manager and Everything: a small QR
+   code (white, as every code, so it scans in the dark scheme too) beside the host in words; the words drop under the
+   code when the card is too narrow for both (a phone with large text); Show big and Share link (and ✎ Edit while there
+   is no sample work link) share a row under them. */
+.ac-sample { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px; border-radius: 12px; background: var(--bg2); }
+.ac-sample-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.ac-sample .ac-sample-qr { flex: none; width: 104px; min-height: 104px; margin: 0; padding: 6px; border-radius: 10px; font-size: .72rem; line-height: 1.2; text-align: center; }
+.ac-sample-text { display: grid; gap: 2px; flex: 1 1 9em; min-width: 0; overflow-wrap: anywhere; }
+.ac-sample-h { text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; font-weight: 700; color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
+.ac-sample-host { font-weight: 800; font-size: 1.05rem; }
+.ac-sample-say { margin: 0; }
+.ac-sample .ac-sample-say { color: color-mix(in srgb, var(--muted) 70%, var(--text)); } /* muted alone is under 4.5:1 on --bg2 in the light schemes */
+.ac-sample-actions { margin: 0; gap: 6px; }
+.ac-sample-actions .btn { flex: 1 1 auto; justify-content: center; }
+.ac-sample-check, .ac-sample-check.warn { margin: 6px 0 0; font-size: .85rem; overflow-wrap: anywhere; } /* in rem: it follows the Text size setting */
+.ac-sample-check:not(.warn) { color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
+.ac-sample-copy { width: 100%; }
 .ac-pick { display: grid; gap: 2px; }
 .ac-form-act { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 800; overflow-wrap: anywhere; }
 .ac-form-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--ac-color, var(--accent)); }
