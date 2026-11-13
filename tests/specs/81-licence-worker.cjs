@@ -286,6 +286,13 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     await web('start', { email: 'desk@example.com' });
     const dt2 = await web('verify', { email: 'desk@example.com', code: lastCode('desk@example.com') });
     ok('…while the licence itself stays: using the code again makes the records afresh, with a sign-in that works', dt2.status === 200 && (await web('check', { token: dt2.token })).ok === true);
+    { // when codes were sent stays (without the code), so deleting cannot reset the limits: 3 went today, so 1 more
+      const deskSent = () => mails().filter(x => x.to[0] === 'desk@example.com').length, before = deskSent();
+      await web('forget', { token: dt2.token });
+      await post('/licence/activate', { code: dsk, install: 'install-desk-0000000001', os: 'Windows' });
+      for (let i = 0; i < 4; i++) await web('start', { email: 'desk@example.com' });
+      ok('…and it keeps when sign-in codes were sent, so deleting cannot reset an address\'s 4 a day: after 3 codes, a deletion and 4 more asks, 1 more is emailed', deskSent() - before === 1, `${deskSent() - before} sent`);
+    }
     // The day's sign-in emails, for everyone together: 30.
     await kv.put('m:' + today(), '29');
     const lastOne = mails().filter(x => x.to[0] === 'robin@example.com').length;

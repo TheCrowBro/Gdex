@@ -255,7 +255,8 @@ after you win a dispute).
 
 **Someone asks to have their records deleted.** In Gdex they can do it themselves: Settings → About & licence → **Delete
 my licence records**, while signed in. That removes their email's links, any sign-in code and the computers on their
-licence; the licence itself, and any cancellation, stay.
+licence; the licence itself, any cancellation, and the times sign-in codes were sent that day (nothing else, so the
+limits hold) stay.
 
 **Your key is lost.** Unlock the spare (`gdex-licence-key-9-spare.json`) and carry on; tell the developer, who makes you
 a new key in the next version. Codes already made keep working. If a key file and its passphrase leaked, tell the

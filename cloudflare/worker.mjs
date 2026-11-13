@@ -307,8 +307,9 @@ async function webToken(env, token) {
 // Only a scrambled form of the identity is kept for this, never the email address itself.
 const forgotKey = async ikey => 'z:' + hex(await sha256('gdex-forgot|' + ikey));
 // Delete my licence records (Settings → About & licence): what the server keeps about this sign-in's person goes: the
-// email address's links to its licences, any sign-in code record, and the list of computers on those licences (the
-// times of recent moves stay, without anything about the computers, so a deletion cannot reset the limit on moves).
+// email address's links to its licences, any sign-in code, and the list of computers on those licences (the times of
+// recent moves, and when sign-in codes were sent that day, stay without anything else, so a deletion cannot reset the
+// limit on moves or on codes).
 // Every sign-in made before now stops working; signing in again makes the records afresh. A cancellation stays, so a
 // refunded licence cannot come back this way. Stripe and Link keep their own records of a purchase.
 async function webForget(request, env) {
@@ -376,7 +377,11 @@ export class SignInCodes {
       await store.put('rec', right ? { sent } : { ...rec, tries: (rec.tries || 0) + 1 }); // a code works once
       return { ok: right };
     }
-    if (b.op === 'forget') { await store.deleteAll(); return { ok: true }; }
+    if (b.op === 'forget') { // Delete my licence records: the code and its tries go; when codes were sent stays for its
+      // day, without anything else, so a deletion cannot reset the limits (and the alarm still clears it)
+      if (sent.length) await store.put('rec', { sent }); else await store.deleteAll();
+      return { ok: true };
+    }
     return { error: 'op' };
   }
   async alarm() { await this.ctx.storage.deleteAll(); }
