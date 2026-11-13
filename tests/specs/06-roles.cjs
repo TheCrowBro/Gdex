@@ -1,4 +1,4 @@
-// Roles: the first-run question (producer, manager, band, solo artist, scout, audiophile, or everything), each role's
+// Roles: the first-run question (producer, manager, band, solo artist, scout, audiophile, or Jack of Trades), each role's
 // section menu (the calendar first, and where Gdex opens every time, whatever was open last), the welcome tour that
 // follows it, Settings → Your role to swap, bonus tracks for the sections off the menu (on the sleeve or the track list,
 // as a tab on the digital player, and from any link), the booking boxes a role hides, and that nothing is lost.
@@ -22,8 +22,27 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.waitForSelector('.sheet[aria-label="Who’s using Gdex?"]', { timeout: 8000 });
     const R = await roles(page);
     const cards = await page.$$eval('.rp-ask .rp-card', bs => bs.map(b => b.dataset.role));
-    ok('the first open asks who is using Gdex, with the six roles', JSON.stringify(cards) === JSON.stringify(['producer', 'manager', 'band', 'solo', 'scout', 'audiophile']), cards.join(','));
-    ok('…and a way to have everything', await page.locator('.rp-ask .rp-all').isVisible());
+    ok('the first open asks who is using Gdex, with the six roles and Jack of Trades last', JSON.stringify(cards) === JSON.stringify(['producer', 'manager', 'band', 'solo', 'scout', 'audiophile', 'all']), cards.join(','));
+    // Jack of Trades (id 'all', every section) is a full card like the others: its name, the sub name under it, its icon, its blurb, its menu
+    const jack = await page.$eval('.rp-ask .rp-card[data-role="all"]', c => {
+      const box = sel => { const e = c.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, text: e.textContent }; };
+      return { name: box('.rp-name'), sub: box('.rp-sub'), blurb: box('.rp-blurb'), menu: box('.rp-menu'), icon: box('.rp-icon'), card: (({ top, bottom, left, right }) => ({ top, bottom, left, right }))(c.getBoundingClientRect()), cls: c.className };
+    });
+    // The comma a screen reader gets must take no room on the line: squeezed to the width "Jack of Trades" needs, the
+    // name stays on one line, as it would without it (a comma taking room pushed "Trades" down at 320px with large text).
+    const comma = await page.$eval('.rp-ask .rp-card[data-role="all"] .rp-name', n => {
+      const c = n.querySelector('.rp-comma'), r = c.getBoundingClientRect();
+      const probe = document.createElement('span'); probe.style.cssText = 'position: absolute; white-space: nowrap; visibility: hidden'; probe.textContent = n.firstChild.textContent; n.append(probe);
+      const need = probe.getBoundingClientRect().width; probe.remove();
+      const one = n.getBoundingClientRect().height; n.style.width = `${Math.ceil(need) + 1}px`; const squeezed = n.getBoundingClientRect().height; n.style.width = '';
+      return { text: c.textContent, w: r.width, h: r.height, overflow: getComputedStyle(c).overflow, one: Math.round(one), squeezed: Math.round(squeezed) };
+    });
+    ok('Jack of Trades is a card like the six: its name, icon and blurb, and every section as its menu', jack.name.text === 'Jack of Trades,' && jack.icon.text === '🧰' && /every section on the menu/.test(jack.blurb.text) && jack.menu.text.split(' · ').length === 10 && jack.cls === 'card tap rp-card', JSON.stringify(jack));
+    ok('…with its sub name, Master of None, under the name and over the blurb', jack.sub && jack.sub.text === 'Master of None' && jack.sub.top >= jack.name.bottom - 1 && jack.blurb.top >= jack.sub.bottom - 1 && Math.abs(jack.sub.left - jack.name.left) < 2 && jack.sub.right <= jack.card.right, JSON.stringify(jack.sub));
+    ok('…and the comma that joins them for a screen reader is not seen and takes no room on the line', comma.text === ',' && comma.w <= 1 && comma.h <= 1 && comma.overflow === 'hidden' && comma.squeezed === comma.one, JSON.stringify(comma));
+    ok('…and only Jack of Trades has a sub name', (await page.locator('.rp-ask .rp-sub').count()) === 1);
+    ok('a screen reader hears its name with the sub name: “Jack of Trades, Master of None”', (await page.getByRole('button', { name: /^Jack of Trades ?, Master of None A bit of all of it/ }).count()) === 1, await page.locator('.rp-ask .rp-card[data-role="all"]').evaluate(e => e.textContent));
+    ok('the old “Not sure? Show me everything” button is gone, and no word on the question says Everything', (await page.locator('.rp-ask .rp-all, .rp-ask button.btn[data-role="all"]').count()) === 0 && !/show me everything|everything/i.test(await page.textContent('.rp-ask')), await page.textContent('.rp-ask'));
     ok('each role shows the menu it gives', /Studio log/.test(await page.textContent('.rp-card[data-role="producer"] .rp-menu')));
     ok('the first role has the focus', await page.evaluate(() => document.activeElement && document.activeElement.dataset.role === 'producer'));
     ok('the welcome tour waits for the answer', (await page.locator('.tour-card').count()) === 0);
@@ -66,11 +85,47 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     const s = await sleeve(page);
     ok('…with every section on the menu', s.ids.length === 12 && s.bonus.length === 0, s.ids.join(','));
     ok('…and no role saved', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === null);
+    ok('…so Gdex is on Jack of Trades, as it was on Everything', JSON.stringify(await page.evaluate(() => import('./js/roles.js').then(m => [m.roleId(), m.role().label, m.role().sub, m.roleChosen()]))) === JSON.stringify(['all', 'Jack of Trades', 'Master of None', false]));
     ok('closing the question counts as the answer: the role card is not offered later', (await page.evaluate(() => localStorage.getItem('gdex-role-nudged'))) === '1');
     await page.reload();
     await page.waitForSelector('#deck .dk-next');
     await sleep(2800);
     ok('…so the next visit shows no “New: a menu for the way you work” card', (await page.locator('.rp-nudge, .sheet, .tour-card').count()) === 0);
+    await browser.close();
+  }
+
+  /* ---------------- picking Jack of Trades: every section, and the tour and Settings call it by its name ---------------- */
+  for (const [label, vp, prefs] of [['', { width: 420, height: 900 }, null], [' (320px, extra large text, large buttons)', { width: 320, height: 700 }, '{"text":"xlarge","targets":"large"}']]) {
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+    if (prefs) await ctx.addInitScript(p => { try { localStorage.setItem('gdex-prefs', p); } catch (e) { /* ignore */ } }, prefs);
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    await page.goto(BASE);
+    await page.waitForSelector('.rp-ask .rp-card[data-role="all"]');
+    await page.locator('.rp-ask .rp-card[data-role="all"]').scrollIntoViewIfNeeded();
+    const fit = await page.$eval('.rp-ask .rp-card[data-role="all"]', c => { const r = c.getBoundingClientRect(); return [...c.querySelectorAll('.rp-name, .rp-sub, .rp-blurb, .rp-menu')].every(e => { const b = e.getBoundingClientRect(); return b.left >= r.left - 1 && b.right <= r.right + 1 && e.scrollWidth <= e.clientWidth + 1; }) && r.right <= innerWidth; });
+    ok(`Jack of Trades${label}: its name, sub name, blurb and menu fit in its card`, fit);
+    // what is said aloud as it is picked (util.js announce() fills #sr-live)
+    await page.evaluate(() => { window.__said = []; const seen = () => { const r = document.getElementById('sr-live'); if (r && r.textContent) window.__said.push(r.textContent); }; new MutationObserver(seen).observe(document.body, { subtree: true, childList: true, characterData: true }); });
+    await page.click('.rp-ask .rp-card[data-role="all"]');
+    await page.waitForSelector('.tour-card');
+    ok(`Jack of Trades${label}: picking it keeps it on this device, as 'all', and the welcome tour runs`, (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'all' && (await page.textContent('#tour-title')) === 'Welcome to Gdex');
+    await page.waitForFunction(() => window.__said.length > 0, null, { timeout: 2000 }).catch(() => {});
+    ok(`Jack of Trades${label}: …and it is said aloud, like any role`, (await page.evaluate(() => window.__said)).includes('Set up for Jack of Trades: 12 sections on your menu'), JSON.stringify(await page.evaluate(() => window.__said)));
+    const texts = [];
+    for (let i = 0; i < 16 && await page.locator('.tour-card').count(); i++) { texts.push(`${await page.textContent('#tour-title')}: ${await page.textContent('.tour-card')}`); await page.click('.tour-actions .btn.primary'); await sleep(900); }
+    ok(`Jack of Trades${label}: the tour’s Settings card names it`, texts.some(t => /^Settings: .*Your role \(Jack of Trades\)/.test(t)), texts.filter(t => /^Settings/.test(t)).join(' | ').slice(0, 300));
+    const s = await sleeve(page);
+    ok(`Jack of Trades${label}: every section on the menu, My card last before Settings, no bonus tracks`, s.ids.length === 12 && s.ids.slice(-2).join() === 'card,settings' && s.bonus.length === 0, s.ids.join(','));
+    await go(page, 'settings');
+    ok(`Jack of Trades${label}: Settings → Your role’s line names it`, /Jack of Trades · 12 sections on the menu/.test(await page.textContent('#se-role summary')), await page.textContent('#se-role summary'));
+    await page.evaluate(() => { document.getElementById('se-role').open = true; });
+    await page.waitForSelector('#se-role .rp-card');
+    ok(`Jack of Trades${label}: …where it is the checked card, last, with its sub name`, (await page.$$eval('#se-role .rp-card', bs => bs.map(b => b.dataset.role + ':' + b.getAttribute('aria-checked')))).join(',') === 'producer:false,manager:false,band:false,solo:false,scout:false,audiophile:false,all:true' && (await page.textContent('#se-role .rp-card[data-role="all"] .rp-sub')) === 'Master of None');
+    ok(`no errors in the console (Jack of Trades${label})`, errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
 
@@ -152,7 +207,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.focus('#rp-nudge-go');
     await page.keyboard.press('Enter');
     await page.waitForSelector('.rp-ask');
-    ok('Choose my role asks the question', (await page.locator('.rp-ask .rp-card').count()) === 6);
+    ok('Choose my role asks the question, with Jack of Trades as the seventh card', (await page.locator('.rp-ask .rp-card').count()) === 7 && (await page.getAttribute('.rp-ask .rp-card:last-child', 'data-role')) === 'all');
     await sleep(150);
     await page.focus('.rp-card[data-role="audiophile"]');
     await page.keyboard.press('Enter');
@@ -282,7 +337,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.reload();
     await page.waitForSelector('#deck .dk-next');
     await sleep(600);
-    ok('with no role (Everything) there are twelve tabs and no bonus tracks on the track list', (await tabs()).length === 12 && (await page.textContent('#deck .dk-meta')).startsWith('Track 1 of 12') && (await sleeve(page)).bonus.length === 0);
+    ok('with no role (Jack of Trades) there are twelve tabs and no bonus tracks on the track list', (await tabs()).length === 12 && (await page.textContent('#deck .dk-meta')).startsWith('Track 1 of 12') && (await sleeve(page)).bonus.length === 0);
     ok('no errors in the console (the digital player and roles)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
@@ -376,7 +431,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   {
     const { browser, page, errors } = await open({ sample: true });
     const starts = await page.evaluate(() => import('./js/roles.js').then(m => [...m.ROLES, m.EVERYTHING].map(r => [r.id, m.startSection(r), m.menuSections(r)[0]])));
-    ok('every role, and Everything, starts on the calendar and has it as the first track', starts.length === 7 && starts.every(x => x[1] === 'bookings' && x[2] === 'bookings'), JSON.stringify(starts));
+    ok('every role, and Jack of Trades, starts on the calendar and has it as the first track', starts.length === 7 && starts.every(x => x[1] === 'bookings' && x[2] === 'bookings'), JSON.stringify(starts));
     for (const id of ['all', 'producer', 'manager', 'band', 'solo', 'scout', 'audiophile']) {
       // A new visit as this role, with a section saved by an older build as the one open last.
       await page.evaluate(x => { if (x === 'all') localStorage.removeItem('gdex-role'); else localStorage.setItem('gdex-role', x); localStorage.setItem('gdex-tab', 'venues'); }, id);
@@ -409,13 +464,16 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   await page.click('#se-role summary');
   await page.waitForSelector('#se-role .rp-card');
   const radios = await page.$$eval('#se-role .rp-card', bs => bs.map(b => [b.dataset.role, b.getAttribute('role'), b.getAttribute('aria-checked')]));
-  ok('it lists the six roles and Everything as one choice', radios.length === 7 && radios.every(r => r[1] === 'radio') && radios.find(r => r[0] === 'all')[2] === 'true', JSON.stringify(radios));
+  ok('it lists the six roles and Jack of Trades, last, as one choice (Jack of Trades checked while none is chosen)', radios.length === 7 && radios.every(r => r[1] === 'radio') && radios[6][0] === 'all' && radios.find(r => r[0] === 'all')[2] === 'true', JSON.stringify(radios));
+  ok('…its card has the sub name under the name, and a screen reader hears “Jack of Trades, Master of None”', (await page.textContent('#se-role .rp-card[data-role="all"] .rp-sub')) === 'Master of None' && (await page.locator('#se-role .rp-sub').count()) === 1
+    && (await page.getByRole('radio', { name: /^Jack of Trades ?, Master of None A bit of all of it/ }).count()) === 1 && (await page.$eval('#se-role .rp-card[data-role="all"]', c => c.querySelector('.rp-sub').getBoundingClientRect().top >= c.querySelector('.rp-name').getBoundingClientRect().bottom - 1)));
+  ok('…and Your role says Everything nowhere', !/everything/i.test(await page.textContent('#se-role')), await page.textContent('#se-role'));
   ok('…in a radio group', (await page.locator('#se-role [role=radiogroup]').count()) === 1);
   ok('Settings says the role is kept on this device, not in backups', /not in backups/.test(await page.textContent('#se-role')));
   ok('…and offers a tour of the role', (await page.locator('#rp-tour').count()) === 1);
   // A line that does not apply to the role (no bonus tracks, money on) is left out: nothing is written in its place.
   const stray = () => page.$$eval('#se-role .rp-panel', ps => ps.flatMap(p => [...p.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent)));
-  ok('Everything has no bonus tracks and keeps money: no line for either, and no stray word where they would be', (await stray()).length === 0 && (await page.locator('#se-role .rp-bonus, #se-role .rp-money').count()) === 0 && !/null|undefined/.test(await page.textContent('#se-role .rp-panel')), (await stray()).join('|'));
+  ok('Jack of Trades has no bonus tracks and keeps money: no line for either, and no stray word where they would be', (await stray()).length === 0 && (await page.locator('#se-role .rp-bonus, #se-role .rp-money').count()) === 0 && !/null|undefined/.test(await page.textContent('#se-role .rp-panel')), (await stray()).join('|'));
 
   for (const id of ['manager', 'band', 'solo', 'scout', 'audiophile', 'producer']) {
     await page.click(`#se-role .rp-card[data-role="${id}"]`);
@@ -428,7 +486,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok(`${id}: Your role lists its bonus tracks and writes nothing stray under the cards`, (await stray()).length === 0 && (await page.locator('#se-role .rp-bonus').count()) === 1 && !/null|undefined/.test(await page.textContent('#se-role .rp-panel')), (await stray()).join('|'));
   }
   ok('a role without money says where fees went', await page.evaluate(() => import('./js/roles.js').then(m => { m.setRole('scout'); return new Promise(r => setTimeout(() => r(/Fees, deals and settlements are off/.test(document.getElementById('se-role').textContent)), 300)); })));
-  ok('…and that quotes & invoices come back with a role that uses money', /Quotes & invoices come back with a role that uses money, or with Everything\./.test(await page.textContent('#se-role .rp-money')));
+  ok('…and that quotes & invoices come back with a role that uses money', /Manager or Jack of Trades has them\. Quotes & invoices come back with a role that uses money, or with Jack of Trades\./.test(await page.textContent('#se-role .rp-money')));
   const noMoney = await page.$$eval('#page details.se-sec', ds => ds.map(d => d.dataset.s));
   ok('a role without money: Settings has no Quotes & invoices section', !noMoney.includes('billing') && noMoney.length === 8 && (await page.locator('#se-billing').count()) === 0, noMoney.join(','));
   const noMoneyTut = await page.evaluate(() => import('./js/pages/settings.js').then(m => m.settings.tutorial().map(s => `${s.title}: ${s.text}`)));
@@ -523,7 +581,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     }
   }
 
-  /* the role stays after a reload; Everything brings every section back */
+  /* the role stays after a reload; Jack of Trades brings every section back */
   await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('scout')));
   await page.reload();
   await page.waitForSelector('#deck .dk-next');
@@ -534,7 +592,11 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   await page.waitForSelector('#se-role .rp-card');
   await page.click('#se-role .rp-card[data-role="all"]');
   await sleep(400);
-  ok('Everything puts every section back on the menu', (await sleeve(page)).ids.length === 12);
+  ok('Jack of Trades says so as it is picked', (await page.textContent('.toast')).includes('Jack of Trades: the menu is set up for it. Nothing was deleted.'), await page.textContent('.toast'));
+  ok('…keeps the focus on its card, checked', (await page.getAttribute('#se-role .rp-card[data-role="all"]', 'aria-checked')) === 'true' && await page.evaluate(() => document.activeElement && document.activeElement.dataset.role === 'all'));
+  ok('…and its line names it', /Jack of Trades · 12 sections on the menu/.test(await page.textContent('#se-role summary')), await page.textContent('#se-role summary'));
+  ok('Jack of Trades puts every section back on the menu, My card with them', (await sleeve(page)).ids.length === 12 && (await sleeve(page)).ids.slice(-2).join() === 'card,settings');
+  ok('…kept as \'all\', the id Everything had', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'all');
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 })().catch(e => { console.log('FAIL roles spec crashed — ' + e.message); process.exit(1); });

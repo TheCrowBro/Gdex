@@ -1,5 +1,5 @@
 // Shared by the browser specs: a browser with Gdex open on a phone-sized screen, the welcome tour marked as seen (and
-// the one-time role card dismissed, so every spec runs as Everything unless it sets a role), the “Did you see them?”
+// the one-time role card dismissed, so every spec runs as Jack of Trades unless it sets a role), the “Did you see them?”
 // question turned off (gdex-ask-seen 'off', set on every load, so no sheet opens over a spec's own work),
 // errors collected, and a PASS / FAIL printer the runner counts.
 //   const { open, ok, sleep } = require('../helpers.cjs');

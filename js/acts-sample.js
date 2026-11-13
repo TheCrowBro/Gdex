@@ -1,6 +1,6 @@
 // Sample work (item 15): a link on the act to a page of the person's work for it (a SoundCloud, Drive or Dropbox page of
 // a producer's mixes for the band, a private playlist), shared from the act's card as a QR code. For a producer, a
-// manager and Everything: a role whose pages.acts.sampleWork is false (band, solo artist, scout, audiophile) sees neither
+// manager and Jack of Trades: a role whose pages.acts.sampleWork is false (band, solo artist, scout, audiophile) sees neither
 // the form's field nor the card's code, and the link stays stored as it was. The link is read only through
 // model.sampleLink (junk reads as none); with none, the code holds the act's first link (as the press kit's does),
 // said so in words; with no link at all, the card says to add one in ✎ Edit. Nothing printed or sent (press kit, rider,
@@ -12,7 +12,7 @@ import { parseLinks, fillQr, bigQr } from './acts-docs.js';
 import { pageOpt, actWord, sectionName } from './roles.js';
 import { sheetTutorial } from './tour.js';
 
-// Whether this role has sample work (the role's pages.acts.sampleWork; Everything, with no page defaults, has it).
+// Whether this role has sample work (the role's pages.acts.sampleWork; Jack of Trades, with no page defaults, has it).
 export const sampleShown = () => pageOpt('acts', 'sampleWork', true) !== false;
 const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./i, ''); } catch { return ''; } };
 const nameOf = a => (a && a.name) || 'Untitled act';
