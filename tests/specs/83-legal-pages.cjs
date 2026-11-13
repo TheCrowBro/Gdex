@@ -91,6 +91,11 @@ const STORES = /App Store|Google Play|iCloud|Dropbox|OneDrive/;
     // (starting //, /* or *) may name Vdex, to say what is not shared; nothing else may, but these lines, by their text.
     const ALLOWED = [
       ['desktop/licence.cjs', 'This is a Vdex licence code. Gdex has its own licence'],
+      // The desktop app knows a pasted Vdex code (Part C): its test and the line that refuses it with the words above.
+      ['desktop/licence.cjs', 'const looksVdex = text => '],
+      ['desktop/licence.cjs', 'if (looksVdex(text)) return { error: MESSAGES.vdex };'],
+      // The download page says a Vdex code does not work here (Part C).
+      ['download.html', 'A Vdex licence code doesn’t work in Gdex: the two apps have licences of their own.'],
       ['tools/licence-generator.template.html', 'That is a Vdex ledger, not Gdex’s'],
       ['tools/licence-generator.html', 'That is a Vdex ledger, not Gdex’s'],
       // Google Drive refuses a Vdex file found in the hidden folder, and says why (Part D): the test and its words.

@@ -3,6 +3,8 @@
 # owner switches them on, and with GDEX_LICENCE=on, where the test server serves them as live on localhost and every
 # spec starts inside free days already under way (tests/lib.mjs, tests/helpers.cjs). The run also fails when the
 # offline file list in sw.js is out of date (a file added or removed without running node tools/stamp-build.mjs --dev).
+# The desktop job runs the desktop app's smoke test (tests/desktop.mjs) under xvfb on pull requests, by hand, and on
+# pushes that change desktop/, package.json, its lock, the smoke test or this file.
 name: Tests
 on:
   push:
