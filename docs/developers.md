@@ -313,7 +313,7 @@ settling the night `show-settled`). People's rate units: `PERSON_RATE_UNITS` (da
 
 The order of a day (the store's, passed on): `nightMin`, `playField`, `playTime`, `playKey`, `byPlay`, `byDayPlay`,
 `byDayPlayDesc`; and `nightClock(min)` (night minutes back to `'00:30'`), `playLabel(b)` (`On stage`, `Doors`,
-`Soundcheck`, `Load-in`, `Start`, or `''`), `isAfterMidnight(b)`. Overlapping sets: `setWindow(b)` (`{ start, end }` in
+`Soundcheck`, `Load-in`, `Start`, or `''`), `isAfterMidnight(b)` (a show's time before 06:00 only). Overlapping sets: `setWindow(b)` (`{ start, end }` in
 night minutes for a live show with an on-stage time; it lasts its set length, else 60 minutes; holds and offers count,
 a cancelled show does not), `setsOverlap(a, b)` (on a day they share; sets that only touch do not overlap),
 `overlapsOf(b, list?)`, `overlapText(b, list?, { day }?)` (`Overlaps with Chelsea Wolfe, 21:00`, `… and Sable, 21:30`,
@@ -327,7 +327,8 @@ When a show is over: `showEnd(b)` (a `Date`, or `null` for anything that is not 
 length, the curfew (the booking's own, else its saved venue's; with an on-stage time, only when it is not before the
 set; with none, a curfew before the doors, soundcheck or load-in the show is sorted by, or one alone and before noon,
 is the next morning's: an all-nighter, doors 22:00 and curfew 06:00); with an on-stage time and neither, two hours
-after it; with no times, or only doors, soundcheck or load-in, 06:00 the next morning. In the small hours: `tonightShows(now?)` (before 06:00, the live shows whose last day was yesterday and that are not
+after it; with no times, or only doors, soundcheck or load-in, 06:00 the next morning. In the small hours:
+`tonightShows(now?)` (before 06:00, the live shows whose last day was yesterday and that are not
 over yet: a set at 00:30 still to come), `isTonight(b, now?)`, and `comingUp(now?)` (those, then `store.upcoming()`):
 Coming up keeps them at its top marked "Tonight", and the menu's "coming up" number counts them; the calendar's day
 still turns at midnight, and the Day view opens on the calendar's date. `ASK_DAYS` (14); `seenAnswer(b)` (`'seen'` when the act's log has the show, else `'no'` when

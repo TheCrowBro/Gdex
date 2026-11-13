@@ -82,9 +82,11 @@ the band by any of its names. Press kits, riders, day sheets, invoices and calen
   time on the show's own page. It asks producers, managers, scouts and audiophiles (and Everything); turn it on or
   off for anyone under **Settings → Your role**.
 - **House rules:** what a venue allows in (cameras, phones, the age limit, bags, anything unusual) is noted once on the
-  venue and shows on every show there as a green, amber or red line, with the full rules on the show's page. Green
-  means nothing is restricted; anything restricted, or any rule you wrote yourself, is amber; no phones, or no
-  cameras of any kind, is red. You can set the colour by hand too, and the show then says so in words.
+  venue and shows on every show there as a green, amber or red line, with the full rules on the show's page: what is
+  not allowed, what else is restricted (an age limit, cash only), what is allowed and the rest. Green means nothing is
+  restricted; anything restricted, or any rule you wrote yourself, is amber; no phones, or no cameras of any kind, is
+  red. You can set the colour by hand too, and the show then says so in words. The calendar's **?** explains the line.
+  Search Venues by a rule too: "no phones", "cash only", "21+".
 
 ## Search
 
