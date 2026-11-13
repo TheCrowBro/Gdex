@@ -1080,7 +1080,9 @@ the sheets at opening and `startFreeDays()` wait for it.
 
 Rules: a page never compares `roleId()` to decide the licence: it asks these. `window.logiGo(id)` resolves `true` once
 the section is drawn and `false` when the licence refused it (callers that went on to open a record stop). A role
-change or the free days ending leaves a locked section for the calendar. Erase this device keeps `gdex-licence`,
+change or the free days ending leaves a locked section for the calendar, and when the working boxes close for the role
+in use (Carry on free as an Audiophile, the free days running out, a pause ending) every sheet still open goes too but
+the licence's own (`util.closeSheets`), so a working form left open cannot save. Erase this device keeps `gdex-licence`,
 `gdex-terms` and the IndexedDB copy. The free-days-over sheet comes at every opening (and after 3 hours out of sight)
 while a working role is read-only, before "Did you see them?", which is not asked then.
 

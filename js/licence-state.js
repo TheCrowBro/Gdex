@@ -12,7 +12,7 @@
 // The sheets, the Settings panel and the bar are in js/licence.js, loaded when one is needed.
 import { roleId, roleChosen, roleNeedsLicence, sectionNeedsLicence } from './roles.js';
 import { setGate, redraw } from './store.js';
-import { muteToasts, announce, toast } from './util.js';
+import { muteToasts, announce, toast, closeSheets } from './util.js';
 import { LICENCE_SITES } from './licence-config.js';
 import { readWebNote } from './licence-note.js';
 import { kvGet, kvSet } from './kv.js';
@@ -226,6 +226,20 @@ export function gateWork(fn) {
   import('./licence.js').then(m => (licenceNow().mode === 'away' ? m.awaySheet() : m.offerSection('work'))).catch(e => console.error(e));
 }
 
+// The working roles close for the role in use (Carry on free as an Audiophile, the free days running out, a pause
+// ending): every sheet still open goes with them (a working form, a song's or a person's card, the setlist editor), as
+// the page goes back to the calendar, so nothing in them is changed without a licence (for a free role the store's gate
+// asks only the section on screen). The licence's own sheets stay.
+const LICENCE_SHEETS = '.licence-over, .licence-readonly, .licence-needed, .licence-away, .lic-terms-sheet';
+let workWas = true;
+function workClosed() {
+  const now = workOpen();
+  if (workWas && !now) closeSheets(el => !!(el && el.matches(LICENCE_SHEETS)));
+  workWas = now;
+}
+onLicenceChange(workClosed);
+window.addEventListener('gdex-role', workClosed);
+
 // A mark: its text, and its spoken words, said after the name of what it marks ("People, needs a licence").
 const markFor = a => (a === 'start' ? { text: '30 days free', label: 'opens your 30 free days' }
   : licenceNow().mode === 'away' ? { text: '🔒 Desktop app', label: 'only in Gdex’s desktop app' }
@@ -389,4 +403,5 @@ setGate(({ form = false, quiet = false } = {}) => {
   return false;
 });
 last = JSON.stringify(licenceNow()); // the state as the page opens: only a change from it is told
+workWas = workOpen();
 licenceReady(); // the second copy joined and the sign-in checked as soon as the page loads (website, live)

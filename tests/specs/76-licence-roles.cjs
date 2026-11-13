@@ -4,7 +4,8 @@
 // bonus tracks and the More boxes fold, the working boxes and paid records a free Audiophile reaches (locked once the
 // free days are over, as the owner answered), the Audiophile's + New making only shows and its sessions kept
 // read-only, the free days over (the sheet at opening, before "Did you see them?"; read-only; Carry on free as an
-// Audiophile), and the guards (the second copy in IndexedDB, a wrong clock and the server's time, the pause).
+// Audiophile; a working form left open goes when the working roles close), and the guards (the second copy in
+// IndexedDB, a wrong clock and the server's time, the pause).
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const BASE = process.env.GDEX_URL || 'http://localhost:8124/';
@@ -319,6 +320,24 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // Carry on free from the read-only sheet over a working form (a song's, as Producer): the form goes with the role,
+      // so nothing of it can be saved as an Audiophile without a licence (the store gate asks only the section on screen).
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      await sampleIn(page);
+      await setLicence(page, ended()); await reload(page);
+      await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);
+      const title0 = await page.evaluate(() => import('./js/store.js').then(s => s.byId('songs', 's-song1').title));
+      await page.evaluate(() => import('./js/pages/songs.js').then(m => m.editSong({ id: 's-song1' }))); await page.waitForSelector('.sheet form.form');
+      await page.fill('.sheet form [data-key="title"]', 'Saved after Carry on free');
+      await page.click('.sheet .form-actions .btn.primary'); await page.waitForSelector('.sheet.licence-readonly', { timeout: 4000 });
+      await page.click('.sheet.licence-readonly .lic-carry'); await sleep(700);
+      const left = await sheets(page);
+      if (await page.locator('.sheet form.form').count()) { await page.click('.sheet .form-actions .btn.primary'); await sleep(500); }
+      const title = await page.evaluate(() => import('./js/store.js').then(s => s.byId('songs', 's-song1').title));
+      ok('Carry on free from the read-only sheet over a song’s form: the Audiophile, on the calendar, the form gone with the role, the song unchanged', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile' && (await page.evaluate(() => window.logiPage())) === 'bookings' && left.length === 0 && title === title0, JSON.stringify({ left, title }));
+      await ctx.close();
+    }
+    {
       // Coming back after 3 hours brings the sheet back.
       const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);
@@ -365,6 +384,23 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // The terms not agreed (Not now), a song's form refused ("Read-only for now"), Carry on free: the form goes, nothing
+      // is written, the free days do not start and the terms stay unagreed.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' } });
+      await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
+      await page.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 't-song', title: 'Written before' })));
+      await page.click('#lic-terms-later'); await sleep(600);
+      await page.evaluate(() => import('./js/pages/songs.js').then(m => m.editSong({ id: 't-song' }))); await page.waitForSelector('.sheet form.form');
+      await page.fill('.sheet form [data-key="title"]', 'Saved without the terms');
+      await page.click('.sheet .form-actions .btn.primary'); await page.waitForSelector('.sheet.licence-readonly', { timeout: 4000 });
+      await page.click('.sheet.licence-readonly .lic-carry'); await sleep(700);
+      const left = await sheets(page);
+      if (await page.locator('.sheet form.form').count()) { await page.click('.sheet .form-actions .btn.primary'); await sleep(500); }
+      const st = await state(page), title = await page.evaluate(() => import('./js/store.js').then(s => s.byId('songs', 't-song').title));
+      ok('the terms not agreed, a song’s form refused, Carry on free: the form goes, the song is unchanged, the free days not started and the terms not agreed', left.length === 0 && title === 'Written before' && st.mode === 'unstarted' && !st.started && !(await page.evaluate(() => localStorage.getItem('gdex-terms'))), JSON.stringify({ left, title, st }));
+      await ctx.close();
+    }
+    {
       // The free days running out while open move an Audiophile off a working section; Erase keeps the count.
       const t = Date.now();
       const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(t - 29.5 * DAY, { seen: t }) } });
@@ -381,6 +417,26 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await Promise.all([page.waitForEvent('load', { timeout: 15000 }), page.click('#se-erase-go')]);
       await page.waitForSelector('#deck .dk-next'); await sleep(500);
       ok('Erase this device keeps the count: the free days are still over', (await stored(page)).first === before.first && (await second(page)).first === before.first, JSON.stringify([before, await stored(page)]));
+      await ctx.close();
+    }
+    {
+      // The free days end while an Audiophile has a band member's People card and its form open (reached through gateWork
+      // while they ran): both go, and nothing typed there is saved.
+      const t = Date.now(), first = t - 29 * DAY - 23 * HOUR;
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(first, { seen: t }) } });
+      await sampleIn(page);
+      const name0 = await page.evaluate(() => import('./js/store.js').then(s => s.byId('people', 's-maya').name));
+      await page.evaluate(() => import('./js/pages/acts.js').then(m => m.openAct('s-owls'))); await sleep(500);
+      await page.evaluate(() => import('./js/pages/people.js').then(m => { m.openPerson('s-maya'); return import('./js/store.js').then(s => m.editPerson(s.byId('people', 's-maya'))); }));
+      await page.waitForSelector('.sheet form.form');
+      const open = await sheets(page);
+      await page.fill('.sheet form [data-key="name"]', 'Changed after the free days');
+      await page.evaluate(ms => window.__clock(ms), first + 30 * DAY + 10 * 60e3);
+      await page.evaluate(() => import('./js/licence-state.js').then(m => m.refreshLicence())); await sleep(700);
+      const st = await state(page), left = await sheets(page);
+      if (await page.locator('.sheet form.form').count()) { await page.click('.sheet .form-actions .btn.primary'); await sleep(500); }
+      const name = await page.evaluate(() => import('./js/store.js').then(s => s.byId('people', 's-maya').name));
+      ok('the free days end while an Audiophile has a member’s card and its form open: both go, and the person is unchanged', open.length === 2 && st.mode === 'ended' && left.length === 0 && name === name0, JSON.stringify({ open, mode: st.mode, left, name }));
       await ctx.close();
     }
 
