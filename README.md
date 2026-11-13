@@ -73,6 +73,14 @@ Gdex is open. You still type the genre as you like ("Indie rock", "Doom folk"): 
 genre: Automatic (Rock)** to set it by hand. The list's search opens the groups with a match, and both searches find a
 band by its main genre. The press kit keeps the genre as you typed it.
 
+**A QR code of your sample work, for producers and managers.** An act's form has a **Sample work** box for the address
+of your work for them: a SoundCloud, Drive or Dropbox page of your mixes, a private playlist. Drop the act's card open
+and it is there as a small QR code with its address (soundcloud.com), **Show big** to put it on the whole screen for
+someone to scan, and **Share link** to send it from your phone's share sheet (or copy it). With no sample work link the
+code holds the act's first link, and the card says so; with no link at all it says to add one in ✎ Edit. Producers,
+managers and Everything see it; the other roles don't (a link already typed is kept). It never goes on the press kit,
+the rider or anything else you send, and the search doesn't look in it.
+
 ## The calendar
 
 - **Five views:** Month, 2 weeks, Week, 3 days and Day, from the row of buttons above the calendar. Month, 2 weeks

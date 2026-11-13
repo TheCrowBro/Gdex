@@ -15,7 +15,7 @@ import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { openBooking, newBooking } from './bookings.js';
 import { parseLinks, ACT_COLORS, colorOf, stripeStyle, roleOf, membersOf, initials, plural, qrTarget, fillQr, epkDoc, printEpk, saveEpk,
-  inputTable, inputRows, dupChannels, saveInputCsv, plotOf, saveRider, printRider as printRiderDoc } from '../acts-docs.js';
+  inputTable, inputRows, dupChannels, saveInputCsv, plotOf, saveRider, printRider as printRiderDoc, bigQr } from '../acts-docs.js';
 import { openInputList, openRiders, stagePlot } from '../acts-rider.js';
 import { sectionName, pageOpt, moneyShown, newKind } from '../roles.js';
 // An act's earlier names ("formerly The Night Owls"): every reading of them is the model's.
@@ -23,6 +23,8 @@ import { earlierNames, earlierSpans, formerName, nameSince, formerlyOn, formerly
 // Main genres (the list's fold-down groups, the form's Main genre): every reading of them is the model's too.
 import { MAIN_GENRES, genreOf, mainGenreOf, mainGenreLabel } from '../model.js';
 import { actWord } from '../roles.js';
+// Sample work (item 15): its link on the act's form and its QR code on the act's card (a producer, a manager, Everything).
+import { sampleField, sampleFormReady, sampleSave, samplePart, sampleStep, sampleFormStep } from '../acts-sample.js';
 
 // View state survives the redraw after every change: which act is open, which part of it, the search.
 const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set(), // open: the act cards dropped open on the list
@@ -106,6 +108,7 @@ export function editAct(a = {}, onSaved) {
       { key: 'email', label: 'Email', type: 'email', placeholder: 'band@…' },
       { key: 'phone', label: 'Phone', type: 'tel' },
       { key: 'links', label: 'Links', type: 'textarea', rows: 4, placeholder: 'Website: https://…\nSpotify: https://…\nInstagram: https://…', hint: 'One per line: a name, a colon, then the address.' + (hasTab('epk') ? ' The first one is the QR code on the press kit.' : '') },
+      ...sampleField(), // Sample work: a producer, a manager and Everything (js/acts-sample.js)
       { key: 'bio', label: 'Bio', type: 'textarea', rows: 5, placeholder: hasTab('epk') ? 'Two or three sentences for promoters and press: who you are, what you sound like, where you’ve played.' : 'A few lines on who they are, what they sound like and where they’ve played.' },
       { key: 'notes', label: 'Notes', type: 'textarea', rows: 3, placeholder: 'Only you see these.' },
     ],
@@ -117,6 +120,7 @@ export function editAct(a = {}, onSaved) {
       // "Automatic (Rock)" follows the genre as it is typed.
       const genre = form.querySelector('input[data-key=genre]'), main = form.querySelector('select[data-key=mainGenre]');
       if (genre && main && main.options[0]) genre.addEventListener('input', () => { main.options[0].textContent = autoGenre(genre.value); });
+      sampleFormReady(form, cur); // the Sample work box: the stored text, and a line saying what its QR code opens
       if (isNew || !name || !form.parentNode) return;
       // A changed name is asked about once, as it is saved: a new name, or a spelling fix? The sheet's body hears the
       // submit before the form's own handler (js/form.js, which closes the form and saves), so the form stays open
@@ -136,6 +140,7 @@ export function editAct(a = {}, onSaved) {
       if (cur.id && !latest.id) return toast('That act was deleted meanwhile.');
       const fields = Object.fromEntries(FORM_KEYS.map(k => [k, typeof v[k] === 'string' ? v[k].trim() : (v[k] ?? '')]));
       if (!fields.name) fields.name = latest.name || 'Untitled act';
+      sampleSave(fields, v, latest); // the Sample work link as typed, for a role that has the field; any other keeps it
       // The earlier names as the form has them, and with them the name being replaced when the answer was "It’s a new
       // name" (a spelling fix keeps nothing). An act that never had any is not given an empty list.
       const kept = pick && pick.kind === 'new' && typeof latest.name === 'string' && latest.name.trim() ? { name: latest.name.trim(), until: pick.since } : null;
@@ -286,7 +291,7 @@ function actCard(a) {
       ahead.length > 3 && h('span', { class: 'small muted ac-dates-more' }, `and ${ahead.length - 3} more`)]
       : h('span', { class: 'small muted' }, 'Nothing on the calendar yet'));
   return h('div', { class: 'card ac-card' + (open ? ' open' : ''), style: stripeStyle(a), 'data-id': a.id }, head, dates,
-    open && h('div', { class: 'ac-pnl', id: panelId, role: 'region', 'aria-labelledby': 'ac-head-' + a.id }, seenPanel(a)));
+    open && h('div', { class: 'ac-pnl', id: panelId, role: 'region', 'aria-labelledby': 'ac-head-' + a.id }, samplePart(a, editAct), seenPanel(a)));
 }
 
 // The log of each time you saw the act, newest first, and the ways to add to it. Under a card it ends with Open the
@@ -663,12 +668,7 @@ function openAddMembers(actId) {
 function showBigQr(a) {
   const t = qrTarget(a);
   if (!t) return;
-  const box = h('div', { class: 'qr ac-qr-full', role: 'img', 'aria-label': 'QR code: ' + t.caption }, 'Making the code…');
-  fillQr(box, t.text);
-  sheet('QR code', h('div', { class: 'stack ac-qr-sheet' },
-    h('h2', { class: 'ac-qr-name' }, a.name || 'Untitled act'), box,
-    h('p', { class: 'qr-cap muted' }, t.caption),
-    h('p', { class: 'small muted' }, 'Turn the screen brightness up and hold the phone still: it scans from about an arm’s length.')));
+  bigQr({ name: a.name || 'Untitled act', text: t.text, caption: t.caption });
 }
 function epkTab(a) {
   const t = qrTarget(a), links = parseLinks(a.links);
@@ -743,6 +743,7 @@ const listSteps = () => {
     inGroups && { title: 'Main genres', text: `Your ${w}s are grouped by main genre, A to Z. Gdex works it out from the genre typed: indie rock and folk rock are Rock, doom folk is Folk, and a genre it doesn’t know goes under Unique; ${w}s with no genre come last, under No genre yet. Tap a heading to drop its ${w}s down or fold them away. ${/^[aeiou]/.test(w) ? 'An' : 'A'} ${w}’s ✎ Edit sets its main genre by hand.`, target: ['.ac-group-head'] },
     { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. You can log a time you saw them play there too; once you have, the card keeps the log: when, where, the score and your notes.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
     { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
+    sampleStep(), // Sample work on an open card: a producer, a manager and Everything
     { title: 'Search', text: 'Find an act by its name, a name it had before, its genre, its main genre, a member’s name or its notes.' + (inGroups ? ' The groups with a match open; clear the search and they are as they were.' : ''), target: ['#ac-search'] },
   ].filter(Boolean);
 };
@@ -802,8 +803,9 @@ const formSteps = () => [
   { title: 'Main genre', text: 'The heading it sits under on the list. Automatic works it out from the genre and shows what it found: indie rock and folk rock are Rock, and a genre Gdex doesn’t know is Unique. Pick a main genre to choose it yourself.', target: ['select[data-key=mainGenre]'] },
   { title: 'Colour', text: 'The stripe on the act’s cards, so its bookings and songs are quick to tell apart.', target: ['select[id$="-color"]'] },
   { title: 'Links', text: hasTab('epk') ? 'One per line: a name, a colon, the address. They become buttons on the act, lines on the press kit, and the first one is its QR code.' : 'One per line: a name, a colon, the address. They become buttons on the act.', target: ['textarea[data-key=links]'] },
+  sampleFormStep(), // Sample work, for the roles that have it
   { title: 'Bio', text: hasTab('epk') ? 'Two or three sentences for promoters and press. It heads the press kit.' : 'A few lines on who they are, what they sound like and where they’ve played.', target: ['textarea[data-key=bio]'] },
-];
+].filter(Boolean);
 sheetTutorial('New act', formSteps);
 const seenSteps = [
   { title: 'When and where', text: 'The date, and one of your venues or any other place typed in.', target: ['input[data-key=date]'] },

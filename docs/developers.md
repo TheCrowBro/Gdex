@@ -38,7 +38,7 @@ npm run serve                   # http://localhost:8124/
 | `js/model.js` | Music domain constants and pure sums (deals, settlement, set lengths, durations). |
 | `js/pages/*.js` | One module per section. |
 | `js/bookings-cal.js`, `js/bookings-kit.js` | The calendar's views (drawn for `pages/bookings.js`), and the helpers the two share. |
-| `js/acts-ask.js`, `js/venues-rules.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn. |
+| `js/acts-ask.js`, `js/venues-rules.js`, `js/acts-sample.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn; an act's Sample work (its link on the act form, its QR code on the act's card). |
 | `js/search.js`, `js/search-dates.js` | The search: the box at the top of every page (in the section menu's bar), the `/` key and the results it opens over the page; the dates it reads. |
 | `js/blocks/*.js` | Boxes on a booking's page (deal, setlist, guest list…), listed in `js/blocks/index.js`. |
 | `js/*.js` | Shared modules (see below). |
@@ -50,7 +50,7 @@ npm run serve                   # http://localhost:8124/
 | id | Label | Module | What it is |
 |---|---|---|---|
 | `bookings` | Bookings | `pages/bookings.js` | The calendar (month, two weeks, week, three days, day: `js/bookings-cal.js`) with Coming up under it; the booking page with its blocks. Gdex opens here every time. |
-| `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards, folded under their main genre (Rock, Pop…) once there are two or more: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider. |
+| `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards, folded under their main genre (Rock, Pop…) once there are two or more: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider; for a producer, a manager and Everything, a QR code of the act's sample work on its open card. |
 | `people` | People | `pages/people.js` | Band members, session players, crew, industry contacts (promoters, agents…). |
 | `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, split sheet) and setlists. |
 | `sessions` | Studio log | `pages/sessions.js` | Take logs for recording sessions: song, take number, time, keep/maybe/no, notes. |
@@ -101,12 +101,13 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act). |
 | `blockShown(id)`, `blockFolded(id)`, `MONEY_BLOCKS` | A booking box shown, under More boxes, or (a money box for a role without money) neither. `blocksFor(kind)` already leaves the others out. |
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
-| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
+| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `acts.sampleWork`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
 | `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `gdex-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Everything, is asked). |
 
 Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
 seen last), and "From a past show" offers shows up to today (holds and offers too when money is off), leaving out
-any show marked "Didn’t go". Tools writes
+any show marked "Didn’t go". `acts.sampleWork: false` (band, solo artist, scout, audiophile) leaves out the act form's
+Sample work field and the QR code on the act's card; a producer, a manager and Everything (no key) have both. Tools writes
 `gdex-tool-pick` only when a tool is picked (the `gdex-tool` the build before roles wrote on every draw is never read),
 and works out the first tool (picked, else `tools.tool`, else the tuner) and Songs its first view each time it is
 drawn, so a role's default applies until the person chooses. `songs.view: 'setlists'` applies only when there are songs
@@ -266,6 +267,13 @@ An act whose main genre was set by hand carries `mainGenre`: one of `model.MAIN_
 anything else stored there reads as automatic too: read it only through `model.mainGenreOf(a)` ("Main genres" below).
 The act form stores it when one is picked and takes the key off when Automatic is; nothing printed or sent carries it.
 
+An act may carry `sampleWork`: the Sample work link as typed (text; the address of a page of the person's work for the
+act). Never `sample`, which marks a record of the sample data (`loadSample`), counted and deleted by Settings → Remove
+the sample. Read it only through `model.sampleLink(a)`: anything stored that is not one web address reads as none. The
+act form writes it only for a role that has the field (`pages.acts.sampleWork` not `false`): trimmed, `''` to clear one
+that was stored, and no key on an act that never had one; a role without the field leaves whatever is stored as it was.
+It travels in backups, and in nothing printed, sent or exported for another program; the search does not read it.
+
 `people`: `{ id, name, group: 'band'|'session'|'crew'|'contact', role, instrument, company, phone, email, rate,
 rateUnit: 'day'|'hour'|'show', notes }`. Act membership lives on the act (`act.members`).
 
@@ -364,6 +372,11 @@ they are, but it is the person's own judgement, so it is never carried by colour
 strict`), and `rulesList(v).tone` gives it for the full rules (`Strict, set by hand`; `''` when the colour is automatic).
 `spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both are text: set them with
 `textContent`.
+
+Sample work: `sampleLink(a)` (`{ url, host }` for `a.sampleWork` when it is one web address, read as every link a
+person types is: `util.safeUrl`, so `https://` goes in front when no scheme is typed, http or https only, a host with a
+dot in it, no name and password; `host` without `www.`. `null` for anything else: no key, empty, not text, words, a
+space inside, `mailto:` or `javascript:`. Never throws.)
 
 Earlier names (an act that changed its name): `sameName(a, b)` (the same but for capitals, spaces and punctuation;
 a name made only of punctuation is compared as written), `cleanFormer(list, current)` (a stored list made safe:
@@ -796,6 +809,39 @@ and the acts list folds the acts under it. Everything lives in one block of `pag
   and one about the role's order across the whole list (`42-roles-acts`) files Sable under Rock by hand, so the list
   has one main genre and no groups.
 
+### Sample work (`js/acts-sample.js`, `js/pages/acts.js`)
+
+A producer or a manager shares their work for an act (a SoundCloud, Drive or Dropbox page of their mixes, a private
+playlist) as a QR code from the act's card. Everything lives in `js/acts-sample.js`; `pages/acts.js` draws its parts into
+the act form and the card, and its walkthroughs.
+
+* **Who.** `sampleShown()`: the role's `pages.acts.sampleWork` is not `false` (above). A role without it sees no field,
+  no code and no walkthrough step, and the stored link stays as it was.
+* **The form.** `editAct` has "Sample work" (`input[data-key=sampleWork]`, `type: 'url'`) straight under Links, its hint
+  (`small#ac-sample-hint`) in the role's words (this artist / act, the card in Artists / Roster / Acts). Under it
+  `p#ac-sample-check` says what the code opens ("The QR code opens soundcloud.com.") or, `.warn`, that what is typed is
+  no web address (said aloud when the box is left); the box is described by both. Anything stored that is not text
+  shows as an empty box. The save (`sampleSave`) is described under Records above.
+* **The card.** An open card (`#ac-pnl-<id>`, in a genre group or not) starts with `div.ac-sample[role=group]`, labelled
+  by its `strong.ac-sample-h#ac-sample-h-<id>` "Sample work": `div.qr.ac-sample-qr[role=img]` (a small code, filled by
+  `acts-docs.fillQr`, so a code made before is drawn at once as a fold or the card opens again), `span.ac-sample-host`
+  (the host in words), and `#ac-sample-big-<id>` "⛶ Show big" and `#ac-sample-share-<id>` "📤 Share link" (each with
+  `data-fk` and an `aria-label` that starts with its words: "Show big: the sample work’s QR code", "Share link to the
+  sample work"). With no sample work link the code holds the act's first link (`parseLinks(a.links)[0]`, as the press
+  kit's), and `span.ac-sample-say` says so ("No sample work link yet: this is the artist’s first link (Website). Add one
+  in ✎ Edit."), as do the code's and the buttons' names. With no link at all: `div.ac-sample.ac-sample-none`, a line
+  saying to add one in ✎ Edit and `#ac-sample-add-<id>` "✎ Edit", which opens the act form with the focus in the Sample
+  work box; after a save the focus goes to the card's Show big.
+* **Show big** is `acts-docs.bigQr` (the press kit's ⛶ Show it big uses it too): the sheet "Sample work" with the act's
+  name, `.ac-qr-full`, the link under it and how to scan it. **Share link**: `navigator.share({ title, url })` where there
+  is one ("The Night Owls – sample work"; the act's name alone for its first link); else the link is copied, with a
+  toast; where copying is refused, the sheet "Copy the link" holds it in `#ac-sample-copy`, selected.
+* **Walkthroughs.** The list's "Sample work" step, after Dates coming up, points at `.ac-sample` (else a card's head);
+  the act form's after Links; the big code's sheet has its own.
+* **What it is not.** Nothing printed or sent (press kit, tech rider, day sheet, calendar file) carries the link, and the
+  search reads neither it nor its host (`actSearchText` is unchanged). Writing nothing, Show big and Share link need no
+  licence check of their own.
+
 ### House rules, drawn (`js/venues-rules.js`, `js/pages/venues.js`)
 
 * The chip: `span.vn-chip.vn-chip-<ok|some|strict>` with the visible words in `> [aria-hidden=true]` and the spoken
@@ -1088,7 +1134,9 @@ backline, take, comp, stems, split sheet.
   tapped with a finger and clicked), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
-  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `50-backline`, `55-venues`,
+  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `50-backline`, `50-sample-qr` (an
+  act's sample work: the model's reading of the link, the form, the card's code, Show big, Share link, every role,
+  320 px), `55-venues`,
   `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
@@ -1111,7 +1159,7 @@ need a change there, describe it in your report instead.
 | money | `js/money.js`, `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs` |
 | studio | `js/clock.js`, `js/blocks/clock.js`, `js/blocks/takes.js`, `js/blocks/worksongs.js`, `js/blocks/deliverables.js`, `js/pages/sessions.js`, `css/studio.css`, `tests/specs/30-studio.cjs` |
 | songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs` |
-| acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs`, `tests/specs/47-genres.cjs` |
+| acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `js/acts-sample.js` (sample work), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs`, `tests/specs/47-genres.cjs`, `tests/specs/50-sample-qr.cjs` |
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |
