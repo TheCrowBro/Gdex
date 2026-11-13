@@ -1,7 +1,7 @@
 // An act's documents: the press kit (EPK) and the tech rider, as .cs-doc elements that print (js/print.js) and save as a
 // web page, and the pieces the Acts page shares with them: the links read from the act's text, its QR code, the input
 // list table and the stage plot drawing. Everything is built with h() from the act record, so typed text stays text.
-import { h, safeUrl, telUrl, toast, fmtLong, fmtShort, todayISO, ymd } from './util.js';
+import { h, safeUrl, telUrl, toast, fmtLong, fmtShort, todayISO, ymd, sheet } from './util.js';
 import { db, byId, upcoming } from './store.js';
 import { qrSvg } from './qr.js';
 import { printElement, docPage, saveFile, fileName, csv } from './print.js';
@@ -83,6 +83,19 @@ export function fillQr(el, text) {
   if (!el || !text) return;
   if (qrDone.has(text)) { el.innerHTML = qrDone.get(text); return; }
   qrFor(text).then(svg => { el.innerHTML = svg; }, () => { el.textContent = 'Too much for a QR code: shorten the link.'; });
+}
+// A QR code on a sheet of its own, as big as the screen allows: the act's name over it, what it holds under it, and how
+// to scan it. The press kit's ⛶ Show it big and the sample work's Show big (js/acts-sample.js) open it. title: the
+// sheet's (its walkthrough is registered under it); label: what a screen reader is told the code is. Returns sheet()'s
+// { el, close }.
+export function bigQr({ title = 'QR code', name, text, caption, label = 'QR code: ' + caption, note = null,
+  tip = 'Turn the screen brightness up and hold the phone still: it scans from about an arm’s length.' }) {
+  const box = h('div', { class: 'qr ac-qr-full', role: 'img', 'aria-label': label }, 'Making the code…');
+  fillQr(box, text);
+  return sheet(title, h('div', { class: 'stack ac-qr-sheet' },
+    h('h2', { class: 'ac-qr-name' }, name), box,
+    h('p', { class: 'qr-cap muted' }, caption), note,
+    h('p', { class: 'small muted' }, tip)));
 }
 
 /* ------------------------------- document parts ------------------------------- */

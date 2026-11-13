@@ -4,10 +4,10 @@
 // shows. Changing role never deletes or hides data: a section that is not on a role's menu is a bonus track on the
 // sleeve, and any link to it opens it. The choice is kept on this device (like the display settings), under gdex-role.
 const KEY = 'gdex-role';
-export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'backline', 'venues', 'money', 'tools', 'insurance', 'settings'];
+export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'backline', 'venues', 'money', 'tools', 'insurance', 'card', 'settings'];
 
 // Each role, in the shape the app reads (docs/developers.md → Roles):
-//   sections   the menu in order (Settings is always added, last); start: the section Gdex opens on, every time. For
+//   sections   the menu in order (My card and then Settings are always added, last); start: the section Gdex opens on, every time. For
 //              every role that is 'bookings', the calendar, and it is the first track on the menu.
 //   names      a section's name for this role ({ acts: 'Roster' }): on the menu, as the page's heading, in the tour.
 //              Only Bookings and Acts are ever renamed, and never inside documents that go to other people.
@@ -23,7 +23,9 @@ export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'bac
 //              bookings.noActs (the booking form's hint while there are no acts to pick),
 //              acts.order ('name' | 'latest' | 'recent'), acts.tabs (an act's tabs: ['about'] leaves out the press kit and rider,
 //              and puts the times seen at the top of its Overview), acts.seen ('always' | 'logged': the times-seen line and log lead
-//              only once something is logged), acts.empty (the empty list's words), people.group (+ Add starts there),
+//              only once something is logged), acts.empty (the empty list's words), acts.sampleWork (false: no Sample work link
+//              on the act's form, nor its QR code on the act's card; without the key, as for a producer, a manager and
+//              Everything, both show), people.group (+ Add starts there),
 //              songs.view ('setlists' to open there when there are songs and setlists), tools.tool (the first tool while none is
 //              remembered), money.earned (the label of the year's income).
 const HIDE_ALL = ['lineup', 'advance', 'deal', 'running', 'guests', 'settlement', 'daysheet', 'setlist', 'money', 'budget', 'clock', 'takes', 'worksongs', 'deliverables'];
@@ -69,7 +71,7 @@ export const ROLES = [
       { id: 'acts', text: 'Your band’s page: members, links, a press kit with a QR code for the merch desk, and the tech rider with input list and stage plot. Add any other band you play in too.' },
       { id: 'money', text: 'What each gig paid, the settlement on the night and what every player got, settled or still owed.' },
     ],
-    pages: { bookings: { open: { show: ['running', 'setlist'], rehearsal: ['setlist'] }, ask: false }, acts: { seen: 'logged', empty: 'Add your band: its name, members and links. Its page keeps the press kit and the tech rider, and its gigs coming up. Add any other band you play in too.' }, songs: { view: 'setlists' } } },
+    pages: { bookings: { open: { show: ['running', 'setlist'], rehearsal: ['setlist'] }, ask: false }, acts: { sampleWork: false, seen: 'logged', empty: 'Add your band: its name, members and links. Its page keeps the press kit and the tech rider, and its gigs coming up. Add any other band you play in too.' }, songs: { view: 'setlists' } } },
   { id: 'solo', label: 'Solo artist', icon: '🎤', what: 'Singer-songwriter',
     blurb: 'Your own gigs and studio days, songs and setlists, your press kit and getting paid.',
     sections: ['bookings', 'songs', 'money', 'acts', 'venues', 'people', 'tools'], start: 'bookings', names: { acts: 'My act' },
@@ -83,7 +85,7 @@ export const ROLES = [
       { id: 'acts', text: 'You as an act: bio and links, a one-page press kit with a QR code for the merch table, and the tech rider to send ahead.' },
       { id: 'venues', text: 'The rooms you play or want to: capacity, stage, PA, curfew, the contact, and the house rules that show on every show there. + Book here starts a booking there.' },
     ],
-    pages: { bookings: { open: { show: ['deal', 'setlist'] }, noActs: 'Add yourself on the My act page to pick it here.', ask: false }, acts: { seen: 'logged', empty: 'Add yourself as an act: your name, bio and links. Its page keeps a one-page press kit and the tech rider to send ahead.' }, people: { group: 'session' } } },
+    pages: { bookings: { open: { show: ['deal', 'setlist'] }, noActs: 'Add yourself on the My act page to pick it here.', ask: false }, acts: { sampleWork: false, seen: 'logged', empty: 'Add yourself as an act: your name, bio and links. Its page keeps a one-page press kit and the tech rider to send ahead.' }, people: { group: 'session' } } },
   { id: 'scout', label: 'Scout', icon: '🔭', what: 'A&R scout',
     blurb: 'Acts you’re watching: a score out of 100 each time you see them, and where they play next.',
     sections: ['bookings', 'acts', 'people', 'venues'], start: 'bookings', names: { bookings: 'Shows' },
@@ -96,7 +98,7 @@ export const ROLES = [
       { id: 'people', text: 'Managers, agents, promoters and label contacts, with call, text and email one tap away and the acts they’re with.' },
       { id: 'venues', text: 'The rooms you scout in: capacity, so you know what a sell-out means, the address and map, the house rules (cameras, phones, the age limit) that show on every show there, and the shows you’ve been to there.' },
     ],
-    pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { order: 'latest', tabs: ['about'], empty: 'Add an act you’re watching: its name and links. Each time you see them, log a score out of 100; the card keeps the count, your average and latest score, and where they play next.' }, people: { group: 'contact' } } },
+    pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { sampleWork: false, order: 'latest', tabs: ['about'], empty: 'Add an act you’re watching: its name and links. Each time you see them, log a score out of 100; the card keeps the count, your average and latest score, and where they play next.' }, people: { group: 'contact' } } },
   { id: 'audiophile', label: 'Audiophile', icon: '🎧', what: '',
     blurb: 'Bands you’ve seen with a score each time, gigs coming up, the rooms and the sound meter.',
     sections: ['bookings', 'acts', 'venues', 'tools'], start: 'bookings', names: { acts: 'Bands', bookings: 'Gigs' },
@@ -109,7 +111,7 @@ export const ROLES = [
       { id: 'venues', text: 'Every room you’ve been to: capacity, the PA and the noise limit, the house rules (cameras, phones, the age limit) that show on every gig there, and the gigs you saw there.' },
       { id: 'tools', text: 'The sound level meter: the level now in dB(A), the loudest moment and the last minute’s average, against the venue’s noise limit. A tuner, a metronome and tap tempo are here too.' },
     ],
-    pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { order: 'recent', tabs: ['about'], empty: 'Add a band you’ve seen or want to see. Each time you see them, log a score out of 100 with notes on the set and the sound; the card keeps your average, your latest score and their next dates.' }, tools: { tool: 'meter' } } },
+    pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { sampleWork: false, order: 'recent', tabs: ['about'], empty: 'Add a band you’ve seen or want to see. Each time you see them, log a score out of 100 with notes on the set and the sound; the card keeps your average, your latest score and their next dates.' }, tools: { tool: 'meter' } } },
 ];
 // Before a role is chosen (and for anyone who wants it): every section, as Gdex has always been.
 export const EVERYTHING = { id: 'all', label: 'Everything', icon: '🗂️', what: '', blurb: 'Every section on the menu, as Gdex has always been.', sections: SECTIONS.slice(), start: 'bookings', names: {}, newKind: 'show', hide: [], money: true, pages: {} };
@@ -117,8 +119,8 @@ const ALL = [...ROLES, EVERYTHING];
 
 const read = () => { try { const v = localStorage.getItem(KEY); return ALL.some(r => r.id === v) ? v : ''; } catch { return ''; } };
 let current = read();
-// The menu always ends with Settings, has no unknown or repeated ids, and keeps the start section on it.
-const clean = r => { const seen = new Set(); const list = (r.sections || []).filter(id => SECTIONS.includes(id) && id !== 'settings' && !seen.has(id) && seen.add(id)); return [...list, 'settings']; };
+// The menu always ends with My card and Settings (every role has both), has no unknown or repeated ids, and keeps the start section on it.
+const clean = r => { const seen = new Set(); const list = (r.sections || []).filter(id => SECTIONS.includes(id) && id !== 'settings' && id !== 'card' && !seen.has(id) && seen.add(id)); return [...list, 'card', 'settings']; };
 
 export const roleChosen = () => !!current;
 export const roleId = () => current || 'all';
@@ -130,6 +132,8 @@ export const startSection = (r = role()) => (clean(r).includes(r.start) ? r.star
 export const sectionName = (id, fallback) => role().names[id] || fallback;
 // One act in the role's words, for labels like "Artist" on the booking form: 'artist', 'band' or 'act'.
 export const actWord = () => ({ producer: 'artist', band: 'band', audiophile: 'band' })[roleId()] || 'act';
+// Who the person shows their contact card to (My card, js/pages/card.js), in the role's words.
+export const cardAudience = () => ({ producer: 'the artists you record, and the engineers and studios you work with', manager: 'promoters, agents and venues', band: 'promoters, venues and fans at the merch desk', solo: 'promoters, venues and fans at the merch table', scout: 'the acts you’re watching and the managers and agents around them', audiophile: 'the bands and people you meet at gigs' })[roleId()] || 'the artists, promoters, venues and crew you work with';
 // The boxes that never show for a role without money, whatever its hide list says.
 export const MONEY_BLOCKS = ['deal', 'settlement', 'money', 'budget'];
 const moneyOff = (rl = role()) => rl.money === false;

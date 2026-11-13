@@ -25,9 +25,6 @@
 .se-empty { padding: 18px 12px; }
 .se-contact { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 4px; margin-top: 4px; }
 .se-contact > p { margin: 0; }
-.se-qr { width: min(232px, 100%); text-align: center; }
-.se-qr-svg { width: 100%; }
-.se-qr-none { margin: 0; padding: 14px 12px; }
 @media (min-width: 760px) { .se-kv { max-width: 560px; } }
 
 /* about */

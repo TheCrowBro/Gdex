@@ -38,7 +38,7 @@ npm run serve                   # http://localhost:8124/
 | `js/model.js` | Music domain constants and pure sums (deals, settlement, set lengths, durations). |
 | `js/pages/*.js` | One module per section. |
 | `js/bookings-cal.js`, `js/bookings-kit.js` | The calendar's views (drawn for `pages/bookings.js`), and the helpers the two share. |
-| `js/acts-ask.js`, `js/venues-rules.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn. |
+| `js/acts-ask.js`, `js/venues-rules.js`, `js/acts-sample.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn; an act's Sample work (its link on the act form, its QR code on the act's card). |
 | `js/search.js`, `js/search-dates.js` | The search: the box at the top of every page (in the section menu's bar), the `/` key and the results it opens over the page; the dates it reads. |
 | `js/blocks/*.js` | Boxes on a booking's page (deal, setlist, guest list…), listed in `js/blocks/index.js`. |
 | `js/*.js` | Shared modules (see below). |
@@ -50,16 +50,17 @@ npm run serve                   # http://localhost:8124/
 | id | Label | Module | What it is |
 |---|---|---|---|
 | `bookings` | Bookings | `pages/bookings.js` | The calendar (month, two weeks, week, three days, day: `js/bookings-cal.js`) with Coming up under it; the booking page with its blocks. Gdex opens here every time. |
-| `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards, folded under their main genre (Rock, Pop…) once there are two or more: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider. |
+| `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards, folded under their main genre (Rock, Pop…) once there are two or more: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider; for a producer, a manager and Everything, a QR code of the act's sample work on its open card. |
 | `people` | People | `pages/people.js` | Band members, session players, crew, industry contacts (promoters, agents…). |
-| `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, split sheet) and setlists. |
+| `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, album, split sheet), folded by act and album, and setlists. |
 | `sessions` | Studio log | `pages/sessions.js` | Take logs for recording sessions: song, take number, time, keep/maybe/no, notes. |
 | `backline` | Backline | `pages/backline.js` | Instruments, amps, mics… with serials, values, owners; stage packs (kits). |
 | `venues` | Venues | `pages/venues.js` | Venues, studios, rehearsal rooms, festivals: capacity, stage, PA, curfew, noise limit, load-in, map. |
 | `money` | Money | `pages/money.js` | Overview: income by month and act, unpaid invoices, deposits due, settlements, payouts. |
 | `tools` | Tools | `pages/tools.js` | Tuner, metronome + tap tempo, delay/reverb times, sound level meter, set timer. |
 | `insurance` | Insurance | `pages/insurance.js` | Policies (instruments, public liability…), renewals, cover vs backline value. |
-| `settings` | Settings | `pages/settings.js` | Profile, money settings, backups, display, tour, erase. |
+| `card` | My card | `pages/card.js` | The person's contact card as a big QR code, their name and details under it; Show big, Share, Save as a file (.vcf), Edit your details. On every role's menu, just before Settings. |
+| `settings` | Settings | `pages/settings.js` | Profile (with the way to My card), money settings, backups, display, tour, erase. |
 
 Navigate in code with `window.logiGo('venues')` (string ids only; resolves once drawn). `window.logiPage()` is the
 open section's id. Which sections are on the menu depends on the role (below); `logiGo` opens any of them, a section
@@ -84,7 +85,7 @@ writes nothing to `gdex-db` and backups do not carry it; Erase this device clear
 Everything** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
 
 A role is data (`ROLES` in `js/roles.js`; not to be confused with `model.js`'s `ROLES`, the instruments people
-play): `sections` (the menu in order; Settings is always added last), `start` (`bookings` for every role, and its
+play): `sections` (the menu in order; My card and then Settings are always added last, by `menuSections`, whatever the list says, so neither is ever a bonus track), `start` (`bookings` for every role, and its
 first track: **Gdex opens on the calendar on every page load**, in every role and in Everything, whatever was open last.
 `startSection()` is the one source for where a start opens; the old `gdex-tab` key is no longer read or written, and is
 removed at boot. Explicit jumps still go where they say: `logiGo`, `openBooking`, `openAct`, a tour step, the first-run
@@ -99,14 +100,16 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `role()`, `roleId()`, `roleChosen()`, `setRole(id, { start })` | The current role; `setRole` saves it and fires `gdex-role` (the app redraws the menu and the page). |
 | `menuSections(r)`, `offMenu(r)`, `startSection(r)` | The menu (always ending with Settings), the bonus tracks, where a fresh start opens. |
 | `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act). |
+| `cardAudience()` | Who the person shows their contact card to, in the role's words ("promoters, venues and fans at the merch desk"): My card's lead line, its empty state and its walkthrough. |
 | `blockShown(id)`, `blockFolded(id)`, `MONEY_BLOCKS` | A booking box shown, under More boxes, or (a money box for a role without money) neither. `blocksFor(kind)` already leaves the others out. |
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
-| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
+| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `acts.sampleWork`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
 | `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `gdex-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Everything, is asked). |
 
 Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
 seen last), and "From a past show" offers shows up to today (holds and offers too when money is off), leaving out
-any show marked "Didn’t go". Tools writes
+any show marked "Didn’t go". `acts.sampleWork: false` (band, solo artist, scout, audiophile) leaves out the act form's
+Sample work field and the QR code on the act's card; a producer, a manager and Everything (no key) have both. Tools writes
 `gdex-tool-pick` only when a tool is picked (the `gdex-tool` the build before roles wrote on every draw is never read),
 and works out the first tool (picked, else `tools.tool`, else the tuner) and Songs its first view each time it is
 drawn, so a role's default applies until the person chooses. `songs.view: 'setlists'` applies only when there are songs
@@ -266,6 +269,13 @@ An act whose main genre was set by hand carries `mainGenre`: one of `model.MAIN_
 anything else stored there reads as automatic too: read it only through `model.mainGenreOf(a)` ("Main genres" below).
 The act form stores it when one is picked and takes the key off when Automatic is; nothing printed or sent carries it.
 
+An act may carry `sampleWork`: the Sample work link as typed (text; the address of a page of the person's work for the
+act). Never `sample`, which marks a record of the sample data (`loadSample`), counted and deleted by Settings → Remove
+the sample. Read it only through `model.sampleLink(a)`: anything stored that is not one web address reads as none. The
+act form writes it only for a role that has the field (`pages.acts.sampleWork` not `false`): trimmed, `''` to clear one
+that was stored, and no key on an act that never had one; a role without the field leaves whatever is stored as it was.
+It travels in backups, and in nothing printed, sent or exported for another program; the search does not read it.
+
 `people`: `{ id, name, group: 'band'|'session'|'crew'|'contact', role, instrument, company, phone, email, rate,
 rateUnit: 'day'|'hour'|'show', notes }`. Act membership lives on the act (`act.members`).
 
@@ -284,7 +294,11 @@ only to the latter). It replaces only the rules this build knows: the answers to
 or a backup edited by hand) are kept as they were stored (`model.unknownRules(v)`).
 
 `songs`: `{ id, title, actId, key, bpm, duration (seconds), tuning, status, isrc, lyrics, link, notes,
-splits: [{ id, name, role, share (%), pro, ipi, publisher }] }`.
+splits: [{ id, name, role, share (%), pro, ipi, publisher }], album }`. `album` is the album or release as typed in the
+song form (its spaces tidied; `''` for none), and is absent on a song never saved through the form since. Read it only
+through `model.albumOf(s)`, which reads anything else stored there (not text, no letter or digit, "n/a", "Single"…) as
+no album; a number reads as its digits. It travels in backups, and in nothing printed or sent (the press kit, the
+printed setlist, the split sheet).
 
 `setlists`: `{ id, name, actId, gap (seconds between songs), items: [{ id, songId, title, duration, note, segue,
 encore, isBreak }], notes }`. An item with `songId` takes its title and length from the song; one without carries its
@@ -304,7 +318,7 @@ by `js/money.js`.
 
 Constants: `KINDS`, `STATUSES`, `statusesFor`, `statusLabel`, `statusTone`, `kindLabel`, `kindIcon`, `SHOW_TIMES`,
 `SESSION_TIMES`, `timesFor`, `PEOPLE_GROUPS`, `ROLES`, `GEAR_CATS`, `VENUE_KINDS`, `RATE_UNITS`, `SONG_STATUS`,
-`NOTES`, `KEYS`, `SPLIT_ROLES`, `DEAL_TYPES`, `MAIN_GENRES`, `NO_GENRE`.
+`NOTES`, `KEYS`, `SPLIT_ROLES`, `DEAL_TYPES`, `MAIN_GENRES`, `NO_GENRE`, `NO_ALBUM`.
 Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `seenEntryFor(a, b)`, `actShowsOn(actId, iso)`, `onlyShowOn(actId, iso)`, `actUpcoming(a)`, `bookingTitle(b)`, `actName(id)`, `venueOf(b)`, `firstTime(b)`, `lastDate(b)`, `coversDay(b, iso)`, `fmtDur(sec)`,
 `parseDur(text)`, `fmtMin(min)`, `addMinutes('HH:MM', min)`, `minutesBetween(a, b)`, `setlistLength(list)`,
 `itemTitle(item)`, `fmtMoney(n, sym?)`, `currency()`, `dealPays(deal, gross)`, `dealSummary(deal)`, `dealBest(deal)`,
@@ -365,6 +379,11 @@ strict`), and `rulesList(v).tone` gives it for the full rules (`Strict, set by h
 `spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both are text: set them with
 `textContent`.
 
+Sample work: `sampleLink(a)` (`{ url, host }` for `a.sampleWork` when it is one web address, read as every link a
+person types is: `util.safeUrl`, so `https://` goes in front when no scheme is typed, http or https only, a host with a
+dot in it, no name and password; `host` without `www.`. `null` for anything else: no key, empty, not text, words, a
+space inside, `mailto:` or `javascript:`. Never throws.)
+
 Earlier names (an act that changed its name): `sameName(a, b)` (the same but for capitals, spaces and punctuation;
 a name made only of punctuation is compared as written), `cleanFormer(list, current)` (a stored list made safe:
 `[{ name, until }]`, names with no day first in stored order, then the dated ones oldest first; entries that are no
@@ -399,6 +418,13 @@ acoustic, choir, orchestra, DJ, dance, fusion…) decides only when nothing else
 Rock, "indie pop" Pop, "gospel choir" Gospel & Christian, "hip hop DJ" Hip hop & rap, "Latin dance" Latin. The table
 (`GENRE_TABLE`) lives in the block; `47-genres` reads two tables through it, close to two hundred genres and some two
 hundred and fifty more written apart from the first.
+
+A song's album (the songs list's folds): `NO_ALBUM` ("Singles & unreleased", the fold for the songs with none),
+`albumOf(s)` (the album as typed, its spaces tidied, or `''`: a key that is absent or not text, text with no letter or
+digit, or words that say there is none: "none", "no album", "n/a", "TBC", "TBA", "single", "non-album single",
+"unreleased", "not released", "Singles & unreleased", "unknown", whatever their capitals, accents and punctuation; a
+finite number reads as its digits; never throws) and `albumKey(text)` (what tells two albums apart: capitals, spaces and
+punctuation aside, as `sameName` does for an act's names; `''` for no album).
 
 Use these instead of re-implementing them, so a show's numbers agree on every page. If one is wrong or missing, say
 so in your report rather than forking it.
@@ -503,6 +529,8 @@ may call it.
 | `js/clock.js` `initClockBar(el)` / `clockCard(b)` | studio | The strip under the section menu while a clock runs / start-stop card. |
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
+| `pages/settings.js` `vcard(p?)` / `hasCard(p)` / `qrFor(text)` / `saveCard()` / `editProfile()` | settings | The profile as a vCard 3.0 / whether it makes a card (a name or business, and a phone, an email or a website that is a web address, as `vcard()` keeps it) / the QR code's SVG for a text (UTF-8, the last one kept) / save the card as a .vcf (`print.js` `saveFile`) / the Your details form. My card uses them, so the card is the same everywhere. |
+| `js/tools-ui.js` `keepAwake()` / `letSleep()` | tools | Keep the screen on (the Screen Wake Lock) / let it sleep: the set timer, and My card's Show big. |
 | `js/tour.js` `sheetTutorial(title, steps)` / `setSearchStep(step)` | core | Register walkthrough steps for a sheet by its title / the welcome tour's stop for the search box, just after the section menu (`js/search.js` gives it; the tour cannot import the search). |
 | `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. |
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
@@ -665,9 +693,11 @@ The digital player: `div.dk-player` (the bar: `button.dk-now.dk-swipe` with `spa
 `aria-label="<name>, bonus track"`). Its list sheet is `div.dk-sheet.dk-queue`, one list numbered from 1 ("1 track"
 for a menu of one).
 
-* `.dk-meta` holds two spans: `.dk-meta-at` ("Track 2 of 11", or "Bonus track") and `.dk-meta-n` (" · 2 acts"). The
-  line is one line high: the count shows when it fits and is left out whole when it does not (on a touch phone under
-  about 412 px wide it never fits). **A spec reads `.dk-meta`'s `textContent`, which is always complete.**
+* `.dk-meta` holds two spans: `.dk-meta-at` ("Track 2 of 12", or "Bonus track") and `.dk-meta-n` (" · 2 acts"). The
+  count of acts says the role's word for one (`actWord()`, in `js/app.js`): 2 bands for a band and an audiophile, 2
+  artists for a producer, 2 acts for the others; the record's line under Now playing says the same. The line is one
+  line high: the count shows when it fits and is left out whole when it does not (on a touch phone under about 412 px
+  wide it never fits). **A spec reads `.dk-meta`'s `textContent`, which is always complete.**
 * The bar is at most 72 px tall at standard sizes from 345 px wide; narrower, or with larger text or buttons, the keys
   take a line of their own. With the row of tabs the whole menu is about 150 px against the record's 197; with
   extra-large text *and* buttons at about 412 to 430 px wide it is taller than the record (239 px against 208).
@@ -796,6 +826,94 @@ and the acts list folds the acts under it. Everything lives in one block of `pag
   and one about the role's order across the whole list (`42-roles-acts`) files Sable under Rock by hand, so the list
   has one main genre and no groups.
 
+### Sample work (`js/acts-sample.js`, `js/pages/acts.js`)
+
+A producer or a manager shares their work for an act (a SoundCloud, Drive or Dropbox page of their mixes, a private
+playlist) as a QR code from the act's card. Everything lives in `js/acts-sample.js`; `pages/acts.js` draws its parts into
+the act form and the card, and its walkthroughs.
+
+* **Who.** `sampleShown()`: the role's `pages.acts.sampleWork` is not `false` (above). A role without it sees no field,
+  no code and no walkthrough step, and the stored link stays as it was.
+* **The form.** `editAct` has "Sample work" (`input[data-key=sampleWork]`, `type: 'url'`) straight under Links, its hint
+  (`small#ac-sample-hint`) in the role's words (this artist / act, the card in Artists / Roster / Acts). Under it
+  `p#ac-sample-check` says what the code opens ("The QR code opens soundcloud.com.") or, `.warn`, that what is typed is
+  no web address (said aloud when the box is left); the box is described by both. Anything stored that is not text
+  shows as an empty box. The save (`sampleSave`) is described under Records above.
+* **The card.** An open card (`#ac-pnl-<id>`, in a genre group or not) starts with `div.ac-sample[role=group]`, labelled
+  by its `strong.ac-sample-h#ac-sample-h-<id>` "Sample work": `div.qr.ac-sample-qr[role=img]` (a small code, filled by
+  `acts-docs.fillQr`, so a code made before is drawn at once as a fold or the card opens again), `span.ac-sample-host`
+  (the host in words), and `#ac-sample-big-<id>` "⛶ Show big" and `#ac-sample-share-<id>` "📤 Share link" (each with
+  `data-fk` and an `aria-label` that starts with its words: "Show big: the sample work’s QR code", "Share link to the
+  sample work"). With no sample work link the code holds the act's first link (`parseLinks(a.links)[0]`, as the press
+  kit's), and `span.ac-sample-say` says so ("No sample work link yet: this is the artist’s first link (Website). Add one
+  in ✎ Edit."), as do the code's and the buttons' names, and a third button, `#ac-sample-add-<id>` "✎ Edit" (as below),
+  is on the card (the times seen under it have ✎ pencils of their own, which edit a time seen). With no link at all:
+  `div.ac-sample.ac-sample-none`, a line saying to add one in ✎ Edit and `#ac-sample-add-<id>` "✎ Edit", which opens
+  the act form with the focus in the Sample work box; after a save the focus goes to the card's Show big. The lines
+  (`.ac-sample-say`) are muted text mixed with the text colour, as the heading is: muted alone is under 4.5:1 on
+  `--bg2` in the light schemes.
+* **Show big** is `acts-docs.bigQr` (the press kit's ⛶ Show it big uses it too): the sheet "Sample work" with the act's
+  name, `.ac-qr-full`, the link under it and how to scan it. **Share link**: `navigator.share({ title, url })` where there
+  is one ("The Night Owls – sample work"; the act's name alone for its first link); else the link is copied, with a
+  toast; where copying is refused, the sheet "Copy the link" holds it in `#ac-sample-copy`, selected.
+* **Walkthroughs.** The list's "Sample work" step, after Dates coming up, points at `.ac-sample` (else a card's head);
+  the act form's after Links; the big code's sheet has its own.
+* **What it is not.** Nothing printed or sent (press kit, tech rider, day sheet, calendar file) carries the link, and the
+  search reads neither it nor its host (`actSearchText` is unchanged). Writing nothing, Show big and Share link need no
+  licence check of their own.
+
+### Songs in folds: an act, then its albums (`js/model.js`, `js/pages/songs.js`)
+
+The songs list folds its songs the way the acts list folds its acts under their main genres (above), and its folds
+look and behave the same. Everything lives in one block of `pages/songs.js` ("folds").
+
+* **When.** By act when the library's songs are of two or more acts (songs with no act, or whose act is gone, count as
+  one more); inside every act's fold, by album once any song in the library has one (`model.albumOf`), so an act
+  none of whose songs has an album holds a lone Singles & unreleased fold (the owner: "Songs with none go in a SINGLES
+  & UNRELEASED fold, last in each band"); with no album anywhere, an act's fold lists its songs straight. With songs
+  of one act (or of none), its album folds only, and with no album either the list is as it always was: the act's
+  name over its cards (`section.sg-group > h3`), none of the hooks below. Whether there are folds, and each album's name, come from the whole library, never
+  from the search's matches.
+* **The folds.** `div.list.sg-folds` holds the top folds: `section.sg-fold.sg-fold-act[data-act=<actId|none>]` per act,
+  A to Z, then No act, or (one act) `section.sg-fold.sg-fold-album[data-act][data-album=<albumKey|none>]` per album, A to
+  Z, then Singles & unreleased (`NO_ALBUM`; an album whose key is `none`, as "N.O.N.E", is `data-album=none_`, so
+  the two never share an id); `.open` while open. Each starts with `h2.sg-fold-h > button.sg-fold-head`
+  (an album inside an act: `h3`), a real disclosure button: `aria-expanded`, `aria-controls="<id>-list"`, the label in
+  `span.sg-fold-name`, the count in `span.sg-fold-n` and the chevron (`span.sg-chev`, turned while open), both hidden
+  from a screen reader, which reads the button's `aria-label` instead: "The Night Owls, 8 songs". Ids: `#sg-act-<actId>`
+  (`#sg-act-none` for No act), `#sg-alb-<actId|none>-<albumKey|none>`. Under it, `div.list.sg-fold-list#<id>-list
+  [role=group]` labelled by the heading holds the act's album folds or the songs (A to Z by title, as the list always
+  had them), and is empty and `hidden` while folded. An album's name is the spelling most of the act's songs use (the
+  first A to Z on a tie), so "Harbour Lights EP" and "harbour lights ep" are one fold. No act is "No " + the role's word
+  for an act (`actWord()`: No artist, No band, No act); the counts are always "songs".
+* **Folding.** Every fold is folded at first; a tap, Enter or Space on a heading opens or folds it, and the page is
+  drawn again at once with the focus on the heading (it has an id, so the focus also comes back to it after any other
+  redraw). An act folded and opened again keeps its albums as they were. The folds opened are kept in memory for the
+  visit (`S.folds`, keys `<actKey>` and `<actKey>\n<albumKey>`): another section and back keeps them; a reload folds them
+  all. A song saved through the form, and a song the search at the top opens (`showSongs('songs', songId)`), has its
+  folds opened, so its card is on the list for the focus to come back to.
+* **The page's own search** (`#sg-q`, from four songs) opens every fold with a match and leaves out the folds without
+  one; the counts are the matches. A fold folded during a search (`S.shut`) opens again when the words change; clearing
+  the search puts the folds back as they were. Its words (`songText`) include the album, and so does the search at the
+  top of every page, whose song row then says why ("Album: Harbour Lights EP").
+* **No act chips.** The folds take the place of the songs list's act chips; the Setlists view keeps its chips
+  (`.sg-acts`), and a chip picked there hides no song. + Song starts with no act.
+* **The form.** `editSong` has "Album or release" (`input[data-key=album]`) straight after Act, with a `datalist` of
+  the albums already typed for the act picked, A to Z, which follows the Act box as it changes (`albumHelper`); its hint
+  is in the role's words ("The artist’s albums already typed are offered. Leave it empty for a single or a song not out
+  yet: it goes under Singles & unreleased."). It shows what is stored when that is text, else nothing, and a save
+  stores the box with its spaces tidied (`''` when empty). The song's sheet shows it as a fact of its own row, "Album".
+* **What it is not.** Nothing printed or sent changes: the press kit, the printed setlist (`stageDoc`), its text and
+  the split sheet carry no album. The setlist editor's song picker keeps its groups by act.
+* **Walkthroughs.** On a list in folds the songs walkthrough has a step on the folds (`.sg-fold-head`, "By act and
+  album", "By artist", "By album"…, in the role's words) between Songs and setlists and Search; its first step says
+  how the list is drawn, its Search step that the album is searched and that matches open their folds, and its song
+  step drops the first fold open (and its first album) when none is, as a tap would. The song sheet's walkthrough says
+  the album is the fold it sits in.
+* **Specs.** The sample's songs are of two acts (The Night Owls, Sable) and have no albums, so the sample's songs list
+  is in two act folds with the songs straight inside: a spec that reads cards on it opens a fold first
+  (`#sg-act-s-owls`, `#sg-act-s-sablea`); while the page's own search has words in it, the folds with a match are open.
+
 ### House rules, drawn (`js/venues-rules.js`, `js/pages/venues.js`)
 
 * The chip: `span.vn-chip.vn-chip-<ok|some|strict>` with the visible words in `> [aria-hidden=true]` and the spoken
@@ -867,7 +985,7 @@ showing).
   `searchKinds()` is the one place that decides which the person may see: Money only with `moneyShown()`; the licence
   for the working roles narrows it there. Each kind's words are those its own section's search reads, from the function
   the section exports (`actSearchText`, `venueText` and `venueMatches` with the house rules, `personText`, `gearText`,
-  `songText`, `logWords`; `setlistWords` for setlists, which have no search of their own), so the two never disagree; a
+  `songText` (with the song's album), `logWords`; `setlistWords` for setlists, which have no search of their own), so the two never disagree; a
   band is found by every name it has had, and so are its members, songs, setlists, take logs and invoices. Money is
   found by the document's number, its status as the booking's box says it (`statusPill`: Draft, Sent, Part paid, Paid,
   Overdue…, and "unpaid" for one sent and not paid), the client, the act, the booking and its amount, written either
@@ -965,7 +1083,7 @@ showing).
   time seen with `openSeen(actId, seenId)` (its row is marked `.srch-hit` for a moment, and says "as …" from before a
   change); an act with `openActCard(id)` (the acts list, its card dropped open, the focus on it); a venue, a person, a
   song, a setlist or a piece of gear by going to its section and pressing its card there (`#vn-<id>`, `#pp-open-<id>`,
-  `[data-fk="pg-song-<id>"]` after `showSongs('songs')`, `[data-fk="pg-sl-<id>"]` after `showSongs('setlists')`,
+  `[data-fk="pg-song-<id>"]` after `showSongs('songs', id)` (which opens the song's folds), `[data-fk="pg-sl-<id>"]` after `showSongs('setlists')`,
   `#bl-item-<id>`), so its sheet opens over the list and gives the focus back to the card when it closes (when the
   section's own filters hide the card, the sheet opens all the same: `openVenue`, `openPerson`, `openSong`,
   `openSetlist`, `openGear`); a take log with `openLog(id)` (the focus on + Take); a quote or an invoice with
@@ -989,6 +1107,51 @@ showing).
   and `searchStats()` (`{ builds, buildMs, findMs, drawMs, records }`). With 2,000 bookings, 200 bands, 500 people, 500
   songs and 300 pieces of gear the words take about 45 to 55 ms to build and a key press (search and draw) 15 to 35 ms
   on the test machine, All (which ranks every kind) about the same.
+
+### My card (`js/pages/card.js`, `css/card.css`)
+
+The person's contact card as a main page, in every role: the section `card`, which `menuSections` puts on every menu
+just before Settings (Everything has it as the eleventh of twelve tracks; a scout's and an audiophile's menus are six
+tracks). No role renames it, and it is not searched (the search box shows on it, as on every page; `searchKinds()` has
+no kind for it). The card is Settings' own: `vcard()`, `hasCard()`, `qrFor()`, `saveCard()` and `editProfile()` from
+`pages/settings.js`, so My card, the .vcf in Settings and the QR code always agree.
+
+* **The page.** `h1#cd-title[tabindex=-1]` "My card" in `.page-head`, then `div.cd-wrap`: `p.cd-lead` (who to show it
+  to: `cardAudience()`), `div.card.cd-card` with the code, `div.qr.cd-qr[role=img]` (`aria-label` "QR code: the
+  contact card of <name>"; its SVG in `.cd-qr-svg`, the last one drawn kept so a redraw shows it at once), and under it
+  `div.cd-who`: `strong.cd-name` (the name, else the business), `span.cd-sub` (what you do · the business) and
+  `ul.cd-lines[aria-label="On the card"]`, one `li` per way to reach the person as the vCard holds them (phone, email, a
+  website only when it is a web address, based in, postal address), each `span.cd-ico[aria-hidden]`, a `span.sr-only`
+  label ("Phone: ") and `span.cd-val` (an email or a web address breaks after a dot, an @ or a slash: `<wbr>`). Then
+  `div.actions.cd-actions`: `#cd-big` "⛶ Show big" (`aria-haspopup=dialog`), `#cd-share` "↗ Share" (only where
+  `navigator.share` exists), `#cd-vcf` "⤓ Save as a file (.vcf)", `#cd-edit` "✎ Edit your details"; and `p.cd-note`
+  (nothing is sent anywhere; the same card is in Settings → Your details). The words under the code are in rem, so
+  they follow the Text size setting.
+* **No card yet** (`hasCard` false): `div.empty.cd-empty`, a sentence of what to add (a way to reach you, a name, or
+  both) in the role's words, and `#cd-edit` as the primary button.
+* **Share** hands the device's share sheet the .vcf file (`navigator.canShare({ files })`), else the card as text (the
+  name, what you do and the business, then each line); closing the sheet says nothing, a share that fails says to save
+  the file instead.
+* **Show big**: `div.cd-big[role=dialog][aria-modal][aria-label="My card, big screen"]` on `body`, over everything (z-index
+  330), plain white whatever the theme, `#app` inert and `body.cd-big-on` (no scroll) while it shows: `div.cd-big-code[role=img]`
+  as large as fits (the width but 16 px each side, or the height but room for the words; on a phone on its side, the
+  height, with the words beside it) and `div.cd-big-words` (the name, `p#cd-big-help` "Tap anywhere to close.",
+  `button#cd-big-close`, which has the focus and keeps it from Tab and from anything that would take it: a `focusin`
+  listener in the capture phase gives it back). A click anywhere, Escape, ✕ Close or Back closes
+  it: opening it pushes `history.state` `{ gdexBig: true }`, Back pops it, and any other close takes the entry away
+  with `history.back()` (whose popstate is skipped). The screen is kept on with `tools-ui.js` `keepAwake()` (asked
+  again when Gdex comes back into sight) and let go with `letSleep()`; the focus goes back to `#cd-big`. Leaving the
+  page closes it; a redraw of the page does not. A sheet that opens while it shows ("Did you see them?" at a return)
+  is under it and cannot take the focus; Escape (its listener is in the capture phase) or Enter on ✕ Close closes Show
+  big alone, `#app` stays inert, and the focus goes to that sheet; ✕ Close and `#cd-big` share `data-fk="cd-big"`, so
+  the sheet gives the focus to Show big when it closes.
+* **Settings → Your details** no longer draws the QR code: `div.se-contact` has `p.se-card-line` (where the card is, or
+  what to add), `#se-card` "🪪 Open My card" (it opens My card at the top, with the focus on `#cd-title`) and `#se-vcf`.
+* **Walkthrough**: My card (in the role's words), The code, What it holds, Show big, Share, Save as a file, Edit your
+  details; with no card, My card and Edit your details. The welcome tour counts My card among the tracks (its menu
+  words follow `menuSections`) and has `STOP_TEXT.card` for a role whose stops would reach it; the role picker's menu
+  line leaves out My card and Settings, which every menu has.
+* **With the licence** (item 9): My card is free in every role, the free Audiophile too; it is never gated.
 
 ## Shared modules (core)
 
@@ -1031,7 +1194,7 @@ showing).
   `.qr`, `.meter`, `.form`, `.field`, `.sheet`.
 * Your own styles go in **your** `css/<feature>.css` only, with class names prefixed for your feature
   (`.bk-`, `.sh-`, `.ds-`, `.mn-`, `.st-` is taken by status pills so studio uses `.sd-`, `.sg-` songs, `.ac-` acts,
-  `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance, `.srch-` search).
+  `.pp-` people, `.bl-` backline, `.vn-` venues, `.tl-` tools, `.se-` settings, `.ins-` insurance, `.srch-` search, `.cd-` My card).
 * The keyboard's focus ring is a 3 px outline in `--focus`: a light blue on dark pages and a dark blue on light ones;
   with high contrast yellow on dark and navy on light. It stands out 3:1 or better from `--bg`, `--bg2` and `--card`
   in every theme (`05-deck` measures all forty). A sheet itself has no ring when it holds the focus.
@@ -1088,7 +1251,9 @@ backline, take, comp, stems, split sheet.
   tapped with a finger and clicked), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
-  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `50-backline`, `55-venues`,
+  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `48-song-folds` (a song's album
+  and the songs list in folds), `49-my-card`, `50-backline`, `50-sample-qr` (an act's sample work: the model's
+  reading of the link, the form, the card's code, Show big, Share link, every role, 320 px), `55-venues`,
   `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
@@ -1110,12 +1275,13 @@ need a change there, describe it in your report instead.
 | daysheet | `js/daysheet.js`, `js/blocks/daysheet.js`, `daysheet.html`, `js/daysheet-page.js`, `css/daysheet.css`, `tests/specs/20-daysheet.cjs` |
 | money | `js/money.js`, `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs` |
 | studio | `js/clock.js`, `js/blocks/clock.js`, `js/blocks/takes.js`, `js/blocks/worksongs.js`, `js/blocks/deliverables.js`, `js/pages/sessions.js`, `css/studio.css`, `tests/specs/30-studio.cjs` |
-| songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs` |
-| acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs`, `tests/specs/47-genres.cjs` |
+| songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs`, `tests/specs/48-song-folds.cjs` |
+| acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `js/acts-sample.js` (sample work), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs`, `tests/specs/47-genres.cjs`, `tests/specs/50-sample-qr.cjs` |
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |
 | settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs` |
 | search | `js/search.js`, `css/search.css`, `tests/specs/46-search.cjs` |
+| card | `js/pages/card.js`, `css/card.css`, `tests/specs/49-my-card.cjs` |
 
 A feature may add new files of its own under `js/` (named after the feature) if it needs them.

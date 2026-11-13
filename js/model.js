@@ -383,6 +383,25 @@ export function mainGenreOf(a) {
   return { id, label: mainGenreLabel(id), auto: true };
 }
 
+/* ------------------------------- sample work ------------------------------- */
+// An act's "Sample work" link (item 15): the address of a page of the person's work for the act (a SoundCloud, Drive or
+// Dropbox page of a producer's mixes, a private playlist), shared as a QR code from the act's card. act.sampleWork is
+// the text as typed (not act.sample: that marks a record of the sample data, which Settings → Remove the sample
+// deletes); read it only through sampleLink(a): { url, host } for one web address, read as every link a person
+// types is read (util.safeUrl: http or https, "https://" put in front when no scheme is typed) with a host that has a
+// dot in it ("soundcloud.com", "www." left off host); null for anything else: no key, empty, not text, words, a space
+// inside, a mailto: or javascript: address, a name and a password in it. Never throws. Nothing printed, sent or
+// exported for another program carries it, and the search does not read it.
+import { safeUrl } from './util.js';
+export function sampleLink(a) {
+  const raw = a && typeof a.sampleWork === 'string' ? a.sampleWork.trim() : '';
+  if (!raw || /\s/.test(raw)) return null;
+  let u = null;
+  try { u = new URL(safeUrl(raw)); } catch { return null; }
+  if (!/^https?:$/.test(u.protocol) || u.username || u.password || !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(u.hostname)) return null;
+  return { url: u.href, host: u.hostname.replace(/^www\./i, '') };
+}
+
 /* ------------------------------- people & gear ------------------------------- */
 export const PEOPLE_GROUPS = [['band', 'Band members'], ['session', 'Session players'], ['crew', 'Crew'], ['contact', 'Industry contacts']];
 export const ROLES = ['Vocals', 'Guitar', 'Bass', 'Drums', 'Keys', 'Producer', 'Engineer', 'Mix engineer', 'Mastering engineer', 'Session musician',
@@ -515,6 +534,22 @@ export const showRulesVenue = b => (b && b.kind === 'show' && isLive(b) && b.ven
 /* ------------------------------- songs ------------------------------- */
 export const SONG_STATUS = [['idea', 'Idea'], ['writing', 'Writing'], ['demo', 'Demo'], ['recording', 'Recording'], ['mixing', 'Mixing'], ['mastered', 'Mastered'], ['released', 'Released']];
 export const songStatusLabel = s => (SONG_STATUS.find(x => x[0] === s) || ['', ''])[1];
+// A song's album or release (song.album, typed in the song form): the songs list folds an act's songs under each one,
+// and NO_ALBUM is the fold for the rest. albumOf(s) is the album as typed, its spaces tidied, or '' for none: a key
+// that is absent or not text (a number is read as its digits, as a 1989 typed into a backup by hand), text with no
+// letter or digit, or words that say there is none ("Single", "n/a", "TBC", "Unreleased"…). Never throws.
+// albumKey(text) is what tells two albums apart: capitals, spaces and punctuation aside, as for an act's names.
+export const NO_ALBUM = 'Singles & unreleased';
+const NOT_AN_ALBUM = new Set(['none', 'no album', 'n a', 'na', 'tbc', 'tba', 'tbd', 'single', 'non album', 'non album single', 'unreleased', 'not released',
+  'singles unreleased', 'singles and unreleased', 'unknown']);
+export function albumOf(s) {
+  const v = s && typeof s === 'object' ? s.album : undefined;
+  const t = (typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : '').replace(/\s+/g, ' ').trim();
+  if (!/[\p{L}\p{N}]/u.test(t)) return '';
+  const words = t.normalize('NFKD').replace(/\p{M}+/gu, '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).join(' ');
+  return NOT_AN_ALBUM.has(words) ? '' : t;
+}
+export const albumKey = text => nameKey(albumOf({ album: text }));
 export const NOTES = ['C', 'C♯/D♭', 'D', 'D♯/E♭', 'E', 'F', 'F♯/G♭', 'G', 'G♯/A♭', 'A', 'A♯/B♭', 'B'];
 export const KEYS = [...NOTES.map(n => n + ' major'), ...NOTES.map(n => n + ' minor')];
 export const SPLIT_ROLES = ['Writer', 'Composer', 'Lyricist', 'Producer', 'Publisher', 'Performer'];

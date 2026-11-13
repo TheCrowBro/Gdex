@@ -1,6 +1,6 @@
-// Songs: the library (grouped by act, filter chips, search), each song's sheet (key, tempo, length, the split sheet,
-// the setlists it is in), the song form, the printed split sheet; and the Setlists view, whose cards open the editor in
-// js/setlist.js.
+// Songs: the library (in folds by act and album, search), each song's sheet (key, tempo, length, album, the split sheet,
+// the setlists it is in), the song form, the printed split sheet; and the Setlists view (filter chips by act), whose
+// cards open the editor in js/setlist.js.
 import { h, toast, empty, safeUrl, fmtShort, fmtLong, todayISO, uid, sheet } from '../util.js';
 import { db, byId, upsert, remove, update } from '../store.js';
 import { SONG_STATUS, songStatusLabel, KEYS, SPLIT_ROLES, fmtDur, parseDur, actName, setlistLength, venueOf, bookingTitle, kindIcon, byDayPlay } from '../model.js';
@@ -11,9 +11,13 @@ import { sheetTutorial } from '../tour.js';
 import { openSetlist, newSetlist, liveSheet, plural, shortKey, tickShows } from '../setlist.js';
 import { openBooking } from './bookings.js';
 import { sectionName, pageOpt, roleId } from '../roles.js';
+// The songs list's folds (an act, then its albums): a song's album is read only through the model.
+import { albumOf, albumKey, NO_ALBUM } from '../model.js';
+import { actWord } from '../roles.js';
 
-// View state survives redraws: which view, which act's chip, the search.
-const S = { view: '', act: '', q: '', lyrics: false, qBox: false }; // qBox: the search box was showing (kept until the view changes, so clearing it never pulls it away mid-typing)
+// View state survives redraws: which view, which act's chip (setlists), the search.
+const S = { view: '', act: '', q: '', lyrics: false, qBox: false, // qBox: the search box was showing (kept until the view changes, so clearing it never pulls it away mid-typing)
+  folds: new Set(), shut: new Set() }; // the songs list's folds opened this visit; those folded again during the search typed now
 // The view Songs opens on: the role's (Setlists for a band, when there are songs and setlists already: an empty
 // Setlists view is no place to start), else Songs. Worked out when the page is first drawn in a visit (and again for a
 // role chosen since), not when this file loads, then left alone, so adding the first song never moves the page; once
@@ -26,11 +30,13 @@ function settleView() {
   S.qBox = false;
 }
 // For a link that asks for a view (the metronome's "Go to Songs", to add a song's tempo): Songs opens on it, with no act
-// or search hiding any songs, whatever the role's view. Call it before window.logiGo('songs').
-export function showSongs(view = 'songs') {
+// or search hiding any songs, whatever the role's view. Call it before window.logiGo('songs'). songId: that song's
+// folds open too, so its card is on the list (the search at the top of every page opens a song this way).
+export function showSongs(view = 'songs', songId = '') {
   S.view = view === 'setlists' ? 'setlists' : 'songs';
   V.role = roleId();
   S.act = ''; S.q = ''; S.qBox = false;
+  if (songId) revealSong(byId('songs', songId));
 }
 const NO_ACT = '-';
 export const TUNINGS = ['Standard', 'Drop D', 'E♭ standard', 'D standard', 'Drop C', 'Open G', 'Open D', 'DADGAD'];
@@ -69,6 +75,7 @@ export const songs = {
       root.replaceChildren(h('div', { class: 'sg-page' }, ...view(draw)));
       if (typing) { const i = root.querySelector('#sg-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
     };
+    drawNow = draw; // a fold opened or folded draws the page again at once
     draw();
   },
   tutorial: () => (S.view === 'setlists' ? [
@@ -76,15 +83,25 @@ export const songs = {
     { target: ['.sg-acts'], title: 'By act', text: 'Show one act’s setlists, or all of them.' },
     { target: ['.sg-setlist'], title: 'A setlist', text: 'Its running time, songs and the next booking it is used at. Tap to edit: drag songs into order, add set breaks, and fit it to the slot.' },
     { target: ['#sg-new-setlist'], title: 'New setlist', text: 'Name it, pick the act, then add songs. You can also start one from a show’s Setlist box, sized to its set length.' },
-  ] : [
-    { target: ['.page-head'], title: 'Songs', text: 'Every song with its key, tempo, length and status, grouped by act.' },
-    { target: ['.sg-views'], title: 'Songs and setlists', text: 'Switch to your setlists here.' },
-    { target: ['.sg-acts'], title: 'By act', text: 'Show one act’s songs, or the songs without an act.' },
-    { target: ['#sg-q'], title: 'Search', text: 'Find a song by title, key, tuning, ISRC or writer.' },
-    { target: ['.sg-song'], title: 'A song', text: 'Tap for the details, the split sheet (who wrote it and their share), the setlists it is in, and Print split sheet.' },
-    { target: ['#sg-new-song'], title: 'Add a song', text: 'Title, key, tempo and length (type 3:45), tuning, status, lyrics and chords, and the split sheet.' },
-  ]),
+  ] : songSteps()),
 };
+// The songs list's walkthrough, in the role's words and as the list is drawn: in folds by act and album, by album only,
+// or (one act, no album typed) in one group as it always was.
+function songSteps() {
+  const sh = libraryShape(), w = actWord(), noAct = sh.albums.has(NO_ACT) ? ` Songs with no ${w} come last, under No ${w}.` : '';
+  const folds = sh.byAct || sh.anyAlbum;
+  const foldText = sh.byAct
+    ? `Each ${w}’s songs fold under its name, A to Z.${noAct} Inside, ${sh.anyAlbum ? `they fold under each album or release, A to Z, with ${NO_ALBUM} last` : 'they fold under each album or release once a song has one: ✎ Edit on a song sets it'}. Tap a heading to drop it down or fold it away.`
+    : `The songs fold under each album or release, A to Z, with ${NO_ALBUM} last. Tap a heading to drop it down or fold it away.`;
+  return [
+    { target: ['.page-head'], title: 'Songs', text: `Every song with its key, tempo, length and status, ${folds ? (sh.byAct ? `by ${w}${sh.anyAlbum ? ' and album' : ''}` : 'by album') : `grouped by ${w}`}.` },
+    { target: ['.sg-views'], title: 'Songs and setlists', text: 'Switch to your setlists here.' },
+    folds && { target: ['.sg-fold-head'], title: sh.byAct ? (sh.anyAlbum ? `By ${w} and album` : `By ${w}`) : 'By album', text: foldText },
+    { target: ['#sg-q'], title: 'Search', text: 'Find a song by title, album, key, tuning, ISRC or writer.' + (folds ? ' The folds with a match open; clear the search and they are as they were.' : '') },
+    { target: ['.sg-song'], title: 'A song', text: 'Tap for the details, the split sheet (who wrote it and their share), the setlists it is in, and Print split sheet.', before: folds ? openFirstFold : undefined },
+    { target: ['#sg-new-song'], title: 'Add a song', text: 'Title, album or release, key, tempo and length (type 3:45), tuning, status, lyrics and chords, and the split sheet.' },
+  ].filter(Boolean);
+}
 
 function view(draw) {
   const isSongs = S.view !== 'setlists';
@@ -97,7 +114,7 @@ function view(draw) {
   return [
     h('div', { class: 'page-head' }, h('h1', null, sectionName('songs', 'Songs')),
       isSongs
-        ? h('button', { class: 'btn primary', type: 'button', id: 'sg-new-song', 'data-fk': 'pg-new', onclick: () => editSong({ actId: S.act && S.act !== NO_ACT ? S.act : '' }) }, '+ Song')
+        ? h('button', { class: 'btn primary', type: 'button', id: 'sg-new-song', 'data-fk': 'pg-new', onclick: () => editSong({}) }, '+ Song')
         : h('button', { class: 'btn primary', type: 'button', id: 'sg-new-setlist', 'data-fk': 'pg-new', onclick: () => newSetlistForm() }, '+ New setlist')),
     h('div', { class: 'seg sg-views', role: 'group', 'aria-label': 'Show songs or setlists' },
       [['songs', 'Songs', db.songs.length], ['setlists', 'Setlists', db.setlists.length]].map(([v, l, n]) => h('button', {
@@ -105,8 +122,9 @@ function view(draw) {
         onclick: () => { S.view = v; V.picked = true; S.qBox = false; draw(); },
       }, l, h('span', { class: 'sg-count' }, ' ' + n)))),
     // Kept while a search is on, so a search typed earlier can still be seen and cleared when few songs are left.
-    isSongs && (db.songs.length > 3 || S.q || S.qBox) && (S.qBox = true) && h('input', { class: 'search sg-search', type: 'search', id: 'sg-q', placeholder: 'Search songs, keys, writers…', 'aria-label': 'Search songs', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; draw(); } }),
-    chipList.length > 1 && h('div', { class: 'chips sg-acts', role: 'group', 'aria-label': 'Filter by act' }, chip('', 'All'), chipList.map(([k, n]) => chip(k, n))),
+    isSongs && (db.songs.length > 3 || S.q || S.qBox) && (S.qBox = true) && h('input', { class: 'search sg-search', type: 'search', id: 'sg-q', placeholder: 'Search songs, albums, keys…', 'aria-label': 'Search songs', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; S.shut.clear(); draw(); } }),
+    // The songs list has its folds by act instead (item 13): the chips are the setlists' only.
+    !isSongs && chipList.length > 1 && h('div', { class: 'chips sg-acts', role: 'group', 'aria-label': 'Filter by act' }, chip('', 'All'), chipList.map(([k, n]) => chip(k, n))),
     ...(isSongs ? songsList(draw) : setlistsList()),
   ];
 }
@@ -115,20 +133,108 @@ function songsList(draw) {
   if (!db.songs.length) return [empty('Add your songs with their key, tempo and length, so setlists add up to the slot and the split sheet is ready before release.', h('button', { class: 'btn primary', type: 'button', onclick: () => editSong({}) }, '+ Add a song'))];
   const q = S.q.trim().toLowerCase();
   const match = s => !q || songText(s).includes(q);
-  const shown = groupsOf(db.songs.filter(s => (!S.act || actOf(s) === S.act) && match(s)));
-  if (!shown.length) {
-    return [empty(q ? `No songs match “${S.q.trim()}”.` : S.act === NO_ACT ? 'Every song belongs to an act.' : `No songs for ${actName(S.act) || 'this act'} yet.`,
-      q ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { S.q = ''; draw(); } }, 'Clear the search')
-        : S.act && S.act !== NO_ACT ? h('button', { class: 'btn primary', type: 'button', onclick: () => editSong({ actId: S.act }) }, '+ Add a song') : null)];
+  const found = db.songs.filter(match), sh = libraryShape();
+  if (!found.length) {
+    return [empty(`No songs match “${S.q.trim()}”.`, h('button', { class: 'btn ghost', type: 'button', onclick: () => { S.q = ''; draw(); } }, 'Clear the search'))];
   }
-  return shown.map(([k, name, arr]) => h('section', { class: 'sg-group', 'aria-label': name },
+  if (sh.byAct || sh.anyAlbum) return [h('div', { class: 'list sg-folds' }, foldNodes(foldTree(found, sh), 2, !!q))];
+  return groupsOf(found).map(([k, name, arr]) => h('section', { class: 'sg-group', 'aria-label': name },
     h('h3', null, h('span', null, name), h('span', { class: 'sg-count' }, plural(arr.length, 'song'))),
     h('div', { class: 'list' }, arr.sort(byTitle).map(songCard))));
 }
 
-// The words the song search looks through (and the search at the top of every page): the title, key, tuning, ISRC,
-// notes, the act by every name it has had, the status and the writers on the split sheet.
-export const songText = s => [s.title, s.key, shortKey(s.key), s.tuning, s.isrc, s.notes, actName(s.actId), ...earlierNames(byId('acts', s.actId)).map(n => n.name), songStatusLabel(s.status), ...(s.splits || []).map(p => p && p.name)].filter(Boolean).join(' ').toLowerCase();
+/* ------------------------------- folds ------------------------------- */
+// The songs list folds its songs (item 13), as the acts list folds its acts under their main genres (pages/acts.js):
+// with songs of two or more acts (songs with no act count as one more), a fold per act, A to Z, then No act (in the
+// role's word: No artist, No band); inside it a fold per album or release (model.albumOf), A to Z, then
+// "Singles & unreleased", last in each act, once any song in the library has an album (so an act with no album has a
+// lone Singles & unreleased fold, as the owner asked; with no album anywhere an act's fold lists its songs straight).
+// With songs of one act (or none), its album folds only; with no album either, the list is as it always was.
+// Inside a fold the songs are in the list's own order (A to Z). Whether there are folds, and each album's name, come from
+// the whole library, not from the search's matches. Every fold is folded at first, and one opened stays open for the
+// visit (S.folds). The page's own search opens every fold with a match and leaves out the others (the counts are the
+// matches); a fold folded during a search (S.shut) opens again when the words change, and clearing the search puts the
+// folds back as they were. A heading is a button (aria-expanded) with an id, so it keeps the focus as it folds and
+// unfolds and after any redraw.
+let drawNow = () => {};
+const ALB = '\n'; // between an act's key and an album's in a fold's key
+const cmp = (a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base', numeric: true });
+const idPart = k => (k === NO_ACT ? 'none' : String(k).replace(/\s+/g, '_'));
+const actFoldId = k => 'sg-act-' + idPart(k);
+// An album's part of an id: its key, or none for Singles & unreleased. A key is letters and digits only, so an album
+// whose letters spell "none" ("N.O.N.E") is none_, and never shares an id with Singles & unreleased.
+const albumPart = ak => (!ak ? 'none' : ak === 'none' ? 'none_' : ak);
+const albumFoldId = (k, ak) => `sg-alb-${idPart(k)}-${albumPart(ak)}`;
+// The library's shape: whether its songs are of two or more acts (byAct), and each act's albums as [albumKey, name], A
+// to Z: the name is the spelling most of the act's songs use, the first A to Z on a tie.
+function libraryShape(all = db.songs) {
+  const acts = new Map();
+  for (const s of all) {
+    const k = actOf(s), t = albumOf(s);
+    if (!acts.has(k)) acts.set(k, new Map());
+    if (!t) continue;
+    const m = acts.get(k), ak = albumKey(t);
+    if (!m.has(ak)) m.set(ak, new Map());
+    m.get(ak).set(t, (m.get(ak).get(t) || 0) + 1);
+  }
+  const nameOf = spellings => [...spellings].sort((a, b) => b[1] - a[1] || cmp(a[0], b[0]))[0][0];
+  const albums = new Map([...acts].map(([k, m]) => [k, [...m].map(([ak, sp]) => [ak, nameOf(sp)]).sort((a, b) => cmp(a[1], b[1]))]));
+  return { byAct: acts.size > 1, anyAlbum: [...albums.values()].some(l => l.length > 0), albums };
+}
+// An act's albums' names, A to Z: the suggestions under the song form's Album or release.
+const albumNames = k => (libraryShape().albums.get(k) || []).map(([, name]) => name);
+// The folds for the songs found: [{ key, id, kind, label, songs, kids }] (kids: the album folds inside an act's).
+function foldTree(found, sh) {
+  const albumsIn = (k, list) => {
+    const by = new Map();
+    for (const s of list) { const ak = albumKey(albumOf(s)); if (!by.has(ak)) by.set(ak, []); by.get(ak).push(s); }
+    return [...(sh.albums.get(k) || []), ['', NO_ALBUM]].filter(([ak]) => by.has(ak))
+      .map(([ak, label]) => ({ key: k + ALB + ak, id: albumFoldId(k, ak), kind: 'album', label, songs: by.get(ak), kids: null, data: { 'data-act': idPart(k), 'data-album': albumPart(ak) } }));
+  };
+  const groups = groupsOf(found);
+  if (!sh.byAct) return groups.flatMap(([k, , list]) => albumsIn(k, list));
+  return groups.map(([k, name, list]) => ({ key: k, id: actFoldId(k), kind: 'act', label: k === NO_ACT ? 'No ' + actWord() : name, songs: list,
+    kids: sh.anyAlbum ? albumsIn(k, list) : null, data: { 'data-act': idPart(k) } }));
+}
+const isOpen = (key, searching) => (searching ? !S.shut.has(key) : S.folds.has(key));
+function foldNodes(nodes, level, searching) {
+  return nodes.map(n => {
+    const open = isOpen(n.key, searching);
+    // Its name is given whole ("Harbour Lights EP, 3 songs"): read from the spans, a browser puts a space before the comma.
+    return h('section', { class: `sg-fold sg-fold-${n.kind}` + (open ? ' open' : ''), ...n.data },
+      h(level === 2 ? 'h2' : 'h3', { class: 'sg-fold-h' }, h('button', { type: 'button', class: 'sg-fold-head', id: n.id, 'aria-label': `${n.label}, ${plural(n.songs.length, 'song')}`, 'aria-expanded': String(open), 'aria-controls': n.id + '-list', onclick: () => foldOne(n.key, n.id, searching) },
+        h('span', { class: 'sg-fold-name' }, n.label),
+        h('span', { class: 'sg-fold-n', 'aria-hidden': 'true' }, String(n.songs.length)),
+        h('span', { class: 'sg-chev', 'aria-hidden': 'true' }, '▾'))),
+      h('div', { class: 'list sg-fold-list', id: n.id + '-list', role: 'group', 'aria-labelledby': n.id, hidden: !open },
+        !open ? [] : n.kids ? foldNodes(n.kids, level + 1, searching) : [...n.songs].sort(byTitle).map(songCard)));
+  });
+}
+function foldOne(key, id, searching) {
+  const set = searching ? S.shut : S.folds;
+  if (set.has(key)) set.delete(key); else set.add(key);
+  drawNow();
+  document.getElementById(id)?.focus({ preventScroll: true });
+}
+// The folds that hold a song open, so its card is on the list: a song just saved, or one the search opens.
+function revealSong(s) {
+  if (!s) return;
+  const k = actOf(s);
+  for (const key of [k, k + ALB + albumKey(albumOf(s))]) { S.folds.add(key); S.shut.delete(key); }
+}
+// The walkthrough's song step, on a list whose folds are all folded: the first fold drops open (and its first album),
+// and stays open for the visit, as if tapped, so there is a song to point at.
+function openFirstFold() {
+  if (document.querySelector('#page .sg-fold-list .sg-song')) return;
+  const q = S.q.trim().toLowerCase(), sh = libraryShape(), tree = foldTree(db.songs.filter(s => !q || songText(s).includes(q)), sh);
+  const first = tree[0], inner = first && first.kids && first.kids[0];
+  for (const n of [first, inner]) if (n) { S.folds.add(n.key); S.shut.delete(n.key); }
+  drawNow();
+}
+
+// The words the song search looks through (and the search at the top of every page): the title, the album, key, tuning,
+// ISRC, notes, the act by every name it has had, the status and the writers on the split sheet.
+export const songText = s => [s.title, albumOf(s), s.key, shortKey(s.key), s.tuning, s.isrc, s.notes, actName(s.actId), ...earlierNames(byId('acts', s.actId)).map(n => n.name), songStatusLabel(s.status), ...(s.splits || []).map(p => p && p.name)].filter(Boolean).join(' ').toLowerCase();
 
 function songCard(s) {
   const splits = (s.splits || []).filter(Boolean), tot = splitTotal(splits);
@@ -186,12 +292,12 @@ function songView(s, ctx) {
   const lists = db.setlists.filter(l => (l.items || []).some(it => it && it.songId === s.id)).sort(byName);
   const sessions = db.bookings.filter(b => (b.songIds || []).includes(s.id)).sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const link = safeUrl(s.link);
-  const fact = (k, v) => (v ? h('div', { class: 'sg-fact' }, h('span', null, k), h('b', null, v)) : null);
+  const fact = (k, v, cls = '') => (v ? h('div', { class: 'sg-fact' + (cls ? ' ' + cls : '') }, h('span', null, k), h('b', null, v)) : null);
   const where = l => { const songsOnly = (l.items || []).filter(it => it && !it.isBreak), at = songsOnly.findIndex(it => it.songId === s.id); return `No. ${at + 1} of ${songsOnly.length} · ${fmtDur(setlistLength(l).sec)}`; };
   return [
     h('div', { class: 'sg-hero' }, h('h2', null, s.title || 'Untitled'), h('div', { class: 'sg-hero-sub' }, h('span', null, actName(s.actId) || 'No act'), statusPill(s.status))),
-    (s.key || s.bpm || s.duration || s.tuning || s.isrc)
-      ? h('div', { class: 'sg-facts' }, fact('Key', s.key), fact('Tempo', s.bpm ? `${s.bpm} BPM` : ''), fact('Length', s.duration ? fmtDur(s.duration) : ''), fact('Tuning', str(s.tuning)), fact('ISRC', str(s.isrc)))
+    (s.key || s.bpm || s.duration || s.tuning || s.isrc || albumOf(s))
+      ? h('div', { class: 'sg-facts' }, fact('Key', s.key), fact('Tempo', s.bpm ? `${s.bpm} BPM` : ''), fact('Length', s.duration ? fmtDur(s.duration) : ''), fact('Tuning', str(s.tuning)), fact('ISRC', str(s.isrc)), fact('Album', albumOf(s), 'sg-fact-album'))
       : h('p', { class: 'small muted' }, 'No key, tempo or length yet. Add them so setlists add up and the band knows what is coming.'),
     h('div', { class: 'actions sg-song-actions' },
       h('button', { class: 'btn primary', type: 'button', 'data-fk': 'sg-edit', onclick: () => editSong(byId('songs', s.id) || s) }, '✎ Edit'),
@@ -262,10 +368,14 @@ export function editSong(s = {}, onSaved) {
       ...src, title: src.title || '', actId: src.actId && byId('acts', src.actId) ? src.actId : '', key: src.key || '', bpm: src.bpm ?? '',
       duration: Number(src.duration) > 0 ? fmtDur(src.duration) : '', tuning: src.tuning || '', status: src.status || 'idea',
       splits: (src.splits || []).filter(Boolean).map(p => ({ ...p, share: p.share ?? '' })),
+      album: typeof src.album === 'string' ? src.album : albumOf(src), // as typed; anything stored that is no text reads as none
     },
     fields: [
       { key: 'title', label: 'Title', required: true, placeholder: 'Song title' },
       { key: 'actId', label: 'Act', type: 'select', options: [['', 'No act'], ...acts.map(a => [a.id, a.name || 'Untitled act'])] },
+      // The albums already typed for the act picked above are offered as suggestions (albumHelper keeps them to that act).
+      { key: 'album', label: 'Album or release', list: albumNames(src.actId && byId('acts', src.actId) ? src.actId : NO_ACT), placeholder: 'e.g. Harbour Lights EP',
+        hint: `The ${actWord()}’s albums already typed are offered. Leave it empty for a single or a song not out yet: it goes under ${NO_ALBUM}.` },
       { key: 'key', label: 'Key', type: 'select', options: keyOpts },
       { key: 'bpm', label: 'Tempo (BPM)', type: 'number', min: 0, step: 'any', placeholder: 'e.g. 120' },
       { key: 'duration', label: 'Length', placeholder: '3:45', hint: 'Minutes and seconds, like 3:45' },
@@ -288,7 +398,9 @@ export function editSong(s = {}, onSaved) {
         ...fresh, ...v, id: fresh.id, title: str(v.title) || 'Untitled', actId: v.actId || '', key: v.key || '', bpm,
         duration: dur || (raw ? Number(fresh.duration) || 0 : 0), tuning: str(v.tuning), status: v.status || 'idea',
         isrc: str(v.isrc).toUpperCase(), link: str(v.link), lyrics: v.lyrics || '', notes: v.notes || '', splits,
+        album: str(v.album).replace(/\s+/g, ' '),
       });
+      revealSong(rec); // its folds open, so the song is on the list where it now belongs
       const tot = splitTotal(splits);
       if (raw && !dur) toast(`Saved, but the length “${raw}” could not be read: type it like 3:45.`);
       else if (splits.length && !splitOk(tot)) toast(`Saved. The splits add up to ${fmtPct(tot)}, not 100%.`);
@@ -298,7 +410,16 @@ export function editSong(s = {}, onSaved) {
     onDelete: isNew ? null : () => { remove('songs', src.id); toast(`“${src.title || 'Song'}” deleted. Setlists keep its title.`); },
   });
   const all = document.querySelectorAll('.sheet[aria-label]'), form = all[all.length - 1];
-  if (form && form.getAttribute('aria-label') === title) splitsHelper(form);
+  if (form && form.getAttribute('aria-label') === title) { splitsHelper(form); albumHelper(form); }
+}
+
+// Album or release in the song form: its suggestions are the albums already typed for the act picked, and follow the
+// Act box as it changes.
+function albumHelper(form) {
+  const act = form.querySelector('select[data-key=actId]'), box = form.querySelector('input[data-key=album]');
+  const list = box && box.getAttribute('list') && document.getElementById(box.getAttribute('list'));
+  if (!act || !list) return;
+  act.addEventListener('change', () => list.replaceChildren(...albumNames(act.value && byId('acts', act.value) ? act.value : NO_ACT).map(t => h('option', { value: t }))));
 }
 
 // The split sheet rows in the song form: laid out two by two (css/songs.css), the roles offered as suggestions, and the
@@ -371,7 +492,7 @@ export function printSplitSheet(id) {
 /* --------------------------------- tutorials --------------------------------- */
 sheetTutorial('Song', [
   { target: ['.sg-hero'], title: 'The song', text: 'Its title, act and where it is: idea, demo, recording, mixing, mastered or released.' },
-  { target: ['.sg-facts'], title: 'Key, tempo, length', text: 'What the band needs on the night. The length makes setlists add up.' },
+  { target: ['.sg-facts'], title: 'Key, tempo, length', text: 'What the band needs on the night. The length makes setlists add up. The album or release, when it has one, is the fold it sits in on the songs list.' },
   { target: ['.sg-song-actions'], title: 'Edit and print', text: 'Edit everything, print the split sheet for everyone to sign, or add the song to a setlist.' },
   { target: ['.sg-parties', '.sg-sec'], title: 'Split sheet', text: 'Who wrote it and each share, with PRO, IPI and publisher. The shares must add up to 100%; you are warned when they do not.' },
   { target: ['.sg-links'], title: 'In setlists', text: 'The setlists the song is in and where. Tap one to open it.' },

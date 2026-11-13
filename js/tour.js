@@ -34,8 +34,9 @@ export const STOP_TEXT = {
   money: 'What you are owed and what you have been paid: settlements, invoices and the year’s totals.',
   tools: 'A tuner, a metronome with tap tempo, delay times for any tempo, a sound level meter and a set timer.',
   insurance: 'Your policies and what they cover, next to the backline they insure.',
+  card: 'Your contact card as a big QR code: someone scans it with their phone camera to save your number and email. Share it, save it as a file or show it big.',
 };
-export const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', settings: 'Settings' };
+export const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'Songs', sessions: 'Studio log', backline: 'Backline', venues: 'Venues', money: 'Money', tools: 'Tools', insurance: 'Insurance', card: 'My card', settings: 'Settings' };
 const MAX_STOPS = 5; // the tour stays about a minute: the first sections on the menu
 // Which section menu is in use (Aa → Section menu). js/a11y.js imports this module, so it is read from what a11y.js
 // leaves on the page (data-menu: the choice in use, also when storage could not keep it), else from storage.
