@@ -403,6 +403,145 @@ const DATES = { today: day(0), began: day(-2), ends: day(2), w1: day(-40), w2: d
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 
+  /* ------------------------------ with the rest of Gdex: the question, the calendar's views, a show's page, the menus ------------------------------ */
+  // Then a support act's time seen (it belongs to the headliner's show), and a renamed band (item 7: found by every name it
+  // has had, each card saying the name it had that night).
+  {
+    const { browser, page, errors } = await open({ ask: true });
+    const D2 = { ...DATES, q1: day(-3), p1: day(-25), ren1: day(-250), ren2: day(-100), wt: day(-150), pre: day(-130) };
+    await store(page, seed, D2);
+    await store(page, (st, D) => st.update(d => { d.bookings.push({ id: 'b-q1', kind: 'show', status: 'confirmed', actId: 'a-owls', date: D.q1, venueId: 'v-crown', setTime: '21:00', setLength: 45 }); }), D2);
+    await sleep(200);
+    await page.reload(); await page.waitForSelector('#deck .dk-next');
+    const Q = '.sheet[aria-label="Did you see them?"]';
+    await page.locator(Q).waitFor({ timeout: 8000 }).catch(() => {}); await sleep(300);
+    const qUp = !!(await page.$(Q));
+    await page.keyboard.press('/'); await sleep(200);
+    const keptFocus = await page.evaluate(Q => !!document.querySelector(Q) && document.querySelector(Q).contains(document.activeElement), Q);
+    const box = await page.evaluate(() => { const r = document.getElementById('searchBtn').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await page.mouse.click(box.x, box.y); await sleep(250);
+    s = await page.evaluate(Q => ({ q: !!document.querySelector(Q), search: !!document.getElementById('srch-q'), sheets: document.querySelectorAll('.sheet').length, inert: document.getElementById('app').inert }), Q);
+    ok('“Did you see them?” wins: while it is up, “/” does nothing (the question keeps the focus) and nor does a tap where the magnifying glass is (the top bar is behind it)', qUp && keptFocus && s.q && !s.search && s.sheets === 1 && s.inert, JSON.stringify({ qUp, keptFocus, ...s }));
+    await page.click('#ac-ask-close'); await sleep(300);
+    await openSearch(page);
+    ok('…and once it is closed the search opens as usual', !!(await page.$(SHEET)) && !(await page.$(Q)));
+    await closeSearch(page);
+
+    // Over each of the calendar's five views, and over a show's page: the search opens over it, and the view is the same after.
+    const under = () => page.evaluate(() => { const v = document.querySelector('.bk-calview'); return { page: window.logiPage(), mode: v ? (v.className.match(/bk-mode-(\w+)/) || [])[1] : '', show: !!document.querySelector('.bk-page'), title: (document.querySelector('.cal-title') || document.querySelector('.bk-page [data-view-head]') || { textContent: '' }).textContent }; });
+    const overViews = [];
+    for (const v of ['month', 'two', 'week', 'three', 'day']) {
+      await page.click('#bk-view-' + v); await sleep(250);
+      const was = await under();
+      await openSearch(page); await type(page, 'chelsea');
+      const up = { sheet: !!(await page.$(SHEET)), cards: (await page.$$('.srch-list .card')).length };
+      await closeSearch(page);
+      const now = await under();
+      overViews.push({ v, ok: was.mode === v && up.sheet && up.cards > 0 && same(now, was) && (await focused(page)) === '#searchBtn', was, now, up });
+    }
+    ok('the search opens over each of the calendar’s five views and leaves it as it was', overViews.every(x => x.ok), JSON.stringify(overViews.filter(x => !x.ok)));
+    await page.click('#bk-view-month'); await sleep(200);
+    await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('b-w1'))); await page.waitForSelector('.bk-page'); await sleep(300);
+    const showWas = await under();
+    await openSearch(page); await type(page, 'church');
+    const overShow = { sheet: !!(await page.$(SHEET)), cards: (await page.$$('.srch-list .card')).length };
+    await closeSearch(page);
+    ok('…and over a show’s own page', showWas.show && overShow.sheet && overShow.cards > 0 && same(await under(), showWas) && (await focused(page)) === '#searchBtn', JSON.stringify([showWas, overShow, await under()]));
+    // The track list (☰) is a sheet: "/" waits for it, with each of the three menus.
+    const menus = [];
+    for (const menu of ['record', 'tape', 'digital']) {
+      await page.evaluate(m => { const p = JSON.parse(localStorage.getItem('gdex-prefs') || '{}'); p.menu = m; localStorage.setItem('gdex-prefs', JSON.stringify(p)); }, menu);
+      await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(250);
+      await page.locator(Q).waitFor({ timeout: 8000 }).catch(() => {}); // asked again on this load
+      if (await page.$(Q)) { await page.click('#ac-ask-close'); await sleep(250); }
+      await page.click('#deck .dk-list'); await sleep(300);
+      const listUp = (await page.$$('.sheet')).length === 1;
+      await page.evaluate(() => document.activeElement && document.activeElement.blur());
+      await page.keyboard.press('/'); await sleep(200);
+      const blocked = !(await page.$(SHEET));
+      await page.keyboard.press('Escape'); await sleep(250);
+      await openSearch(page); await type(page, 'owls');
+      const found = (await page.$$('.srch-list .card')).length;
+      await closeSearch(page);
+      menus.push({ menu, ok: listUp && blocked && found > 0 && (await page.evaluate(m => document.documentElement.dataset.menu === m, menu)), listUp, blocked, found });
+    }
+    ok('with the record player, the tape deck and the digital player: “/” does nothing while the track list is up, and the search works after it', menus.every(x => x.ok), JSON.stringify(menus));
+
+    // A support act. Chelsea Wolfe logged at The Night Owls' show at The Crown (on its bill as "Chelsea Wolfe (support)"),
+    // by the venue; Motörhead logged at a show at a place typed by hand with it on the bill, by the place typed; Motörhead
+    // logged at The Crown that same night too, when it was not on the bill.
+    await store(page, (st, D) => st.update(d => {
+      d.acts.find(a => a.id === 'a-wolfe').seen.push({ id: 'sg1', date: D.o1, venueId: 'v-crown', rating: 88, notes: 'Opened with a drone piece.' });
+      d.acts.find(a => a.id === 'a-motor').seen.push({ id: 'sg2', date: D.p1, where: 'packhorse inn', rating: 70 }, { id: 'sg3', date: D.o1, venueId: 'v-crown', rating: 64 });
+      d.bookings.push({ id: 'b-p1', kind: 'show', status: 'confirmed', actId: 'a-owls', date: D.p1, venueName: 'Packhorse Inn', setTime: '21:00', setLength: 60,
+        runningOrder: [{ id: 'q1', act: 'Motörhead', time: '20:00', length: 40 }, { id: 'q2', act: 'The Night Owls', time: '21:00', length: 60, ours: true }] });
+    }), D2);
+    await sleep(200);
+    const recs = q => page.evaluate(q => import('./js/search.js').then(m => Object.fromEntries(m.searchFor(q).map(r => [r.id, r.guests]))), q);
+    const WOLFE2 = ['b-o1', 'b-r1', 'b-s1', 'b-w1', 'b-w2', 'b-w3', 'b-w4', 'b-w5', 'b-w6', 'b-x1', 'sw2', 'sw3'];
+    let g = await recs('chelsea');
+    ok('a band logged as the support act at another band’s show on the calendar is not a second result for that night: the show holds its time seen', same(Object.keys(g).sort(), WOLFE2) && same(g['b-o1'], ['sg1']), JSON.stringify(g));
+    g = await recs('motorhead');
+    ok('…matched by the place typed by hand too; a band logged there that night that was not on the bill keeps its own card', same(Object.keys(g).sort(), ['b-p1', 'sg3', 'sm1']) && same(g['b-p1'], ['sg2']) && same(g.sg3, []), JSON.stringify(g));
+    ok('…and what was logged is still searched, on the show: the notes, the band’s genre', same(Object.keys(await recs('drone')), ['b-o1']) && same(Object.keys(await recs('doom folk')).sort(), ['b-o1', 'b-r1', 'b-s1', 'b-w1', 'b-w2', 'b-w3', 'b-w4', 'b-w5', 'b-w6', 'sw2', 'sw3']));
+    await openSearch(page); await type(page, 'chelsea');
+    const card = id => page.evaluate(id => { const c = document.querySelector(`.srch-list .card[data-id="${id}"]`); return c ? { guest: [...c.querySelectorAll('.srch-guest')].map(e => e.textContent), score: [...c.querySelectorAll('.srch-score:not(.srch-guest)')].map(e => e.textContent), why: [...c.querySelectorAll('.srch-why')].map(e => e.textContent), was: [...c.querySelectorAll('.bk-formerly')].map(e => e.textContent), who: [...c.querySelectorAll('.srch-who')].map(e => e.textContent), title: c.querySelector('.bk-card-title').textContent } : null; }, id);
+    let c = await card('b-o1');
+    ok('the headliner’s card carries the support act’s score, by name: “★ Chelsea Wolfe 88/100”', (await foundLine(page)) === '9 shows at 4 places' && !(await rows(page)).includes('sg1') && !!c && same(c.guest, ['★ Chelsea Wolfe 88/100']) && same(c.score, []) && same(c.why, []), JSON.stringify([await foundLine(page), c]));
+    await type(page, 'motorhead');
+    c = await card('b-p1');
+    ok('…and so does the show with Motörhead on its bill', !!c && same(c.guest, ['★ Motörhead 70/100']) && same(await rows(page), ['sg3', 'b-p1', 'sm1']) && (await foundLine(page)) === '3 shows at 3 places', JSON.stringify([c, await rows(page), await foundLine(page)]));
+    await type(page, 'drone');
+    c = await card('b-o1');
+    ok('a word from the support act’s notes finds the show, with the piece of the note', !!c && same(c.why, ['Notes: Opened with a drone piece.']), JSON.stringify(c));
+    await store(page, st => st.patch('bookings', 'b-p1', { status: 'cancelled' })); await sleep(200);
+    g = await recs('motorhead');
+    ok('a cancelled show takes no time seen: the support act’s card is back', same(Object.keys(g).sort(), ['b-p1', 'sg2', 'sg3', 'sm1']) && same(g['b-p1'], []), JSON.stringify(g));
+    await store(page, st => st.patch('bookings', 'b-p1', { status: 'confirmed' })); await sleep(150);
+    await closeSearch(page);
+
+    // A renamed band: The Wolves, then Chelsea Wolfe from D.ren1, then Wolfe Moon from D.ren2, renamed through the store with
+    // days in the past; one show of hers with a title of its own from before the second change.
+    await store(page, (st, D) => st.update(d => { const a = d.acts.find(x => x.id === 'a-wolfe'); a.formerNames = [{ name: 'The Wolves', until: D.ren1 }, { name: 'Chelsea Wolfe', until: D.ren2 }]; a.name = 'Wolfe Moon';
+      d.bookings.push({ id: 'b-wt', kind: 'show', status: 'done', actId: 'a-wolfe', date: D.wt, venueId: 'v-church', title: 'Doom Night', setTime: '21:00', setLength: 60 }); }), D2);
+    await sleep(200);
+    ok('one function gives every name an act has had, the one it has now first, through the model’s earlier names', await page.evaluate(() => Promise.all([import('./js/search.js'), import('./js/store.js')]).then(([m, st]) => JSON.stringify(m.actNames(st.byId('acts', 'a-wolfe'))) === '["Wolfe Moon","Chelsea Wolfe","The Wolves"]' && JSON.stringify(m.actNames({ name: 'X', formerNames: 'junk' })) === '["X"]')));
+    const HER = ['b-o1', 'b-r1', 'b-s1', 'b-w1', 'b-w2', 'b-w3', 'b-w4', 'b-w5', 'b-w6', 'b-wt', 'sw2', 'sw3'];
+    const byOld = Object.keys(await recs('chelsea wolfe')).sort(), byOldest = Object.keys(await recs('the wolves')).sort(), byNew = Object.keys(await recs('wolfe moon')).sort();
+    ok('a renamed band is found by its old name: its bookings and the times seen in its log, from before and after the change', same(byOld, HER), JSON.stringify(byOld));
+    ok('…by the name before that, and by its new name: the same results', same(byOldest, HER) && same(byNew, HER), JSON.stringify([byOldest, byNew]));
+    await openSearch(page); await type(page, 'chelsea wolfe');
+    const kindsNow = await chips(page, '.srch-kinds');
+    const cardsNow = await page.evaluate(() => import('./js/model.js').then(m => import('./js/store.js').then(st => [...document.querySelectorAll('.srch-list .card')].map(c => { const id = c.dataset.seen || c.dataset.id, b = c.dataset.id ? st.byId('bookings', id) : null;
+      return { id, was: [...c.querySelectorAll('.bk-formerly')].map(e => e.textContent), want: b ? m.formerlyNote(b) : null, why: [...c.querySelectorAll('.srch-why')].map(e => e.textContent), who: [...c.querySelectorAll('.srch-who')].map(e => e.textContent), guest: [...c.querySelectorAll('.srch-guest')].map(e => e.textContent), title: c.querySelector('.bk-card-title').textContent, text: c.textContent }; }))));
+    const C = Object.fromEntries(cardsNow.map(x => [x.id, x]));
+    ok('searched by the old name, every show of hers comes up as a card', same(cardsNow.map(x => x.id).sort(), ['b-o1', 'b-w1', 'b-w2', 'b-w3', 'b-w4', 'b-w5', 'b-w6', 'b-wt', 'sw2', 'sw3']) && same(kindsNow.map(x => x.slice(0, 2)), [['Shows', 10], ['Sessions', 1], ['Rehearsals', 1]]), JSON.stringify([cardsNow.map(x => x.id), kindsNow]));
+    ok('a show from before the change says “formerly <the name that night>” from the calendar’s own card, one after it does not', same(C['b-w2'].was, ['formerly Chelsea Wolfe']) && same(C['b-w6'].was, ['formerly Chelsea Wolfe']) && ['b-w1', 'b-w3', 'b-w4', 'b-w5', 'b-o1'].every(id => C[id].was.length === 0) && cardsNow.filter(x => x.want !== null).every(x => same(x.was, x.want ? [x.want] : [])), JSON.stringify(cardsNow.map(x => [x.id, x.was, x.want])));
+    ok('a time seen from the log says it too, the name it had that night: “formerly The Wolves”', same(C.sw2.was, ['formerly The Wolves']) && same(C.sw3.was, ['formerly The Wolves']) && C.sw3.title === 'Wolfe Moon @ The Church' && /From the log/.test(C.sw3.text), JSON.stringify([C.sw2, C.sw3]));
+    ok('a titled show from before the change names the band once, with the name it had then (“Wolfe Moon, formerly Chelsea Wolfe”), and no “Act:” line repeats it', same(C['b-wt'].was, ['Wolfe Moon, formerly Chelsea Wolfe']) && C['b-wt'].who.length === 0 && (C['b-wt'].text.match(/Wolfe Moon/g) || []).length === 1, JSON.stringify(C['b-wt']));
+    ok('a card that does not print the name typed says why it is here: “Earlier name: Chelsea Wolfe”', same(C['b-w1'].why, ['Earlier name: Chelsea Wolfe']) && same(C.sw3.why, ['Earlier name: Chelsea Wolfe']) && same(C['b-w2'].why, []) && same(C['b-wt'].why, []), JSON.stringify([C['b-w1'].why, C.sw3.why, C['b-w2'].why]));
+    ok('the support act’s score names her as she is called now on a night after the change', same(C['b-o1'].guest, ['★ Wolfe Moon 88/100']), JSON.stringify(C['b-o1']));
+    await store(page, (st, D) => st.update(d => { d.acts.find(a => a.id === 'a-wolfe').seen.find(x => x.id === 'sg1').date = D.pre; d.bookings.find(b => b.id === 'b-o1').date = D.pre; }), D2); await sleep(250);
+    ok('…and on a night before it, with the name she had then: “★ Wolfe Moon (formerly Chelsea Wolfe) 88/100”', same(await page.$$eval('.srch-list .card[data-id="b-o1"] .srch-guest', els => els.map(e => e.textContent)), ['★ Wolfe Moon (formerly Chelsea Wolfe) 88/100']));
+    await store(page, (st, D) => st.update(d => { d.acts.find(a => a.id === 'a-wolfe').seen.find(x => x.id === 'sg1').date = D.o1; d.bookings.find(b => b.id === 'b-o1').date = D.o1; }), D2); await sleep(250);
+    const rowsOld = await rows(page);
+    await type(page, 'wolfe moon');
+    ok('searched by the new name, the same cards in the same order', same(await rows(page), rowsOld) && same(await page.$$eval('.srch-list .card[data-id="b-w1"] .srch-why', els => els.length), 0), JSON.stringify([await rows(page), rowsOld]));
+    await type(page, 'the wolves');
+    ok('…and by the name before that', same(await rows(page), rowsOld));
+    // The Owls, then The Night Owls, now Owl Parliament: "night owls" on a show after the change is The Night Owls alone.
+    await store(page, (st, D) => st.update(d => { const a = d.acts.find(x => x.id === 'a-owls'); a.formerNames = [{ name: 'The Owls', until: D.ren1 }, { name: 'The Night Owls', until: D.ren2 }]; a.name = 'Owl Parliament'; }), D2); await sleep(200);
+    await type(page, 'night owls');
+    ok('the line names as few earlier names as say why: “Earlier name: The Night Owls”, not The Owls as well', same(await page.$$eval('.srch-list .card[data-id="b-o2"] .srch-why', els => els.map(e => e.textContent)), ['Earlier name: The Night Owls']),
+      JSON.stringify(await page.$$eval('.srch-list .card[data-id="b-o2"] .srch-why', els => els.map(e => e.textContent))));
+    await type(page, 'chelsea wolfe');
+    await page.click('.srch-list .card[data-seen="sw3"]'); await sleep(700);
+    s = await page.evaluate(() => { const hit = document.querySelector('.ac-seen.srch-hit'); return { page: window.logiPage(), hit: hit ? hit.textContent : '', focus: !!hit && hit.contains(document.activeElement) }; });
+    ok('a time seen from before the change opens in her log on its own row, which says “as The Wolves”', s.page === 'acts' && /as The Wolves/.test(s.hit) && /77/.test(s.hit) && s.focus, JSON.stringify(s));
+    ok('no errors in the console (the question, the views, a support act, a renamed band)', errors.length === 0, errors.slice(0, 5).join(' | '));
+    await browser.close();
+  }
+
   /* ------------------------------ a 320 px phone, extra-large text, large buttons ------------------------------ */
   for (const scheme of ['light', 'dark']) {
     const prefs = menu => JSON.stringify({ scheme, menu, text: 'xlarge', targets: 'large' });

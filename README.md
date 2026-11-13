@@ -88,7 +88,9 @@ the band by any of its names. Press kits, riders, day sheets, invoices and calen
 Tap the magnifying glass at the top of any page (or press **/** on a keyboard) and type a band, a place, a support act
 or a word from your notes. Every show, studio session and rehearsal it finds comes up as a card, newest first, with
 today marked between what is still to come and what is over, and so do the times you logged seeing a band that were
-never on the calendar. Tap a place to see only what was there, or a card to open it; nothing you type is kept.
+never on the calendar. A band is found by any name it has had, and a card from before it changed its name says
+"formerly …". A band you logged as the support act at a show on the calendar is part of that show's card, with its
+score. Tap a place to see only what was there, or a card to open it; nothing you type is kept.
 
 ## Your first show
 

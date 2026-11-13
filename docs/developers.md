@@ -436,7 +436,7 @@ may call it.
 | `pages/bookings.js` `openBooking(id)` | bookings | Go to Bookings and show that booking's page. Returns a promise. |
 | `js/bookings-cal.js` `calendarView(ctx)` / `calendarSteps(ctx)` | calendar | The page while no booking is open (every view, with Coming up under it) / its walkthrough as drawn now. `ctx` is built once in `pages/bookings.js`: `{ S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }`. The calendar never imports the page. |
 | `js/bookings-cal.js` `bookingCard(b)` | calendar | Coming up's card for a list outside the calendar (the search): drawn by the same code, without press-and-hold to delete or its title. Its own tap would open the booking inside the calendar's page, so the list it goes in takes the click in the capture phase. A card for a booking that is over says nothing where Coming up says "On now". |
-| `js/search.js` `initSearch(btn)` / `openSearch()` / `actNames(a)` / `fold(s)` / `searchFor(q)` / `searchStats()` | search | Wire the top bar's button and the `/` key (`app.js`, once) / open the search / every name an act is known by (today `[name]`: the one place the search reads a band's name, where earlier names join it) / text as the search compares it (no capitals, no accents) / for checks: what a search finds, and how long it took (below). |
+| `js/search.js` `initSearch(btn)` / `openSearch()` / `actNames(a)` / `fold(s)` / `searchFor(q)` / `searchStats()` | search | Wire the top bar's button and the `/` key (`app.js`, once) / open the search / every name an act is known by: its name now, then its earlier names, the latest first (`model.earlierNames`; the one place the search reads a band's names) / text as the search compares it (no capitals, no accents) / for checks: what a search finds, and how long it took (below). |
 | `js/bookings-kit.js` `cardExtras(b)` / `overlapNote(b)` / `wentMark(b)` | core | What a Coming up card and a Week row add under their own lines, in order: the overlap note (`span.bk-overlap`), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. They are direct children of `.bk-card-main` / `.bk-wrow-main`. |
 | `js/bookings-kit.js` `formerlyLine(b)` | core | `span.bk-formerly` with `model.formerlyNote(b)`, or `null`: the line under the name of a booking from before its act changed its name. A Coming up card and a Week row put it straight after their top line (`.bk-card-top`, `.bk-wrow-top`), the booking's header after `.bk-hero-top`. |
 | `js/deck.js` `createDeck(root, tabs, { start, onSelect, extras, onExtra })` | core | The section menu. `tabs`: `[{ id, label, icon?, bonus?, count?() }]`; the icon is the digital player's cover art and the picture on its tab. Returns `{ go(i), index, refresh(), setTabs(tabs, index) }`. |
@@ -655,7 +655,8 @@ Every record goes on using the current name, so lists and search stay in one pie
 * **Walkthroughs.** The act form's has an "Earlier names" step (`.ac-was`), and its Name step speaks of the question
   only in the Edit form; "New name?" has three steps of its own; the act's page gets an "Earlier names" step
   (`#ac-names`) only when the act has one, so an act that never changed its name keeps the tour it had.
-* **Search.** Every search that finds things by an act's name matches its earlier names too: the acts list, People,
+* **Search.** Every search that finds things by an act's name matches its earlier names too: the top bar's search
+  (`js/search.js`, below: every booking and time seen of the band, by any name it has had), the acts list, People,
   Songs, the Studio log and the two song pickers (a setlist's + Songs, the metronome's song tempo); the booking form
   lists an act as `Owl Parliament (formerly The Night Owls)`.
 * **Never outside Gdex.** Documents, calendar files and spreadsheets call `actName` / `bookingTitle` / `a.name`,
@@ -692,9 +693,12 @@ Every record goes on using the current name, so lists and search stay in one pie
 
 The magnifying glass, `#searchBtn` (named "Search", `aria-keyshortcuts="/"`), is the first button of the top bar in
 `index.html`, on every page and in every role; `/` opens the search too, unless the focus is in a field or a sheet,
-form or tour is up. `initSearch(btn)` wires both. On a phone (600 px and narrower, 640 px with extra-large text) the small words "booking deck" beside
-GDEX are hidden; under 560 px the brand keeps its width and the buttons narrow to share the rest of the row, so all
-five (with Install) fit at 320 px with extra-large text and large buttons (`styles.css`, after `.top-actions`).
+form or tour is up. `initSearch(btn)` wires both. While a sheet is up (the track list, a form, "Did you see them?")
+the top bar is under its backdrop and `#app` is inert, so the button cannot be reached and `/` does nothing: the
+question at opening always wins, and the search waits until it is answered or closed. On a phone (600 px and
+narrower, 640 px with extra-large text) the small words "booking deck" beside GDEX are hidden; under 560 px the
+brand keeps its width and the buttons narrow to share the rest of the row, so all five (with Install) fit at 320 px
+with extra-large text and large buttons (`styles.css`, after `.top-actions`).
 
 * The search is one of Gdex's sheets (`util.sheet`, title "Search", `.sheet.srch-sheet`, its body `div.srch`), over
   whatever is on screen, which does not change. The box is `input#srch-q` (a label, `.srch-top`, stays at the top while
@@ -705,13 +709,20 @@ five (with Install) fit at 320 px with extra-large text and large buttons (`styl
   its words selected, or with no word of one beginning a word of the other) starts again on Shows at every place; one
   narrowed or widened keeps them.
 * **What is searched**, built once per change of the data (any store change drops the index; the next search builds
-  it): for each booking with a date, the act's names (`actNames(a)`) and genre, the client, the place (the saved
-  venue's name and address, or the venue name and address typed on the booking), its title, the other acts on its bill
-  (running-order slots that are not ours and not a marker such as Doors, with or without a length), its notes, and the
-  notes and typed place of the act's time seen for it (`model.seenEntryFor`). For each time seen that belongs to no
-  booking: the act's names and genre, the place (a saved venue, or the words typed: words that are exactly one saved
-  venue's name count as that venue) and its notes. Every word typed, without the punctuation around it, must be found
-  somewhere in a record's words (`fold`: no capitals, no accents).
+  it): for each booking with a date, the act's names (`actNames(a)`: the name it has now and every earlier name, so a
+  renamed band is found by any of them on every record, before and after the change) and genre, the client, the place
+  (the saved venue's name and address, or the venue name and address typed on the booking), its title, the other acts
+  on its bill (running-order slots that are not ours and not a marker such as Doors, with or without a length), its
+  notes, and the notes and typed place of the act's time seen for it (`model.seenEntryFor`). For each time seen that
+  belongs to no booking: the act's names and genre, the place (a saved venue, or the words typed: words that are
+  exactly one saved venue's name count as that venue) and its notes. Every word typed, without the punctuation around
+  it, must be found somewhere in a record's words (`fold`: no capitals, no accents).
+* **A support act's time seen.** A time seen that is not on a show of its own act (no live show of that act covers
+  its day) belongs to another act's live booking that covers its day, at its place (the same place key: the same
+  venue, or the same words typed), and has the act on its bill: a slot that is one of `actNames(a)` by
+  `model.sameName`, also with a note in brackets after it ("Chelsea Wolfe (support)"). With two, the one that plays
+  first (`model.byPlay`); a cancelled booking takes none. It is then not a record of its own: the booking's record
+  holds it (`guests`), and is found by its act's names, genre, typed place and notes as well.
 * **What comes up**, in `.srch-out`: `p.srch-help` before anything is typed; else `p.srch-found` ("9 shows at 4
   places"; "No sessions found. 4 shows at The Church" when the kind picked holds nothing and another does: the list
   moves to shows, else to the first kind in the role's order that has results), the kind row
@@ -724,22 +735,29 @@ five (with Install) fit at 320 px with extra-large text and large buttons (`styl
   `p.srch-none`. A pressed chip has a tick (`.srch-tick`) as well as its colour. The count ("9 results", "No results")
   is announced half a second after the typing stops, when it has changed.
 * **The cards.** A booking is the calendar's own card (`bookingCard(b)`), so its status, the overlap note, the
-  house-rules chip, "Didn’t go" and anything added to Coming up's card read as they do there. The search adds the
-  year under the date when it is not this year (`.srch-year`), the band when a title of the booking's own hides it
-  (`.srch-who`, "Band: The Night Owls", in the role's word), the score of the act's time seen for it
-  (`.srch-score`, "★ Scored 92/100"), and why it was found when its own words do not show it (`.srch-why`: "Also on the
-  bill: …", "Notes: …"). A time seen with no booking is `button.bk-card.srch-seen[data-act][data-seen]`: the date,
-  "Act @ place", "From the log" and the score. A booking opens with `openBooking(id)`, a time seen with
-  `openSeen(actId, seenId)` (its row is marked `.srch-hit` for a moment). Money never shows: the card has none.
+  house-rules chip, "Didn’t go", "formerly …" (`formerlyLine(b)`, item 7) and anything added to Coming up's card read
+  as they do there. The search adds the year under the date when it is not this year (`.srch-year`), the band when a
+  title of the booking's own hides it (`.srch-who`, "Band: The Night Owls", in the role's word; left out when the
+  card's own line already names the band, as it does for a booking from before the band changed its name: "Owl
+  Parliament, formerly The Night Owls"), the score of the act's time seen for it (`.srch-score`, "★ Scored 92/100"),
+  the score of each support act's time seen that belongs to it (`.srch-score.srch-guest`, by name: "★ Chelsea Wolfe
+  88/100", "★ Owl Parliament (formerly The Night Owls) 88/100" from before that act's change), and why it was found
+  when its own words do not show it (`.srch-why`: "Also on the bill: …", then "Earlier name: …" for a word found only
+  in a name the band had before or after that night (as few names as explain it), then "Notes: …"). A time seen with
+  no booking is `button.bk-card.srch-seen[data-act][data-seen]`: the date, "Act @ place" (the name now), from before
+  a change `span.bk-formerly` "formerly <the name that night>" (`model.formerlyOn`) as on a booking's card, "From the
+  log" and the score. A booking opens with `openBooking(id)`, a time seen with `openSeen(actId, seenId)` (its row is
+  marked `.srch-hit` for a moment, and says "as …" from before a change). Money never shows: the card has none.
 * **Keyboard.** Tab goes from the box through the kind row and the place chips to the cards; ↓ or Enter in the box
   goes to the first card, ↓ ↑ walk the cards and ↑ from the first goes back to the box. A redraw after a change to the
   data keeps the focus on the same card or chip.
 * **Words** follow the role: an act, a band or an artist (`actWord()`), the role's names for Bookings and Acts, and
   "gigs" where the calendar is called Gigs. The sheet's ? runs its own walkthrough (`sheetTutorial('Search', …)`).
   The welcome tour does not name the top bar's buttons, so it does not name this one either.
-* **For checks**: `searchFor(q)` (what a search finds, `[{ type: 'b' | 's', id, kind, date, place }]`, without drawing
-  it) and `searchStats()` (`{ builds, buildMs, findMs, drawMs, records }`). With 2,000 bookings and 200 bands the index
-  takes about 20 ms to build and a key press (search and draw) about 35 ms on the test machine.
+* **For checks**: `searchFor(q)` (what a search finds, `[{ type: 'b' | 's', id, kind, date, place, guests }]`, `guests`
+  the ids of the support acts' times seen a booking holds, without drawing it) and `searchStats()` (`{ builds,
+  buildMs, findMs, drawMs, records }`). With 2,000 bookings and 200 bands the index takes about 30 ms to build (17 ms
+  before earlier names and support acts were read) and a key press (search and draw) 15 to 25 ms on the test machine.
 
 ## Shared modules (core)
 

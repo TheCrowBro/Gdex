@@ -4,12 +4,13 @@
 // address, or a place typed by hand), the booking itself (its title, the other acts on its bill) or the notes.
 // One list, newest first, with a line for today between what is still ahead and what is over. A booking is drawn with
 // the calendar's own Coming up card (js/bookings-cal.js bookingCard), so its status, the house-rules chip, the overlap
-// note and "Didn’t go" read as they do on the calendar. A time seen that belongs to a show on the calendar is not a
-// second result: its score shows on that show's card.
+// note, "Didn’t go" and "formerly …" read as they do on the calendar. A time seen that belongs to a show on the calendar
+// is not a second result: its score shows on that show's card (a band's own show, or another band's show that had it on
+// its bill as a support act). A band is found by every name it has had (item 7).
 // Nothing about a search is stored on the device. What was typed, the kind and the place picked and how far the list
 // was read live in memory (S), so opening the search again in the same visit brings the last one back.
 import { h, sheet, announce, todayISO, parseISO, fmtLong, fmtShort } from './util.js';
-import { db, subscribe, lastDay } from './store.js';
+import { db, subscribe, lastDay, covers } from './store.js';
 import * as model from './model.js';
 import { sectionName, actWord, kindOrder } from './roles.js';
 import { sheetTutorial } from './tour.js';
@@ -35,9 +36,11 @@ const an = w => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
 const helpText = () => `Type ${an(actWord())}, a place, a support act or a word from your notes. It looks through everything in ${sectionName('bookings', 'Bookings')}, and the times you logged seeing ${an(actWord())} in ${sectionName('acts', 'Acts')}.`;
 
 /* ------------------------------- what is searched ------------------------------- */
-// Every name an act is known by. Today that is its name alone. A band that was renamed keeps its earlier names: they
-// join the list here, and the search then finds the band by any of them (this is the one place it reads a band's name).
-export const actNames = a => [a && a.name].map(n => String(n || '').trim()).filter(Boolean);
+// Every name an act is known by: the one it has now, then the ones it had before, the latest first (item 7's earlier
+// names, read through model.earlierNames, which cleans whatever is stored). This is the one place the search reads a
+// band's names, so a band is found by any name it has had, on its bookings and in its log alike.
+export const actNames = a => (a && typeof a === 'object' ? [a.name, ...model.earlierNames(a).map(n => n.name).reverse()] : [])
+  .map(n => clean(n)).filter((n, i, all) => n && all.indexOf(n) === i);
 
 // Words as the search compares them: no capitals, no accents (Motörhead is found by "motorhead"), the letters that
 // have no accent to drop written out (ø, ß, æ…), and curly quotes straight.
@@ -53,12 +56,17 @@ const clean = s => String(s ?? '').replace(/\s+/g, ' ').trim();
 // once the slot has a length, so a support act typed without one yet is asked about as if it had.
 const billOf = b => (Array.isArray(b.runningOrder) ? b.runningOrder : [])
   .filter(r => r && typeof r === 'object' && !r.ours && clean(r.act) && isAct({ ...r, length: 1 })).map(r => clean(r.act));
+// A slot on a bill is an act when it is one of the act's names, give or take capitals, spaces and punctuation
+// (model.sameName), also with a note in brackets after it ("Chelsea Wolfe (support)").
+const onBill = (slot, names) => { const bare = slot.replace(/\s*[([{][^()[\]{}]*[)\]}]$/, '');
+  return names.some(n => model.sameName(slot, n) || (!!bare && bare !== slot && model.sameName(bare, n))); };
 
 // The words to search are built once per change of the data, not once per key press: INDEX is dropped when the store
 // says something changed and built again by the next search. Each record: { type: 'b' (a booking) | 's' (a time seen
 // with no booking on the calendar), id, kind, date, last, place: { key, name }, text (everything searched, folded),
-// front (the words its card prints: the band, the place, the title), bill, notes } and b + seen (the act's time seen
-// for that booking, or null), or a + s.
+// front (the words its card prints: the band, the name it had that night, the place, the title), earlier (the band's
+// other names, which its card does not print), bill, notes } and b + a + seen (the act's time seen for that booking,
+// or null) + guests (the times seen of support acts that belong to it: [{ a, s }]), or a + s.
 let INDEX = null;
 const STATS = { builds: 0, buildMs: 0, findMs: 0, drawMs: 0 };
 function buildIndex() {
@@ -73,33 +81,69 @@ function buildIndex() {
     return v ? { key: 'v:' + v.id, name: clean(v.name) || 'Unnamed venue', v } : name ? { key: 't:' + fold(name), name, v: null } : { key: '', name: '', v: null };
   };
   const items = [], claimed = new Set();
+  const shows = new Map(), hosts = new Map(); // an act's live shows; the live bookings at a place with other acts on their bill
+  const add = (map, key, x) => { const list = map.get(key); if (list) list.push(x); else map.set(key, [x]); };
   for (const b of db.bookings || []) {
     if (!b || !isoOk(b.date)) continue; // a booking with no date is not on the calendar
-    const a = acts.get(b.actId) || null, names = a ? actNames(a) : [];
+    const a = acts.get(b.actId) || null;
     const seen = a ? model.seenEntryFor(a, b) : null; // the act's time seen that belongs to this booking
     if (seen) claimed.add(seen);
     const place = placeOf(b.venueId, b.venueName || String(b.address || '').split('\n')[0]);
-    const bill = billOf(b), notes = [b.notes, seen && seen.notes].map(clean).filter(Boolean);
-    const front = [...names, b.client, place.name, b.title];
-    const rest = [a && a.genre, place.v && place.v.address, b.venueName, b.address, seen && !seen.venueId && seen.where, ...bill, ...notes];
-    items.push({ type: 'b', id: b.id, kind: KIND_ORDER.includes(b.kind) ? b.kind : 'other', date: b.date, last: lastDay(b), b, seen, place, bill, notes,
-      front: fold(front.filter(Boolean).join('\n')), text: fold([...front, ...rest].filter(Boolean).join('\n')) });
+    const it = { type: 'b', id: b.id, kind: KIND_ORDER.includes(b.kind) ? b.kind : 'other', date: b.date, last: lastDay(b), b, a, seen, place, bill: billOf(b), guests: [] };
+    items.push(it);
+    if (b.status === 'cancelled') continue;
+    if (a && b.kind === 'show') add(shows, a.id, b);
+    if (it.bill.length && place.key) add(hosts, place.key, it);
   }
+  // A time seen with no show of its own act on the calendar that day belongs to another act's show when that show, on
+  // its date and at its place (the same venue, or the same place typed), has the act on its bill: a band seen as a
+  // support act is one card for the night, the headliner's, which carries its score. With two such shows, the one
+  // that starts first. A cancelled show never happened, so it takes none.
+  const hostOf = (a, s, place) => {
+    if (!place.key || (shows.get(a.id) || []).some(b => covers(b, s.date))) return null;
+    const names = actNames(a), there = (hosts.get(place.key) || []).filter(it => it.b.actId !== a.id && covers(it.b, s.date) && it.bill.some(slot => onBill(slot, names)));
+    return there.sort((x, y) => model.byPlay(x.b, y.b))[0] || null;
+  };
   for (const a of acts.values()) {
-    const names = actNames(a);
     for (const s of model.seenOf(a)) {
       if (claimed.has(s) || !isoOk(s.date)) continue; // on a show's card already
-      const place = placeOf(s.venueId, s.where), notes = [clean(s.notes)].filter(Boolean);
-      const front = [...names, place.name];
-      items.push({ type: 's', id: s.id, kind: 'show', date: s.date, last: s.date, a, s, place, bill: [], notes,
-        front: fold(front.filter(Boolean).join('\n')), text: fold([...front, a.genre, place.v && place.v.address, s.where, ...notes].filter(Boolean).join('\n')) });
+      const place = placeOf(s.venueId, s.where), host = hostOf(a, s, place);
+      if (host) host.guests.push({ a, s });
+      else items.push({ type: 's', id: s.id, kind: 'show', date: s.date, last: s.date, a, s, place, bill: [], guests: [] });
     }
   }
+  for (const it of items) describe(it);
   // Newest first; on one day the bookings in the order the bands play, then the times seen (the store's sort is stable,
   // so those stay as model.seenOf gave them: the one saved last first).
   items.sort((x, y) => y.date.localeCompare(x.date) || (x.type === 'b' && y.type === 'b' ? model.byPlay(x.b, y.b) : (x.type === 'b' ? 0 : 1) - (y.type === 'b' ? 0 : 1)));
   STATS.builds++; STATS.buildMs = performance.now() - t0;
   return items;
+}
+// The words of a record: what its card prints (front) and everything searched (text), both folded, its notes, and the
+// band's other names (earlier). A card names the band as it is called now, and the name it had that night when that
+// was another one ("formerly …", item 7); a support act's score line names it the same way.
+function describe(it) {
+  const nowOf = a => clean(a && a.name), wasOn = (a, iso) => (a ? model.formerlyOn(a, iso) : '');
+  const others = (a, shown) => actNames(a).filter(n => !shown.some(x => model.sameName(x, n)));
+  const guests = it.guests.map(({ a, s }) => { const now = nowOf(a), was = wasOn(a, s.date); return { a, s, shown: [now, was].filter(Boolean) }; });
+  const guestFront = guests.flatMap(g => g.shown), guestEarlier = guests.flatMap(g => others(g.a, g.shown));
+  const guestRest = guests.flatMap(g => [g.a.genre, !g.s.venueId && g.s.where]), guestNotes = guests.map(g => clean(g.s.notes));
+  let front, rest;
+  if (it.type === 'b') {
+    const { b, a, seen, place } = it, shown = [nowOf(a), a ? model.formerlyOf(b) : ''].filter(Boolean);
+    it.earlier = [...(a ? others(a, shown) : []), ...guestEarlier];
+    it.notes = [b.notes, seen && seen.notes, ...guestNotes].map(clean).filter(Boolean);
+    front = [...shown, b.client, place.name, b.title, ...guestFront];
+    rest = [a && a.genre, place.v && place.v.address, b.venueName, b.address, seen && !seen.venueId && seen.where, ...it.bill, ...guestRest];
+  } else {
+    const { a, s, place } = it, shown = [nowOf(a), wasOn(a, s.date)].filter(Boolean);
+    it.earlier = others(a, shown);
+    it.notes = [clean(s.notes)].filter(Boolean);
+    front = [...shown, place.name];
+    rest = [a.genre, place.v && place.v.address, s.where];
+  }
+  it.front = fold(front.filter(Boolean).join('\n'));
+  it.text = fold([...front, ...it.earlier, ...rest, ...it.notes].filter(Boolean).join('\n'));
 }
 subscribe(() => { INDEX = null; if (UI) { clearTimeout(UI.again); UI.again = setTimeout(draw, 0); } });
 
@@ -114,7 +158,7 @@ function find(q) {
   return found;
 }
 // For checks and measurements: what a search finds, without drawing it; and how long the last index, search and draw took.
-export const searchFor = q => (find(q) || []).map(it => ({ type: it.type, id: it.id, kind: it.kind, date: it.date, place: it.place.name }));
+export const searchFor = q => (find(q) || []).map(it => ({ type: it.type, id: it.id, kind: it.kind, date: it.date, place: it.place.name, guests: it.guests.map(g => g.s.id) }));
 export const searchStats = () => ({ ...STATS, records: INDEX ? INDEX.length : 0 });
 
 // Still ahead, or over. A booking stays ahead until its last day ends (as Coming up keeps it); a time seen is over
@@ -126,6 +170,10 @@ const isAhead = (it, today) => (it.type === 'b' ? it.last >= today : it.date > t
 const yearOf = iso => (iso.slice(0, 4) === String(new Date().getFullYear()) ? null : h('span', { class: 'srch-year' }, iso.slice(0, 4)));
 // "★ Scored 86/100", as a show's own page says it.
 const scoreLine = s => { const r = model.ratingOf(s); return h('span', { class: 'srch-score' }, h('span', { 'aria-hidden': 'true' }, '★ '), r != null ? ['Scored ', h('b', null, String(r)), '/100'] : 'Seen, no score yet'); };
+// A support act's score on the headliner's card names the act: "★ Chelsea Wolfe 88/100", and from before it changed
+// its name "★ Owl Parliament (formerly The Night Owls) 88/100".
+const guestLine = ({ a, s }) => { const r = model.ratingOf(s), was = model.formerlyOn(a, s.date), who = (clean(a.name) || 'Unnamed act') + (was ? ` (formerly ${was})` : '');
+  return h('span', { class: 'srch-score srch-guest' }, h('span', { 'aria-hidden': 'true' }, '★ '), r != null ? [who + ' ', h('b', null, String(r)), '/100'] : who + ': seen, no score yet'); };
 // A piece of a note around the word found in it.
 function excerpt(note, at) {
   let from = Math.max(0, at - 32), to = Math.min(note.length, at + 64);
@@ -134,13 +182,24 @@ function excerpt(note, at) {
   return (from > 0 ? '…' : '') + note.slice(from, to) + (to < note.length ? '…' : '');
 }
 // Why a card is here when its own words do not show it: a word typed that is not in the band, the place or the title
-// was found on the bill, or else in the notes. (A word found only in a genre or an address adds no line.)
+// was found on the bill, or else in an earlier name of the band's that the card does not print (it was called
+// something else before, or after, that night), or else in the notes. (A word found only in a genre or an address adds
+// no line.)
 function whyLines(it, words) {
   const hidden = words.filter(w => !it.front.includes(w)), out = [];
   if (!hidden.length) return out;
   const bill = it.bill.filter(name => hidden.some(w => fold(name).includes(w)));
   if (bill.length) out.push(h('span', { class: 'srch-why' }, 'Also on the bill: ' + bill.join(', ')));
-  const left = hidden.filter(w => !bill.some(name => fold(name).includes(w)));
+  let left = hidden.filter(w => !bill.some(name => fold(name).includes(w)));
+  // As few earlier names as say it: the one holding the most of the words left first ("night owls" is The Night
+  // Owls, not The Night Owls and The Owls), then the next, while a word is still unexplained.
+  const was = [];
+  for (;;) {
+    const best = it.earlier.map(name => [name, left.filter(w => fold(name).includes(w)).length]).filter(x => x[1] && !was.includes(x[0])).sort((x, y) => y[1] - x[1])[0];
+    if (!best) break;
+    was.push(best[0]); left = left.filter(w => !fold(best[0]).includes(w));
+  }
+  if (was.length) out.push(h('span', { class: 'srch-why' }, (was.length === 1 ? 'Earlier name: ' : 'Earlier names: ') + was.join(', ')));
   for (const note of it.notes) {
     const low = fold(note), w = left.find(x => low.includes(x));
     if (w) { out.push(h('span', { class: 'srch-why' }, 'Notes: ' + excerpt(note, low.indexOf(w)))); break; }
@@ -148,27 +207,34 @@ function whyLines(it, words) {
   return out;
 }
 // A booking with a title of its own ("Halloween Special") has a card that does not name its band: a line does
-// ("Band: The Night Owls"), so a card found by the band says whose show it is.
+// ("Band: The Night Owls"), so a card found by the band says whose show it is. From before the band changed its name
+// the calendar's own card already says it, with the name it had that night ("Owl Parliament, formerly The Night
+// Owls", model.formerlyNote), so the line is not added again.
 const whoLine = b => { const who = clean(model.actName(b.actId) || b.client);
-  return !!who && !fold(model.bookingTitle(b)).includes(fold(who)) && h('span', { class: 'srch-why srch-who' }, `${capital(actWord())}: ${who}`); };
+  if (!who || fold(model.bookingTitle(b)).includes(fold(who))) return null;
+  const note = model.formerlyNote(b); if (note && !note.startsWith('formerly ')) return null; // it begins with the band's name
+  return h('span', { class: 'srch-why srch-who' }, `${capital(actWord())}: ${who}`); };
 // A booking: the calendar's own card, with the year when it is not this one, its band when the title hides it, the
-// score when the act's log has the show, and why it was found.
+// score when the act's log has the show, the score of each support act logged there, and why it was found.
 function showCard(it, words) {
   const card = bookingCard(it.b), main = card.querySelector('.bk-card-main'), year = yearOf(it.date);
   if (year) card.querySelector('.bk-date')?.append(year);
-  if (main) main.append(...[whoLine(it.b), it.seen && scoreLine(it.seen), ...whyLines(it, words)].filter(Boolean));
+  if (main) main.append(...[whoLine(it.b), it.seen && scoreLine(it.seen), ...it.guests.map(guestLine), ...whyLines(it, words)].filter(Boolean));
   return card;
 }
 // A time seen with no booking on the calendar: a plainer card with the date, the band, the place, the score, and
-// words that say it is from the log. It borrows the calendar card's layout (css/bookings.css), not its content.
+// words that say it is from the log. It borrows the calendar card's layout (css/bookings.css), not its content. From
+// before the band changed its name, the line under its name says the name it had that night, as a booking's does
+// ("formerly The Night Owls", .bk-formerly).
 function seenCard(it, words) {
-  const d = parseISO(it.date), name = clean(it.a.name) || 'Unnamed act';
+  const d = parseISO(it.date), name = clean(it.a.name) || 'Unnamed act', was = model.formerlyOn(it.a, it.date);
   return h('button', { type: 'button', class: 'card tap bk-card srch-seen', style: actStyle({ actId: it.a.id }), 'data-act': it.a.id, 'data-seen': it.s.id },
     h('span', { class: 'bk-date', 'aria-hidden': 'true' },
       h('span', null, d.toLocaleDateString(undefined, { weekday: 'short' })), h('b', null, d.getDate()), h('span', null, d.toLocaleDateString(undefined, { month: 'short' })), yearOf(it.date)),
     h('span', { class: 'sr-only' }, fmtLong(it.date) + '. '),
     h('span', { class: 'bk-card-main' },
       h('span', { class: 'bk-card-top' }, h('strong', { class: 'bk-card-title' }, [name, it.place.name].filter(Boolean).join(' @ ')), h('span', { class: 'pill srch-log' }, 'From the log')),
+      was && h('span', { class: 'bk-formerly' }, 'formerly ' + was),
       scoreLine(it.s), ...whyLines(it, words)));
 }
 
