@@ -315,6 +315,12 @@ export function rulesOf(v) {
   const tone = v && RULE_TONES.some(t => t[0] && t[0] === v.rulesTone) ? v.rulesTone : '';
   return { values, note: v && typeof v.rulesNote === 'string' ? v.rulesNote.trim() : '', tone, known: Object.keys(values).length, restricted: HOUSE_RULES.filter(r => r.id in values && ruleBad(r).includes(values[r.id])) };
 }
+// The stored answers to rules this build does not know (a rule added by a newer Gdex, or a backup edited by hand), as
+// they were stored: {} when there are none. The venue form keeps them, and replaces only the rules it knows.
+export function unknownRules(v) {
+  const raw = v && v.rules && typeof v.rules === 'object' && !Array.isArray(v.rules) ? v.rules : {};
+  return Object.fromEntries(Object.entries(raw).filter(([id]) => !HOUSE_RULES.some(r => r.id === id)));
+}
 // The colour of a venue's rules: '' (nothing to show), 'ok' (green), 'some' (amber) or 'strict' (red). A tone set by
 // hand wins. Automatic: strict when phones are not allowed, or neither pro cameras nor point-and-shoots are; some
 // when anything else is restricted or there is free text (a written rule is a rule, with answers or without); ok

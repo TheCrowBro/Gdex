@@ -270,7 +270,8 @@ colour set by hand (`''` automatic, `'relaxed'`, `'some'`, `'strict'`). Read the
 ignores anything unknown. They belong to the venue and apply to every show there (a show cannot override them; a typed
 venue has none), and nothing about them goes into a day sheet, an invoice or a calendar file. The venue form always
 stores all three, so a venue saved through it is told apart from one that never had them (the sample adds its rules
-only to the latter).
+only to the latter). It replaces only the rules this build knows: the answers to any other rule (from a newer Gdex,
+or a backup edited by hand) are kept as they were stored (`model.unknownRules(v)`).
 
 `songs`: `{ id, title, actId, key, bpm, duration (seconds), tuning, status, isrc, lyrics, link, notes,
 splits: [{ id, name, role, share (%), pro, ipi, publisher }] }`.
@@ -327,7 +328,8 @@ is in Acts, at most `ASK_DAYS` days after their last day, with no answer; newest
 holds and offers, which a role with money is not asked about); `markWent(bookingId, no?)` (quiet).
 
 House rules: `RULE_GROUPS`, `HOUSE_RULES` (17 rules: `{ id, group, kind: 'allow'|'fact'|'pick', label, icon, options?,
-yes?, no?, bad? }`), `RULE_TONES`, `rulesOf(v)` (`{ values, note, tone, known, restricted }`), `rulesLevel(v)` (`''`,
+yes?, no?, bad? }`), `RULE_TONES`, `rulesOf(v)` (`{ values, note, tone, known, restricted }`), `unknownRules(v)` (the
+stored answers to rules this build does not know, as stored: the venue form keeps them), `rulesLevel(v)` (`''`,
 `'ok'`, `'some'`, `'strict'`), `rulesChipText(v)` (`null`, or `{ level, label, spoken }`), `rulesList(v)`
 (`{ no, yes, know, note, tone }`), `showRulesVenue(b)` (the saved venue of a show that is not cancelled, else `null`). The
 colour: a tone set by hand wins; else red (`strict`) when phones are not allowed, or neither pro cameras nor
@@ -683,7 +685,11 @@ Every record goes on using the current name, so lists and search stay in one pie
 * The form's walkthrough points at one rule (`.vn-rules-edit .vn-rule`), not the whole block, which is taller than a
   phone. The venue's sheet keeps the focus across its own redraw, and venue cards carry `data-fk="vn-<id>"`, so the
   focus comes back to the card when the sheet closes after an edit.
-* Venue search reads the written rules through `rulesOf(v).note`. A venue's "Before" list marks a show answered No
+* Venue search reads the written rules through `rulesOf(v).note`, and the ticked ones in the words a person searches
+  by: a permission as "no phones" and "phones not allowed", or "phones allowed"; a fact in its own words ("cash only",
+  "no strobe lighting"); a pick with and without its rule's name ("age limit 21+", "21+"). What is typed must start a
+  word there with no "no" or "not" before it, so "strobe" finds strobe lighting and never "no strobe lighting", and
+  "phones allowed" never a venue where they are not. A venue's "Before" list marks a show answered No
   with "Didn’t go" (`span.vn-row-went`).
 * A rule's last word and its ✗ (`Pro cameras ✗`) are drawn in `span.vn-chip-nb` (no wrap), so on a narrow card the ✗
   never starts a line of its own; the chip's text is the same.

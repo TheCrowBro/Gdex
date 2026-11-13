@@ -5,7 +5,7 @@
 // its sheet, and their part of the form.
 import { h, nodes, empty, sheet, toast, fmtShort, todayISO, telUrl, safeUrl } from '../util.js';
 import { db, byId, upsert, remove, subscribe, lastDay } from '../store.js';
-import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMin, addMinutes, minutesBetween, actName, kindLabel, kindIcon, statusLabel, statusTone, byPlay, byDayPlayDesc, RULE_TONES, rulesOf, seenAnswer } from '../model.js';
+import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMin, addMinutes, minutesBetween, actName, kindLabel, kindIcon, statusLabel, statusTone, byPlay, byDayPlayDesc, RULE_TONES, HOUSE_RULES, rulesOf, unknownRules, seenAnswer } from '../model.js';
 import { openForm } from '../form.js';
 import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
@@ -38,6 +38,20 @@ const nextAt = id => { const t = todayISO(); return bookingsAt(id).filter(b => b
 const goBooking = id => import('./bookings.js').then(m => m.openBooking(id)).catch(e => { console.error(e); toast('That booking could not be opened.'); });
 // The words a search looks through. The written house rules are read through rulesOf, so a stored note that is not text is not searched.
 const searchText = v => [v.name, v.address, v.contact, v.stage, v.pa, v.backline, v.notes, rulesOf(v).note, venueKindLabel(kindOf(v))].map(x => String(x || '')).join(' ').toLowerCase();
+// A venue's ticked house rules in the words a person searches by: a permission as "no phones" and "phones not allowed",
+// or "phones allowed"; a fact in its own words ("cash only", "no strobe lighting"); a pick with and without its rule's
+// name ("age limit 21+", "21+").
+const ruleWords = v => {
+  const x = rulesOf(v).values;
+  return HOUSE_RULES.filter(r => r.id in x).flatMap(r => {
+    const l = r.label.toLowerCase(), opt = r.kind === 'pick' ? ((r.options.find(o => o[0] === x[r.id]) || [])[1] || '') : '';
+    return r.kind === 'allow' ? (x[r.id] === 'no' ? [`no ${l}`, `${l} not allowed`] : [`${l} allowed`]) : r.kind === 'fact' ? [r[x[r.id]] || ''] : [`${l} ${opt}`, opt];
+  }).map(w => w.toLowerCase()).filter(Boolean);
+};
+// What was typed, found in a rule's words where a word starts and with no "no" or "not" before it there: "strobe" finds
+// "strobe lighting", never "no strobe lighting"; "phones allowed" never "phones not allowed".
+const inRule = (words, q) => { for (let i = words.indexOf(q); i >= 0; i = words.indexOf(q, i + 1)) if ((i === 0 || words[i - 1] === ' ') && !/\b(no|not)\b/.test(words.slice(0, i))) return true; return false; };
+const matches = (v, q) => searchText(v).includes(q) || ruleWords(v).some(w => inRule(w, q));
 
 // The hire rate of a studio or a room, as "$45 per hour". '' when none is set, and for a role without money (a scout, a
 // gig-goer), whose pages keep fees off (the form keeps the field).
@@ -123,7 +137,7 @@ function listView(draw) {
   all.forEach(v => counts.set(kindOf(v), (counts.get(kindOf(v)) || 0) + 1));
   if (S.kind && !counts.has(S.kind)) S.kind = ''; // the last place of that kind is gone
   const q = S.q.trim().toLowerCase();
-  const shown = all.filter(v => (!S.kind || kindOf(v) === S.kind) && (!q || searchText(v).includes(q))).sort((a, b) => venueName(a).localeCompare(venueName(b)));
+  const shown = all.filter(v => (!S.kind || kindOf(v) === S.kind) && (!q || matches(v, q))).sort((a, b) => venueName(a).localeCompare(venueName(b)));
   const chip = (key, label, n) => h('button', { type: 'button', id: 'vn-kind-' + (key || 'all'), class: 'chip' + (S.kind === key ? ' on' : ''), 'aria-pressed': String(S.kind === key),
     onclick: () => { S.kind = key; draw(); } }, label, h('span', { class: 'vn-n' }, ' ' + n));
   return [
@@ -280,10 +294,11 @@ export function editVenue(v = {}, onSaved) {
       const nm = String(val.name || '').trim();
       if (!nm) return toast('Give the place a name first.');
       // All three house-rules fields are always stored (rules as an object, {} when nothing is known), so a venue saved
-      // here is told apart from one that never had them (the sample adds its rules only to the latter).
+      // here is told apart from one that never had them (the sample adds its rules only to the latter). The form
+      // replaces only the rules this build knows: answers to any other rule (from a newer Gdex) are kept as stored.
       const stored = upsert('venues', { ...val, name: nm, capacity: numOrBlank(val.capacity, true), noiseLimit: numOrBlank(val.noiseLimit), rate: numOrBlank(val.rate),
         website: String(val.website || '').trim(), email: String(val.email || '').trim(), phone: String(val.phone || '').trim(),
-        rules: editor.read(), rulesNote: String(val.rulesNote || '').trim(), rulesTone: RULE_TONES.some(t => t[0] === val.rulesTone) ? val.rulesTone : '' });
+        rules: { ...unknownRules(byId('venues', cur.id) || cur), ...editor.read() }, rulesNote: String(val.rulesNote || '').trim(), rulesTone: RULE_TONES.some(t => t[0] === val.rulesTone) ? val.rulesTone : '' });
       toast(cur.id ? 'Saved' : `${nm} added`);
       onSaved && onSaved(stored);
     },
@@ -306,7 +321,7 @@ const PAGE_STEPS = () => [
   moneyShown() ? { title: 'Places you play and record', text: 'Venues, studios, rehearsal rooms and festivals. + Add saves one with its capacity, stage, PA, curfew, load-in, contact and map.', target: ['.vn-head'] }
     : { title: 'The rooms you go to', text: 'Clubs, halls and festivals. + Add saves one with its capacity, the PA, the noise limit, the contact and a map.', target: ['.vn-head'] },
   { title: 'Kinds of place', text: 'Show only venues, studios, rehearsal rooms or festivals.', target: ['.vn-kinds'] },
-  { title: 'Find a place', text: 'Search by name, address, contact or what the stage and PA are.', target: ['#vn-search'] },
+  { title: 'Find a place', text: 'Search by name, address, contact, what the stage and PA are, or a house rule (“no phones”, “cash only”, “21+”).', target: ['#vn-search'] },
   { title: 'A place', text: 'How many it holds, the curfew and noise limit, its house rules and your next booking there. Tap it for the map, details and every booking there.', target: ['.vn-card'] },
 ];
 const SHEET_STEPS = () => [

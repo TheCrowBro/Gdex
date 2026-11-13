@@ -368,7 +368,22 @@ const all = []; // every console error of every browser below
     await openEdit(page, 'j-part');
     ok('a venue with some junk shows what is known', (await shows(page, 'bags')) === 'no' && (await shows(page, 'phones')) === '' && (await shows(page, 'age')) === '' && (await page.inputValue(FORM.edit + ' [data-key=rulesTone]')) === '');
     await saveForm(page);
-    ok('…and Save keeps only that', JSON.stringify((await rec(page, 'venues', 'j-part')).rules) === '{"bags":"no"}' && (await rec(page, 'venues', 'j-part')).rulesTone === '');
+    ok('…and Save replaces the rules this build knows with what the form shows, and keeps a rule it does not know as it was stored', JSON.stringify((await rec(page, 'venues', 'j-part')).rules) === '{"nope":"yes","bags":"no"}' && (await rec(page, 'venues', 'j-part')).rulesTone === '', JSON.stringify((await rec(page, 'venues', 'j-part')).rules));
+    // A venue from a newer Gdex (or a backup edited by hand), with rules this build has never heard of.
+    await page.evaluate(() => window.__s.update(d => { d.venues.push({ id: 'j-new', kind: 'venue', name: 'Newer Rules', rules: { drones: 'no', proCameras: 'no', lasers: { level: 2 } }, rulesNote: '', rulesTone: '' }); }));
+    await sleep(250);
+    await openEdit(page, 'j-new');
+    await press(page, 'phones', 'yes');
+    await page.fill(FORM.edit + ' [data-key=capacity]', '250');
+    await saveForm(page);
+    const newer = await rec(page, 'venues', 'j-new');
+    ok('saving a venue keeps the answers to rules this build does not know: only the known rules are replaced by the form', same(newer.rules, { drones: 'no', lasers: { level: 2 }, proCameras: 'no', phones: 'yes' }) && newer.capacity === 250, JSON.stringify(newer.rules));
+    ok('…and the chip still reads only what this build knows', same((c => c && [c.level, c.label])(await chip(page, '#vn-j-new')), ['some', '📷 Pro cameras ✗']), JSON.stringify(await chip(page, '#vn-j-new')));
+    await openEdit(page, 'j-new');
+    await press(page, 'proCameras', 'no'); // a tap on the pressed one clears it
+    await saveForm(page);
+    ok('…also when the known answers are all cleared', same((await rec(page, 'venues', 'j-new')).rules, { drones: 'no', lasers: { level: 2 }, phones: 'yes' }), JSON.stringify((await rec(page, 'venues', 'j-new')).rules));
+    await page.evaluate(() => { window.__s.remove('venues', 'j-new'); }); await sleep(250);
 
     await page.evaluate(() => window.__s.update(d => { d.venues.push({ id: 'j-note', kind: 'venue', name: 'Junk Note', rules: {}, rulesNote: 12345, rulesTone: '' }); }));
     await sleep(300);
@@ -530,7 +545,20 @@ const all = []; // every console error of every browser below
     await go(page, 'venues'); await page.waitForSelector('#vn-search');
     await page.fill('#vn-search', 'zebra'); await sleep(200);
     ok('search finds the venue by a word in its written rules', (await page.locator('#page .vn-card').count()) === 1 && (await page.locator('#vn-s-lantern').count()) === 1);
+    // …and by its ticked rules: a permission by "no phones" / "phones not allowed" or "phones allowed", a fact or a
+    // pick by its words. The sample's two venues with rules allow phones; The Lantern Rooms does not allow pro cameras.
+    await put(page, 'venues', { id: 'strict9', kind: 'venue', name: 'The Vault', rules: { phones: 'no', cashOnly: 'yes', age: '21', strobes: 'yes' }, rulesNote: '', rulesTone: '' });
+    await put(page, 'venues', { id: 'calm', kind: 'venue', name: 'The Snug', rules: { strobes: 'no', cashOnly: 'no' }, rulesNote: '', rulesTone: '' });
+    const found = async q => { await page.fill('#vn-search', q); await sleep(150); return (await page.$$eval('#page .vn-card', els => els.map(e => e.dataset.id))).sort(); };
+    const S = {};
+    for (const q of ['no phones', 'Phones not allowed', 'phones allowed', 'cash only', '21+', 'age limit 21+', 'strobe', 'no strobe', 'cards taken', 'no pro cameras', 'pro cameras allowed']) S[q] = await found(q);
+    ok('venue search finds ticked rules: “no phones” and “phones not allowed” find the venue that forbids phones, “phones allowed” the ones that allow them',
+      same(S['no phones'], ['strict9']) && same(S['Phones not allowed'], ['strict9']) && same(S['phones allowed'], ['s-harbour', 's-lantern']), JSON.stringify(S));
+    ok('…a fact or a pick by its words (“cash only”, “21+”, “strobe”), never a venue whose answer is the opposite (“no strobe”, “cards taken”)',
+      same(S['cash only'], ['strict9']) && same(S['21+'], ['strict9']) && same(S['age limit 21+'], ['strict9']) && same(S.strobe, ['strict9']) && same(S['no strobe'], ['calm']) && same(S['cards taken'], ['calm']), JSON.stringify(S));
+    ok('…and a camera rule the same way', same(S['no pro cameras'], ['s-lantern']) && same(S['pro cameras allowed'], ['s-harbour']), JSON.stringify(S));
     await page.fill('#vn-search', ''); await sleep(200);
+    await page.evaluate(() => { window.__s.remove('venues', 'strict9'); window.__s.remove('venues', 'calm'); }); await sleep(250);
 
     /* ---------------- every role ---------------- */
     const MONEY = /\$|\bpaid\b|\bpay\b|\bmoney\b|\bfees?\b|\bdeal\b|settle|invoice|deposit/i;
