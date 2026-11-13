@@ -98,8 +98,9 @@ export async function release() {
   return changeLicence(x => { delete x.token; delete x.licence; delete x.via; delete x.cancelled; delete x.expired; });
 }
 
-// Delete my licence records: the server forgets this sign-in's email address and the devices on the licence, and every
-// sign-in made before now stops working. Then this browser is signed out.
+// Delete my licence records: the server forgets this sign-in's email address (its links and sign-in codes; the
+// licence's computers stay on its list), and every sign-in made before now stops working. Then this browser is signed
+// out.
 export async function forget() {
   const s = read(); if (!s.token) return { error: 'Sign in first: the records are found through your sign-in.' };
   let r; try { r = await call('forget', { token: s.token }); } catch { return { error: 'Gdex could not reach the licence server. Check the internet connection and try again.' }; }
