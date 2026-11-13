@@ -57,7 +57,8 @@ const focusPage = () => document.getElementById('page')?.focus({ preventScroll: 
 
 // The first open: six roles, and Jack of Trades (every section) last. Picking one opens its start section (the calendar); then(…)
 // runs the welcome tour. Closing it without a pick is an answer too: Gdex stays Jack of Trades (no role is saved), and the role card
-// is never offered (gdex-role-nudged).
+// is never offered (gdex-role-nudged). While Jack of Trades cannot be picked (licences live, the free days over, no licence),
+// closing it leaves the Audiophile instead, as Carry on free does: only the Audiophile works then (the lead's decision 1).
 export function askRole({ then = () => {}, title = 'Who’s using Gdex?' } = {}) {
   let picked = false, close = () => {};
   const pick = async id => {
@@ -70,7 +71,12 @@ export function askRole({ then = () => {}, title = 'Who’s using Gdex?' } = {})
   const body = h('div', { class: 'stack rp-ask' },
     h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Gdex puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.${licenceIntro()}`),
     h('div', { class: 'list rp-list', role: 'group', 'aria-label': 'Roles' }, [...ROLES, EVERYTHING].map(r => card(r, { onPick: pick }))));
-  ({ close } = sheet(title, body, { dismissOnBackdrop: false, onClose: () => { if (!picked) { nudged(); then(); } } }));
+  const unpicked = () => {
+    nudged();
+    if (mayPickRole(EVERYTHING.id) !== 'locked') { then(); return; }
+    import('./licence.js').then(m => m.carryOnFree()).catch(e => console.error(e)).then(() => then());
+  };
+  ({ close } = sheet(title, body, { dismissOnBackdrop: false, onClose: () => { if (!picked) unpicked(); } }));
   setTimeout(() => document.querySelector('.rp-ask .rp-card')?.focus(), 60);
 }
 

@@ -119,7 +119,9 @@ when storage could not keep the choice; storage is only the fall-back.) The role
 writes nothing to `gdex-db` and backups do not carry it; Erase this device clears it. With none saved the role is
 `EVERYTHING`, called Jack of Trades on screen (id `all`, the value `gdex-role` keeps when it is picked; the constant
 and the id kept their old names, so nothing stored changed): every section on the menu, every box, no page defaults,
-as Gdex always was. Closing the first-run question without a pick leaves it there, with no role saved. **Every spec
+as Gdex always was. Closing the first-run question without a pick leaves it there, with no role saved; but while Jack of
+Trades cannot be picked (`mayPickRole('all')` is `'locked'`: licences live, the free days over, no licence) it leaves the
+Audiophile, saved, as Carry on free does (`licence.js` `carryOnFree`), since only the Audiophile works then. **Every spec
 runs as Jack of Trades** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
 
 A role is data (`ROLES` in `js/roles.js`; not to be confused with `model.js`'s `ROLES`, the instruments people

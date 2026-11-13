@@ -138,6 +138,36 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
 
+    /* =========== closing "Who's using Gdex?" with no pick (the lead's decision 1 on the review's design calls) =========== */
+    {
+      // Jack of Trades ('all') cannot be picked (licences live, the free days over, no licence: after Erase this device,
+      // say): closing the question unpicked leaves the device on the Audiophile, not on a read-only Jack of Trades, since
+      // "only Audiophile works".
+      const { ctx, page } = await openLive(browser, errors, { firstRun: true, seed: { 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+      await page.waitForSelector('.sheet[aria-label="Who’s using Gdex?"]', { timeout: 8000 });
+      const may = await page.evaluate(() => import('./js/licence-state.js').then(m => m.mayPickRole('all')));
+      await closeTop(page); await sleep(900);
+      const r = await page.evaluate(() => import('./js/roles.js').then(m => ({ id: m.roleId(), chosen: m.roleChosen(), kept: localStorage.getItem('gdex-role') })));
+      const write = await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()));
+      const sh = await sheets(page), tl = await toasts(page);
+      ok('free days over, no licence: closing "Who’s using Gdex?" unpicked leaves the Audiophile (kept as the role), its own things change, no read-only sheet, and a toast says so',
+        may === 'locked' && r.id === 'audiophile' && r.chosen === true && r.kept === 'audiophile' && write === true && !sh.some(t => /licen|free days/i.test(t || '')) && tl.some(t => /^Audiophile: free for good\./.test(t)),
+        JSON.stringify({ may, r, write, sh, tl }));
+      ok('…and nothing in the menu is Jack of Trades’: the Audiophile’s six tracks', JSON.stringify(await page.evaluate(() => import('./js/roles.js').then(m => m.menuSections()))) === JSON.stringify(['bookings', 'acts', 'venues', 'tools', 'card', 'settings']));
+      await ctx.close();
+    }
+    {
+      // While Jack of Trades can be picked (the free days not started: picking it starts them), closing the question unpicked
+      // leaves Jack of Trades, with no role saved, as with the licence off.
+      const { ctx, page } = await openLive(browser, errors, { firstRun: true, seed: { 'gdex-terms': agreed() } });
+      await page.waitForSelector('.sheet[aria-label="Who’s using Gdex?"]', { timeout: 8000 });
+      const may = await page.evaluate(() => import('./js/licence-state.js').then(m => m.mayPickRole('all')));
+      await closeTop(page); await sleep(900);
+      const r = await page.evaluate(() => import('./js/roles.js').then(m => ({ id: m.roleId(), chosen: m.roleChosen(), kept: localStorage.getItem('gdex-role') })));
+      ok('free days not started: closing it unpicked leaves Jack of Trades, no role saved', may === 'start' && r.id === 'all' && r.chosen === false && r.kept === null, JSON.stringify({ may, r }));
+      await ctx.close();
+    }
+
     /* =========== the Audiophile before the free days: the marks, a bonus track starts them at once =========== */
     {
       const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() } });
