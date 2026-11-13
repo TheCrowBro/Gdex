@@ -68,6 +68,10 @@ const STORES = /App Store|Google Play|iCloud|Dropbox|OneDrive/;
     // Delete my licence records (cloudflare/worker.mjs webForget): what stays, in §3 and in §6.
     const choices = text((pages.privacy.split('<h2>6.')[1] || '').split('<h2>7.')[0]);
     ok('…says what stays after Delete my licence records: a scrambled form of the email address and when, for 400 days (matchable to an address already known), and the recent moves between computers', /After Delete my licence records, so that sign-ins made before it stop working, the server keeps a scrambled form of your email address and when the records were deleted, for 400 days: it does not hold your address, though we could tell from it whether an address we already know deleted its records, and when\./.test(P) && /a scrambled form of your email address and when you deleted the records stay for 400 days/.test(choices) && /the dates of any moves between computers in the last 30 days/.test(choices), choices);
+    // Device permissions (section 4) as the app has them: the location button's own name, a Mac only in the desktop app
+    // (desktop/main.cjs), and the screen kept awake by the set timer only (js/tools-timer.js calls keepAwake; the meter does not).
+    const perms = text((pages.privacy.split('<h2>4.')[1] || '').split('<h2>5.')[0]);
+    ok('…section 4 names the “📡 I’m here now” button (a Mac only in the desktop app) and says only the set timer keeps the screen awake', /Location: the “📡 I’m here now” button for a venue \(in the desktop app, on a Mac only\)\./.test(perms) && /Keeping the screen on: the set timer keeps the screen awake while it runs\./.test(perms) && !/use my location|meter keep/.test(perms), perms);
     ok('…and that Erase keeps the licence record and its second copy in IndexedDB', /second copy[^.]*IndexedDB/.test(P) && /Erase this device keeps the licence record, that second copy and your agreement to the terms/.test(P));
 
     /* ------------------------- in the browser ------------------------- */

@@ -1161,7 +1161,8 @@ a random `X-Gdex-App` value that the main process adds to every request of the w
 `/__gdex/google` (its own one-time keys), so the same address in a web browser loads nothing, and `/licence/…` is a JSON
 404 there. The window gets the microphone (audio only), the File System Access API, clipboard writing, full screen and
 the screen wake lock (`'screen-wake-lock'`, as Electron names it); location only on a Mac (on Windows and Linux Chromium
-would ask Google's location service); the camera and everything else are refused. The spellchecker is the Mac's own on
+would ask Google's location service, so there the venue form's "📡 I’m here now" says to use Find from address or a
+map link, `js/form.js`); the camera and everything else are refused. The spellchecker is the Mac's own on
 a Mac and off with no languages on Windows and Linux, where Electron would otherwise download Hunspell dictionaries
 from Google at every start. `tests/desktop.mjs` runs the app behind a recording proxy and fails on any host but
 `localhost` and `127.0.0.1`.

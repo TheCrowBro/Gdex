@@ -54,6 +54,9 @@ export function openForm({ title, fields, values = {}, onSave, onDelete, saveLab
             e.target.disabled = false;
           } }, '🔎 Find from address'),
           h('button', { type: 'button', class: 'btn ghost small', onclick: () => {
+            // The desktop app allows location only on a Mac (desktop/main.cjs: elsewhere Chromium would ask Google).
+            const desk = window.gdexDesktop;
+            if (desk && desk.platform && desk.platform !== 'darwin') return toast('Location isn’t available in the desktop app on Windows and Linux: use Find from address, or paste a map link.');
             if (!navigator.geolocation) return toast('Location is not available here');
             navigator.geolocation.getCurrentPosition(p => { set({ lat: +p.coords.latitude.toFixed(6), lon: +p.coords.longitude.toFixed(6) }); toast('Using your current location'); }, () => toast('Could not get your location'), { timeout: 10000 });
           } }, '📡 I’m here now')));

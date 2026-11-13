@@ -91,6 +91,17 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       await about(page); // the check above went on to Money
       const where = await page.textContent('#se-about .se-where');
       ok('…and Where your data is kept speaks of the app on this computer, its update checks, and no licence server', /Everything you enter stays in this app, on this computer\./.test(where) && /The desktop app also looks for new versions at gdex-download\.crowmade\.app\./.test(where) && !/browser/.test(where) && !/licence server/.test(where), where);
+      // Location in the desktop app works only on a Mac (desktop/main.cjs refuses it elsewhere): on Windows and Linux,
+      // "I'm here now" says so and points to Find from address, instead of "Could not get your location".
+      const here = async platform => {
+        await page.evaluate(p => { window.gdexDesktop.platform = p; window.__geo = 0; navigator.geolocation.getCurrentPosition = (ok, no) => { window.__geo++; no({ code: 1 }); }; window.__toasts = []; }, platform);
+        await page.evaluate(() => import('./js/pages/venues.js').then(m => m.editVenue({}))); await page.waitForSelector('.sheet form.form');
+        await page.locator('.sheet button', { hasText: 'I’m here now' }).click(); await sleep(300);
+        const r = { asked: await page.evaluate(() => window.__geo), toasts: await toasts(page) };
+        await closeTop(page); return r;
+      };
+      const linux = await here('linux'), win = await here('win32'), mac = await here('darwin');
+      ok('…location: on Linux and Windows "I’m here now" asks nothing and says to use Find from address or a map link; on a Mac it asks', linux.asked === 0 && win.asked === 0 && [linux, win].every(r => r.toasts.includes('Location isn’t available in the desktop app on Windows and Linux: use Find from address, or paste a map link.')) && mac.asked === 1, JSON.stringify({ linux, win, mac }));
       await ctx.close();
     }
 
