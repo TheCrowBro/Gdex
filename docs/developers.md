@@ -697,7 +697,9 @@ Every record goes on using the current name, so lists and search stay in one pie
   "phones allowed" never a venue where they are not. A venue's "Before" list marks a show answered No
   with "Didn’t go" (`span.vn-row-went`).
 * A rule's last word and its ✗ (`Pro cameras ✗`) are drawn in `span.vn-chip-nb` (no wrap), so on a narrow card the ✗
-  never starts a line of its own; the chip's text is the same.
+  never starts a line of its own; so is the chip's icon with the first letter of the word after it (`📷 P`), so the icon
+  is never alone on a line (no line breaks inside a word, and a long first word, the start of a note, can still wrap
+  where it must). The chip's text is the same.
 * Delete in a venue's form closes its sheet, and what opened it (the venue's card, a show's Details) goes with the
   venue: once the page is drawn again, a focus left nowhere goes to the page's `[data-view-head]` (a show's title) or
   to `#page`.
@@ -711,7 +713,8 @@ the top bar is under its backdrop and `#app` is inert, so the button cannot be r
 question at opening always wins, and the search waits until it is answered or closed. On a phone (600 px and
 narrower, 640 px with extra-large text) the small words "booking deck" beside GDEX are hidden; under 560 px the
 brand keeps its width and the buttons narrow to share the rest of the row, so all five (with Install) fit at 320 px
-with extra-large text and large buttons (`styles.css`, after `.top-actions`).
+with extra-large text and large buttons and GDEX is never cut short (`styles.css`, after `.top-actions`; `05-deck`
+and `46-search` check it with Install hidden and showing).
 
 * The search is one of Gdex's sheets (`util.sheet`, title "Search", `.sheet.srch-sheet`, its body `div.srch`), over
   whatever is on screen, which does not change. The box is `input#srch-q` (a label, `.srch-top`, stays at the top while

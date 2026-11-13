@@ -634,6 +634,8 @@ const all = []; // every console error of every browser below
       const s = window.__s;
       s.upsert('venues', { id: 'club9', kind: 'venue', name: 'Club 9 at the Old Customs House', address: '9 Dock Street', rules: { proCameras: 'no', compacts: 'no', phones: 'no', age: '21', idNeeded: 'yes', cashOnly: 'yes', bags: 'no', strobes: 'yes', floor: 'both', moshing: 'no', outsideFood: 'no' }, rulesNote: 'Phones go in a sealed pouch at the door.\nNo re-entry after 11pm. Coats in the cloakroom, cash only. Supercalifragilisticexpialidocious-and-then-some.', rulesTone: '' });
       s.upsert('bookings', { id: 'c91', kind: 'show', status: 'confirmed', actId: 's-owls', date: d3, venueId: 'club9', setTime: '23:30', setLength: 60 });
+      s.upsert('venues', { id: 'church9', kind: 'venue', name: 'The Church', address: '3 Abbey Lane', rules: { proCameras: 'no' }, rulesNote: '', rulesTone: '' }); // one rule: “📷 Pro cameras ✗”
+      s.upsert('bookings', { id: 'c92', kind: 'show', status: 'confirmed', actId: 's-sablea', date: d3, venueId: 'church9', setTime: '21:00', setLength: 60 });
       s.patch('venues', 's-greenfield', { rules: {}, rulesNote: 'Wellingtons-and-waterproofs-strongly-recommended whatever the forecast says', rulesTone: '' });
     }, D3);
     await sleep(300);
@@ -654,6 +656,22 @@ const all = []; // every console error of every browser below
     }), sel);
     const crossed = await page.evaluate(() => document.querySelectorAll('.bk-agenda .vn-chip').length && [...document.querySelectorAll('.bk-agenda .vn-chip')].filter(c => c.textContent.includes('✗')).length);
     ok(`${scheme}, 320px: on Coming up a rule’s ✗ is on the same line as its word`, crossed >= 1 && (await crossAlone('.bk-agenda')).length === 0, `${crossed} ${(await crossAlone('.bk-agenda')).join(' | ')}`);
+    // A chip's icon never sits alone on a line (“📷” over “Pro cameras ✗”): the chips whose first line is only the icon.
+    const iconAlone = sel => page.evaluate(s => [...document.querySelectorAll(s + ' .vn-chip > [aria-hidden=true]')].flatMap(span => {
+      const r = document.createRange(), lines = [], walk = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+      for (let n; (n = walk.nextNode());) for (let i = 0; i < n.length; i++) {
+        r.setStart(n, i); r.setEnd(n, i + 1); const b = r.getBoundingClientRect(); if (!b.width || !n.data[i].trim()) continue;
+        const y = b.top + b.height / 2; let l = lines.find(x => Math.abs(x.y - y) < 6); if (!l) lines.push(l = { y, t: '' }); l.t += n.data[i];
+      }
+      lines.sort((p, q) => p.y - q.y);
+      return lines.length > 1 && /^\p{Extended_Pictographic}\uFE0F?$/u.test(lines[0].t) ? [lines.map(x => x.t).join(' / ')] : [];
+    }), sel);
+    await page.click('#bk-view-week'); await sleep(250);
+    for (let i = 0; i < 3 && !(await page.locator(`#bk-ev-c92-${D3}`).count()); i++) { await page.click('[aria-label="Next week"]'); await sleep(150); }
+    const weekChips = await page.locator('.bk-week .bk-wrow .vn-chip').count();
+    ok(`${scheme}, 320px: in a Week row a chip never leaves its icon alone on a line (“📷 Pro cameras ✗” at The Church among them)`, (await page.locator(`#bk-ev-c92-${D3} .vn-chip`).count()) === 1 && weekChips >= 2 && (await iconAlone('.bk-week')).length === 0, `${weekChips} ${(await iconAlone('.bk-week')).join(' | ')}`);
+    ok(`${scheme}, 320px: …nor on Coming up`, (await iconAlone('.bk-agenda')).length === 0, (await iconAlone('.bk-agenda')).join(' | '));
+    await page.click('#bk-view-month'); await sleep(250);
     await openB(page, 'c91');
     fit = await inside('.bk-hero');
     const box = await page.evaluate(() => { const r = document.querySelector('.bk-hero .vn-rules'), h = document.querySelector('.bk-hero'), a = r.getBoundingClientRect(), b = h.getBoundingClientRect(); return { in: a.left >= b.left && a.right <= b.right, over: r.scrollWidth > r.clientWidth + 1, dd: [...r.querySelectorAll('dd')].every(d => d.scrollWidth <= d.clientWidth + 1), size: parseFloat(getComputedStyle(r.querySelector('dd')).fontSize), rem: parseFloat(getComputedStyle(document.documentElement).fontSize) }; });
@@ -666,7 +684,7 @@ const all = []; // every console error of every browser below
     ok(`${scheme}, 320px: …and its name is not broken inside a word: the status sits under it`, (await brokenIn('.bk-title')).length === 0 && await page.evaluate(() => document.querySelector('.bk-status').getBoundingClientRect().top >= document.querySelector('.bk-title').getBoundingClientRect().bottom - 1), (await brokenIn('.bk-title')).join(' '));
     await go(page, 'venues'); await page.waitForSelector('#vn-club9');
     fit = await inside('#page');
-    ok(`${scheme}, 320px: the venue list does not scroll sideways, with each chip inside its card`, (await wide(page)) <= 320 && fit.length === 4 && fit.every(Boolean), `${await wide(page)} ${fit.join()}`);
+    ok(`${scheme}, 320px: the venue list does not scroll sideways, with each chip inside its card`, (await wide(page)) <= 320 && fit.length === 5 && fit.every(Boolean), `${await wide(page)} ${fit.join()}`);
     ok(`${scheme}, 320px: …and on the venue cards a rule’s ✗ is on the same line as its word`, (await crossAlone('#page')).length === 0, (await crossAlone('#page')).join(' | '));
     await page.click('#vn-club9'); await page.waitForSelector('.vn-sheet');
     const sheetFit = () => page.evaluate(() => { const b = [...document.querySelectorAll('.sheet-body')].pop(); return [b.scrollWidth, b.clientWidth]; });

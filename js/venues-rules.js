@@ -15,11 +15,28 @@ const CHIP = { ok: 'vn-chip vn-chip-ok', some: 'vn-chip vn-chip-some', strict: '
 export function venueChip(v) {
   const t = rulesChipText(v);
   if (!t || !CHIP[t.level]) return null;
-  return h('span', { class: CHIP[t.level] }, h('span', { 'aria-hidden': 'true' }, keepCross(t.label)), h('span', { class: 'sr-only' }, t.spoken));
+  return h('span', { class: CHIP[t.level] }, h('span', { 'aria-hidden': 'true' }, keepTogether(t.label)), h('span', { class: 'sr-only' }, t.spoken));
 }
-// A rule's ✗ stays on the line of the word it marks (“Pro cameras ✗”): on a narrow card it would otherwise wrap to the
-// next line and read as part of “· 1 more”. Only the drawing changes: the words are the same text.
-const keepCross = label => { const m = /^(.*?)(\S+ ✗)(.*)$/su.exec(label); return m ? [m[1], h('span', { class: 'vn-chip-nb' }, m[2]), m[3]] : label; };
+// Two things in a chip stay on one line: its icon and the word after it (“📷 Pro”), and a rule's last word and its ✗
+// (“cameras ✗”). On a narrow card the icon would otherwise be left alone on a line, or the ✗ wrap to the next one,
+// where it reads as part of “· 1 more”. The icon is held to the first letter of the next word only (no line can break
+// inside a word), so a long first word, such as the start of a note, can still wrap where it must. Only the drawing
+// changes: the words are the same text.
+const ICON = /^\p{Extended_Pictographic}/u;
+const firstLetter = w => { try { return [...new Intl.Segmenter().segment(w)][0]?.segment || ''; } catch { return [...w][0] || ''; } };
+const keepTogether = label => {
+  const words = String(label).split(' '), icon = words.length > 1 && ICON.test(words[0]) ? words.shift() : '', out = [];
+  const plain = t => { if (!t) return; if (typeof out[out.length - 1] === 'string') out[out.length - 1] += t; else out.push(t); };
+  const nb = t => out.push(h('span', { class: 'vn-chip-nb' }, t));
+  words.forEach((w, i) => {
+    if (w === '✗' && i) return; // drawn with the word before it
+    if (i) plain(' ');
+    let rest = w;
+    if (!i && icon) { const g = firstLetter(w); nb(`${icon} ${g}`); rest = w.slice(g.length); }
+    if (words[i + 1] === '✗') nb(`${rest} ✗`); else plain(rest);
+  });
+  return out;
+};
 // The chip on a show's card: its venue's chip. Only a show that is not cancelled, at a saved venue, carries rules
 // (model.showRulesVenue): the rules are the venue's, whoever plays, and a show cannot override them.
 export function rulesChip(b) {

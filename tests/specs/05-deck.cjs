@@ -292,6 +292,16 @@ const page$ = page => page.evaluate(() => window.logiPage());
     await page.evaluate(m => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: m, text: 'xlarge', targets: 'large' })); }, menu); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
     const fit = await page.evaluate(() => { const d = document.querySelector('#deck .deck').getBoundingClientRect(); return { scroll: document.documentElement.scrollWidth <= innerWidth, next: document.querySelector('#deck .dk-next').getBoundingClientRect().right <= d.right + 1 }; });
     ok(`320px wide, extra-large text and buttons: the ${menu} menu fits and ⏭ stays inside it`, fit.scroll && fit.next, JSON.stringify(fit));
+    // The top bar never cuts GDEX short (“GDI”), with Install hidden or showing: the word is drawn whole inside the brand.
+    const brand = [];
+    for (const install of [false, true]) {
+      await page.evaluate(on => { document.getElementById('installBtn').hidden = !on; }, install); await sleep(100);
+      brand.push(await page.evaluate(() => { const b = document.querySelector('.top .brand'), r = b.getBoundingClientRect(), word = document.createRange(), t = [...b.childNodes].find(n => n.nodeType === 3 && n.data.trim());
+        word.selectNodeContents(t); const w = word.getBoundingClientRect(), first = document.querySelector('.top-actions > button:not([hidden])').getBoundingClientRect();
+        return { text: t.data.trim(), whole: b.scrollWidth <= b.clientWidth + 0.5 && w.left >= r.left - 0.5 && w.right <= r.right + 0.5 && r.left >= 0, clear: w.right <= first.left + 0.5 }; }));
+    }
+    await page.evaluate(() => { document.getElementById('installBtn').hidden = true; });
+    ok(`320px wide, extra-large text and buttons, the ${menu} menu: the top bar shows GDEX whole, clear of the buttons, with Install hidden or showing`, brand.every(x => x.text === 'GDEX' && x.whole && x.clear), JSON.stringify(brand));
   }
   // …and on the digital player the longest name wraps inside the bar, the keys take a line of their own, and the row of tabs scrolls inside itself.
   await page.evaluate(() => window.logiGo('sessions')); await sleep(500);
