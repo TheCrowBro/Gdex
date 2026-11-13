@@ -46,16 +46,28 @@ const liveSite = () => !bridge() && !away() && LICENCE_SITES.includes(location.h
 // gdex-licence, read and written whole. Where storage is blocked (a private window), the visit keeps its own copy.
 let mem = null;
 const clone = o => JSON.parse(JSON.stringify(o));
+// The earliest start of the free days this visit has known ([S-27]). Gdex only ever moves a start earlier (Google
+// Drive's, the licence server's time), so a later start, or none, in gdex-licence while Gdex is open is one copy changed
+// by hand: the earlier counts, as the IndexedDB copy makes it count at the next opening when the key is deleted.
+let earliest = 0;
 function read() {
-  try { const raw = localStorage.getItem(KEY); if (raw != null) { const v = JSON.parse(raw); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } } catch { /* blocked: the visit's copy */ }
-  return mem ? clone(mem) : {};
+  let s = null;
+  try { const raw = localStorage.getItem(KEY); if (raw != null) { const v = JSON.parse(raw); s = v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } } catch { /* blocked: the visit's copy */ }
+  if (!s) s = mem ? clone(mem) : {};
+  if (earliest && !(num(s.first) > 0 && num(s.first) <= earliest)) s.first = earliest;
+  if (num(s.first) > 0 && (!earliest || num(s.first) < earliest)) earliest = num(s.first);
+  return s;
 }
 function write(s) {
   mem = clone(s);
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* blocked: kept for this visit */ }
 }
-// The free days' second copy, beside gdex-licence (the build spec [S-27]): fire and forget.
-const keepDays = s => { if (num(s.first) > 0) kvSet(DAYS, { first: num(s.first), seen: num(s.seen) }).catch(() => {}); };
+// The free days' second copy, beside gdex-licence (the build spec [S-27]): fire and forget, joined with what it holds
+// (the earlier start), never overwritten with a later one.
+const keepDays = s => {
+  const first = num(s.first), seen = num(s.seen);
+  if (first > 0) kvGet(DAYS).catch(() => null).then(d => { const had = d && num(d.first) > 0 ? num(d.first) : 0; return kvSet(DAYS, { first: had && had < first ? had : first, seen }); }).catch(() => {});
+};
 
 const paused = (s, t) => s.on === false && t >= num(s.statusAt) && t - num(s.statusAt) < PAUSE_FRESH;
 const ended = (l, t) => !!(l && /^\d{4}-\d{2}-\d{2}$/.test(String(l.expires || '')) && t >= Date.parse(l.expires + 'T00:00:00Z') + DAY);

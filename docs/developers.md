@@ -1091,7 +1091,9 @@ while a working role is read-only, before "Did you see them?", which is not aske
 
 **The guards.** The free days are kept in two places on the website (`gdex-licence` and IndexedDB `gdex` / `kv` /
 `licence-days`; joined as the earlier `first` and the later `seen`), and on the desktop in `licence.json` and its
-mirror in `desktop-state.json`, so deleting one starts nothing again ([S-27]). A device whose clock puts the start more
+mirror in `desktop-state.json`, so deleting one starts nothing again ([S-27]). The website never takes a later start
+than one it has known in a visit (a start only ever moves earlier), so emptying or editing `gdex-licence` with Gdex open
+starts nothing either, and its writes to the IndexedDB copy keep the earlier start. A device whose clock puts the start more
 than a day ahead, or has seen a time more than two days ahead, counts its days as over (`clock`) until the clock is
 right; the `Date` header of the licence server's JSON answers puts the stored values right, keeping the days used
 ([S-38]). A website sign-in counts only once `readWebNote(token)` (`js/licence-note.js`: Ed25519, prefix `GDEX-WEB\0`,

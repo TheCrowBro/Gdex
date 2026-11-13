@@ -516,6 +516,24 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // The one key gdex-licence changed by hand with Gdex open ([S-27]): emptied, or its start moved to now. Nothing starts
+      // again: the visit never takes a later start than one it has known, and the IndexedDB copy is joined, not overwritten,
+      // so coming back (Gdex looks again) and a reload keep the free days over.
+      for (const how of ['emptied', 'given a later start']) {
+        const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+        await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page); await sleep(1500);
+        const kv0 = await second(page);
+        await page.evaluate(empty => { const s = JSON.parse(localStorage.getItem('gdex-licence')); localStorage.setItem('gdex-licence', empty ? '{}' : JSON.stringify({ ...s, first: Date.now(), seen: Date.now() - 120e3 })); }, how === 'emptied');
+        const now = await state(page);
+        await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await sleep(1500);
+        const back = await state(page), kv1 = await second(page), rec = await stored(page);
+        await reload(page); await sleep(1000);
+        const after = await state(page);
+        ok(`gdex-licence ${how} by hand with Gdex open: the free days are still over at once, on coming back and after a reload, and both copies keep the start`, !!kv0 && now.mode === 'ended' && back.mode === 'ended' && after.mode === 'ended' && kv1 && kv1.first === kv0.first && rec.first === kv0.first, JSON.stringify({ kv0, now: [now.mode, now.trialLeft], back: [back.mode, back.trialLeft], kv1, rec, after: [after.mode, after.trialLeft] }));
+        await ctx.close();
+      }
+    }
+    {
       // The clock wound 400 days on, Producer picked there, then back: a wrong clock, read-only, its sheet; the server's time corrects it.
       const real = Date.now();
       const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() }, clockAt: real + 400 * DAY });
