@@ -168,8 +168,18 @@ async function signIn(page) {
       await page.click('.licence-panel .lic-forget'); await page.waitForSelector('#lic-forget-go');
       const forgetWords = await page.textContent('.sheet[aria-label="Delete my licence records"]');
       ok('Delete my licence records says what goes and what stays: the email address\'s link and sign-in codes go; computers with the desktop app keep the licence until each is released', /This deletes what Gdex’s licence server keeps about your email address \(jo@example\.com\): its link to your licence, and its sign-in codes\. Gdex signs out here, and other browsers signed in with it are signed out at their next check\./.test(forgetWords) && /Computers with the desktop app keep your licence, and stay on its list \(a random number for each, nothing about you\): to take one off, use Release this computer on it\./.test(forgetWords) && !/list of devices/.test(forgetWords), forgetWords);
+      ok('…a bought licence: sign in again at any time (the server finds the order again by its email)', /Your licence itself is not cancelled: sign in again at any time, and the records are made afresh\./.test(forgetWords) && !/licence code/.test(forgetWords));
       await page.click('#lic-forget-go'); await sleep(500);
       ok('…deleted: the server was asked with the sign-in, and this browser is signed out', srv.bodies.some(([p, b]) => p === '/licence/web/forget' && b.token && b.token.kid === 2) && (await state(page)).mode === 'ended' && (await toasts(page)).some(t => /Your licence records have been deleted/.test(t)));
+      // A free licence has no order to find its email in: once its link is deleted, only its code signs in again.
+      LICENCE.comp = true;
+      try {
+        await about(page); await signIn(page);
+        await page.click('.licence-panel .lic-forget'); await page.waitForSelector('#lic-forget-go');
+        const freeWords = await page.textContent('.sheet[aria-label="Delete my licence records"]');
+        ok('…a free licence: to sign in again, use the licence code (Have a licence code? Use it instead), since the email alone will not find it', /Your licence itself is not cancelled: to sign in again, use your licence code \(Have a licence code\? Use it instead\), and the records are made afresh\./.test(freeWords) && !/sign in again at any time/.test(freeWords), freeWords);
+        await closeTop(page);
+      } finally { LICENCE.comp = false; }
       await ctx.close();
     }
 

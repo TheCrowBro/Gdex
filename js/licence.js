@@ -473,7 +473,7 @@ function forgetSheet() {
   } }, 'Delete my records');
   const sh = sheet('Delete my licence records', h('div', { class: 'stack' },
     h('p', null, `This deletes what Gdex’s licence server keeps about your email address${lic.email ? ` (${lic.email})` : ''}: its link to your licence, and its sign-in codes. Gdex signs out here, and other browsers signed in with it are signed out at their next check.`),
-    h('p', { class: 'small muted' }, 'Your licence itself is not cancelled: sign in again at any time, and the records are made afresh. Computers with the desktop app keep your licence, and stay on its list (a random number for each, nothing about you): to take one off, use Release this computer on it. Stripe and Link keep their own records of a purchase. Your work in Gdex is not touched.'),
+    h('p', { class: 'small muted' }, `Your licence itself is not cancelled: ${lic.comp ? 'to sign in again, use your licence code (Have a licence code? Use it instead)' : 'sign in again at any time'}, and the records are made afresh. Computers with the desktop app keep your licence, and stay on its list (a random number for each, nothing about you): to take one off, use Release this computer on it. Stripe and Link keep their own records of a purchase. Your work in Gdex is not touched.`),
     msg, h('div', { class: 'actions' }, go)));
 }
 

@@ -246,8 +246,8 @@ the email they bought with is in Stripe) → **Look up** shows its computers →
 afresh.
 
 **Someone can't sign in on the website.** They must use the email address their licence belongs to (for a purchase, the
-one they paid with). For a free code made while you were offline, paste it in the generator and press **Link for
-website sign-in**.
+one they paid with). For a free code made while you were offline, or whose holder deleted their records, paste it in
+the generator and press **Link for website sign-in**, or have them use **Have a licence code? Use it instead**.
 
 **A code posted online, a chargeback, or a dispute you won.** Refunds and disputes cancel the code automatically. To
 cancel any other code: generator → paste it → **Cancel the code**. **Restore a cancelled code** undoes it (for example
@@ -260,7 +260,9 @@ list of computers on the licence (a random number per install, nothing about the
 free the licence's 3 places without a counted move, and each computer would put itself back at its weekly check. A
 computer is taken off with **Release this computer** in the desktop app; if they ask you to delete the list too,
 **Clear its computers** in the generator does it. A computer already on the list does not link the email again at its
-weekly check: only putting the code on a new computer, or signing in again, does.
+weekly check: only putting the code on a new computer, or signing in again, does. A buyer signs in again with their
+email (their order is found in Stripe); someone with a **free** licence has no order to be found by, so they sign in
+again with their code (**Have a licence code? Use it instead**, as the sheet tells them), or you link it again.
 
 **Your key is lost.** Unlock the spare (`gdex-licence-key-9-spare.json`) and carry on; tell the developer, who makes you
 a new key in the next version. Codes already made keep working. If a key file and its passphrase leaked, tell the

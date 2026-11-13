@@ -297,6 +297,17 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
       const fourth = await post('/licence/activate', { code: seat, install: 'install-seat-0000000004', os: 'Linux' });
       ok('…and frees none of the licence\'s 3 places: after it, a 4th computer is still told the code is full', placed.join() === '200,200,200' && sv.status === 200 && sf.ok && fourth.status === 409 && (await fourth.json()).error === 'full');
     }
+    { // a free licence (the owner's code, linked for the website) has no order to find its email in again
+      const gift = await codes.signCode(ownerKey, 1, { name: 'Gift Holder', email: 'gift@example.com', comp: true, issued: '2026-11-02', serial: 46 });
+      await adm('link', '1:46', { code: gift });
+      const giftSent = () => mails().filter(x => x.to[0] === 'gift@example.com').length;
+      await web('start', { email: 'gift@example.com' });
+      const gv = await web('verify', { email: 'gift@example.com', code: lastCode('gift@example.com') }); await web('forget', { token: gv.token });
+      const afterForget = giftSent(); await web('start', { email: 'gift@example.com' });
+      const byEmail = giftSent() - afterForget; await web('start', { code: gift });
+      const gv2 = await web('verify', { email: 'gift@example.com', code: lastCode('gift@example.com') });
+      ok('…a free licence\'s holder, once deleted, is not found by email alone (no order to look up), but signs in again with the code, as the sheet says', gv.status === 200 && byEmail === 0 && giftSent() === afterForget + 1 && gv2.status === 200 && gv2.licence.comp === true);
+    }
     { // when codes were sent stays (without the code), so deleting cannot reset the limits: 3 went today, so 1 more
       const before = deskSent();
       await web('forget', { token: dt2.token });
