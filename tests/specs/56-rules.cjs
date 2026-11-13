@@ -283,20 +283,33 @@ const all = []; // every console error of every browser below
     ok('…and the whole note under Other rules on the show’s page', !!f && f.head === 'House rules at Club 9' && same(f.rows, [['Allowed', 'Phones'], ['Other rules', NOTE]]), JSON.stringify(f));
     await go(page, 'venues');
     got = await level({ answers: { phones: 'yes' }, tone: 'strict' });
-    ok('How strict set to Strict on a venue with nothing restricted: red, “Strict”', same(got, ['strict', 'Strict', 'House rules: Strict']) && (await rec(page, 'venues', 'club9')).rulesTone === 'strict', JSON.stringify(got));
+    ok('How strict set to Strict on a venue with nothing restricted: red, “Strict”, said to be set that way', same(got, ['strict', 'Strict', 'House rules, set to strict']) && (await rec(page, 'venues', 'club9')).rulesTone === 'strict', JSON.stringify(got));
     got = await level({ answers: { phones: 'yes' }, tone: 'some' });
-    ok('…to Some rules: amber, “Some rules”', same(got, ['some', 'Some rules', 'House rules: Some rules']), JSON.stringify(got));
+    ok('…to Some rules: amber, “Some rules”', same(got, ['some', 'Some rules', 'House rules, set to some rules']), JSON.stringify(got));
     got = await level({ answers: { proCameras: 'no', flash: 'no' }, tone: 'relaxed' });
-    ok('Relaxed on a restricted venue: green, with the same words', same(got, ['ok', '📷 Pro cameras ✗ · 1 more', 'House rules: Pro cameras not allowed, and 1 more']), JSON.stringify(got));
+    ok('Relaxed on a restricted venue: green, with the same words shown, and spoken words that say it was set relaxed', same(got, ['ok', '📷 Pro cameras ✗ · 1 more', 'House rules, set to relaxed: Pro cameras not allowed, and 1 more']), JSON.stringify(got));
+    // The colour set by hand is the person's own judgement: the full rules say it in words, on the venue's sheet and on the show's page.
+    await page.click('#vn-club9'); await page.waitForSelector('.vn-sheet');
+    f = await full(page, '.vn-sheet .vn-rules-sec');
+    ok('…its sheet says so in words: How strict, Relaxed, set by hand, after the rules', !!f && same(f.rows, [['Not allowed', 'Pro cameras · Flash'], ['How strict', 'Relaxed, set by hand']]), JSON.stringify(f));
+    await page.keyboard.press('Escape'); await sleep(200);
+    await openB(page, 'c91');
+    f = await full(page, '.bk-hero');
+    ok('…and so does the show’s page', !!f && same(f.rows, [['Not allowed', 'Pro cameras · Flash'], ['How strict', 'Relaxed, set by hand']]) && (await chip(page, '.bk-hero .vn-rules')).spoken === 'House rules, set to relaxed: Pro cameras not allowed, and 1 more', JSON.stringify(f));
+    await go(page, 'venues');
     await openEdit(page, 'club9');
     ok('the form shows the colour that was set by hand', (await page.inputValue(FORM.edit + ' [data-key=rulesTone]')) === 'relaxed');
     await page.locator(FORM.edit + ' .form-actions .btn', { hasText: 'Cancel' }).click(); await sleep(200);
     got = await level({ answers: { proCameras: 'no', flash: 'no' } });
     ok('…and Automatic works it out again: amber', same(got, ['some', '📷 Pro cameras ✗ · 1 more', 'House rules: Pro cameras not allowed, and 1 more']) && (await rec(page, 'venues', 'club9')).rulesTone === '', JSON.stringify(got));
+    await page.click('#vn-club9'); await page.waitForSelector('.vn-sheet');
+    f = await full(page, '.vn-sheet .vn-rules-sec');
+    ok('…with no How strict row in the full rules', !!f && same(f.rows, [['Not allowed', 'Pro cameras · Flash']]), JSON.stringify(f));
+    await page.keyboard.press('Escape'); await sleep(200);
     got = await level({ tone: 'strict' });
     await page.click('#vn-club9'); await page.waitForSelector('.vn-sheet');
     f = await full(page, '.vn-sheet .vn-rules-sec');
-    ok('a colour set by hand and nothing else: the chip alone, with no list under it', same(got, ['strict', 'Strict', 'House rules: Strict']) && !!f && f.chips === 1 && f.rows === null, JSON.stringify([got, f]));
+    ok('a colour set by hand and nothing else: the chip, and under it only How strict, Strict, set by hand', same(got, ['strict', 'Strict', 'House rules, set to strict']) && !!f && f.chips === 1 && same(f.rows, [['How strict', 'Strict, set by hand']]), JSON.stringify([got, f]));
     await page.keyboard.press('Escape'); await sleep(200);
 
     /* ---------------- free text is text ---------------- */

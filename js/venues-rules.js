@@ -35,9 +35,10 @@ export function rulesFull(v, { where = 'venue' } = {}) {
   const rows = [['Not allowed', list.no.join(' · ')], ['Allowed', list.yes.join(' · ')], ['Good to know', list.know.join(' · ')]].filter(([, words]) => words);
   return h('div', { class: onShow ? 'vn-rules vn-rules-show' : 'vn-rules' },
     h('div', { class: 'vn-rules-head' }, h('strong', { class: 'vn-rules-name' }, onShow && name ? `House rules at ${name}` : 'House rules'), venueChip(v)),
-    (rows.length > 0 || list.note) && h('dl', { class: 'vn-rules-list' },
+    (rows.length > 0 || list.note || list.tone) && h('dl', { class: 'vn-rules-list' },
       rows.map(([label, words]) => [h('dt', null, label), h('dd', null, words)]),
-      list.note && [h('dt', null, 'Other rules'), h('dd', { class: 'prewrap' }, list.note)]));
+      list.note && [h('dt', null, 'Other rules'), h('dd', { class: 'prewrap' }, list.note)],
+      list.tone && [h('dt', null, 'How strict'), h('dd', null, list.tone)])); // a colour set by hand, in words: never by colour alone
 }
 
 /* ------------------------------- the form's part ------------------------------- */

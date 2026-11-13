@@ -279,7 +279,8 @@ const noteStart = note => {
 };
 // The chip on a show's card: null when the venue has no level, else { level, label (what it shows, with its emoji),
 // spoken ("House rules: …", for a screen reader: capitalised, no emoji) }. The words name the main rule; a tone set by
-// hand changes only the colour. label and spoken are text: put them in with textContent, never as markup.
+// hand changes the colour, and the spoken words say so ("House rules, set to strict: …"), so the person's own judgement
+// is never carried by colour alone. label and spoken are text: put them in with textContent, never as markup.
 export function rulesChipText(v) {
   const level = rulesLevel(v);
   if (!level) return null;
@@ -299,10 +300,14 @@ export function rulesChipText(v) {
     if (more) { label += ` · ${more} more`; words += `, and ${more} more`; }
   } else if (r.note) { const start = noteStart(r.note); label = `📝 ${start}`; words = `Note: ${start}`; }
   else label = words = { ok: 'No restrictions', some: 'Some rules', strict: 'Strict' }[level];
-  return { level, label, spoken: `House rules: ${words}` };
+  const set = toneSaid(r.tone);
+  return { level, label, spoken: set ? `House rules, set to ${set.toLowerCase()}${words === set ? '' : ': ' + words}` : `House rules: ${words}` };
 }
+// How strict, when it was set by hand: 'Relaxed', 'Some rules' or 'Strict' ('' when the colour is automatic).
+const toneSaid = tone => (tone && (RULE_TONES.find(t => t[0] === tone) || [])[1]) || '';
 // The full rules as lists of words, each in list order: no (permissions answered Not allowed), yes (permissions
-// answered Allowed), know (each answered fact in its own words and each pick-list's choice), and the note.
+// answered Allowed), know (each answered fact in its own words and each pick-list's choice), the note, and tone: how
+// strict, in words, when it was set by hand ("Strict, set by hand"; '' when the colour is automatic).
 export function rulesList(v) {
   const r = rulesOf(v), answered = HOUSE_RULES.filter(q => q.id in r.values);
   return {
@@ -310,6 +315,7 @@ export function rulesList(v) {
     yes: answered.filter(q => q.kind === 'allow' && r.values[q.id] === 'yes').map(q => q.label),
     know: answered.filter(q => q.kind !== 'allow').map(q => (q.kind === 'fact' ? q[r.values[q.id]] : (q.options.find(o => o[0] === r.values[q.id]) || [])[1])).filter(Boolean),
     note: r.note,
+    tone: r.tone ? `${toneSaid(r.tone)}, set by hand` : '',
   };
 }
 // Whose rules a booking carries: the saved venue of a show that is not cancelled; null for anything else (a session,

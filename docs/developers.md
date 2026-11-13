@@ -313,7 +313,7 @@ holds and offers, which a role with money is not asked about); `markWent(booking
 House rules: `RULE_GROUPS`, `HOUSE_RULES` (17 rules: `{ id, group, kind: 'allow'|'fact'|'pick', label, icon, options?,
 yes?, no?, bad? }`), `RULE_TONES`, `rulesOf(v)` (`{ values, note, tone, known, restricted }`), `rulesLevel(v)` (`''`,
 `'ok'`, `'some'`, `'strict'`), `rulesChipText(v)` (`null`, or `{ level, label, spoken }`), `rulesList(v)`
-(`{ no, yes, know, note }`), `showRulesVenue(b)` (the saved venue of a show that is not cancelled, else `null`). The
+(`{ no, yes, know, note, tone }`), `showRulesVenue(b)` (the saved venue of a show that is not cancelled, else `null`). The
 colour: a tone set by hand wins; else red (`strict`) when phones are not allowed, or neither pro cameras nor
 point-and-shoots are; amber (`some`) when anything else is restricted (an age limit, ID needed, cash only, strobes
 count) or when there is free text (a written rule is a rule, with answers beside it or without); green (`ok`) when
@@ -321,9 +321,12 @@ at least one answer is known, nothing is restricted and there is no free text; n
 no note and no tone. The chip names the main rule (`📷 Pro cameras ✗ · 1 more`, `📵 No phones or cameras`, `🔞 21+`,
 `💵 Cash only`; free text counts as one more), reads `No restrictions`, or shows the start of the note when nothing
 ticked is restricted (`📝 Shoes off in the live room…`: its first line, cut at a word before the 28th character, with no
-comma or full stop left hanging before the …); a tone set by hand changes only the colour, so the words and the spoken
-text do not say that a venue was marked Strict or Relaxed by hand. `spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both
-are text: set them with `textContent`.
+comma or full stop left hanging before the …). A tone set by hand changes the colour and leaves the words shown as
+they are, but it is the person's own judgement, so it is never carried by colour alone: the spoken words say it
+(`House rules, set to strict: Pro cameras not allowed, and 1 more`; with nothing else to say, `House rules, set to
+strict`), and `rulesList(v).tone` gives it for the full rules (`Strict, set by hand`; `''` when the colour is automatic).
+`spoken` (`House rules: Pro cameras not allowed, and 1 more`) is for a screen reader. Both are text: set them with
+`textContent`.
 
 Use these instead of re-implementing them, so a show's numbers agree on every page. If one is wrong or missing, say
 so in your report rather than forking it.
@@ -574,7 +577,8 @@ press that opened it, still down) does not.
   ones in `> .sr-only` (the chip's whole `textContent` runs both together). On Coming up cards and Week rows through
   `cardExtras`, on the venue's card, and at the head of the full rules.
 * The full rules: `div.vn-rules` (`.vn-rules-show` on a show's page, in a box of its own) with a head line and
-  `dl.vn-rules-list` (Not allowed, Allowed, Good to know, Other rules). On the venue's sheet they sit in
+  `dl.vn-rules-list` (Not allowed, Allowed, Good to know, Other rules, and How strict when the colour was set by hand:
+  `Strict, set by hand`). On the venue's sheet they sit in
   `section.vn-rules-sec`, where the head line's "House rules" is hidden under the section's own heading.
 * The form's part: `div.vn-rules-edit`, a `fieldset.vn-rules-group` per group, one `div.vn-rule[data-rule]` per rule
   with `#vn-rule-<id>-yes` and `#vn-rule-<id>-no` (`aria-pressed`), or `select#vn-rule-<id>` for a pick-list. Each
