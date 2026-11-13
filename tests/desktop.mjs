@@ -179,7 +179,7 @@ try {
   ok('Google’s sign-in opens once in the web browser with the hint and a nonce CSP, refuses an answer without the page’s key or from another origin, hands the token to the window, then is gone', Object.values(signin).every(Boolean), JSON.stringify(signin));
 
   // Nobody who never linked Google Drive contacts anyone: type in a field for a moment, open every section.
-  await win.click('#searchBtn'); await sleep(300);
+  await win.click('#srch-box'); await sleep(300); // the search box at the top of every page (item 8b)
   await win.keyboard.type('Lantern church friday', { delay: 40 }); await sleep(400);
   await win.keyboard.press('Escape'); await sleep(200);
   const sections = await win.evaluate(async () => { const { SECTIONS } = await import('./js/roles.js'); for (const id of SECTIONS) { await window.logiGo(id); await new Promise(r => setTimeout(r, 250)); } return SECTIONS; });
