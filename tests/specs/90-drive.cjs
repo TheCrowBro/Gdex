@@ -3,9 +3,10 @@
 // walkthroughs of the Backups sheet, the connect sheet and the daily copies; the first device writes the copy, a second
 // joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
 // page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
-// and Replace reaching every device; Disconnect, Delete Gdex's copy and Erase; and the earliest free day carried in the
-// Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in script is served by the test, and one Google Drive
-// held here in Node answers every device (each browser context is one device).
+// and Replace reaching every device; Disconnect, Delete Gdex's copy and Erase; where the focus goes when the Drive card
+// is redrawn; and the earliest free day carried in the Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in
+// script is served by the test, and one Google Drive held here in Node answers every device (each browser context is
+// one device).
 // This file also exports the fake and the device opener for 91-drive-merge and 92-drive-desktop.
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
@@ -151,6 +152,8 @@ const data = page => page.evaluate(() => import('./js/store.js').then(s => JSON.
 const cloudState = page => page.evaluate(() => [document.getElementById('cloudBtn').dataset.state || '', document.getElementById('cloudLabel').textContent]);
 const waitCloud = (page, st) => page.waitForFunction(s => document.getElementById('cloudBtn')?.dataset.state === s, st, { timeout: 15000 }).then(() => true, () => false);
 const toasts = page => page.evaluate(() => window.__toasts.join(' | '));
+// The classes of the control holding the focus ('' for none).
+const focused = page => page.evaluate(() => { const a = document.activeElement; return a ? [...a.classList].join(' ') : ''; });
 // The ☁ sheet (the backups panel with the Drive card), opened as a person would.
 async function openBackups(page) {
   if (await page.locator(sheetOf('Backups')).count()) return;
@@ -172,7 +175,7 @@ async function connect(page) {
 const monthName = n => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + n); return `gdex-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}.json`; };
 const weekdayName = () => `gdex-backup-${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]}.json`;
 
-module.exports = { CLIENT, SCOPE, ROOT, GIS, fakeDrive, device, serveFiles, state, syncOn, data, cloudState, waitCloud, toasts, openBackups, closeSheets, connect, until, sheetOf, monthName, weekdayName };
+module.exports = { CLIENT, SCOPE, ROOT, GIS, fakeDrive, device, serveFiles, state, syncOn, data, cloudState, waitCloud, toasts, focused, openBackups, closeSheets, connect, until, sheetOf, monthName, weekdayName };
 
 // A stand-in for js/licence-state.js (Part A builds the real one): every export of the build spec §3.5, free days kept
 // in gdex-licence { first }, adoptFreeDaysFrom as §3.5 has it, and the store's gate shut for a paid role once 30 days
@@ -265,6 +268,7 @@ if (require.main === module) (async () => {
   const gcfg = await pa.evaluate(() => ({ id: window.__gcfg.client_id, scope: window.__gcfg.scope, req: window.__greq }));
   ok('Google is asked with Gdex’s client for drive.appdata only', gcfg.id === CLIENT && gcfg.scope === SCOPE && gcfg.req.prompt === '', JSON.stringify(gcfg));
   ok('connected: the ☁ button says Synced', await waitCloud(pa, 'synced') && (await cloudState(pa))[1] === 'Synced');
+  ok('…and the focus goes back to the redrawn Drive card, on Sync now', /se-bk-drive-sync/.test(await focused(pa)), await focused(pa));
   ok('…with a toast that says so', /Connected to Google Drive\. Up to date\./.test(await toasts(pa)));
   let dbA = D.json();
   ok('the first device writes gdex-db.json into the app folder, with its records', D.named('gdex-db.json').length === 1 && dbA.app === 'gdex' && dbA.bookings.some(b => b.id === 's-show1') && dbA.acts.some(a => a.id === 's-owls'));
@@ -327,6 +331,7 @@ if (require.main === module) (async () => {
   const calls = await pa.evaluate(() => window.__gcalls);
   await pa.click(`${sheetOf('Backups')} .se-bk-drive-again`);
   ok('one tap signs in again, naming the account so Google can skip its chooser', await waitCloud(pa, 'synced') && (await pa.evaluate(() => window.__greq.login_hint)) === 'gee@example.com' && (await pa.evaluate(() => window.__gcalls)) === calls + 1);
+  ok('…and the focus stays in the card when Sign in again goes, on Sync now', !!(await until(async () => /se-bk-drive-sync/.test(await focused(pa)), 3000)), await focused(pa));
   await until(async () => /Signed in again\. Up to date\./.test(await toasts(pa)));
   ok('…and says so', /Signed in again\. Up to date\./.test(await toasts(pa)));
   // a 401 from Drive itself (the token was withdrawn) is the same: sign in again
@@ -446,6 +451,7 @@ if (require.main === module) (async () => {
   await openBackups(pa);
   await pa.click(`${sheetOf('Backups')} .se-bk-drive-off`);
   await pa.waitForSelector(`${sheetOf('Backups')} .se-bk-drive[data-state=off]`, { timeout: 10000 });
+  ok('…the focus moves to Connect Google Drive…, not to the page’s start', /se-bk-drive-connect/.test(await focused(pa)), await focused(pa));
   ok('Disconnect stops syncing here and keeps both copies', D.files.length === nFiles && (await data(pa)).bookings.length === beforeA && !(await pa.evaluate(() => localStorage.getItem('gdex-drive') || localStorage.getItem('gdex-google-tokens') || localStorage.getItem('gdex-drive-file'))) && (await cloudState(pa))[0] === '');
   const writesAfter = D.writes('A');
   await pa.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 'a-off', title: 'Not Copied' })));
@@ -458,6 +464,7 @@ if (require.main === module) (async () => {
   await pb.click(`${sheetOf('Backups')} .se-bk-drive-delete`); // the confirm is accepted
   await pb.waitForSelector(`${sheetOf('Backups')} .se-bk-drive[data-state=off]`, { timeout: 10000 });
   ok('Delete Gdex’s copy removes every file from Drive and disconnects', D.files.length === 0 && !(await state(pb)).linked);
+  ok('…and the focus moves to Connect Google Drive…', /se-bk-drive-connect/.test(await focused(pb)), await focused(pb));
   ok('…and this device keeps everything', (await data(pb)).bookings.length === beforeB && beforeB > 0);
   await closeSheets(pb);
 
@@ -502,6 +509,22 @@ if (require.main === module) (async () => {
     ok('Not now closes the sheet: nothing linked and Google Drive never contacted', !(await state(pe)).linked && !E.hosts.some(x => /googleapis/.test(x)) && E.hosts.every(x => x === 'accounts.google.com/gsi/client'), E.hosts.join(' '));
     await closeSheets(pe);
     await E.ctx.close();
+  }
+
+  /* ------------------------------ a first sync that fails, then Not now ------------------------------ */
+  {
+    const D3 = fakeDrive();
+    const F = await device(browser, D3, { who: 'F' }); all.push(F);
+    const pf = F.page, cs = sheetOf('Connect Google Drive');
+    F.allow.push(/status of 500/);
+    D3.fail = { status: 500, match: r => r.method === 'GET' && r.path === '/drive/v3/files' };
+    await connect(pf);
+    ok('a first sync that fails says why in the connect sheet and leaves nothing linked', /an error from Google \(500\)/.test(await pf.locator(`${cs} .se-bk-drive-err`).innerText()) && !(await state(pf)).linked && !(await pf.evaluate(() => localStorage.getItem('gdex-drive') || localStorage.getItem('gdex-google-tokens'))));
+    await pf.click(`${cs} .btn.ghost:has-text("Not now")`);
+    await pf.waitForSelector(cs, { state: 'detached', timeout: 10000 });
+    ok('…and Not now gives the focus back to Connect Google Drive…, though the card was redrawn meanwhile', /se-bk-drive-connect/.test(await focused(pf)), await focused(pf));
+    await closeSheets(pf);
+    await F.ctx.close();
   }
 
   /* ------------------------------ the earliest free day, carried by Drive ([S-39]) ------------------------------ */

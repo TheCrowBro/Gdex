@@ -255,7 +255,15 @@ export function replaceAll(data, { everywhere = false } = {}) {
 export const exportJSON = () => JSON.stringify(db, null, 2);
 
 const ts = r => Number(r && r.updatedAt) || 0;
-const newer = (x, y) => (ts(y) > ts(x) ? y : x);
+// The newer copy. Two copies of the same time that differ (changed in the same millisecond on two devices, or never
+// stamped) go the same way on every device, to the one whose JSON sorts last: otherwise each device keeps its own and
+// writes it back to Google Drive at every sync, for ever.
+const newer = (x, y) => {
+  const d = ts(y) - ts(x);
+  if (d) return d > 0 ? y : x;
+  if (x === y) return x;
+  return JSON.stringify(y) > JSON.stringify(x) ? y : x;
+};
 const buried = (dead, id) => Object.prototype.hasOwnProperty.call(dead, id);
 // The two lists people fill on two devices at once, an act's times seen and a take log's takes, are joined entry by
 // entry: the newer copy of the record wins, and gets every entry of the older copy that it lacks and that was not
@@ -283,11 +291,19 @@ export function mergeDb(local, remote) {
   for (const [id, t] of Object.entries(b.deleted || {})) dead[id] = Math.max(dead[id] || 0, t);
   const out = { ...a, deleted: dead };
   for (const c of COLLECTIONS) out[c] = mergeList(a[c], b[c], dead, JOIN[c]);
-  for (const k of ['templates', 'billing', 'priceList']) out[k] = ts(b[k]) > ts(a[k]) ? b[k] : a[k];
+  for (const k of ['templates', 'billing', 'priceList']) out[k] = newer(a[k], b[k]);
   // A profile someone filled in always beats an empty one or the sample's stand-in, whatever their times; between two
-  // filled-in profiles the newer wins.
-  const standIn = p => !p || (p.name === SAMPLE_PROFILE.name && p.business === SAMPLE_PROFILE.business) || !['name', 'business', 'role', 'phone', 'email', 'website', 'address', 'location', 'bio'].some(k => String(p[k] || '').trim());
-  out.profile = standIn(a.profile) !== standIn(b.profile) ? (standIn(a.profile) ? b.profile : a.profile) : ts(b.profile) > ts(a.profile) ? b.profile : a.profile;
+  // filled-in profiles the newer wins. An empty one and the sample's stand-in carry no time of their own (the sample
+  // and Remove the sample leave it as it was), so between those two the stand-in stays while the sample does: on
+  // every device alike, and gone everywhere once the sample is removed.
+  const empty = p => !p || !['name', 'business', 'role', 'phone', 'email', 'website', 'address', 'location', 'bio'].some(k => String(p[k] || '').trim());
+  const standIn = p => empty(p) || (p.name === SAMPLE_PROFILE.name && p.business === SAMPLE_PROFILE.business);
+  const [pa, pb] = [a.profile, b.profile];
+  if (standIn(pa) !== standIn(pb)) out.profile = standIn(pa) ? pb : pa;
+  else if (standIn(pa) && ts(pa) === ts(pb) && empty(pa) !== empty(pb)) {
+    const sample = COLLECTIONS.some(c => out[c].some(r => r && r.sample));
+    out.profile = empty(pa) === !sample ? pa : pb;
+  } else out.profile = newer(pa, pb);
   out.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
   return out;
 }

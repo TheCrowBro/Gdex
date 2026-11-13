@@ -3,8 +3,9 @@
 // and staying; no ping-pong (two devices with their records, or one act's times seen, in different orders write nothing
 // once they agree); a
 // copy taken in is never pushed straight back; duplicate gdex-db.json files merged and the extra deleted; a Vdex file
-// in Drive refused; a copy deleted in Drive meanwhile made again; and Google Drive's errors in words, with the
-// connection coming back. Uses 90-drive's fake Drive and device opener.
+// in Drive refused; a copy deleted in Drive meanwhile made again; Google Drive's errors in words, with the
+// connection coming back; and ties (the same time, different contents) settled alike on every device, the sample's
+// stand-in profile included. Uses 90-drive's fake Drive and device opener.
 const { chromium } = require('playwright');
 const { ok, sleep } = require('../helpers.cjs');
 const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, data, until, sheetOf, waitCloud, cloudState } = require('./90-drive.cjs');
@@ -160,6 +161,44 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
   ok('Google’s rate limit is said in words', (await state(pa)).error === 'Google Drive is busy: Gdex will try again in a minute.');
   A.allow.pop();
   await closeSheets(pa);
+
+  /* ------------------------------ ties: the same time, different contents ------------------------------ */
+  // Two copies of the same time that differ go the same way on every device; otherwise each keeps its own and writes it
+  // back at every sync. The sample's stand-in profile and an empty one carry no time of their own at all.
+  {
+    const unit = await pa.evaluate(() => import('./js/store.js').then(s => {
+      const base = s.normalise({}), T = Date.now();
+      const v = notes => ({ ...base, venues: [{ id: 'tv', name: 'Tie', notes, updatedAt: T }] });
+      const x = v('from one'), y = v('from two');
+      return [s.mergeDb(x, y).venues[0].notes, s.mergeDb(y, x).venues[0].notes];
+    }));
+    ok('mergeDb settles a tie the same way whichever copy is this device’s', unit[0] === unit[1], JSON.stringify(unit));
+    const D3 = fakeDrive();
+    const P = await device(browser, D3, { who: 'P', sample: true }); all.push(P);
+    const Q = await device(browser, D3, { who: 'Q' }); all.push(Q);
+    await connect(P.page); await waitCloud(P.page, 'synced'); await closeSheets(P.page);
+    await connect(Q.page); await waitCloud(Q.page, 'synced'); await closeSheets(Q.page);
+    await syncOn(P.page);
+    const names = async () => [(await data(P.page)).profile.name, (await data(Q.page)).profile.name, D3.json().profile.name].join(' | ');
+    let w = D3.writes();
+    for (let i = 0; i < 3; i++) { await syncOn(P.page); await syncOn(Q.page); }
+    ok('the sample’s stand-in profile on one device and an empty one on the other: the stand-in on both while the sample is there, and syncing writes nothing', (await names()) === 'Sample Producer | Sample Producer | Sample Producer' && D3.writes() === w, `${await names()}; ${D3.writes() - w} writes`);
+    await Q.page.evaluate(() => import('./js/pages/settings.js').then(m => m.removeSample()));
+    await until(() => D3.json().profile.name === '');
+    await syncOn(P.page); await syncOn(Q.page); await syncOn(P.page);
+    w = D3.writes();
+    for (let i = 0; i < 2; i++) { await syncOn(P.page); await syncOn(Q.page); }
+    ok('…and Remove the sample on one device clears the stand-in on both, for good', (await names()) === ' |  | ' && !(await data(P.page)).bookings.some(b => b.sample) && D3.writes() === w, `${await names()}; ${D3.writes() - w} writes`);
+    const T = Date.now() + 10;
+    const tieOn = (page, notes) => page.evaluate(([t, n]) => import('./js/store.js').then(s => s.update(d => { d.venues.push({ id: 'tie-v', name: 'Tied', notes: n, updatedAt: t }); })), [T, notes]);
+    await tieOn(P.page, 'from P'); await tieOn(Q.page, 'from Q');
+    await sleep(1500); // their timed syncs
+    await syncOn(P.page); await syncOn(Q.page); await syncOn(P.page);
+    w = D3.writes();
+    for (let i = 0; i < 3; i++) { await syncOn(P.page); await syncOn(Q.page); }
+    const tv = async p => ((await data(p)).venues.find(v => v.id === 'tie-v') || {}).notes;
+    ok('a record made on two devices in the same millisecond with different contents settles on one copy, and syncing then writes nothing', (await tv(P.page)) === (await tv(Q.page)) && !!(await tv(P.page)) && D3.writes() === w, `${await tv(P.page)} | ${await tv(Q.page)}; ${D3.writes() - w} writes`);
+  }
 
   const errs = all.flatMap(d => d.errors.map(e => `${d.who}: ${e}`));
   ok('no errors in the console', errs.length === 0, errs.slice(0, 5).join(' | '));

@@ -151,6 +151,14 @@ copy's `updatedAt` goes. Removing a time seen or a take writes a tombstone for i
 linked tombstones every record, time seen and take the backup lacks and stamps every restored record now, so every
 device follows it. Device clocks decide clashes; tombstones last 180 days.
 
+Two copies of the same time that differ (changed in the same millisecond on two devices, or never stamped) go the same
+way on every device, to the one whose JSON sorts last; otherwise each device would keep its own and write it back at
+every sync, for ever. The profile keeps its own rule: one someone filled in beats an empty one or the sample's stand-in
+whatever their times, and the newer of two filled-in ones wins. The sample's stand-in and an empty profile carry no time
+of their own (loading and removing the sample leave it as it was), so between those two the stand-in stays while
+sample records are there and the empty one wins once they are gone: a device with the sample and a new one agree, and
+Remove the sample on either clears the stand-in on both.
+
 ### Keys (localStorage; Erase clears them, after disconnecting)
 
 `gdex-drive` (`'1'` while linked), `gdex-drive-file` (the shared copy's id), `gdex-google-tokens` (`{ value, exp }`),
@@ -171,11 +179,14 @@ the desktop app refuses to sign in (Google knows only 47861).
   script not loading, then Try again); the walkthroughs of the Backups sheet, the connect sheet and the daily copies;
   first device, second device, edits and deletions travelling; the hour up and one tap; a 401; status changes not
   redrawing the page; the store's gate refusing; the daily and monthly copies; a failed sync and a failed daily copy;
-  bringing a daily copy back and Replace on every device; Disconnect, Delete, Erase; `freeDaysFrom` with a stand-in
-  licence state.
+  bringing a daily copy back and Replace on every device; Disconnect, Delete, Erase; a first sync that fails, then Not
+  now; where the focus goes when the card is redrawn (after connecting, Sign in again, Disconnect, Delete, Not now);
+  `freeDaysFrom` with a stand-in licence state.
 - `91-drive-merge`: `mergeDb` entry by entry; two devices logging at once; no ping-pong (records, or one act's times
   seen, in different orders); nothing pushed back after a copy is taken in; Replace everywhere with entries; duplicate
-  copies; a Vdex file refused; a copy deleted meanwhile; Drive's errors in words and the connection coming back.
+  copies; a Vdex file refused; a copy deleted meanwhile; Drive's errors in words and the connection coming back; ties
+  (one record with the same time and different contents on two devices; the sample's stand-in profile on one device
+  and an empty one on another, then Remove the sample) settle the same way everywhere and stop writing.
 - `92-drive-desktop`: the desktop app's bridge stood in for at localhost:47861 (served by the test, no server); a
   stand-in port; the desktop app's files in a web browser; `index.html`'s CSP.
 

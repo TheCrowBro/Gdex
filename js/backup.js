@@ -401,7 +401,7 @@ async function driveRun(fn, done) {
 // Connect: what Drive does, in a sheet, then Google's sign-in from the tap on Continue. Google's script is loaded when
 // this sheet opens, so its window can open straight from that tap (browsers block one that opens later). The desktop
 // app loads nothing here: its sign-in opens in the web browser.
-function openConnectSheet() {
+function openConnectSheet(panel = null) {
   const d = drive.driveState();
   if (d.away) { toast(DRIVE_WORDS.away); return; }
   const desktop = d.desktop;
@@ -426,15 +426,15 @@ function openConnectSheet() {
     desktop && h('p', null, 'Google’s sign-in opens in your web browser; come back to Gdex when it says so.'),
     note, err,
     h('div', { class: 'actions se-bk-connect-actions' }, go, retry, h('button', { type: 'button', class: 'btn ghost', onclick: () => s.close() }, 'Not now')));
-  const s = sheet('Connect Google Drive', body);
+  const s = sheet('Connect Google Drive', body, { onClose: backToCard(panel, '.se-bk-drive-connect') });
   if (!desktop) load();
 }
 
 // The daily copies in Drive, newest first; one tap opens the same chooser as a backup file (merge, or replace on
 // every connected device).
-async function openDailyCopies() {
+async function openDailyCopies(panel = null) {
   const box = h('div', { class: 'stack se-bk-copies' }, h('p', { class: 'small muted', role: 'status' }, 'Looking for the daily copies in your Google Drive…'));
-  const s = sheet('Bring back a daily copy', box);
+  const s = sheet('Bring back a daily copy', box, { onClose: backToCard(panel, '.se-bk-drive-restore') });
   const done = h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost', onclick: () => s.close() }, 'Close'));
   let copies;
   try { copies = await drive.listDailyCopies({ ask: true }); }
@@ -473,7 +473,7 @@ function driveCard() {
   if (!d.linked) {
     return card('off', title,
       h('p', { class: 'small muted' }, 'Keep Gdex the same on your phone and computer, with a dated copy each day, in a private Gdex folder of your own Google Drive. Free. Only Gdex can open that folder.'),
-      h('button', { type: 'button', class: 'btn primary se-bk-drive-connect', onclick: () => openConnectSheet() }, 'Connect Google Drive…'));
+      h('button', { type: 'button', class: 'btn primary se-bk-drive-connect', onclick: e => openConnectSheet(e.currentTarget.closest('.se-bk')) }, 'Connect Google Drive…'));
   }
   const needs = d.status === 'needs-permission';
   const line = {
@@ -492,20 +492,35 @@ function driveCard() {
     h('div', { class: 'actions se-bk-drive-actions' },
       needs && h('button', { type: 'button', class: 'btn primary se-bk-drive-again', onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Signed in again. Up to date.') }, 'Sign in again'),
       h('button', { type: 'button', class: `btn ${needs ? 'ghost' : 'primary'} se-bk-drive-sync`, onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Google Drive is up to date.') }, 'Sync now'),
-      h('button', { type: 'button', class: 'btn ghost se-bk-drive-restore', onclick: () => openDailyCopies() }, 'Bring back a daily copy…'),
+      h('button', { type: 'button', class: 'btn ghost se-bk-drive-restore', onclick: e => openDailyCopies(e.currentTarget.closest('.se-bk')) }, 'Bring back a daily copy…'),
       h('button', { type: 'button', class: 'btn ghost se-bk-drive-off', onclick: async () => { if (await drive.disconnectDrive()) toast('Google Drive is disconnected on this device. Both copies stay.'); } }, 'Disconnect')),
     h('p', { class: 'small muted' }, 'Disconnect stops syncing on this device. Both copies stay: this device’s and the one in your Drive. To take Gdex’s access away completely, remove Gdex in your Google Account under third-party connections.'),
     h('button', { type: 'button', class: 'btn ghost small se-bk-drive-delete', onclick: () => deleteDriveCopy() }, 'Delete Gdex’s copy from Google Drive…'));
 }
 
 /* ------------------------------- the panel ------------------------------- */
-// Redraw a box and give the focus back to the same control (by its label), so a tap does not lose the place.
+// Redraw a box and give the focus back to the same control (by its label), so a tap does not lose the place. When the
+// tap made that control go (Disconnect, Sign in again, Stop), the focus goes to the first button of the same card.
 const keyOf = el => (el && (el.getAttribute('aria-label') || el.textContent || '').trim()) || '';
+const CARDS = ['.se-bk-drive', '.se-bk-file'];
 function redraw(box, kids) {
   const a = document.activeElement, k = a && box.contains(a) ? keyOf(a) : '';
+  const card = k ? CARDS.find(c => a.closest(c)) : '';
   box.replaceChildren(...nodes(kids));
-  if (k) { const again = [...box.querySelectorAll('button, a[href], input, select, textarea')].find(x => keyOf(x) === k); if (again) again.focus({ preventScroll: true }); }
+  if (k) {
+    const again = [...box.querySelectorAll('button, a[href], input, select, textarea')].find(x => keyOf(x) === k) || (card && box.querySelector(`${card} button`));
+    if (again) again.focus({ preventScroll: true });
+  }
 }
+// A sheet opened from the Drive card gives the focus back to it when it closes, even when the card was redrawn
+// meanwhile (connected, or a sign-in undone): to the control that opened it, or the card's first button.
+const backToCard = (panel, sel) => () => {
+  const a = document.activeElement;
+  if (a && a !== document.body && a.isConnected) return;
+  const card = panel && panel.isConnected ? panel.querySelector('.se-bk-drive') : null;
+  const b = card && (card.querySelector(sel) || card.querySelector('button'));
+  if (b) b.focus({ preventScroll: true });
+};
 
 function statusLine() {
   const hl = health();
