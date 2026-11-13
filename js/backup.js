@@ -7,6 +7,7 @@ import * as store from './store.js';
 import { saveFile } from './print.js';
 import { sheetTutorial } from './tour.js';
 import * as C from './crypto.js';
+import { kv } from './kv.js';
 
 const ls = {
   get: k => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -208,6 +209,7 @@ function chooseHow(data, name) {
     const nFile = totalOf(inFile), nHere = totalOf(here);
     const at = Number(data.updatedAt) || 0;
     const go = how => {
+      if (!store.canChange()) return; // bringing a backup back is a change: the chooser stays open and the licence's sheet explains
       if (how === 'replace' && !confirm(`Replace everything on this device with this backup? The ${plural(nHere, 'record')} here now are replaced by the ${plural(nFile, 'record')} in the file. This can’t be undone.`)) return;
       finish(how); s.close();
       if (how === 'replace') { store.replaceAll(data); const msg = `Backup brought back: ${plural(nFile, 'record')}.`; toast(msg); announce(msg); }
@@ -241,23 +243,6 @@ const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (
 const FILE = { handle: null, status: 'off', error: '', remembered: true, fails: 0 }; // status: off | saved | saving | needs-permission | error
 export const fileState = () => ({ supported: fileSupported(), linked: !!FILE.handle, name: FILE.handle ? FILE.handle.name : '', status: FILE.handle ? FILE.status : 'off', error: FILE.error, at: lastFiled(), remembered: FILE.remembered });
 const setStatus = (status, error = '') => { FILE.status = status; FILE.error = error; changed(); };
-
-const idb = () => new Promise((res, rej) => {
-  const r = indexedDB.open('gdex', 1);
-  r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('kv')) r.result.createObjectStore('kv'); };
-  r.onsuccess = () => res(r.result);
-  r.onerror = () => rej(r.error);
-  r.onblocked = () => rej(new Error('blocked'));
-});
-async function kv(mode, fn) {
-  const d = await idb();
-  try {
-    return await new Promise((res, rej) => {
-      const t = d.transaction('kv', mode), q = fn(t.objectStore('kv'));
-      t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
-    });
-  } finally { d.close(); }
-}
 
 async function permitted(handle, ask) {
   if (!handle || typeof handle.queryPermission !== 'function') return !!handle;
@@ -331,6 +316,16 @@ export async function unlinkFile() {
   try { await kv('readwrite', s => s.delete('fileHandle')); } catch { /* nothing kept */ }
   changed();
   return had;
+}
+// Erase this device (Settings) calls this first, so nothing linked is written over by the empty database: the copy in
+// a file, and Google Drive once js/sync.js is linked (Part D adds that line here).
+export async function beforeErase() { await unlinkFile(); }
+// Settings → Backups' closed line (moved here from js/pages/settings.js so Drive can add to it).
+export function backupLine() {
+  const hl = health(), f = fileState();
+  const bits = [hl.level === 'ok' ? `Last backup ${hl.when}` : hl.level === 'old' ? `⚠ Last backup ${hl.when}` : hl.level === 'none' ? '⚠ No backup yet' : 'Nothing to back up yet'];
+  if (f.linked) bits.push(f.status === 'needs-permission' ? '⚠ the file copy needs your OK' : f.status === 'error' ? '⚠ the file copy wasn’t saved' : `copy in ${f.name}`);
+  return bits.join(' · ');
 }
 
 // On load: link the file kept from last time, and catch up with changes made since it was last written.

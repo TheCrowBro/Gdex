@@ -1,6 +1,7 @@
-// The one database: a JSON object kept in this browser's localStorage, written once per burst of changes. Nothing is
-// sent anywhere; a backup file (js/backup.js) moves it between devices. Every change goes through update(), which
-// stamps the time, saves, and tells the page to redraw.
+// The one database: a JSON object kept in this browser's localStorage, written once per burst of changes. It is sent
+// nowhere by itself: a backup file (js/backup.js) moves it between devices, and Google Drive (js/sync.js) keeps it the
+// same on every device the person links. Every change goes through update(), which asks the licence's gate, stamps the
+// time, saves, and tells the page to redraw.
 import { uid, ymd } from './util.js';
 
 const KEY = 'gdex-db-v1';
@@ -34,6 +35,7 @@ export function normalise(raw) {
   out.deleted = Object.fromEntries(Object.entries(raw && raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {}).filter(([, t]) => Date.now() - t < 180 * 864e5));
   for (const k of ['templates', 'billing', 'priceList']) out[k] = raw && raw[k] && typeof raw[k] === 'object' ? raw[k] : b[k];
   out.app = 'gdex';
+  delete out.freeDaysFrom; // the Drive copy's earliest free day (js/sync.js): never part of the database
   return out;
 }
 
@@ -47,7 +49,7 @@ let rev = 0;
 export const revision = () => rev;
 export const serialize = () => JSON.stringify(db);
 const subs = new Set();
-// fn(reason): 'data' after a change. Returns an unsubscribe function.
+// fn(reason): 'data' after a change, 'sync' when a copy from Google Drive was adopted. Returns an unsubscribe function.
 export const subscribe = fn => { subs.add(fn); return () => subs.delete(fn); };
 const emit = (reason = 'data') => subs.forEach(fn => { try { fn(reason); } catch (e) { console.error(e); } });
 export const redraw = () => emit();
@@ -65,32 +67,48 @@ function writeNow() {
 }
 function persist() { rev++; if (sealed) { dirty = true; return; } if (!writeQueued) { writeQueued = true; queueMicrotask(writeNow); } }
 export function flush() { rev++; writeNow(); }
-// Every change is allowed: kept so shared code (forms) can ask.
-export const canChange = () => true;
+// The licence (js/licence-state.js) installs the one write gate: a paid role used after its free days is read-only.
+// fn({ form, quiet }) → true to allow. form: a form asks before closing (it stays open when refused); quiet: a side
+// effect of something allowed (a day sheet marked sent), skipped without a word when refused.
+let gate = null;
+export const setGate = fn => { gate = typeof fn === 'function' ? fn : null; };
+export const canChange = () => !gate || gate({ form: true }) !== false;
+export const canChangeQuietly = () => !gate || gate({ quiet: true }) !== false;
 
-// Mutate the database inside fn(db). Saves and redraws. Returns true.
+// After every change made on this device (update, replaceAll, mergeIn), never after adopt(): js/sync.js copies the
+// data to Google Drive from here. Returns an unsubscribe function.
+const writeHooks = new Set();
+export const afterWrite = fn => { writeHooks.add(fn); return () => writeHooks.delete(fn); };
+const wrote = () => writeHooks.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+
+// Mutate the database inside fn(db). Saves and redraws. Returns true, or false when the licence refused the change
+// (nothing was changed or saved).
 export function update(fn, reason = 'data') {
+  if (gate && gate() === false) return false;
   fn(db);
   db.updatedAt = Date.now();
   persist();
   emit(reason);
+  wrote();
   return true;
 }
 
-// Insert or replace a record by id (a new id when it has none). Returns the stored record.
+// Insert or replace a record by id (a new id when it has none). Returns the stored record, or null when the licence
+// refused the change.
 export function upsert(list, item) {
-  let stored;
-  update(d => {
+  let stored = null;
+  const done = update(d => {
     const arr = d[list];
     stored = { ...item, id: item.id || uid(), updatedAt: Date.now() };
     if (!stored.createdAt) stored.createdAt = stored.updatedAt;
     const i = arr.findIndex(x => x.id === stored.id);
     if (i >= 0) arr[i] = stored; else arr.push(stored);
   });
-  return stored;
+  return done ? stored : null;
 }
 
-// Change some fields of a record. Returns the stored record, or null when there is no such record.
+// Change some fields of a record. Returns the stored record, or null when there is no such record or the licence
+// refused the change.
 export function patch(list, id, fields) {
   const cur = byId(list, id);
   if (!cur) return null;
@@ -206,7 +224,34 @@ export const gearClash = (booking, gearId) => {
 };
 
 /* ------------------------------- whole database ------------------------------- */
-export function replaceAll(data) { db = normalise(data); db.updatedAt = Date.now(); persist(); emit(); }
+// The ids of a database's times seen (acts[].seen[].id) and takes (logs[].takes[].id): entries inside a record, which
+// Google Drive's merge joins one by one, so a removed one needs a tombstone of its own in db.deleted.
+const entryIds = d => {
+  const ids = new Set();
+  for (const a of d.acts || []) for (const e of Array.isArray(a.seen) ? a.seen : []) if (e && e.id) ids.add(e.id);
+  for (const l of d.logs || []) for (const t of Array.isArray(l.takes) ? l.takes : []) if (t && t.id) ids.add(t.id);
+  return ids;
+};
+// This device's data becomes the backup's. With { everywhere: true } (Google Drive linked: "Replace this device's
+// data" from a file or a daily copy), every device connected follows: every record in the backup is stamped now, and
+// every record, time seen and take on this device that the backup lacks gets a tombstone, so the next sync does not
+// bring the old ones back from the other devices.
+export function replaceAll(data, { everywhere = false } = {}) {
+  const before = db;
+  db = normalise(data);
+  if (everywhere) {
+    const now = Date.now();
+    for (const c of COLLECTIONS) {
+      const kept = new Set(db[c].map(r => r.id));
+      for (const r of db[c]) r.updatedAt = now;
+      for (const r of before[c] || []) if (r && r.id && !kept.has(r.id)) db.deleted[r.id] = now;
+    }
+    const keptEntries = entryIds(db);
+    for (const id of entryIds(before)) if (!keptEntries.has(id)) db.deleted[id] = now;
+    for (const k of ['templates', 'billing', 'priceList', 'profile']) db[k] = { ...db[k], updatedAt: now };
+  }
+  db.updatedAt = Date.now(); persist(); emit(); wrote();
+}
 export const exportJSON = () => JSON.stringify(db, null, 2);
 
 const ts = r => Number(r && r.updatedAt) || 0;
@@ -231,14 +276,19 @@ export function mergeDb(local, remote) {
   out.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
   return out;
 }
-export function mergeIn(remote) { db = mergeDb(db, remote); db.updatedAt = Date.now(); persist(); emit(); }
+export function mergeIn(remote) { db = mergeDb(db, remote); db.updatedAt = Date.now(); persist(); emit(); wrote(); }
+// A merged copy from Google Drive (js/sync.js) becomes this device's data as it is: no new updatedAt and no afterWrite,
+// so it is never pushed straight back. It does not ask the licence's gate: sync keeps flowing in a read-only role.
+export function adopt(data) { db = normalise(data); persist(); emit('sync'); }
 
 // Wipe this device's copy (preferences such as the theme stay).
 export function eraseAll() {
   db = blank(); db.updatedAt = Date.now();
   sealed = false; dirty = false;
   flush(); emit();
-  const KEEP = new Set(['gdex-prefs', 'gdex-cal-view']); // display preferences: the theme and the calendar's view
+  // Display preferences (the theme, the calendar's view), and the licence's own: the free-day count and the website
+  // sign-in (gdex-licence), and the terms agreed (gdex-terms). IndexedDB is not touched, so its licence-days copy stays.
+  const KEEP = new Set(['gdex-prefs', 'gdex-cal-view', 'gdex-licence', 'gdex-terms']);
   try { const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); keys.filter(k => k && k.startsWith('gdex-') && k !== KEY && !KEEP.has(k)).forEach(k => localStorage.removeItem(k)); } catch { /* blocked storage */ }
 }
 

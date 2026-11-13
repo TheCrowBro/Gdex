@@ -436,7 +436,7 @@ export function logSighting(a, s = {}) { // shared: bookings.js offers it as Sco
       toast(editing ? 'Saved' : `Logged: ${rating}/100`);
       refocus(a.id);
     },
-    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (Array.isArray(x.seen) ? x.seen : []).filter(e => e && e.id !== s.id); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
+    onDelete: editing ? () => { update(d => { const x = d.acts.find(r => r.id === a.id); if (!x) return; x.seen = (Array.isArray(x.seen) ? x.seen : []).filter(e => e && e.id !== s.id); d.deleted[s.id] = Date.now(); x.updatedAt = Date.now(); }); toast('Removed from the log'); refocus(a.id); } : null,
     confirmDelete: `Remove the time you saw ${a.name || 'them'} on ${s.date ? seenDate(s.date) : 'this date'}?`,
   });
 }
