@@ -59,13 +59,15 @@ export function searchReady() {
 }
 
 /* ------------------------------- words, in the role's own ------------------------------- */
-// What the role calls a show: "gig" where its calendar is called Gigs (js/roles.js names), else "show".
-const showWords = () => (/^gigs$/i.test(sectionName('bookings', '')) ? ['gig', 'gigs'] : ['show', 'shows']);
-const NOUNS = { session: ['session', 'sessions'], rehearsal: ['rehearsal', 'rehearsals'], other: ['diary entry', 'diary entries'] };
-const nouns = kind => (kind === 'show' ? showWords() : NOUNS[kind] || NOUNS.other);
+// A kind of booking is called what the calendar calls it, in every role: its kind row says Shows, Sessions,
+// Rehearsals, Other (KIND_CHIP), + New and its page a Show, and "Did you see them?" speaks of shows, so the search's
+// kind row and its sentences about kinds do too ("4 shows at 2 places", "No shows found."), even for a role whose
+// calendar is called Gigs. Only the tab is named after the section (tabName), as it holds the whole of it.
+const NOUNS = { show: ['show', 'shows'], session: ['session', 'sessions'], rehearsal: ['rehearsal', 'rehearsals'], other: ['diary entry', 'diary entries'] };
+const nouns = kind => NOUNS[kind] || NOUNS.other;
 const count = (n, kind) => plural(n, ...nouns(kind)); // "6 shows", "1 session"
-const kindName = kind => (kind === 'show' ? capital(showWords()[1]) : KIND_CHIP[kind] || KIND_CHIP.other); // on the kind row
-const ONE = { show: () => capital(showWords()[0]), session: () => 'Session', rehearsal: () => 'Rehearsal', other: () => 'Diary entry' };
+const kindName = kind => KIND_CHIP[kind] || KIND_CHIP.other; // on the kind row
+const ONE = { show: 'Show', session: 'Session', rehearsal: 'Rehearsal', other: 'Diary entry' };
 const an = w => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
 // A tab's name: the role's name for the calendar (Bookings, Shows, Gigs) and its word for an act (Acts, Artists, Bands).
 const tabName = k => ({ all: 'All', gigs: sectionName('bookings', 'Bookings'), bands: capital(actWord()) + 's', venues: 'Venues', people: 'People', songs: 'Songs',
@@ -429,10 +431,10 @@ const ROW = {
   gigs: it => {
     if (it.type === 's') {
       const r = model.ratingOf(it.s), was = model.formerlyOn(it.a, it.date);
-      return { word: ONE.show(), title: [clean(it.a.name) || 'Unnamed act', it.place.name].filter(Boolean).join(' @ '), sub: [dayText(it.date), 'From the log', r != null ? `★ ${r}/100` : ''], more: [was && h('span', { class: 'srch-was' }, 'formerly ' + was)], style: actStyle({ actId: it.a.id }) };
+      return { word: ONE.show, title: [clean(it.a.name) || 'Unnamed act', it.place.name].filter(Boolean).join(' @ '), sub: [dayText(it.date), 'From the log', r != null ? `★ ${r}/100` : ''], more: [was && h('span', { class: 'srch-was' }, 'formerly ' + was)], style: actStyle({ actId: it.a.id }) };
     }
     const b = it.b, note = model.formerlyNote(b), went = b.kind === 'show' && b.status !== 'cancelled' && model.seenAnswer(b) === 'no';
-    return { word: (ONE[it.kind] || ONE.other)(), title: model.bookingTitle(b), sub: [dateRange(b, dayText), model.statusLabel(b.status), went && 'Didn’t go'], more: [note && h('span', { class: 'srch-was' }, note)], style: actStyle(b) };
+    return { word: ONE[it.kind] || ONE.other, title: model.bookingTitle(b), sub: [dateRange(b, dayText), model.statusLabel(b.status), went && 'Didn’t go'], more: [note && h('span', { class: 'srch-was' }, note)], style: actStyle(b) };
   },
   bands: r => { const a = r.x, st = model.seenStats(a), n = someOf(a.members).length, was = model.formerName(a);
     return { title: r.title, sub: [a.genre, n ? plural(n, 'member') : '', st.times ? `Seen ${plural(st.times, 'time')}` : ''], more: [was && h('span', { class: 'srch-was' }, 'formerly ' + was)], style: actStyle({ actId: a.id }) }; },
@@ -821,9 +823,9 @@ sheetTutorial(TITLE, () => [
   { title: 'Tabs', text: 'All has the best matches of every kind, a name that starts with what you typed first. Each other tab has one kind, with how many were found. ← → move along them.', target: ['.srch-tabs'] },
   { title: 'The date', text: 'How a date you typed was read: everything dated that day, or in that week, month or year, comes up.', target: ['.srch-when'] },
   { title: 'What was found', text: 'How many, and on the bookings tab at how many places.', target: ['.srch-found'] },
-  { title: 'Kinds', text: `${capital(showWords()[1])}, sessions and rehearsals each have a list of their own. It starts on ${showWords()[1]}.`, target: ['.srch-kinds'] },
+  { title: 'Kinds', text: 'Shows, sessions and rehearsals each have a list of their own. It starts on shows.', target: ['.srch-kinds'] },
   { title: 'Places', text: 'Tap a place to see only what was there. Tap it again, or All, to see everything.', target: ['.srch-places'] },
-  { title: 'The results', text: `Tap one to open it where it lives. On the ${tabName('gigs').toLowerCase()} tab: newest first, with a line for today between what is still to come and what is over; a card marked From the log is a time you logged seeing ${an(actWord())} that has no ${showWords()[0]} on the calendar.`, target: ['.srch-list .card'] },
+  { title: 'The results', text: `Tap one to open it where it lives. On the ${tabName('gigs').toLowerCase()} tab: newest first, with a line for today between what is still to come and what is over; a card marked From the log is a time you logged seeing ${an(actWord())} that has no show on the calendar.`, target: ['.srch-list .card'] },
 ]);
 // The welcome tour's stop for the box, after the section menu.
 setSearchStep({ target: ['#srch-bar'], title: 'Search', get text() { return `The box at the top of every page finds anything: ${andList(whatList())}, by any word in them, or by a date (${DATE_HELP}). The results come up as you type, a tab for each kind.`; } });

@@ -820,7 +820,7 @@ showing).
   its client, never its place.
 * **A row** of any kind but the bookings tab's cards: `button.card.tap.srch-rec.srch-rec-<kind>[data-rec][data-id]`:
   on All a small word for its kind (`span.srch-kind`: Act, Venue, Person, Song, Setlist, Gear, Take log, Money; a booking
-  its own kind, Show or Gig, Session, Rehearsal, Diary entry), `strong.srch-name`, what its kind adds (`span.srch-was`
+  its own kind, Show, Session, Rehearsal, Diary entry), `strong.srch-name`, what its kind adds (`span.srch-was`
   "formerly …" for a band or a booking from before a change, a venue's house-rules chip, a quote's or invoice's status
   pill), `span.srch-sub` (what it is: genre, members and times seen; the kind of place and its address; role,
   instrument and company; act, key and status; act, songs and length; make, model, where it is and owner; day, songs
@@ -841,8 +841,9 @@ showing).
   holds it (`guests`), and is found by its act's names, genre, typed place and notes as well.
 * **What comes up on the bookings tab**: `p.srch-found` ("9 shows at 4 places"; "No sessions found. 4 shows at The
   Church" when the kind picked holds nothing and another does: the list moves to shows, else to the first kind in the
-  role's order that has results), the kind row `div.srch-kinds[role=group]` of `.chip[data-kind][aria-pressed]` (left
-  out when one kind was found; Other, the diary entries, has a chip too), the place chips `div.srch-places[role=group]`
+  role's order that has results), the kind row `div.srch-kinds[role=group]` of `.chip[data-kind][aria-pressed]` (named
+  as the calendar's own kind row names them, `KIND_CHIP`: Shows, Sessions, Rehearsals, Other; left out when one kind
+  was found; Other, the diary entries, has a chip too), the place chips `div.srch-places[role=group]`
   (`#srch-place-all`, then `.chip[data-place]`, busiest first, at most 24, then `.srch-more-places`; a second tap on the
   pressed one undoes it; left out when everything found is at one place) and `ul.srch-list[aria-label=Results]`, one
   `li` per card, newest first, with `li.srch-today` between what is still ahead (a booking until its last day is over,
@@ -877,7 +878,10 @@ showing).
   ↓ or Enter in the box goes to the first result, ↓ ↑ walk the results and ↑ from the first goes back to the box. A
   redraw after a change to the data keeps the focus on the same result, chip or tab (`focusKey`).
 * **Words** follow the role: an act, a band or an artist (`actWord()`), the role's names for Bookings and Acts, and
-  "gigs" where the calendar is called Gigs. The placeholder names the first three kinds ("Search gigs, bands, venues…"),
+  "gigs" where the calendar is called Gigs, for the tab, the box and its help, which name the whole section. A kind of
+  booking is called what the calendar calls it, in every role: the kind row, the lines about kinds ("4 shows at 2
+  places", "No shows found."), a row's small word on All and the walkthrough say show, as the calendar's kind row,
+  + New and "Did you see them?" do, also where the calendar and its tab are called Gigs. The placeholder names the first three kinds ("Search gigs, bands, venues…"),
   or two, or one, as the box has room for (each is tried as the box's value for a moment, since a search box keeps room
   for its clear button even when empty: never cut short, at any width or text size); the
   box's name says "… and more"; the line of help names every kind the person may see, dates included. The sheet's ?
