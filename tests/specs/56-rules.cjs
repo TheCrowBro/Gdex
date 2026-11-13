@@ -609,6 +609,17 @@ const all = []; // every console error of every browser below
     const inside = sel => page.evaluate(s => [...document.querySelectorAll(s + ' .vn-chip')].map(c => { const box = c.closest('.card, .vn-rules, .sheet-body'), a = c.getBoundingClientRect(), b = box.getBoundingClientRect(); return a.width > 0 && a.left >= b.left - 0.5 && a.right <= b.right + 0.5; }), sel);
     let fit = await inside('.bk-agenda');
     ok(`${scheme}, 320px: the calendar does not scroll sideways, and each chip stays inside its card`, (await wide(page)) <= 320 && fit.length >= 3 && fit.every(Boolean), `${await wide(page)} ${fit.join()}`);
+    // A rule's ✗ stays on the line of the word it marks: on a line of its own it would read as part of “· 1 more”.
+    const crossAlone = sel => page.evaluate(s => [...document.querySelectorAll(s + ' .vn-chip > [aria-hidden=true]')].flatMap(span => {
+      const at = [], walk = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+      for (let n; (n = walk.nextNode());) for (let i = 0; i < n.textContent.length; i++) at.push([n, i]);
+      const flat = at.map(([n, i]) => n.textContent[i]).join(''), k = flat.indexOf(' ✗');
+      if (k < 1) return [];
+      const top = j => { const r = document.createRange(); r.setStart(at[j][0], at[j][1]); r.setEnd(at[j][0], at[j][1] + 1); return r.getBoundingClientRect().top; };
+      return Math.abs(top(k - 1) - top(k + 1)) < 2 ? [] : [flat];
+    }), sel);
+    const crossed = await page.evaluate(() => document.querySelectorAll('.bk-agenda .vn-chip').length && [...document.querySelectorAll('.bk-agenda .vn-chip')].filter(c => c.textContent.includes('✗')).length);
+    ok(`${scheme}, 320px: on Coming up a rule’s ✗ is on the same line as its word`, crossed >= 1 && (await crossAlone('.bk-agenda')).length === 0, `${crossed} ${(await crossAlone('.bk-agenda')).join(' | ')}`);
     await openB(page, 'c91');
     fit = await inside('.bk-hero');
     const box = await page.evaluate(() => { const r = document.querySelector('.bk-hero .vn-rules'), h = document.querySelector('.bk-hero'), a = r.getBoundingClientRect(), b = h.getBoundingClientRect(); return { in: a.left >= b.left && a.right <= b.right, over: r.scrollWidth > r.clientWidth + 1, dd: [...r.querySelectorAll('dd')].every(d => d.scrollWidth <= d.clientWidth + 1), size: parseFloat(getComputedStyle(r.querySelector('dd')).fontSize), rem: parseFloat(getComputedStyle(document.documentElement).fontSize) }; });
@@ -622,6 +633,7 @@ const all = []; // every console error of every browser below
     await go(page, 'venues'); await page.waitForSelector('#vn-club9');
     fit = await inside('#page');
     ok(`${scheme}, 320px: the venue list does not scroll sideways, with each chip inside its card`, (await wide(page)) <= 320 && fit.length === 4 && fit.every(Boolean), `${await wide(page)} ${fit.join()}`);
+    ok(`${scheme}, 320px: …and on the venue cards a rule’s ✗ is on the same line as its word`, (await crossAlone('#page')).length === 0, (await crossAlone('#page')).join(' | '));
     await page.click('#vn-club9'); await page.waitForSelector('.vn-sheet');
     const sheetFit = () => page.evaluate(() => { const b = [...document.querySelectorAll('.sheet-body')].pop(); return [b.scrollWidth, b.clientWidth]; });
     let sf = await sheetFit();

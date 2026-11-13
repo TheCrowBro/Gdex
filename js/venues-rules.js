@@ -15,8 +15,11 @@ const CHIP = { ok: 'vn-chip vn-chip-ok', some: 'vn-chip vn-chip-some', strict: '
 export function venueChip(v) {
   const t = rulesChipText(v);
   if (!t || !CHIP[t.level]) return null;
-  return h('span', { class: CHIP[t.level] }, h('span', { 'aria-hidden': 'true' }, t.label), h('span', { class: 'sr-only' }, t.spoken));
+  return h('span', { class: CHIP[t.level] }, h('span', { 'aria-hidden': 'true' }, keepCross(t.label)), h('span', { class: 'sr-only' }, t.spoken));
 }
+// A rule's ✗ stays on the line of the word it marks (“Pro cameras ✗”): on a narrow card it would otherwise wrap to the
+// next line and read as part of “· 1 more”. Only the drawing changes: the words are the same text.
+const keepCross = label => { const m = /^(.*?)(\S+ ✗)(.*)$/su.exec(label); return m ? [m[1], h('span', { class: 'vn-chip-nb' }, m[2]), m[3]] : label; };
 // The chip on a show's card: its venue's chip. Only a show that is not cancelled, at a saved venue, carries rules
 // (model.showRulesVenue): the rules are the venue's, whoever plays, and a show cannot override them.
 export function rulesChip(b) {

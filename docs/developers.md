@@ -595,6 +595,8 @@ press that opened it, still down) does not.
   focus comes back to the card when the sheet closes after an edit.
 * Venue search reads the written rules through `rulesOf(v).note`. A venue's "Before" list marks a show answered No
   with "Didn’t go" (`span.vn-row-went`).
+* A rule's last word and its ✗ (`Pro cameras ✗`) are drawn in `span.vn-chip-nb` (no wrap), so on a narrow card the ✗
+  never starts a line of its own; the chip's text is the same.
 
 ## Shared modules (core)
 
