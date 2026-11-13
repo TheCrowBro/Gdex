@@ -3,6 +3,8 @@
 // and deleting an act (its songs and bookings stay, without an act).
 const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
 
+// The sample's two acts are in two main genres (item 12), so its list starts in folded groups: open these, as a tap does.
+const openGroups = async (page, ...ids) => { for (const g of ids) { await page.waitForSelector('#ac-grp-' + g); if ((await page.getAttribute('#ac-grp-' + g, 'aria-expanded')) !== 'true') { await page.click('#ac-grp-' + g); await page.waitForSelector(`#ac-grp-${g}[aria-expanded="true"]`); } } };
 const actNamed = (page, name) => page.evaluate(n => import('./js/store.js').then(s => JSON.parse(JSON.stringify(s.db.acts.find(a => a.name === n) || null))), name);
 const printed = async (page, click) => {
   await page.evaluate(() => { window.__printed = []; window.print = () => { const r = document.getElementById('print-root'); window.__printed.push(r ? r.innerHTML : ''); }; });
@@ -39,6 +41,7 @@ const printed = async (page, click) => {
   const { browser, page, errors } = await open({ sample: true, tab: 'acts' });
   const dialogs = [];
   page.on('dialog', d => dialogs.push(d.message())); // helpers.cjs accepts every dialog
+  await openGroups(page, 'rnb', 'rock');
   await page.waitForSelector('.ac-card');
   ok('the sample acts are listed', (await page.locator('.ac-card').count()) === 2);
   const owls = page.locator('.ac-card[data-id="s-owls"]');

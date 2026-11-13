@@ -189,6 +189,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await openB(page, sameDay);
   ok('a past show of Sable’s offers its button', (await page.locator('#bk-score').count()) === 1);
   await go(page, 'acts');
+  if ((await page.getAttribute('#ac-grp-rnb', 'aria-expanded')) === 'false') { await page.click('#ac-grp-rnb'); await sleep(400); } // the sample puts the list in main genres (item 12): Sable's is R&B & soul
   if (!(await page.locator('#ac-pnl-s-sablea').count())) { await page.click('#ac-head-s-sablea'); await sleep(400); } // scoring above left the card open
   await page.waitForSelector('#ac-log-s-sablea');
   await page.click('#ac-log-s-sablea');

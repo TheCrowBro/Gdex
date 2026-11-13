@@ -48,7 +48,7 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 | Card | What it's for |
 |---|---|
 | 📅 **Bookings** | Shows, studio sessions and rehearsals on one calendar, by month, two weeks, week, three days or day. Open one for everything about it. |
-| 🎸 **Acts** | The bands and artists you work with, as drop-down cards: how many times you have seen each one play, your scores out of 100 (average and latest), and their dates coming up on the calendar. Open a card for the log of each time seen. Each act keeps its members, links, press kit and tech rider with the input list and stage plot. |
+| 🎸 **Acts** | The bands and artists you work with, as drop-down cards grouped by main genre (Rock, Pop, Hip hop & rap…): how many times you have seen each one play, your scores out of 100 (average and latest), and their dates coming up on the calendar. Open a card for the log of each time seen. Each act keeps its members, links, press kit and tech rider with the input list and stage plot. |
 | 👥 **People** | Band members, session players, crew, promoters and agents, and how to reach them. |
 | 🎼 **Songs** | Keys, tempos and lengths; split sheets for the writers; setlists that add up to your slot. |
 | 🎙️ **Studio log** | A take log for recording: tap + Take, mark the keepers, note what to fix. |
@@ -63,6 +63,15 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 spelling fix, and since when. A new name leaves the old one in small type under it, "formerly The Night Owls", on the
 act's card and page, and shows and scores from before the change say the name the band had that night; search finds
 the band by any of its names. Press kits, riders, day sheets, invoices and calendar files carry the current name only.
+
+**Bands grouped by their main genre.** Once your acts span two or more main genres, the list folds them under one
+heading each, with a count: Blues, Classical, Country, Electronic, Folk, Gospel & Christian, Hip hop & rap, Jazz, Latin,
+Metal, Pop, Punk, R&B & soul, Reggae & ska, Rock and World, A to Z, then **Unique** for a genre Gdex doesn't know and
+**No genre yet**. Tap a heading to drop its bands down (in the list's own order); the ones you open stay open while
+Gdex is open. You still type the genre as you like ("Indie rock", "Doom folk"): Gdex works out the main genre from it
+(indie rock and folk rock are Rock, doom folk is Folk, the first of two genres decides), and an act's form has **Main
+genre: Automatic (Rock)** to set it by hand. The list's search opens the groups with a match, and both searches find a
+band by its main genre. The press kit keeps the genre as you typed it.
 
 ## The calendar
 

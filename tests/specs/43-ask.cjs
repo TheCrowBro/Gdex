@@ -303,6 +303,7 @@ async function theSheet() {
 
   /* the acts page */
   await go(page, 'acts');
+  if ((await page.getAttribute('#ac-grp-rock', 'aria-expanded')) === 'false') { await page.click('#ac-grp-rock'); await sleep(300); } // the sample puts the list in main genres (item 12)
   await page.waitForSelector('.ac-card[data-id="s-owls"]');
   if (!(await page.locator('#ac-pnl-s-owls').count())) { await page.click('#ac-head-s-owls'); await sleep(300); } // scoring left the card open
   await page.click('#ac-past-s-owls');

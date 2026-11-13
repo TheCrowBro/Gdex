@@ -223,7 +223,7 @@ function buildOthers() {
   for (const a of db.acts || []) for (const id of someOf(a && a.members)) { const list = membersOf.get(id) || []; list.push(a); membersOf.set(id, list); }
   const earlier = a => model.earlierNames(a).map(n => n.name).reverse().join(', ');
   out.bands = someOf(db.acts).filter(a => a && a.id).map(a => record('bands', a, a.name || 'Unnamed act', actNames(a), actSearchText(a),
-    [['Earlier name', earlier(a)], ['Members', someOf(a.members).map(id => byId('people', id)).filter(Boolean).map(p => p.name).join(', ')], ['Notes', a.notes]]));
+    [['Earlier name', earlier(a)], ['Main genre', model.mainGenreOf(a).id && model.mainGenreOf(a).label], ['Members', someOf(a.members).map(id => byId('people', id)).filter(Boolean).map(p => p.name).join(', ')], ['Notes', a.notes]]));
   out.venues = someOf(db.venues).filter(v => v && v.id).map(v => record('venues', v, v.name || 'Unnamed place', [v.name], venueText(v),
     [['Address', v.address], ['Contact', v.contact], ['Stage', v.stage], ['PA & desk', v.pa], ['Backline provided', v.backline], ['Notes', v.notes], ['House rules', model.rulesOf(v).note]]));
   out.people = someOf(db.people).filter(p => p && p.id).map(p => record('people', p, p.name || 'No name', [p.name], personText(p),

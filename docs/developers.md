@@ -50,7 +50,7 @@ npm run serve                   # http://localhost:8124/
 | id | Label | Module | What it is |
 |---|---|---|---|
 | `bookings` | Bookings | `pages/bookings.js` | The calendar (month, two weeks, week, three days, day: `js/bookings-cal.js`) with Coming up under it; the booking page with its blocks. Gdex opens here every time. |
-| `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider. |
+| `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards, folded under their main genre (Rock, Pop…) once there are two or more: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider. |
 | `people` | People | `pages/people.js` | Band members, session players, crew, industry contacts (promoters, agents…). |
 | `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, split sheet) and setlists. |
 | `sessions` | Studio log | `pages/sessions.js` | Take logs for recording sessions: song, take number, time, keep/maybe/no, notes. |
@@ -260,6 +260,11 @@ The key is absent on an act that never had one, and such an act reads exactly as
 the act's current `name`; the earlier names are only ever read through the model's helpers ("Earlier names" below),
 which clean whatever is stored. They travel in backups, and in nothing printed, sent or exported for another program.
 
+An act whose main genre was set by hand carries `mainGenre`: one of `model.MAIN_GENRES`' ids (`'rock'`, `'rnb'`,
+`'unique'`…). The key is absent while the main genre is automatic (worked out from `genre`, which stays as typed), and
+anything else stored there reads as automatic too: read it only through `model.mainGenreOf(a)` ("Main genres" below).
+The act form stores it when one is picked and takes the key off when Automatic is; nothing printed or sent carries it.
+
 `people`: `{ id, name, group: 'band'|'session'|'crew'|'contact', role, instrument, company, phone, email, rate,
 rateUnit: 'day'|'hour'|'show', notes }`. Act membership lives on the act (`act.members`).
 
@@ -298,7 +303,7 @@ by `js/money.js`.
 
 Constants: `KINDS`, `STATUSES`, `statusesFor`, `statusLabel`, `statusTone`, `kindLabel`, `kindIcon`, `SHOW_TIMES`,
 `SESSION_TIMES`, `timesFor`, `PEOPLE_GROUPS`, `ROLES`, `GEAR_CATS`, `VENUE_KINDS`, `RATE_UNITS`, `SONG_STATUS`,
-`NOTES`, `KEYS`, `SPLIT_ROLES`, `DEAL_TYPES`.
+`NOTES`, `KEYS`, `SPLIT_ROLES`, `DEAL_TYPES`, `MAIN_GENRES`, `NO_GENRE`.
 Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `seenEntryFor(a, b)`, `actShowsOn(actId, iso)`, `onlyShowOn(actId, iso)`, `actUpcoming(a)`, `bookingTitle(b)`, `actName(id)`, `venueOf(b)`, `firstTime(b)`, `lastDate(b)`, `coversDay(b, iso)`, `fmtDur(sec)`,
 `parseDur(text)`, `fmtMin(min)`, `addMinutes('HH:MM', min)`, `minutesBetween(a, b)`, `setlistLength(list)`,
 `itemTitle(item)`, `fmtMoney(n, sym?)`, `currency()`, `dealPays(deal, gross)`, `dealSummary(deal)`, `dealBest(deal)`,
@@ -373,6 +378,25 @@ of any kind, by its **last** day: a festival weekend that reaches the day of the
 `formerlyNote(b)` (the words by a booking's name: `formerly The Night Owls`, or `Owl Parliament, formerly The Night
 Owls` when the booking has a title of its own that does not hold the act's name). None of them throws, whatever is
 stored. **No page works a name out by itself.**
+
+Main genres (the acts list's groups): `MAIN_GENRES` (`[id, label]`: `blues`, `classical`, `country`, `electronic`,
+`folk`, `gospel` "Gospel & Christian", `hiphop` "Hip hop & rap", `jazz`, `latin`, `metal`, `pop`, `punk`, `rnb` "R&B
+& soul", `reggae` "Reggae & ska", `rock`, `world`, in A to Z order of their labels, then `unique` "Unique"), `NO_GENRE`
+("No genre yet"), `genreOf(text)` (a typed genre's main genre id: `''` for none, which is text that is empty, not
+text, has no letter or digit, or says only "TBC", "n/a" and the like; `'unique'` for one it cannot place),
+`mainGenreLabel(id)` (`NO_GENRE` for `''` or an unknown id) and `mainGenreOf(a)` (`{ id, label, auto }`: the act's
+`mainGenre` when it is one of the ids, `auto: false`; else `genreOf(a.genre)`, `auto: true`; never throws). How a
+genre is read: capitals, accents, hyphens and apostrophes are ignored; it is split into genres at commas, slashes,
+"&", "+", brackets, semicolons and the words "and", "or", "with", "featuring", "meets", "vs" and "influenced by",
+never inside the pairs that are one genre (R&B, rhythm and blues, drum and bass, D&B, rock and roll, country and
+western, singer/songwriter); the first genre written that Gdex can place decides (a first one it does not know, or a
+phrase such as "covers band", leaves it to the next). In a genre the last word or phrase known decides, as English puts
+the main word last ("indie rock" and "folk rock" are Rock, "doom folk" is Folk, "pop punk" is Punk), phrases before
+their words, so a phrase is how an exception is written ("punk rock" is Punk, "post-punk" Rock, "Latin pop" Latin,
+"Christian rock" Gospel & Christian, "western swing" Country, "desert blues" World). A weak word (indie, alt,
+acoustic, choir, orchestra, DJ, fusion…) decides only when nothing else in the genre is known: "indie" alone is Rock,
+"indie pop" Pop, "gospel choir" Gospel & Christian, "hip hop DJ" Hip hop & rap. The table (`GENRE_TABLE`) lives in
+the block; `47-genres` reads close to two hundred genres through it.
 
 Use these instead of re-implementing them, so a show's numbers agree on every page. If one is wrong or missing, say
 so in your report rather than forking it.
@@ -453,7 +477,7 @@ may call it.
 | `js/bookings-cal.js` `bookingCard(b)` | calendar | Coming up's card for a list outside the calendar (the search): drawn by the same code, without press-and-hold to delete or its title. Its own tap would open the booking inside the calendar's page, so the list it goes in takes the click in the capture phase. A card for a booking that is over says nothing where Coming up says "On now". |
 | `js/search.js` `initSearch(bar)` / `openSearch()` / `searchKinds()` / `actNames(a)` / `fold(s)` / `searchReady()` / `searchFor(q)` / `searchAll(q)` / `searchStats()` | search | Fill `#srch-bar` with the box and wire the `/` key (`app.js`, once) / jump into the box (its words selected) / the kinds the person may see, in tab order: **the one place that decides them** (Money only with `moneyShown()`; the licence will narrow it here) / every name an act is known by: its name now, then its earlier names, the latest first (`model.earlierNames`; the one place the search reads a band's names) / text as the search compares it (no capitals, no accents) / for checks: a promise once the songs and the studio log (loaded with their sections) are searched too, what the bookings tab finds, what every tab finds, and how long it took (below). |
 | `js/search-dates.js` `readDate(words, today, order)` / `dateOrder(locale)` | search | Pure: the first date in the words typed (`{ date: { from, to, start, len, words } \| null, rest }`), with today and the order of a day and a month given / that order in the device's language (`'dm'` or `'md'`). |
-| `pages/acts.js` `openActCard(id)` / `actSearchText(a)`; `pages/venues.js` `venueText(v)` / `venueMatches(v, q)`; `pages/people.js` `personText(p)`; `pages/backline.js` `gearText(g)`; `pages/songs.js` `songText(s)`; `js/setlist.js` `setlistWords(list)`; `pages/sessions.js` `logWords(l)` / `logDate(l)` | each section | The acts list with the act's card dropped open and the focus on it (`openSeen(id, null)`) / the words each section's own search reads (the acts list's, Venues' with the house rules, People's, Backline's, Songs', the Studio log's), which the search at the top of every page reads too, so the two never disagree; a setlist's words (its name, act, songs and notes) / a log's day. |
+| `pages/acts.js` `openActCard(id)` / `actSearchText(a)` (its words include the act's main genre: "rock" finds a doom folk band set to Rock by hand); `pages/venues.js` `venueText(v)` / `venueMatches(v, q)`; `pages/people.js` `personText(p)`; `pages/backline.js` `gearText(g)`; `pages/songs.js` `songText(s)`; `js/setlist.js` `setlistWords(list)`; `pages/sessions.js` `logWords(l)` / `logDate(l)` | each section | The acts list with the act's card dropped open and the focus on it (`openSeen(id, null)`) / the words each section's own search reads (the acts list's, Venues' with the house rules, People's, Backline's, Songs', the Studio log's), which the search at the top of every page reads too, so the two never disagree; a setlist's words (its name, act, songs and notes) / a log's day. |
 | `js/blocks/money.js` `statusPill(b, kind, doc)` | money | A quote's or an invoice's status as its box says it (Draft, Sent, Part paid, Paid, Overdue…), for the search's Money tab. |
 | `js/bookings-kit.js` `cardExtras(b, { day })` / `overlapNote(b, day)` / `wentMark(b)` | core | What a Coming up card and a Week row add under their own lines, in order: the overlap note (`span.bk-overlap`; a Week row passes its `day`, so a booking over several days has the note only on the day of the clash), the house-rules chip (`rulesChip(b)`), "Didn’t go" (`span.pill.bk-went`). Spans with no control inside, because cards are buttons. They are direct children of `.bk-card-main` / `.bk-wrow-main`. |
 | `js/bookings-kit.js` `formerlyLine(b)` | core | `span.bk-formerly` with `model.formerlyNote(b)`, or `null`: the line under the name of a booking from before its act changed its name. A Coming up card and a Week row put it straight after their top line (`.bk-card-top`, `.bk-wrow-top`), the booking's header after `.bk-hero-top`. |
@@ -701,6 +725,46 @@ Every record goes on using the current name, so lists and search stay in one pie
   which are the current name; `44-formerly` checks each of them. A document made before the change keeps the
   words it was made with (an invoice's lines are stored text), as does a booking's own typed title.
 
+### Main genres: the acts list in groups (`js/model.js`, `js/pages/acts.js`)
+
+The genre is still typed as it always was ("Indie rock"); the model works out the main genre (`mainGenreOf`, above),
+and the acts list folds the acts under it. Everything lives in one block of `pages/acts.js` ("main genres").
+
+* **When.** Only when the acts span two or more main genres (Unique counts; an act with no genre has none). Otherwise
+  the list is as it always was, cards straight under the search box, and none of the hooks below are drawn.
+* **The groups.** `div.list.ac-list.ac-groups` holds a `section.ac-group[data-group=<id>]` per main genre that has an
+  act (`data-group="none"` for No genre yet; `.open` while open), in `MAIN_GENRES` order (A to Z, then Unique), then
+  No genre yet. Each starts with `h2.ac-group-h > button.ac-group-head#ac-grp-<id>` (`#ac-grp-none`), a real
+  disclosure button: `aria-expanded`, `aria-controls="ac-grp-<id>-list"`, the label in `span.ac-group-name`, the count
+  in `span.ac-group-n` (the number shown, and ", 3 bands" in the role's word for an act, `actWord()`, for a screen
+  reader: the button is read "Rock, 3 bands"), and the chevron (`span.ac-chev`, turned while open). Under it,
+  `div.list.ac-group-list#ac-grp-<id>-list[role=group]` labelled by the heading holds the group's cards in the role's
+  own order (A to Z, latest score, last seen), and is empty and `hidden` while folded.
+* **Folding.** Every group is folded at first; a tap, Enter or Space on a heading opens or folds it, and the page is
+  drawn again with the focus on the heading (it has an id, so the focus also comes back to it after any other
+  redraw). The groups opened are kept in memory for the visit (`S.groups`): another section and back keeps them; a
+  reload folds them all. `openSeen` / `openActCard` (the search, an act opened from anywhere) open the act's group
+  as well as its card.
+* **The page's own search** (the box shows from six acts) opens every group with a match and leaves out the groups
+  without one; the counts are the matches. A group folded during a search (`S.shut`) opens again when the words
+  change; clearing the search puts the folds back as they were before it. Its words (`actSearchText`) include the main
+  genre's label, and so does the search at the top of every page, whose band row then says why ("Main genre: Rock").
+* **The form.** `editAct` has "Main genre" (`select[data-key=mainGenre]`) straight under Genre: "Automatic (Rock)"
+  first (`''`; "Automatic (Unique)", "Automatic (no genre yet)"), its words following the genre box as it is typed,
+  then the sixteen and Unique. Its hint names the section in the role's words ("The heading it’s listed under in
+  Roster."). A save stores the pick as `mainGenre`, or takes the key off for Automatic (`withMainGenre`).
+* **What it is not.** The card and the act's page show the genre as typed and not the main genre (the heading says it
+  on the list; the form says it when editing). Nothing printed or sent changes: the press kit keeps the genre typed.
+* **Walkthroughs.** On a list in groups the cards' step opens a group first when none is open (the first with dates
+  coming up, else the first), and is followed by "Main genres" (`.ac-group-head`): A to Z, worked out from the genre,
+  Unique, No genre yet, tap to fold, ✎ Edit to set it by hand, in the role's words. The Search step says the main
+  genre is searched and that matches open their groups. The act form's walkthrough has a "Main genre" step after
+  Earlier names.
+* **Specs.** The sample's two acts are in two main genres (Indie rock is Rock, Alt R&B is R&B & soul), so the sample's
+  acts list is in folded groups: a spec that reads cards on it opens a group first (`#ac-grp-rock`, `#ac-grp-rnb`),
+  and one about the role's order across the whole list (`42-roles-acts`) files Sable under Rock by hand, so the list
+  has one main genre and no groups.
+
 ### House rules, drawn (`js/venues-rules.js`, `js/pages/venues.js`)
 
 * The chip: `span.vn-chip.vn-chip-<ok|some|strict>` with the visible words in `> [aria-hidden=true]` and the spoken
@@ -825,7 +889,7 @@ showing).
   pill), `span.srch-sub` (what it is: genre, members and times seen; the kind of place and its address; role,
   instrument and company; act, key and status; act, songs and length; make, model, where it is and owner; day, songs
   and session; client, booking and day) and `span.srch-why` when the words typed are not in what it prints ("Acts: The
-  Night Owls", "Notes: …"). No money on any row but the Money tab's: `b.srch-amt`, the document's total. The act's
+  Night Owls", "Main genre: Rock", "Notes: …"). No money on any row but the Money tab's: `b.srch-amt`, the document's total. The act's
   colour runs down a row's edge where it has one.
 * **The bookings tab** (item 8's search, as built): for each booking with a date, the act's names (`actNames(a)`) and
   genre, the client, the place (the saved venue's name and address, or the venue name and address typed on the
@@ -980,7 +1044,8 @@ backline, take, comp, stems, split sheet.
   contracts under the calendar, the question, the menus and house rules), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
-  `46-search`, `50-backline`, `55-venues`, `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
+  `46-search`, `47-genres` (main genres: the model's table and the list in groups), `50-backline`, `55-venues`,
+  `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
   meter, timer, wake lock): a spec can check that leaving a page leaves nothing listening.
@@ -1002,7 +1067,7 @@ need a change there, describe it in your report instead.
 | money | `js/money.js`, `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs` |
 | studio | `js/clock.js`, `js/blocks/clock.js`, `js/blocks/takes.js`, `js/blocks/worksongs.js`, `js/blocks/deliverables.js`, `js/pages/sessions.js`, `css/studio.css`, `tests/specs/30-studio.cjs` |
 | songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs` |
-| acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs` |
+| acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs`, `tests/specs/47-genres.cjs` |
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |

@@ -158,7 +158,7 @@ async function dayIds(page, iso) {
   await put(page, 'bookings', { id: 'o-R', kind: 'show', status: 'confirmed', actId: 's-owls', venueId: 't-room', date: T1, doors: '19:00', setTime: '21:00' });
   await sleep(300);
   ok('sets that follow each other (20:00, 21:00, 22:00, an hour each) carry no note', await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/model.js')]).then(([s, m]) => ['o-P', 'o-Q', 'o-R'].every(id => m.overlapText(s.byId('bookings', id)) === ''))));
-  await go(page, 'acts'); await page.waitForSelector('.ac-card[data-id="t-act"]');
+  await go(page, 'acts'); await page.click('#ac-grp-none'); await page.waitForSelector('.ac-card[data-id="t-act"]'); // the sample puts the list in main genres (item 12): the test act has no genre
   const where = await page.locator('.ac-card[data-id="t-act"] .ac-date .ac-date-where').allTextContents();
   ok('an act’s dates: the 20:00 set before the 22:00 one, whatever their load-ins', same(where, ['Show at Test Hall', 'Show at Test Room']), where.join(' | '));
   await page.evaluate(() => import('./js/pages/people.js').then(p => { p.openPerson('t-per'); })); await page.waitForSelector('.pp-upcoming .pp-bk');

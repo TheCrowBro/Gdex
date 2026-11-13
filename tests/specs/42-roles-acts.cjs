@@ -11,6 +11,10 @@ const { open, ok, sleep, topSheet } = require('../helpers.cjs');
 const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const role = (page, id) => page.evaluate(x => import('./js/roles.js').then(m => m.setRole(x)), id).then(() => sleep(250));
 const order = page => page.$$eval('.ac-card', cs => cs.map(c => c.dataset.id));
+// The list folds under main genres once its acts span two (item 12; 47-genres checks the role's order inside a group).
+// These checks are about the role's order across the whole list, so the sample's Sable (Alt R&B) is filed under Rock by
+// hand, beside The Night Owls (Indie rock): one main genre, and the list is as it was.
+const oneGenre = page => page.evaluate(() => import('./js/store.js').then(s => s.patch('acts', 's-sablea', { mainGenre: 'rock' }))).then(() => sleep(250));
 const seen = (page, id) => page.evaluate(i => import('./js/store.js').then(s => JSON.parse(JSON.stringify((s.byId('acts', i) || {}).seen || []))), id);
 const put = (page, list, rec) => page.evaluate(([l, r]) => import('./js/store.js').then(s => s.upsert(l, r)), [list, rec]).then(() => sleep(250));
 const act = (page, id) => page.evaluate(i => import('./js/pages/acts.js').then(m => m.openAct(i)), id).then(() => page.waitForSelector('.ac-view .ac-title'));
@@ -37,6 +41,7 @@ async function logFromCard(page, id, score) {
   /* ---------------- the scout: latest score first ---------------- */
   {
     const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','scout')" });
+    await oneGenre(page);
     await page.waitForSelector('.ac-card');
     await put(page, 'acts', { id: 't-zed', name: 'Zed Unseen', members: [] });
     await put(page, 'acts', { id: 't-able', name: 'Able Unseen', members: [] });
@@ -109,6 +114,7 @@ async function logFromCard(page, id, score) {
   /* ---------------- the audiophile: last seen first ---------------- */
   {
     const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','audiophile')" });
+    await oneGenre(page);
     await page.waitForSelector('.ac-card');
     await put(page, 'acts', { id: 't-new', name: 'A New Band', members: [] });
     await put(page, 'acts', { id: 't-noscore', name: 'Quiet Ones', members: [], seen: [{ id: 'y1', date: dayIso(-60) }] });
@@ -134,6 +140,7 @@ async function logFromCard(page, id, score) {
   /* ---------------- a band: the times seen only once logged ---------------- */
   {
     const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','band')" });
+    await oneGenre(page);
     await page.waitForSelector('.ac-card');
     await put(page, 'acts', { id: 't-band', name: 'The Loud Room', genre: 'Garage', members: [] });
     await put(page, 'bookings', { id: 't-gig', kind: 'show', status: 'done', actId: 't-band', date: dayIso(-5), venueId: 's-harbour' });
@@ -179,6 +186,7 @@ async function logFromCard(page, id, score) {
   /* ---------------- names, + Book, for each role ---------------- */
   {
     const { browser, page, errors } = await open({ sample: true, tab: 'acts' });
+    await oneGenre(page);
     await page.waitForSelector('.ac-card');
     const want = { producer: 'Artists', manager: 'Roster', band: 'Bands', solo: 'My act', scout: 'Acts', audiophile: 'Bands', all: 'Acts' };
     const cards = { producer: 'Your artists', manager: 'Your roster', band: 'Your bands', solo: 'Your act', scout: 'Your acts', audiophile: 'Your bands', all: 'Your acts' };
@@ -234,6 +242,7 @@ async function logFromCard(page, id, score) {
   /* ---------------- scoring the same night ---------------- */
   {
     const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','scout')" });
+    await oneGenre(page);
     await page.waitForSelector('.ac-card');
     // The scout's show tonight is on hold (a role without money doesn't confirm); a cancelled one the same day doesn't count.
     await put(page, 'bookings', { id: 't-tonight', kind: 'show', status: 'hold', actId: 's-owls', date: dayIso(0), venueId: 's-lantern' });
@@ -342,6 +351,7 @@ async function logFromCard(page, id, score) {
   /* ---------------- a time seen follows its date; one score a night; the latest is the last saved ---------------- */
   {
     const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','scout')" });
+    await oneGenre(page);
     await page.waitForSelector('.ac-card');
     const card = page.locator('.ac-card[data-id="s-owls"]');
     const openCard = async id => { if ((await page.getAttribute(`#ac-head-${id}`, 'aria-expanded')) !== 'true') await page.click(`#ac-head-${id}`); await page.waitForSelector(`#ac-pnl-${id}`); };

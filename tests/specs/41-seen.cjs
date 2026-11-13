@@ -4,11 +4,14 @@
 // bookings deleted later leave the log.
 const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
 
+// The sample's two acts are in two main genres (item 12), so its list starts in folded groups: open these, as a tap does.
+const openGroups = async (page, ...ids) => { for (const g of ids) { await page.waitForSelector('#ac-grp-' + g); if ((await page.getAttribute('#ac-grp-' + g, 'aria-expanded')) !== 'true') { await page.click('#ac-grp-' + g); await page.waitForSelector(`#ac-grp-${g}[aria-expanded="true"]`); } } };
 const seen = (page, id) => page.evaluate(i => import('./js/store.js').then(s => JSON.parse(JSON.stringify((s.byId('acts', i) || {}).seen || []))), id);
 const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 (async () => {
   const { browser, page, errors } = await open({ sample: true, tab: 'acts' });
+  await openGroups(page, 'rnb', 'rock');
   await page.waitForSelector('.ac-card');
   const owls = page.locator('.ac-card[data-id="s-owls"]'), sable = page.locator('.ac-card[data-id="s-sablea"]');
   const head = owls.locator('.ac-card-head');
@@ -145,6 +148,7 @@ const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `
 
   /* a new act: not seen yet, nothing booked */
   await page.evaluate(() => import('./js/store.js').then(s => s.upsert('acts', { id: 't-new', name: 'Brand New', members: [] })));
+  await openGroups(page, 'none'); // it has no genre
   await page.waitForSelector('.ac-card[data-id="t-new"]');
   const fresh = page.locator('.ac-card[data-id="t-new"]');
   ok('a new act says it is not seen yet and has nothing booked', /Not seen live yet/.test(await fresh.innerText()) && /Nothing on the calendar yet/.test(await fresh.innerText()));
@@ -164,6 +168,7 @@ const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `
   await page.reload();
   await page.waitForSelector('#deck .dk-next');
   await go(page, 'acts'); // a reload opens the calendar
+  await openGroups(page, 'rock');
   await page.waitForSelector('.ac-card[data-id="s-owls"]');
   await page.click('#ac-head-s-owls');
   await page.waitForSelector('#ac-pnl-s-owls');
