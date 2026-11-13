@@ -38,7 +38,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok('then the welcome tour runs through the role’s own sections', titles[0] === 'Welcome to Gdex' && titles.includes('Your sections are tracks') && titles[titles.length - 1] === 'Settings', titles.join(' › '));
     ok('…and ends on the calendar, where Gdex opens, not on Settings where its last card was', (await page.evaluate(() => window.logiPage())) === 'bookings' && (await page.locator('.bk-calview').count()) === 1, await page.evaluate(() => window.logiPage()));
     ok('…with the focus on the page, not lost on its body', await page.evaluate(() => document.activeElement === document.getElementById('page')), await page.evaluate(() => (document.activeElement || {}).id || (document.activeElement || {}).tagName));
-    const stops = titles.slice(3, -1);
+    const stops = titles.slice(4, -1); // after the welcome, the details, the section menu and the search box
     ok('…in its menu order, and only sections on its menu', stops.length > 0 && stops.length <= 5, stops.join(', '));
     const s = await sleeve(page);
     ok('the menu is the producer’s', JSON.stringify(s.ids) === JSON.stringify(R.menus.producer), s.ids.join(','));
@@ -326,7 +326,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok('the scout’s tour opens with its own welcome', /scouting/.test(steps[0].text) && /Fees and settlements stay off/.test(steps[0].text));
     ok('it counts the tracks and the sides', /5 tracks: 3 on Side A, 2 on Side B; the rest are bonus tracks/.test(steps[2].text), steps[2].text);
     ok('its stops use the role’s names', steps.some(s => s.title === 'Shows') && !steps.some(s => s.title === 'Bookings'), steps.map(s => s.title).join(' › '));
-    ok('the calendar is its first stop, and says Gdex asks after a show', steps[3].title === 'Shows' && /by month, week or day/.test(steps[3].text) && /After a show Gdex asks if you saw them/.test(steps[3].text), `${steps[3].title}: ${steps[3].text}`);
+    ok('the calendar is its first stop (after the search box), and says Gdex asks after a show', steps[4].title === 'Shows' && /by month, week or day/.test(steps[4].text) && /After a show Gdex asks if you saw them/.test(steps[4].text), `${steps[4].title}: ${steps[4].text}`);
     ok('the last card names the bonus tracks and leaves out quotes and invoices', /Not on your menu: Songs, Studio log, Backline, Money, Tools and Insurance/.test(steps[steps.length - 1].text) && !/quotes and invoices/.test(steps[steps.length - 1].text), steps[steps.length - 1].text);
     await page.evaluate(() => import('./js/tour.js').then(m => m.startTour()));
     await page.waitForSelector('.tour-card');

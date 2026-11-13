@@ -44,6 +44,10 @@ const menuKind = () => {
   if (!m) { try { m = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu; } catch { m = ''; } }
   return m === 'tape' || m === 'digital' ? m : 'record';
 };
+// The search box at the top of every page gives the welcome tour a stop of its own, just after the section menu, in
+// its own words (js/search.js setSearchStep; this file cannot import the search, which imports it).
+let searchStep = null;
+export const setSearchStep = step => { searchStep = step; };
 const listWords = list => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`);
 export function welcomeSteps() {
   const r = role(), menu = menuSections(r), stopsOn = menu.filter(id => id !== 'settings');
@@ -63,6 +67,7 @@ export function welcomeSteps() {
           : kind === 'digital' ? `${count} Swipe the bar or tap ⏮ ⏭ to change section; the row under it has every track one tap away, and ☰ opens the track list${too}. Prefer a record player or a tape deck? Aa → Section menu.`
             : `${count} Swipe the record or tap ⏮ ⏭ to change section; tap the record to see them all on the sleeve${too}. Prefer a tape deck or a digital player? Aa → Section menu.`;
       } },
+    ...(searchStep ? [{ ...searchStep, go: stopsOn[0] || 'settings' }] : []),
     ...stops.map(id => ({ go: id, target: ['.page-head'], title: sectionName(id, NAMES[id]), text: own.get(id) || STOP_TEXT[id] })),
     { go: 'settings', target: ['.page-head'], title: 'Settings',
       get text() {
@@ -141,9 +146,12 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
     else if (above - cardH >= edge) card.style.top = above - cardH + 'px';
     else {
       const roomBelow = innerHeight - edge - below, roomAbove = above - edge, least = Math.min(200, innerHeight - 2 * edge); // never too short to read
+      // …but where the room left is enough for the title, a few lines and the buttons (140 px), the card keeps to it rather
+      // than cover what it points at (the section menu, lower since the search box came above it, on a small phone).
+      const tall = room => (room >= 140 ? room : Math.max(room, least));
       card.classList.add('tour-docked');
-      if (roomBelow >= roomAbove) Object.assign(card.style, { top: 'auto', bottom: edge + 'px', maxHeight: Math.max(roomBelow, least) + 'px' });
-      else Object.assign(card.style, { top: edge + 'px', maxHeight: Math.max(roomAbove, least) + 'px' });
+      if (roomBelow >= roomAbove) Object.assign(card.style, { top: 'auto', bottom: edge + 'px', maxHeight: tall(roomBelow) + 'px' });
+      else Object.assign(card.style, { top: edge + 'px', maxHeight: tall(roomAbove) + 'px' });
     }
     moreCue(card.querySelector('.tour-body'));
   };

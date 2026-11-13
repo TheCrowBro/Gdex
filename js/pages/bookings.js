@@ -120,16 +120,22 @@ export const bookings = {
 };
 
 // Go to Bookings and show that booking's page. Resolves (true) once it is drawn; false when there is no such booking.
-export function openBooking(id) {
+// box: a box to open on it and bring into view, with the focus on its heading ('money': its quote and invoice, as the
+// search opens one); one under More boxes opens the fold too. A box the booking does not show leaves the page as usual.
+export function openBooking(id, { box = '' } = {}) {
   const b = byId('bookings', id);
   if (!b) { toast('That booking is not here any more.'); return Promise.resolve(false); }
   Object.assign(S, { view: 'booking', id: b.id, day: isoOk(b.date) ? b.date : S.day });
+  const folded = !!box && foldedFor(b.kind).some(x => x.id === box);
+  if (box && (folded || blocksFor(b.kind).some(x => x.id === box))) { openSet(b.id).add(box); if (folded) openSet(b.id).add('more'); }
+  const toBox = () => { const el = box && document.getElementById('blk-' + box), sum = el && el.querySelector('summary'); if (!sum) return; sum.focus({ preventScroll: true }); el.scrollIntoView({ block: 'start' }); };
   const here = () => window.logiPage && window.logiPage() === 'bookings' && ROOT && ROOT.isConnected;
-  if (here()) { draw(true); window.scrollTo({ top: 0 }); return Promise.resolve(true); }
+  if (here()) { draw(true); window.scrollTo({ top: 0 }); toBox(); return Promise.resolve(true); }
   return Promise.resolve(window.logiGo ? window.logiGo('bookings') : null).then(() => {
     const head = ROOT && ROOT.isConnected && ROOT.querySelector('[data-view-head]');
     if (head) head.focus({ preventScroll: true });
     window.scrollTo({ top: 0 });
+    toBox();
     return !!byId('bookings', id);
   });
 }

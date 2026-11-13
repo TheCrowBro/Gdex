@@ -37,7 +37,7 @@ const bookingsAt = id => db.bookings.filter(b => b.venueId === id);
 const nextAt = id => { const t = todayISO(); return bookingsAt(id).filter(b => b.status !== 'cancelled' && b.date && isAhead(b, t)).sort(byDate)[0] || null; };
 const goBooking = id => import('./bookings.js').then(m => m.openBooking(id)).catch(e => { console.error(e); toast('That booking could not be opened.'); });
 // The words a search looks through. The written house rules are read through rulesOf, so a stored note that is not text is not searched.
-const searchText = v => [v.name, v.address, v.contact, v.stage, v.pa, v.backline, v.notes, rulesOf(v).note, venueKindLabel(kindOf(v))].map(x => String(x || '')).join(' ').toLowerCase();
+export const venueText = v => [v.name, v.address, v.contact, v.stage, v.pa, v.backline, v.notes, rulesOf(v).note, venueKindLabel(kindOf(v))].map(x => String(x || '')).join(' ').toLowerCase();
 // A venue's ticked house rules in the words a person searches by: a permission as "no phones" and "phones not allowed",
 // or "phones allowed"; a fact in its own words ("cash only", "no strobe lighting"); a pick with and without its rule's
 // name ("age limit 21+", "21+").
@@ -51,7 +51,9 @@ const ruleWords = v => {
 // What was typed, found in a rule's words where a word starts and with no "no" or "not" before it there: "strobe" finds
 // "strobe lighting", never "no strobe lighting"; "phones allowed" never "phones not allowed".
 const inRule = (words, q) => { for (let i = words.indexOf(q); i >= 0; i = words.indexOf(q, i + 1)) if ((i === 0 || words[i - 1] === ' ') && !/\b(no|not)\b/.test(words.slice(0, i))) return true; return false; };
-const matches = (v, q) => searchText(v).includes(q) || ruleWords(v).some(w => inRule(w, q));
+// Exported: the search at the top of every page finds a venue by the same words (venueText) and rules (venueMatches).
+export const venueMatches = (v, q) => venueText(v).includes(q) || ruleWords(v).some(w => inRule(w, q));
+const matches = venueMatches;
 
 // The hire rate of a studio or a room, as "$45 per hour". '' when none is set, and for a role without money (a scout, a
 // gig-goer), whose pages keep fees off (the form keeps the field).

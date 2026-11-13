@@ -51,7 +51,8 @@ const makes = () => [...new Set([...db.gear.map(g => String(g.make || '').trim()
 const PLACE_HINT = 'e.g. Rehearsal room, Van, Maya’s flat, Flight case 2, At the repair shop';
 
 const matchOwner = g => !S.owner || (S.owner === 'band' ? !ownerOf(g) : g.owner === S.owner && !!ownerOf(g));
-const searchText = g => [g.name, g.make, g.model, g.serial, g.location, g.notes, catOf(g), ownerName(g)].map(x => String(x || '')).join(' ').toLowerCase();
+// Exported: the search at the top of every page finds an item by the same words.
+export const gearText = g => [g.name, g.make, g.model, g.serial, g.location, g.notes, catOf(g), ownerName(g)].map(x => String(x || '')).join(' ').toLowerCase();
 
 // Redraw without losing the box someone is typing in or the chip they tapped (by id).
 function keepFocus(root, fn) {
@@ -94,7 +95,7 @@ function itemsView(draw) {
   const all = db.gear;
   if (S.owner && S.owner !== 'band' && !all.some(g => g.owner === S.owner && ownerOf(g))) S.owner = ''; // that person owns nothing now
   const q = S.q.trim().toLowerCase();
-  const shown = sortGear(all.filter(g => matchOwner(g) && (!q || searchText(g).includes(q))));
+  const shown = sortGear(all.filter(g => matchOwner(g) && (!q || gearText(g).includes(q))));
   const units = all.reduce((s, g) => s + qtyOf(g), 0);
   const total = all.reduce((s, g) => s + totalValue(g), 0);
   const booked = all.filter(g => aheadOf(g.id).length > 0).length;

@@ -18,7 +18,7 @@ document.getElementById('helpBtn')?.addEventListener('click', help);
 window.logiHelp = help; // sheets show a ? too
 document.getElementById('displayBtn')?.addEventListener('click', openDisplaySettings);
 initInstall(document.getElementById('installBtn'));
-initSearch(document.getElementById('searchBtn')); // the magnifying glass, and "/" (js/search.js)
+initSearch(document.getElementById('srch-bar')); // the search box at the top of every page, and "/" (js/search.js)
 initClockBar(document.getElementById('clockbar'));
 
 // Gdex always opens on Bookings (the calendar), so it loads with the app. Every other section is fetched and parsed the first

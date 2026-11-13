@@ -73,6 +73,13 @@ export function openSeen(actId, seenId) {
   }));
 }
 
+// Go to the acts list with the act's card dropped open and the focus on its head, as a tap on the card does there (the
+// search opens an act this way). Resolves once it is drawn.
+export const openActCard = id => openSeen(id, null);
+// The words the acts list's search looks through (and the search at the top of every page): the name, every earlier
+// name, the genre, the members' names and the notes.
+export const actSearchText = a => [a.name, a.genre, ...membersOf(a).map(p => p.name), ...earlierNames(a).map(n => n.name), a.notes].filter(Boolean).join(' ').toLowerCase();
+
 // The act's form. A new act gets the next colour no other act uses. onSaved(record) after a save.
 const FORM_KEYS = ['name', 'genre', 'color', 'bio', 'links', 'email', 'phone', 'notes'];
 export function editAct(a = {}, onSaved) {
@@ -448,7 +455,7 @@ function listView() {
   const listBox = h('div', { class: 'list ac-list' });
   const fill = () => {
     const q = all.length > 5 ? S.q.trim().toLowerCase() : ''; // no search box, no filter
-    const shown = q ? all.filter(a => [a.name, a.genre, ...membersOf(a).map(p => p.name), ...earlierNames(a).map(n => n.name)].join(' ').toLowerCase().includes(q)) : all;
+    const shown = q ? all.filter(a => actSearchText(a).includes(q)) : all;
     listBox.replaceChildren(...(shown.length ? shown.map(actCard) : [h('p', { class: 'muted ac-nomatch' }, `No act matches “${S.q.trim()}”.`)]));
   };
   if (all.length) fill();
@@ -689,7 +696,7 @@ const listSteps = () => {
       + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'] },
     { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. You can log a time you saw them play there too; once you have, the card keeps the log: when, where, the score and your notes.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
     { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
-    { title: 'Search', text: 'Find an act by its name, a name it had before, its genre or a member’s name.', target: ['#ac-search'] },
+    { title: 'Search', text: 'Find an act by its name, a name it had before, its genre, a member’s name or its notes.', target: ['#ac-search'] },
   ];
 };
 const PART_TEXT = { about: 'Overview for bookings and members', epk: 'Press kit for promoters and fans', rider: 'Tech rider for the sound engineer' };
