@@ -516,7 +516,7 @@ the grid's "any time" row, `.bk-ev-any`), `.bk-col[data-day]` (a grid column).
 ### The calendar's five views (`js/bookings-cal.js`)
 
 One frame around every view: the head, the filter chips (they apply in every view), the panel (the row of view
-buttons, ‹ title Today ›, the view's body, the legend under squares) and Coming up. Only a view button saves the view
+buttons, one control: ← → move the focus between them, round from the last to the first, and Enter or Space picks; ‹ title Today ›, the view's body, the legend under squares) and Coming up. Only a view button saves the view
 (`saveCalMode`); a day opened from a square, a day's name or Back from a booking is the Day view for this visit.
 
 * **‹ › and Today** step by the length of the view. The title is not a live region (the page is drawn again at every
@@ -608,7 +608,9 @@ for a menu of one).
 * The row of tabs scrolls inside itself and brings the current tab into view (28 px of its neighbour showing) on a
   section change, a fresh draw, a display-preference change and a change of width; a tab that takes the keyboard's
   focus is brought wholly into view too, never one that is tapped. ← → on a focused tab move the section and the
-  focus with it.
+  focus with it. On every menu, an arrow key pressed on a control of the page where it has no meaning of its own (a
+  Week row, a block) steps the section and puts the focus on the menu's current control: the player's tab, else the
+  record or the cassette; never on the page's body.
 * The line slides to its new place and nothing else moves; it follows the animation setting. With Contrast set to
   High the line is the text colour on a quiet track. The cover art and the current tab have a soft light of `--paper`
   behind the icon, and "Now playing" and the track line are a little stronger than `--muted` (4.28:1 on the deck in

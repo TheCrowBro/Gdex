@@ -124,6 +124,14 @@ export function calendarView(ctx) {
     onclick: () => { saveCalMode(id); go({ mode: id }, { top: false }); }, // the one place the view is saved
   }, label)));
   showPressed(views);
+  // The five buttons are one control: ← → move the focus between them (round from the last to the first), and Enter
+  // or Space picks the one with the focus. Taken here, so the section menu does not step on them.
+  views.addEventListener('keydown', e => {
+    const btns = [...views.querySelectorAll('.bk-view')], k = btns.indexOf(e.target), d = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (k < 0 || !d || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+    btns[(k + d + btns.length) % btns.length].focus();
+  });
   // + New starts on the day in view (Day, 3 days); else on today when today is on screen, else on the first day shown.
   const newDate = isDay || mode === 'three' ? S.day : today >= R.first && today <= R.last ? today : R.first;
 

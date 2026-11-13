@@ -313,9 +313,24 @@ async function press(page, loc, ms) {
   await toWeek(page, T);
   await page.focus(`#bk-ev-c-P-${T}`); await page.keyboard.press('ArrowRight'); await sleep(500);
   ok('→ on a row is the section menu’s (only day squares take the arrow keys)', (await page.evaluate(() => window.logiPage())) !== 'bookings');
+  const arrived = () => page.evaluate(() => { const a = document.activeElement; return { body: !a || a === document.body, inDeck: !!a && !!a.closest('#deck'), swipe: !!a && a.classList.contains('dk-swipe'), label: a && a.getAttribute('aria-label') }; });
+  let at = await arrived();
+  ok('…and the focus goes to the section menu’s current control (the record, now on the next section), never to the page body', !at.body && at.inDeck && at.swipe && /^Now playing /.test(at.label || ''), JSON.stringify(at));
+  await page.keyboard.press('ArrowLeft'); await sleep(500);
+  ok('…from where ← brings the calendar back, the focus staying on the record', (await page.evaluate(() => window.logiPage())) === 'bookings' && (await arrived()).swipe);
   await go(page, 'bookings');
   ok('…and coming back finds the same week', (await modeOf(page)) === 'week' && (await page.locator(`#bk-wd-${T}`).count()) === 1);
-
+  // The five view buttons are one control: ← → move between them (round from the last to the first), Enter or Space picks.
+  await page.focus('#bk-view-week');
+  const viewKey = async key => { await page.keyboard.press(key); await sleep(250); return page.evaluate(() => ({ page: window.logiPage(), focus: document.activeElement.id, mode: (document.querySelector('.bk-calview').className.match(/bk-mode-(\w+)/) || [])[1], saved: localStorage.getItem('gdex-cal-view') })); };
+  const k1 = await viewKey('ArrowRight'), k2 = await viewKey('ArrowRight'), k3 = await viewKey('ArrowRight'), k4 = await viewKey('ArrowLeft');
+  ok('on the view buttons ← → move between the buttons, round from Day to Month and back, and stay in the calendar without picking', [k1, k2, k3, k4].every(k => k.page === 'bookings' && k.mode === 'week' && k.saved === 'week') && same([k1, k2, k3, k4].map(k => k.focus), ['bk-view-three', 'bk-view-day', 'bk-view-month', 'bk-view-day']), JSON.stringify([k1, k2, k3, k4]));
+  const k5 = await viewKey('Enter');
+  ok('…Enter picks the one with the focus', k5.mode === 'day' && k5.saved === 'day' && k5.focus === 'bk-view-day', JSON.stringify(k5));
+  await page.focus('#bk-view-day'); await viewKey('ArrowLeft'); await viewKey('ArrowLeft'); await viewKey('ArrowLeft');
+  const k6 = await viewKey(' ');
+  ok('…and so does Space', k6.mode === 'two' && k6.saved === 'two' && k6.focus === 'bk-view-two', JSON.stringify(k6));
+  await view(page, 'week');
   // + New starts on today when today is on screen, else on the first day shown; on the day in view in Day and 3 days
   const newDate = async () => { await page.locator('.bk-new').click(); await page.locator('.bk-kind[data-kind="other"]').click(); const f = sheetNamed(page, 'New diary entry'); await f.waitFor(); const v = await f.locator('[data-key="date"]').inputValue(); await f.locator('button', { hasText: 'Cancel' }).click(); await sleep(250); return v; };
   ok('+ New in a week without today starts on its Monday', (await newDate()) === (await monday(page, T)));
@@ -909,6 +924,10 @@ async function press(page, loc, ms) {
           tab: cur.dataset.section, tabInSight: c.left >= t.left - 0.5 && c.right <= t.right + 0.5, pressed: (document.querySelector('.bk-views .on') || {}).id, entries: document.querySelectorAll('.bk-cal-panel .bk-ev, .bk-cal-panel .bk-day.has').length }; });
       ok(`digital player, 320 px, ${scheme}, ${v}: the page is no wider than the screen; ⏮ ☰ ⏭ are inside the menu, which names Bookings and marks its tab`, fit.page <= 320 && fit.next && fit.prev && fit.list && fit.name === 'Bookings' && fit.tab === 'bookings' && fit.tabInSight && fit.pressed === 'bk-view-' + v && fit.entries > 0, JSON.stringify(fit));
     }
+    // → on a block of the Day view steps the menu, and the focus goes to the player's current tab, never to the page body.
+    await d.page.focus('.bk-dayview .bk-block'); await d.page.keyboard.press('ArrowRight'); await sleep(500);
+    const onTab = await d.page.evaluate(() => { const a = document.activeElement; return { page: window.logiPage(), tab: !!a && a.classList.contains('dk-tab') && a.classList.contains('on'), section: a && a.dataset.section }; });
+    ok(`digital player, 320 px, ${scheme}: → on a block steps to the next section, and the focus goes to its tab, never to the page body`, onTab.page !== 'bookings' && onTab.tab && onTab.section === onTab.page, JSON.stringify(onTab));
     ok(`no errors in the console (digital player, 320 px, ${scheme})`, d.errors.length === 0, d.errors.slice(0, 5).join(' | '));
     await d.browser.close();
   }
