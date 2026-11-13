@@ -57,6 +57,9 @@ address. So a site published before the shop is ready never locks anyone out.
 | Your key (1) and the spare (9) | key files on your computer, locked with your passphrase, and paper backups | free codes, and your signed requests to look up, clear, cancel, restore and link codes |
 | Stripe restricted key | a secret on the Worker | reading Checkout Sessions only (no refunds, no payouts, no customers) |
 | Resend API key | a secret on the Worker | sending email from your verified domain only |
+| `MAC_CERT_P12` and `MAC_CERT_PASSWORD` (your Developer ID Application certificate), only if you sign | **only** in the GitHub Environment `gdex-sign` | **signing any Mac app as you, Vdex's included**: whoever has both can ship software under your name. |
+| `APPLE_ID`, `APPLE_APP_PASSWORD` (an app-specific password) and `APPLE_TEAM_ID`, only if you sign | GitHub, Environment `gdex-sign` | notarizing any app under your Apple team; and the app-specific password signs in to your Apple Account wherever Apple accepts one (iCloud mail, contacts and calendars in other apps). Revoke it at account.apple.com if it leaks. |
+| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET` (the signing app registration), only if you sign | GitHub, Environment `gdex-sign` | **signing any Windows file with your certificate profile, Vdex's included** (the "Artifact Signing Certificate Profile Signer" role you gave it). Delete the client secret in Microsoft Entra ID if it leaks. |
 
 ## What it costs
 

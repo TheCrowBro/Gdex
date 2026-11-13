@@ -143,9 +143,15 @@ unpacked folder only, quickest for a look). The version is `VERSION` in `js/vers
 
 Unsigned installers work: Windows shows "Windows protected your PC" (More info → Run anyway) and a Mac needs System
 Settings → Privacy & Security → Open Anyway; an unsigned Mac app cannot update itself (it says when a new version is
-out, with a link to the download page). The workflow signs on its own once these are in the Gdex repository on GitHub
-(Settings → Secrets and variables → Actions). The same Apple Developer ID and the same Azure certificate profile that
-sign other apps can sign Gdex: no second fee.
+out, with a link to the download page). The workflow signs on its own once these are in the Gdex repository on GitHub.
+The same Apple Developer ID and the same Azure certificate profile that sign other apps can sign Gdex: no second fee.
+
+**Where the secrets go: the protected Environment `gdex-sign`, never repository secrets.** They can sign any app as you,
+Vdex's included (`docs/licence-server.md`, "What each key can reach"), and repository secrets can be read by a workflow
+on any branch pushed to the repository. So: Settings → Environments → **New environment `gdex-sign`**, required
+reviewer: you, deployment branches: `main` only; put each secret below in that Environment (the variables, which are
+not secret, can stay repository variables). The build job (`.github/workflows/desktop.yml`) names that Environment, so
+every run waits for your approval, and a run on any branch but `main` stops before it builds.
 
 **Mac** (Apple Developer Program, 99 USD a year):
 
@@ -156,8 +162,8 @@ sign other apps can sign Gdex: no second fee.
    private key from Keychain Access as a `.p12` with a password, then as text: `base64 -i cert.p12 | pbcopy`.
 3. account.apple.com → Sign-In and Security → App-Specific Passwords → one named "Gdex notarize". The Team ID is under
    Membership details on developer.apple.com.
-4. Repository secrets: `MAC_CERT_P12` (the base64 text), `MAC_CERT_PASSWORD`, `APPLE_ID` (the Apple Account's address),
-   `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID`.
+4. Secrets in the Environment `gdex-sign`: `MAC_CERT_P12` (the base64 text), `MAC_CERT_PASSWORD`, `APPLE_ID` (the Apple
+   Account's address), `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID`.
 
 **Windows** (Azure Artifact Signing, 9.99 USD a month):
 
@@ -172,7 +178,7 @@ sign other apps can sign Gdex: no second fee.
 5. Microsoft Entra ID → App registrations → New registration (e.g. `gdex-github-signing`) → copy the client and tenant
    ids → Certificates & secrets → New client secret (24 months). In the signing account: Access control (IAM) →
    **Artifact Signing Certificate Profile Signer** → that app.
-6. Repository secrets `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`; repository variables
+6. Secrets in the Environment `gdex-sign`: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`; repository variables
    `AZURE_SIGNING_ENDPOINT` (e.g. `https://wus2.codesigning.azure.net`), `AZURE_SIGNING_ACCOUNT`,
    `AZURE_SIGNING_PROFILE` and `AZURE_SIGNING_PUBLISHER` (the CN).
 7. Calendar reminders: renew the client secret after 23 months, and the identity check when Microsoft asks.

@@ -62,7 +62,11 @@ client id (it goes in `js/cloud-config.js`). Until then the Google Drive card sa
 ## 7. Code signing (optional)
 
 Unsigned desktop builds work, with warnings when they are opened. To sign: the Apple Developer ID certificate and
-notarisation secrets and the Azure signing secrets, in the Gdex repository. Steps: `docs/desktop.md`.
+notarisation secrets and the Azure signing secrets. **What they can reach: they sign and notarize any app as you, Vdex's
+included**, and the app-specific password signs in to your Apple Account (`docs/licence-server.md`, "What each key can
+reach"). So, in the Gdex repository on GitHub: **Settings → Environments → New environment `gdex-sign`**, required
+reviewer: you, deployment branches: `main` only; put the secrets there, **not** as repository secrets (a workflow on any
+pushed branch can read those). Every run of the desktop build then waits for your approval. Steps: `docs/desktop.md`.
 
 ## 8. Downloads (15 minutes)
 

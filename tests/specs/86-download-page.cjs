@@ -68,6 +68,10 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   const triggers = (/^on:\n([\s\S]*?)^\S/m.exec(wf) || [])[1] || '';
   ok('the build workflow runs only by hand and uploads nothing (no Wrangler, no R2, no release)', /workflow_dispatch/.test(triggers) && !/push:|tags:|schedule:|pull_request/.test(triggers) && !/wrangler|r2 object|gh release|--publish always|publish:\s*$/m.test(wf.replace(/^\s*#.*$/gm, '')), triggers.trim());
   ok('…it refuses to build with the licence switched on and no key 1, and says in its summary whether the licence is on', /licence-on\.json/.test(wf) && /licence-keys\.json/.test(wf) && /GITHUB_STEP_SUMMARY/.test(wf));
+  // The signing secrets can sign anything as the owner (Vdex's apps too): they live in a protected Environment, which only
+  // an approved run of this job can read, never in repository secrets, which any pushed branch's workflow can read.
+  const desk = read('docs/desktop.md'), signing = (desk.split('## Signing')[1] || '').split('\n## ')[0], live = read('docs/go-live.md'), step7 = (live.split('## 7.')[1] || '').split('## 8.')[0], table = (read('docs/licence-server.md').split('## What each key can reach')[1] || '').split('\n## ')[0];
+  ok('…its build job takes the signing secrets from the protected Environment gdex-sign, and the guides say so and what each signing secret can reach', /^    environment: gdex-sign$/m.test(wf) && /Environment `gdex-sign`/.test(signing) && !/Repository secrets/.test(signing) && /`gdex-sign`/.test(step7) && /Vdex['’]s\s+included/.test(step7) && ['MAC_CERT_P12', 'APPLE_APP_PASSWORD', 'AZURE_CLIENT_SECRET'].every(k => table.includes('`' + k + '`')), JSON.stringify({ env: /environment: gdex-sign/.test(wf), step7: step7.trim().slice(0, 200) }));
   const tests = read('.github/workflows/tests.yml');
   ok('the tests workflow has a desktop job that runs the smoke test under a virtual screen', /^  desktop:/m.test(tests) && /xvfb-run -a npm run test:desktop/.test(tests));
 

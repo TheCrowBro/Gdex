@@ -9,6 +9,9 @@
 # Signing is optional and switches itself on: with the Apple secrets the Mac app is signed and notarized (and can update
 # itself); with the Azure secrets and variables the Windows installer is signed through Azure Artifact Signing. Without
 # them the installers come out unsigned (the download page says how to open them). docs/desktop.md lists every secret.
+# The signing secrets can sign any app as the owner (Vdex's too), so they live only in the protected GitHub Environment
+# gdex-sign (required reviewer: the owner; main only), never in repository secrets, which a workflow on any pushed branch
+# could read: each run of the build job waits there for the owner's approval.
 name: Build desktop installers
 on:
   workflow_dispatch:
@@ -28,6 +31,7 @@ jobs:
             args: --linux
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    environment: gdex-sign
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
