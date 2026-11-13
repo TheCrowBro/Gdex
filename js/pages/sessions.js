@@ -34,7 +34,7 @@ const songTitle = id => (id && byId('songs', id) ? byId('songs', id).title : '')
 const takesOf = l => (Array.isArray(l && l.takes) ? l.takes.filter(t => t && t.id) : []);
 const keepersOf = l => takesOf(l).filter(t => t.rating === 'keep');
 const startOf = l => Number(l && l.startedAt) || Number(l && l.createdAt) || (l && l.date ? parseISO(l.date).getTime() : Date.now());
-const logDate = l => (l.date && /^\d{4}-\d{2}-\d{2}$/.test(l.date) ? l.date : ymd(new Date(startOf(l))));
+export const logDate = l => (l.date && /^\d{4}-\d{2}-\d{2}$/.test(l.date) ? l.date : ymd(new Date(startOf(l))));
 // The next take number for a song in this log: one past the highest so far, so numbers are never reused.
 export const nextTakeNo = (l, songId) => 1 + takesOf(l).filter(t => (t.songId || '') === (songId || '')).reduce((m, t) => Math.max(m, Number(t.n) || 0), 0);
 // The songs a log covers, in the order they were first recorded (or the song it was started for).
@@ -231,6 +231,9 @@ function openExport(l) {
 }
 
 /* ------------------------------- list view ------------------------------- */
+// The words the log search looks through (and the search at the top of every page): the title, the songs, the session
+// it belongs to (by every name its act has had), the session notes and the notes on its takes.
+export const logWords = l => { const b = l.bookingId && byId('bookings', l.bookingId); return [l.title, ...songsOf(l), b && bookingTitle(b), ...(b ? earlierNames(byId('acts', b.actId)).map(n => n.name) : []), l.notes, ...takesOf(l).map(t => t.text)].map(x => String(x || '')).filter(x => x.trim()); };
 function logCard(l) {
   const b = l.bookingId ? byId('bookings', l.bookingId) : null;
   const n = takesOf(l).length, k = keepersOf(l).length, songs = songsOf(l);
@@ -247,7 +250,7 @@ function listView() {
   const today = todayISO();
   const todays = db.bookings.filter(b => b.kind === 'session' && b.status !== 'cancelled' && covers(b, today));
   const box = h('div', { class: 'sd-logs' });
-  const match = l => { const q = S.q.trim().toLowerCase(); if (!q) return true; const b = l.bookingId && byId('bookings', l.bookingId); return [l.title, ...songsOf(l), b && bookingTitle(b), ...(b ? earlierNames(byId('acts', b.actId)).map(n => n.name) : []), l.notes].some(x => String(x || '').toLowerCase().includes(q)); };
+  const match = l => { const q = S.q.trim().toLowerCase(); return !q || logWords(l).some(x => x.toLowerCase().includes(q)); };
   const fill = () => {
     const shown = logs.filter(match);
     if (!logs.length) { box.replaceChildren(empty('Log takes while you record: tap + Take as each one starts, rate them Keep, Maybe or No, and jot notes for the comp. Start a log here, or from a studio session’s Take log box.', h('button', { type: 'button', class: 'btn primary', onclick: () => newLogForm() }, '+ New take log'))); return; }

@@ -16,8 +16,8 @@ const tabs = new Map(); // booking id → the tab last opened ('quote' | 'invoic
 const shortDate = iso => { const [y, m, d] = iso.split('-').map(Number); const dt = new Date(y, m - 1, d); return isNaN(dt) ? '' : dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(y !== new Date().getFullYear() ? { year: 'numeric' } : {}) }); };
 const tabOf = b => tabs.get(b.id) || (docOf(b, 'invoice') || !docOf(b, 'quote') ? 'invoice' : 'quote');
 
-// The pill for a document's status.
-function statusPill(b, kind, doc) {
+// The pill for a document's status (the search's Money tab shows it too).
+export function statusPill(b, kind, doc) {
   const t = docTotals(doc);
   if (kind === 'invoice' && isOverdue(b)) return h('span', { class: 'pill mn-over mn-pill' }, 'Overdue');
   if (kind === 'invoice' && isPaid(doc)) return h('span', { class: 'pill st-settled mn-pill' }, 'Paid');

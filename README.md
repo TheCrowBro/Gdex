@@ -90,12 +90,25 @@ the band by any of its names. Press kits, riders, day sheets, invoices and calen
 
 ## Search
 
-Tap the magnifying glass at the top of any page (or press **/** on a keyboard) and type a band, a place, a support act
-or a word from your notes. Every show, studio session and rehearsal it finds comes up as a card, newest first, with
-today marked between what is still to come and what is over, and so do the times you logged seeing a band that were
-never on the calendar. A band is found by any name it has had, and a card from before it changed its name says
-"formerly …". A band you logged as the support act at a show on the calendar is part of that show's card, with its
-score. Tap a place to see only what was there, or a card to open it; nothing you type is kept.
+The search box is at the top of every page, just above the section menu (press **/** on a keyboard to jump into it).
+Type anything and the results open over the page as you type: bookings (shows, studio sessions, rehearsals and diary
+entries, and the times you logged seeing a band that were never on the calendar), bands, venues, people, songs,
+setlists, gear, the studio log, and, in a role that deals with money, invoices and quotes. Every word you type has to be
+found somewhere, in any order; capitals and accents don't matter.
+
+- **Tabs:** All shows the best matches of every kind in one list, a name that starts with what you typed first. Each
+  kind has a tab of its own with how many it found; a kind with nothing is left out.
+- **Dates:** type a day ("20 nov", "nov 20", "20/11", "2026-11-20", "friday", "today", "tomorrow") or a span ("nov",
+  "november 2025", "2025", "this week", "next week", "last month") and everything dated then comes up: bookings on those
+  days, logged times, studio logs, invoices and quotes. A date and words narrow each other: "church 2025" is the shows at
+  The Church that year. The results say how the date was read.
+- **Bookings** are the calendar's own cards, newest first, with today marked between what is still to come and what is
+  over. A band is found by any name it has had, and a card from before it changed its name says "formerly …". A band you
+  logged as the support act at a show on the calendar is part of that show's card, with its score. Tap a place to see
+  only what was there.
+- **Tap a result** to open it where it lives (the band's card, the venue, the person, the song, the setlist, the piece of
+  gear, the take log, the invoice on its booking). The box keeps your words: tap it to get the results back, on the same
+  tab. Nothing you type is kept once Gdex is closed.
 
 ## Your first show
 

@@ -114,7 +114,7 @@ function view(draw) {
 function songsList(draw) {
   if (!db.songs.length) return [empty('Add your songs with their key, tempo and length, so setlists add up to the slot and the split sheet is ready before release.', h('button', { class: 'btn primary', type: 'button', onclick: () => editSong({}) }, '+ Add a song'))];
   const q = S.q.trim().toLowerCase();
-  const match = s => !q || [s.title, s.key, shortKey(s.key), s.tuning, s.isrc, s.notes, actName(s.actId), ...earlierNames(byId('acts', s.actId)).map(n => n.name), songStatusLabel(s.status), ...(s.splits || []).map(p => p && p.name)].filter(Boolean).join(' ').toLowerCase().includes(q);
+  const match = s => !q || songText(s).includes(q);
   const shown = groupsOf(db.songs.filter(s => (!S.act || actOf(s) === S.act) && match(s)));
   if (!shown.length) {
     return [empty(q ? `No songs match “${S.q.trim()}”.` : S.act === NO_ACT ? 'Every song belongs to an act.' : `No songs for ${actName(S.act) || 'this act'} yet.`,
@@ -125,6 +125,10 @@ function songsList(draw) {
     h('h3', null, h('span', null, name), h('span', { class: 'sg-count' }, plural(arr.length, 'song'))),
     h('div', { class: 'list' }, arr.sort(byTitle).map(songCard))));
 }
+
+// The words the song search looks through (and the search at the top of every page): the title, key, tuning, ISRC,
+// notes, the act by every name it has had, the status and the writers on the split sheet.
+export const songText = s => [s.title, s.key, shortKey(s.key), s.tuning, s.isrc, s.notes, actName(s.actId), ...earlierNames(byId('acts', s.actId)).map(n => n.name), songStatusLabel(s.status), ...(s.splits || []).map(p => p && p.name)].filter(Boolean).join(' ').toLowerCase();
 
 function songCard(s) {
   const splits = (s.splits || []).filter(Boolean), tot = splitTotal(splits);

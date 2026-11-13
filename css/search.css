@@ -1,21 +1,45 @@
-/* Search (js/search.js): the sheet with its box, the line saying what was found, the kind row, the place chips, and
-   one list with a line for today. A booking's card is the calendar's own (css/bookings.css .bk-card) and a time seen
-   borrows its layout; these are only what the search adds. Classes start with srch- (sr- is the screen reader's). */
+/* Search (js/search.js): the box at the top of every page, in the section menu's bar above the menu (so it tucks away
+   with it), with its line of help; and the results' sheet: its own box, the tabs, the line saying what was found, the
+   bookings tab's kind row and place chips, and the list with a line for today. A booking's card is the calendar's own
+   (css/bookings.css .bk-card) and a time seen borrows its layout; these are only what the search adds. Classes start
+   with srch- (sr- is the screen reader's). */
+
+/* The box at the top of every page: as wide as the section menu under it, a pill with a magnifying glass. Plain page
+   text size, as every box on a page is (16 px, so a phone does not zoom into it). */
+.srch-bar { position: relative; max-width: 560px; margin: 0 auto 8px; }
+.srch-bar .srch-box { display: block; margin: 0; padding-left: 34px; padding-right: 8px; border-radius: 999px; text-overflow: ellipsis; }
+.srch-ico { position: absolute; left: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; color: var(--muted); pointer-events: none; }
+.srch-ico svg { display: block; width: 100%; height: 100%; }
+/* Its line of help, under it while it has the focus and nothing is typed in it, over the section menu. */
+.srch-pop { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; margin: 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--card); color: var(--text); box-shadow: 0 10px 24px #0005; font-size: .9rem; line-height: 1.4; overflow-wrap: anywhere; }
+.srch-bar.srch-empty:focus-within .srch-pop { display: block; }
 
 /* The sheet is as tall as a sheet may be whatever is in it, so it does not jump as the results come and go, and the
    box stays near the top of the screen, clear of a phone's keyboard. */
 .sheet.srch-sheet { height: 92vh; }
 @supports (height: 1dvh) { .sheet.srch-sheet { height: 92dvh; max-height: 92dvh; } }
-.srch-sheet .sheet-body { padding-top: 0; scroll-padding-top: calc(var(--hit) + 32px); } /* a card reached with Tab is not left under the box */
+.srch-sheet .sheet-body { padding-top: 0; scroll-padding-top: calc(2 * var(--hit) + 40px); } /* js/search.js sets it to the box and the tabs as drawn */
 .srch { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
-/* The box stays in sight while the list scrolls under it (the sheet's side padding is covered too). */
+/* The box and the tabs stay in sight while the list scrolls under them (the sheet's side padding is covered too). */
 .srch-top { position: sticky; top: 0; z-index: 2; margin: 0 -16px; padding: 8px 16px; background: var(--bg); }
 .srch-top .search { margin: 0; font-size: 1rem; text-overflow: ellipsis; } /* a placeholder too long for the box ends in … rather than mid-letter */
 .srch-out { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 /* The search's own words are sized in rem, so they follow the Text size setting (plain page text is a fixed 16 px). */
-.srch-help, .srch-none, .srch-found { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
+.srch-help, .srch-none, .srch-found, .srch-when { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
 .srch-found { font-weight: 700; }
+.srch-when { font-size: .85rem; color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
 .srch-miss { font-weight: 400; } /* "No shows found." before what was found instead */
+
+/* The tabs: one row that scrolls sideways on a phone, each with its count; the one on show is filled and bold. Every tab
+   keeps the width of its bold name, so the row does not shift when another is picked. */
+.srch-tabbar:empty { display: none; }
+.srch-tabs { display: flex; gap: 6px; margin: 8px -16px 0; padding: 5px 16px 4px; overflow-x: auto; scroll-padding-inline: 28px; scrollbar-width: none; overscroll-behavior-inline: contain; }
+.srch-tabs::-webkit-scrollbar { display: none; }
+.srch-tab { flex: none; min-height: var(--hit); display: inline-flex; align-items: center; gap: 7px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg2); color: var(--text); font: inherit; font-size: .9rem; white-space: nowrap; cursor: pointer; }
+.srch-tab-name { display: inline-flex; flex-direction: column; } .srch-tab-name::after { content: attr(data-name); height: 0; overflow: hidden; visibility: hidden; font-weight: 700; }
+.srch-tab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+@media (hover: hover) { .srch-tab:not(.on):hover { border-color: var(--accent); } }
 
 /* The kind row and the place chips: rows that scroll sideways (styles.css .chips), with room for the focus ring. */
 .srch-chips { margin: -5px -5px 0; padding: 5px 5px 6px; align-items: center; }
@@ -25,7 +49,7 @@
 .srch-tick { font-weight: 800; }
 .srch-more-places { flex: none; padding-inline: 6px; }
 
-/* One column, in date order, at every width. */
+/* One column, in date order (the bookings), best match first (All) or by name, at every width. */
 .srch-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
 .srch-list > li { min-width: 0; }
 /* The line for today: its words carry it, the rule beside them is in the accent colour. */
@@ -33,7 +57,7 @@
 .srch-today::before, .srch-today::after { content: ''; flex: 1 1 12px; min-width: 12px; height: 2px; border-radius: 1px; background: var(--accent); }
 .srch-today > span:first-child { min-width: 0; text-align: center; overflow-wrap: anywhere; }
 
-/* What a card gains here: the year under its date, the score, why it was found, and "From the log". */
+/* What a booking's card gains here: the year under its date, the score, why it was found, and "From the log". */
 .srch-year { font-variant-numeric: tabular-nums; }
 .srch-score, .srch-why { display: block; font-size: .85rem; overflow-wrap: anywhere; }
 .srch-score b { font-weight: 800; }
@@ -41,7 +65,20 @@
 .srch-log { flex: none; margin-top: 2px; color: var(--text); border-style: dashed; }
 .srch-more { margin-top: 0; }
 
+/* A row of any other kind (and every row on All): the small word for its kind, the name, a line of what it is. The
+   act's colour down its edge where it has one, as the calendar's cards have. */
+.srch-rec { display: grid; gap: 3px; border-left: 4px solid var(--act, var(--line)); }
+.srch-rec-top { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+.srch-kind { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
+.srch-name { font-size: 1rem; }
+.srch-sub { font-size: .85rem; color: color-mix(in srgb, var(--muted) 70%, var(--text)); overflow-wrap: anywhere; }
+.srch-was { font-size: .85rem; font-style: italic; color: var(--muted); overflow-wrap: anywhere; }
+.srch-money { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: .9rem; }
+.srch-amt { font-variant-numeric: tabular-nums; }
+.srch-rec .vn-chip { justify-self: start; }
+.srch-seeall { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* A time seen opened from the search, in the band's log (css/acts.css .ac-seen): marked for a moment. */
 .ac-seen.srch-hit { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-@media (forced-colors: active) { .srch-today::before, .srch-today::after { background: CanvasText; } .ac-seen.srch-hit { outline-color: Highlight; } }
+@media (forced-colors: active) { .srch-today::before, .srch-today::after { background: CanvasText; } .ac-seen.srch-hit { outline-color: Highlight; } .srch-tab { border: 1px solid CanvasText; } .srch-tab.on { outline: 2px solid Highlight; } }

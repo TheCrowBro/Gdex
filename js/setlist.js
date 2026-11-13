@@ -100,6 +100,10 @@ export function setlistText(list) {
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
 
+// The words the search at the top of every page finds a setlist by: its name, its act by every name it has had, the
+// songs and set breaks in it, and its notes.
+export const setlistWords = list => [list.name, actName(list.actId), ...earlierNames(byId('acts', list.actId)).map(n => n.name), ...(Array.isArray(list.items) ? list.items : []).filter(Boolean).map(it => (it.isBreak ? it.title : itemTitle(it))), list.notes].map(x => String(x || '')).filter(x => x.trim());
+
 /* --------------------------------- records --------------------------------- */
 // Makes a setlist and returns the stored record. preset: { name, actId, gap, items, notes }.
 export function newSetlist(preset = {}) {

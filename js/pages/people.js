@@ -406,9 +406,12 @@ function card(p) {
     quick(p, 'pp-quick'));
 }
 
+// The words People's search looks through (and the search at the top of every page): the name, role, instrument,
+// company, notes, phone, email, group, and the acts the person is in by every name they have had.
+export const personText = p => [p.name, p.role, p.instrument, p.company, p.notes, p.phone, p.email, groupLabel(groupOf(p)), ...actsOf(p.id).map(a => a.name), ...actsOf(p.id).flatMap(a => earlierNames(a).map(n => n.name))].join(' ').toLowerCase();
 function matches(p, words) {
   if (!words.length) return true;
-  const hay = [p.name, p.role, p.instrument, p.company, p.notes, p.phone, p.email, groupLabel(groupOf(p)), ...actsOf(p.id).map(a => a.name), ...actsOf(p.id).flatMap(a => earlierNames(a).map(n => n.name))].join(' ').toLowerCase();
+  const hay = personText(p);
   return words.every(w => hay.includes(w));
 }
 
