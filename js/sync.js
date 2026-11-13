@@ -270,6 +270,23 @@ export function initDrive() {
     hiddenAt = 0;
   });
   addEventListener('online', () => { if (adapter) sync({ quiet: true }); });
+  // Another tab of Gdex on this device disconnected Drive (Disconnect, Delete Gdex's copy, Erase) or connected it: this
+  // tab follows, so it never syncs a Drive the person disconnected.
+  addEventListener('storage', e => {
+    if (e.key !== K.on && e.key !== null) return;
+    const on = LS.get(K.on) === '1';
+    if (!on && adapter) {
+      gen++; clearTimeout(timer); timer = 0; clearTimeout(busyTimer);
+      adapter = null;
+      S.status = 'off'; S.error = ''; S.backupError = ''; S.unreadable = false;
+      fire();
+    } else if (on && !adapter) {
+      adapter = driveAdapter();
+      S.status = 'off'; S.error = ''; S.backupError = ''; S.unreadable = false;
+      fire();
+      sync({ quiet: true });
+    }
+  });
   if (!adapter) return;
   if (configured() && !inDesktopApp() && !desktopFilesInBrowser()) loadGIS().catch(() => {}); // so Sign in again opens Google's window straight from the tap
   sync({ quiet: true });

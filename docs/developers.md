@@ -211,6 +211,11 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 ```
 
 * `db` is a live binding: read `db.venues` etc. at render time; never keep it across `await`.
+* **Other tabs.** Each tab keeps the database in memory and writes it whole. When another tab of Gdex on the device
+  writes `gdex-db-v1` (or clears storage), this tab takes in what it wrote (the `storage` event; redrawn with reason
+  `'sync'`, nothing written or synced), so an Erase or a change in one tab is not undone by the next change in another.
+  `js/sync.js` follows `gdex-drive` the same way: Drive disconnected (or connected) in another tab is disconnected (or
+  connected) here too.
 * **The licence's gate.** `update` returns `false` and changes nothing when the licence refuses the change (a working
   role after its free days); `upsert` and `patch` return `null` then, `remove` `false`. Every caller that uses the
   returned record stops on `null` (a form stays open with what was typed: `form.js` asks `canChange()` before it closes).

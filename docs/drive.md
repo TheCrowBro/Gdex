@@ -157,7 +157,9 @@ hidden with a change waiting; when Gdex comes back into view after a minute or m
 (`online`); a minute after "Google Drive is busy"; on Sync now and Sign in again (which may open Google's window).
 
 Disconnecting (or Erase, or Delete Gdex's copy) bumps a generation counter: a sync already running stops at its next
-step without adopting or writing anything.
+step without adopting or writing anything. Another tab of Gdex on the same device follows: it hears `gdex-drive` go (a
+`storage` event) and disconnects too, and it takes in the database the other tab wrote (`js/store.js`), so an Erase in
+one tab is not undone, or synced back, by the next change in another.
 
 ### The merge
 
@@ -202,7 +204,7 @@ the desktop app refuses to sign in (Google knows only 47861).
   bringing a daily copy back and Replace on every device; a booking deleted by mistake brought back by Merge (Also bring
   back: ticked for a daily copy, not for a backup file) on both devices; Disconnect, Delete, Erase (the changes Drive lacks copied
   first, signing in again from the tap; with no internet nothing erased until Erase anyway); a first sync that fails, then Not
-  now; where the focus goes when the card is redrawn (after connecting, Sign in again, Disconnect, Delete, Not now);
+  now; two tabs, Erase in one (the other takes in the empty database and shows Drive disconnected); where the focus goes when the card is redrawn (after connecting, Sign in again, Disconnect, Delete, Not now);
   `freeDaysFrom` with a stand-in licence state.
 - `91-drive-merge`: `mergeDb` entry by entry; two devices logging at once; no ping-pong (records, or one act's times
   seen, in different orders); nothing pushed back after a copy is taken in; Replace everywhere with entries; duplicate

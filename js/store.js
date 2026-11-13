@@ -45,6 +45,16 @@ function load() {
 }
 
 export let db = load();
+// Another tab of Gdex on this device wrote the database (a change, a sync, an Erase): this tab takes in what it wrote,
+// so its own next change, which writes the database whole, does not put back what the other tab changed or erased.
+// Nothing is written or sent from here: the other tab has already saved it.
+try {
+  addEventListener('storage', e => {
+    if (e.key !== KEY && e.key !== null) return;
+    db = load();
+    emit('sync');
+  });
+} catch { /* no window */ }
 let rev = 0;
 export const revision = () => rev;
 export const serialize = () => JSON.stringify(db);

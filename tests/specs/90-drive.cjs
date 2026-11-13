@@ -4,7 +4,7 @@
 // joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
 // page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
 // and Replace reaching every device; a record deleted by mistake brought back by Merge (Also bring back); Disconnect, Delete Gdex's copy and Erase (the changes Drive lacks copied first, or
-// said, with Erase anyway); where the focus goes when the Drive card
+// said, with Erase anyway); two tabs, Erase in one not undone by the other; where the focus goes when the Drive card
 // is redrawn; and the earliest free day carried in the Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in
 // script is served by the test, and one Google Drive held here in Node answers every device (each browser context is
 // one device).
@@ -587,6 +587,35 @@ if (require.main === module) (async () => {
     D4.fail = null;
     ok('…and Erase anyway, after the warning, erases', (await data(ph)).bookings.length === 0 && !(await state(ph)).linked && has(D4.json(), 'h-off') && !has(D4.json(), 'h-off2'));
     H2.allow.pop();
+  }
+
+  /* ------------------------------ two tabs: Erase in one ------------------------------ */
+  // Every tab keeps the database in memory and writes it whole: another tab takes in what one writes, so an Erase (or a
+  // Disconnect) in one tab is not undone by the next change in another, which also shows Drive disconnected.
+  {
+    const D7 = fakeDrive();
+    const T = await device(browser, D7, { who: 'T' }); all.push(T);
+    const t1 = T.page;
+    await t1.evaluate(() => import('./js/store.js').then(s => { for (const i of [1, 2, 3, 4]) s.upsert('venues', { id: 'tv' + i, name: 'Venue ' + i }); }));
+    await connect(t1); await waitCloud(t1, 'synced'); await closeSheets(t1);
+    const t2 = await T.ctx.newPage(); // a second tab: the same storage
+    t2.on('pageerror', e => T.errors.push(e.message));
+    t2.on('console', m => { if (m.type() === 'error') T.errors.push(m.text()); });
+    t2.on('dialog', d => d.accept());
+    await t2.goto(BASE); await t2.waitForSelector('#deck .dk-next');
+    await t2.evaluate(() => import('./js/backup.js'));
+    ok('(both tabs are connected to Google Drive)', await waitCloud(t2, 'synced') && (await data(t2)).venues.length === 4);
+    await t1.evaluate(() => window.logiGo('settings')); await sleep(400);
+    await t1.evaluate(() => { const d = document.getElementById('se-erase'); if (d && !d.open) d.open = true; });
+    await t1.fill('#se-erase-input', 'ERASE');
+    await Promise.all([t1.waitForNavigation({ timeout: 15000 }), t1.click('#se-erase-go')]);
+    await t1.waitForSelector('#deck .dk-next');
+    await t2.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 't2-song', title: 'After the erase' })));
+    await sleep(1200);
+    const saved = await t1.evaluate(() => JSON.parse(localStorage.getItem('gdex-db-v1')));
+    ok('Erase in one tab stays erased after a change in another open tab', saved.venues.length === 0 && saved.songs.some(x => x.id === 't2-song') && (await data(t2)).venues.length === 0, `venues kept: ${saved.venues.length}`);
+    ok('…and the other tab shows Google Drive disconnected, and sends nothing to Drive', !(await state(t2)).linked && (await cloudState(t2))[0] === '' && !D7.json().songs.some(x => x.id === 't2-song'), JSON.stringify(await state(t2)));
+    await T.ctx.close();
   }
 
   /* ------------------------------ Google's sign-in script not loading ------------------------------ */
