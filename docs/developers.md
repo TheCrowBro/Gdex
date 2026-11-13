@@ -200,7 +200,7 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   An act's card and a venue's rows print no time or both.
 * Helpers: `bookingsOn(date)`, `upcoming()`, `activeBookings()`, `covers(b, date)`, `overlaps(a, b)`, `lastDay(b)`,
   `personBookings(id)`, `gearBookings(id)`, `personClash(b, personId)`, `gearClash(b, gearId)` (other overlapping bookings
-  when together they need more than are owned), `gearShort(b, gearId)` (this booking alone needs more than are owned), `qtyOf(g)`,
+  when together they need more than are owned; both in playing order, `byDayPlay`, so a clash line names them as the day runs), `gearShort(b, gearId)` (this booking alone needs more than are owned), `qtyOf(g)`,
   `usedQty(booking, gearId)` (counts in `booking.gearQty`), `packQty(kit, gearId)` (counts in `kit.qty`; applying a pack
   to a booking copies them into `gearQty`), `totalValue(g)`, `exportJSON()`, `replaceAll(data)`, `mergeIn(data)`, `eraseAll()`.
 

@@ -180,9 +180,9 @@ export const bookingsOn = date => db.bookings.filter(b => covers(b, date)).sort(
 export const upcoming = (from = ymd(new Date())) => activeBookings().filter(b => b.date && lastDay(b) >= from).sort(byDayPlay);
 export const personBookings = id => activeBookings().filter(b => (b.people || []).includes(id)).sort(byDayPlay);
 export const gearBookings = id => activeBookings().filter(b => (b.gear || []).includes(id)).sort(byDayPlay);
-// Other live bookings on overlapping days that need the same person.
-// A cancelled booking clashes with nothing.
-export const personClash = (booking, personId) => (booking.status === 'cancelled' ? [] : activeBookings().filter(b => b.id !== booking.id && overlaps(b, booking) && (b.people || []).includes(personId)));
+// Other live bookings on overlapping days that need the same person, in the order the bands play (byDayPlay), so a
+// clash line names them as the day runs. A cancelled booking clashes with nothing.
+export const personClash = (booking, personId) => (booking.status === 'cancelled' ? [] : activeBookings().filter(b => b.id !== booking.id && overlaps(b, booking) && (b.people || []).includes(personId)).sort(byDayPlay));
 
 /* ------------------------------- gear ------------------------------- */
 export const qtyOf = g => Math.max(1, Math.floor(Number(g && g.qty)) || 1);
@@ -191,13 +191,14 @@ export const usedQty = (owner, gearId) => Math.max(1, Math.floor(Number(owner &&
 export const packQty = (kit, gearId) => Math.max(1, Math.floor(Number(kit && kit.qty && kit.qty[gearId])) || 1);
 export const unitValue = g => Number(g && g.value) || 0;
 export const totalValue = g => unitValue(g) * qtyOf(g);
-// Other live bookings on overlapping days that use the same item, when together they need more than are owned.
 // True when this booking alone needs more of the item than are owned (after 'How many' was lowered, say).
 export const gearShort = (booking, gearId) => { const g = byId('gear', gearId); return !!g && usedQty(booking, gearId) > qtyOf(g); };
+// Other live bookings on overlapping days that use the same item, when together they need more than are owned, in
+// the order the bands play.
 export const gearClash = (booking, gearId) => {
   if (booking.status === 'cancelled') return [];
   const g = byId('gear', gearId);
-  const others = activeBookings().filter(b => b.id !== booking.id && overlaps(b, booking) && (b.gear || []).includes(gearId));
+  const others = activeBookings().filter(b => b.id !== booking.id && overlaps(b, booking) && (b.gear || []).includes(gearId)).sort(byDayPlay); // in playing order, as personClash
   const need = usedQty(booking, gearId) + others.reduce((s, b) => s + usedQty(b, gearId), 0);
   return need > qtyOf(g) ? others : [];
 };

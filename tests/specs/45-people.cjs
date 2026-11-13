@@ -232,6 +232,22 @@ const sheetFor = (page, title) => page.locator(`.sheet[aria-label="${title}"]`);
   await page.keyboard.press('Escape'); await sleep(200);
   await page.keyboard.press('Escape'); await sleep(250);
 
+  /* ---------- a clash names the other bookings in the order the bands play ---------- */
+  // Three bookings on one day, saved late set first: each row's clash line names the other two by their playing time.
+  const clashDay = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 20); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); });
+  await store(page, (s, d) => {
+    s.upsert('people', { id: 't-ord', name: 'Ola Nordmann', group: 'session', role: 'Drums' });
+    for (const [id, title, setTime] of [['t-o3', 'Late Set', '23:00'], ['t-o1', 'Early Set', '19:00'], ['t-o2', 'Middle Set', '21:00']]) s.upsert('bookings', { id, kind: 'show', status: 'confirmed', title, date: d, venueName: 'The Crown', setTime, people: ['t-ord'] });
+  }, clashDay);
+  await page.click('#pp-open-t-ord');
+  await sheetFor(page, 'Ola Nordmann').waitFor();
+  const clashes = await page.$$eval('.sheet[aria-label="Ola Nordmann"] .pp-upcoming .pp-bk', rs => rs.map(r => [r.dataset.id, (r.querySelector('.pp-clash') || {}).textContent || '']));
+  ok('a clash line names the day’s other bookings in the order the bands play, not the order they were saved', JSON.stringify(clashes) === JSON.stringify([
+    ['t-o1', '⚠ Also on Middle Set, Late Set that day'], ['t-o2', '⚠ Also on Early Set, Late Set that day'], ['t-o3', '⚠ Also on Early Set, Middle Set that day']]), JSON.stringify(clashes));
+  await page.keyboard.press('Escape'); await sleep(250);
+  await store(page, s => { for (const id of ['t-o1', 't-o2', 't-o3']) s.remove('bookings', id); s.remove('people', 't-ord'); });
+  await sleep(200);
+
   /* ---------- tutorials ---------- */
   await page.click('#helpBtn');
   await page.waitForSelector('.tour-card', { timeout: 8000 });

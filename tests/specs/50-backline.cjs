@@ -100,6 +100,15 @@ const cards = page => page.locator('#page .bl-card').count();
   await store(page, () => { const s = window.__s, day = s.byId('bookings', 's-show1').date; s.patch('bookings', 's-show2', { date: day, gear: ['s-tele'] }); });
   await sleep(250);
   ok('a clash with another booking the same day is shown', /Also needed at .*Harbour Hall/.test(await text(page, '#bl-bk-s-show1')), (await text(page, '#bl-bk-s-show1')).replace(/\s*\n\s*/g, ' / '));
+  // Two more that day, saved late set first: the line names the others in the order the bands play.
+  await store(page, () => { const s = window.__s, day = s.byId('bookings', 's-show1').date;
+    s.upsert('bookings', { id: 't-late', kind: 'show', status: 'confirmed', title: 'Late Set', date: day, venueName: 'The Crown', setTime: '23:30', gear: ['s-tele'] });
+    s.upsert('bookings', { id: 't-early', kind: 'show', status: 'confirmed', title: 'Early Set', date: day, venueName: 'The Crown', setTime: '18:00', gear: ['s-tele'] }); });
+  await sleep(250);
+  const order = (await text(page, '#bl-bk-s-show1 .bl-row-warn')).trim();
+  ok('…naming the other bookings in the order the bands play, not the order they were saved', /Also needed at Early Set, .*Harbour Hall.*, Late Set the same day/.test(order), order);
+  await store(page, () => { window.__s.remove('bookings', 't-late'); window.__s.remove('bookings', 't-early'); });
+  await sleep(250);
   // Edit from the sheet: the sheet follows the change.
   await page.click('#bl-edit');
   await page.waitForSelector('.sheet[aria-label="Edit item"]');
