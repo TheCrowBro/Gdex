@@ -394,9 +394,10 @@ phrase such as "covers band", leaves it to the next). In a genre the last word o
 the main word last ("indie rock" and "folk rock" are Rock, "doom folk" is Folk, "pop punk" is Punk), phrases before
 their words, so a phrase is how an exception is written ("punk rock" is Punk, "post-punk" Rock, "Latin pop" Latin,
 "Christian rock" Gospel & Christian, "western swing" Country, "desert blues" World). A weak word (indie, alt,
-acoustic, choir, orchestra, DJ, fusion…) decides only when nothing else in the genre is known: "indie" alone is Rock,
-"indie pop" Pop, "gospel choir" Gospel & Christian, "hip hop DJ" Hip hop & rap. The table (`GENRE_TABLE`) lives in
-the block; `47-genres` reads close to two hundred genres through it.
+acoustic, choir, orchestra, DJ, dance, fusion…) decides only when nothing else in the genre is known: "indie" alone is
+Rock, "indie pop" Pop, "gospel choir" Gospel & Christian, "hip hop DJ" Hip hop & rap, "Latin dance" Latin. The table
+(`GENRE_TABLE`) lives in the block; `47-genres` reads two tables through it, close to two hundred genres and some two
+hundred and fifty more written apart from the first.
 
 Use these instead of re-implementing them, so a show's numbers agree on every page. If one is wrong or missing, say
 so in your report rather than forking it.
@@ -736,8 +737,9 @@ and the acts list folds the acts under it. Everything lives in one block of `pag
   act (`data-group="none"` for No genre yet; `.open` while open), in `MAIN_GENRES` order (A to Z, then Unique), then
   No genre yet. Each starts with `h2.ac-group-h > button.ac-group-head#ac-grp-<id>` (`#ac-grp-none`), a real
   disclosure button: `aria-expanded`, `aria-controls="ac-grp-<id>-list"`, the label in `span.ac-group-name`, the count
-  in `span.ac-group-n` (the number shown, and ", 3 bands" in the role's word for an act, `actWord()`, for a screen
-  reader: the button is read "Rock, 3 bands"), and the chevron (`span.ac-chev`, turned while open). Under it,
+  in `span.ac-group-n` and the chevron (`span.ac-chev`, turned while open), both hidden from a screen reader, which
+  reads the button's `aria-label` instead: "Rock, 3 bands", in the role's word for an act (`actWord()`; read from the
+  spans, a browser would say "Rock , 3 bands"). Under it,
   `div.list.ac-group-list#ac-grp-<id>-list[role=group]` labelled by the heading holds the group's cards in the role's
   own order (A to Z, latest score, last seen), and is empty and `hidden` while folded.
 * **Folding.** Every group is folded at first; a tap, Enter or Space on a heading opens or folds it, and the page is

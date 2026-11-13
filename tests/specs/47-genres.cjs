@@ -13,10 +13,10 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const put = (page, recs) => page.evaluate(list => import('./js/store.js').then(s => list.forEach(r => s.upsert('acts', r))), recs).then(() => sleep(300));
 const stored = (page, id) => page.evaluate(i => import('./js/store.js').then(s => JSON.parse(JSON.stringify(s.byId('acts', i) || null))), id);
 const role = (page, id) => page.evaluate(x => import('./js/roles.js').then(m => m.setRole(x)), id).then(() => sleep(300));
-// The headings on the list: [label, count shown, open?], and what a screen reader hears for one (its text without the
-// parts hidden from it).
-const heads = page => page.$$eval('.ac-group-head', bs => bs.map(b => [b.querySelector('.ac-group-name').textContent, b.querySelector('.ac-group-n [aria-hidden]').textContent, b.getAttribute('aria-expanded')]));
-const spoken = (page, sel) => page.$eval(sel, b => { const c = b.cloneNode(true); c.querySelectorAll('[aria-hidden="true"]').forEach(x => x.remove()); return c.textContent.replace(/\s+/g, ' ').trim(); });
+// The headings on the list: [label, count shown, open?], and what a screen reader hears for one (its name as the
+// browser works it out, from the accessibility tree).
+const heads = page => page.$$eval('.ac-group-head', bs => bs.map(b => [b.querySelector('.ac-group-name').textContent, b.querySelector('.ac-group-n').textContent, b.getAttribute('aria-expanded')]));
+const spoken = (page, sel) => page.locator(sel).ariaSnapshot().then(t => (t.match(/button "([^"]*)"/) || [])[1] || t);
 const cardsIn = (page, key) => page.$$eval(`.ac-group[data-group="${key}"] .ac-card`, cs => cs.filter(c => c.offsetParent !== null).map(c => c.dataset.id));
 const visibleCards = page => page.$$eval('.ac-card', cs => cs.filter(c => c.offsetParent !== null).map(c => c.dataset.id));
 const focused = page => page.evaluate(() => (document.activeElement && document.activeElement.id) || '');
@@ -79,6 +79,79 @@ const SEED = [
     const got = await page.evaluate(t => import('./js/model.js').then(m => t.map(([text]) => m.genreOf(text))), TABLE);
     const wrong = TABLE.map(([text, want], i) => [text, want, got[i]]).filter(([, want, g]) => want !== g);
     ok(`the model reads ${TABLE.length} typed genres as their main genre (the owner’s examples, several genres, R&B, drum and bass, rock and roll, hip-hop, empty and junk)`, TABLE.length >= 80 && !wrong.length, JSON.stringify(wrong));
+    // A second table, written apart from the first by someone who had not seen it: real genres as people type them,
+    // with "dance" after a genre ("Latin dance" is Latin, "line dance" Country), jam band, ceilidh, church choir and
+    // others the first table did not try.
+    const MORE = [
+      // rock and its kin
+      ['Alternative rock', 'rock'], ['Hard rock', 'rock'], ['Classic rock', 'rock'], ['Southern rock', 'rock'], ['Space rock', 'rock'], ['Math rock', 'rock'],
+      ['Noise rock', 'rock'], ['Art rock', 'rock'], ['Glam rock', 'rock'], ['Post-grunge', 'rock'], ['Neo-psychedelia', 'rock'], ['Soft rock', 'rock'],
+      ['Yacht rock', 'rock'], ['Arena rock', 'rock'], ['Midwest emo', 'rock'], ['Gothic rock', 'rock'], ['Goth', 'rock'], ['Industrial rock', 'rock'],
+      ['Post-punk revival', 'rock'], ['Kraut rock', 'rock'], ['J-rock', 'rock'], ['Roots rock', 'rock'], ['Funk rock', 'rock'], ['Rock opera', 'rock'],
+      ['Jam band', 'rock'], ['Rock music for dancing', 'rock'], ['Indie folk rock', 'rock'], ['70s rock', 'rock'], ['Rock/Pop', 'rock'], ['Desert rock', 'rock'],
+      ['Alternative / Indie', 'rock'], ['Celtic rock', 'rock'], ['Swamp rock', 'rock'],
+      // pop
+      ['Jangle pop', 'pop'], ['Power pop', 'pop'], ['Chamber pop', 'pop'], ['Baroque pop', 'pop'], ['Art pop', 'pop'], ['Bedroom pop', 'pop'], ['Sophisti-pop', 'pop'],
+      ['Dance-pop', 'pop'], ['Teen pop', 'pop'], ['J-pop', 'pop'], ['City pop', 'pop'], ['Alt-pop', 'pop'], ['Psych-pop', 'pop'], ['Glitch pop', 'pop'], ['80s pop', 'pop'],
+      ['Pop/Rock', 'pop'], ['Top 40 covers', 'pop'], ['Schlager', 'pop'], ['Cantopop', 'pop'], ['Folk-pop', 'pop'],
+      // metal
+      ['Power metal', 'metal'], ['Heavy metal', 'metal'], ['Symphonic metal', 'metal'], ['Post-metal', 'metal'], ['Progressive metal', 'metal'], ['Industrial metal', 'metal'],
+      ['Stoner doom', 'metal'], ['Doom', 'metal'], ['Rap metal', 'metal'], ['Funk metal', 'metal'], ['Alternative metal', 'metal'], ['Melodic death metal', 'metal'],
+      // punk
+      ['Garage punk', 'punk'], ['Folk punk', 'punk'], ['Celtic punk', 'punk'], ['Crust punk', 'punk'], ['Hardcore punk', 'punk'], ['Melodic hardcore', 'punk'],
+      ['Skate punk', 'punk'], ['Oi!', 'punk'], ['Street punk', 'punk'], ['Gypsy punk', 'punk'], ['Dance punk', 'punk'], ['Pop punk / emo', 'punk'], ['Screamo', 'punk'],
+      // electronic
+      ['Indie electronic', 'electronic'], ['Electro house', 'electronic'], ['Progressive house', 'electronic'], ['Tech house', 'electronic'], ['Minimal techno', 'electronic'],
+      ['Acid house', 'electronic'], ['Liquid drum and bass', 'electronic'], ['Drum ’n’ bass', 'electronic'], ["D'n'B", 'electronic'], ['Drum&Bass', 'electronic'],
+      ['Italo disco', 'electronic'], ['Nu-disco', 'electronic'], ['Afro house', 'electronic'], ['Dub techno', 'electronic'], ['Witch house', 'electronic'],
+      ['House music', 'electronic'], ['Dark ambient', 'electronic'], ['Vaporwave', 'electronic'], ['Garage house', 'electronic'], ['Electronic dance music', 'electronic'],
+      ['Soulful house', 'electronic'], ['Hardcore techno', 'electronic'], ['DJ/producer', 'electronic'], ['Wedding DJ', 'electronic'], ['Lo-fi beats', 'electronic'],
+      ['Breakcore', 'electronic'], ['Neurofunk', 'electronic'], ['Darkwave', 'electronic'], ['Space disco', 'electronic'], ['Big room', 'electronic'],
+      // hip hop
+      ['Lo-fi hip hop', 'hiphop'], ['Cloud rap', 'hiphop'], ['Conscious hip hop', 'hiphop'], ['Emo rap', 'hiphop'], ['Gangsta rap', 'hiphop'], ['Hip-hop/R&B', 'hiphop'],
+      ['Hip Hop & R&B', 'hiphop'], ['Instrumental hip hop', 'hiphop'], ['Grime MC', 'hiphop'], ['90s hip hop', 'hiphop'], ['Desi hip hop', 'hiphop'], ['Rapper', 'hiphop'],
+      ['Grime / drill', 'hiphop'], ['Alternative hip hop', 'hiphop'], ['Hardcore hip hop', 'hiphop'],
+      // R&B and soul
+      ['Northern soul', 'rnb'], ['Southern soul', 'rnb'], ['Blue-eyed soul', 'rnb'], ['Contemporary R&B', 'rnb'], ['Neo soul', 'rnb'], ['Indie R&B', 'rnb'],
+      ['Alternative R&B', 'rnb'], ['R&B/Hip-Hop', 'rnb'], ['Doo-wop', 'rnb'], ['Motown soul', 'rnb'], ['Funk & soul', 'rnb'], ['Soul/funk', 'rnb'], ['P-Funk', 'rnb'],
+      ['Psychedelic soul', 'rnb'], ['R n B', 'rnb'], ["R'n'B", 'rnb'], ['60s soul', 'rnb'], ['Function band (soul, Motown, pop)', 'rnb'],
+      // folk
+      ['Anti-folk', 'folk'], ['Freak folk', 'folk'], ['Psych folk', 'folk'], ['Chamber folk', 'folk'], ['Sea shanties', 'folk'], ['Irish traditional', 'folk'],
+      ['Folk & Americana', 'folk'], ['Nordic folk', 'folk'], ['Dark folk', 'folk'], ['Neo-folk', 'folk'], ['Songwriter', 'folk'], ['Electric folk', 'folk'], ['Acid folk', 'folk'],
+      ['Ceilidh band', 'folk'], ['Folk dance', 'folk'],
+      // country
+      ['Outlaw country', 'country'], ['Bro-country', 'country'], ['Honky-tonk', 'country'], ['Americana/folk', 'country'], ['Texas country', 'country'],
+      ['Cosmic country', 'country'], ['Country and Irish', 'country'], ['Alternative country', 'country'], ['Line dance', 'country'],
+      // jazz
+      ['Jazz fusion', 'jazz'], ['Jazz-funk', 'jazz'], ['Acid jazz', 'jazz'], ['Nu jazz', 'jazz'], ['Free jazz', 'jazz'], ['Gypsy jazz', 'jazz'], ['Vocal jazz', 'jazz'],
+      ['Jazz standards', 'jazz'], ['Trad jazz', 'jazz'], ['Soul jazz', 'jazz'], ['Afro-Cuban jazz', 'jazz'], ['Big band swing', 'jazz'], ['Jazz trio', 'jazz'],
+      ['Spiritual jazz', 'jazz'], ['Post-bop', 'jazz'], ['Lounge', 'jazz'],
+      // blues
+      ['Chicago blues', 'blues'], ['Electric blues', 'blues'], ['Country blues', 'blues'], ['Blues & roots', 'blues'], ['Boogie-woogie', 'blues'],
+      // classical
+      ['Classical crossover', 'classical'], ['Contemporary classical', 'classical'], ['Western classical', 'classical'], ['Symphony orchestra', 'classical'], ['Chamber music', 'classical'],
+      ['Community choir', 'classical'],
+      // reggae and ska
+      ['Reggae fusion', 'reggae'], ['Roots reggae', 'reggae'], ['2 Tone ska', 'reggae'], ['Two-tone', 'reggae'], ['Dub poetry', 'reggae'], ['Ska band', 'reggae'],
+      // latin
+      ['Latin trap', 'latin'], ['Urbano latino', 'latin'], ['Corridos tumbados', 'latin'], ['Bachata', 'latin'], ['Tango', 'latin'], ['Nuevo flamenco', 'latin'], ['MPB', 'latin'],
+      ['Salsa dura', 'latin'], ['Tex-Mex', 'latin'], ['Afro-Cuban', 'latin'], ['Latin dance', 'latin'], ['Rock en español', 'latin'], ['Mariachi band', 'latin'],
+      // world
+      ['Highlife', 'world'], ['Soukous', 'world'], ['World music', 'world'], ['Bhangra', 'world'], ['Raï', 'world'], ['Indian classical', 'world'], ['Carnatic', 'world'],
+      ['Calypso', 'world'], ['Chanson française', 'world'], ['Balkan brass', 'world'],
+      // gospel and Christian
+      ['Southern gospel', 'gospel'], ['Contemporary worship', 'gospel'], ['Praise and worship', 'gospel'], ['Christian hip-hop', 'gospel'], ['Christian metal', 'gospel'],
+      ['Hymns', 'gospel'], ['Black gospel', 'gospel'], ['Church choir', 'gospel'],
+      // custom, or no main genre: Unique
+      ['Experimental', 'unique'], ['Noise', 'unique'], ['Avant-garde', 'unique'], ['Spoken word', 'unique'], ['Comedy', 'unique'], ['Children’s music', 'unique'],
+      ['Queen tribute band', 'unique'], ['Party band', 'unique'], ['Musical theatre', 'unique'], ['Barbershop', 'unique'], ['Various', 'unique'], ['Eclectic', 'unique'],
+      ['Wedding & function band', 'unique'], ['Beatles tribute', 'unique'], ['Deep house band', 'electronic'], ['Coffee house', 'unique'], ['Cabaret', 'unique'],
+      // nothing
+      ['Unknown', ''], ['None', ''], ['TBA', ''], ['-', ''], ['?', ''], ['n.a.', ''],
+    ];
+    const got2 = await page.evaluate(t => import('./js/model.js').then(md => t.map(([text]) => md.genreOf(text))), MORE);
+    const wrong2 = MORE.map(([text, want], i) => [text, want, got2[i]]).filter(([, want, g]) => want !== g);
+    ok(`…and a second table of ${MORE.length} genres written apart from the first (“Latin dance” is Latin, “Jam band” Rock, “Ceilidh band” Folk, “Church choir” Gospel & Christian)`, MORE.length >= 150 && !wrong2.length, JSON.stringify(wrong2));
     const m = await page.evaluate(() => import('./js/model.js').then(md => ({
       list: md.MAIN_GENRES, none: md.NO_GENRE,
       labels: md.MAIN_GENRES.map(([id, label]) => [id, md.genreOf(label)]),
@@ -147,6 +220,8 @@ const SEED = [
   await sleep(100);
   ok('a tap on a heading drops its acts down, in the role’s order (A to Z)', same(await cardsIn(page, 'rock'), ['t-two', 't-rye', 's-owls']) && same(await visibleCards(page), ['t-two', 't-rye', 's-owls']), JSON.stringify(await visibleCards(page)));
   ok('…the group’s list is shown and the chevron turns', !(await page.$eval('#ac-grp-rock-list', el => el.hidden)) && (await page.locator('.ac-group[data-group="rock"].open').count()) === 1);
+  const tree = await page.locator('.ac-group[data-group="rock"]').ariaSnapshot();
+  ok('…read out as an open button, “Rock, 3 acts”, over a group of the same name', /button "Rock, 3 acts" \[expanded\]/.test(tree) && /group "Rock, 3 acts"/.test(tree), tree.split('\n').slice(0, 3).join(' | '));
   ok('…and the heading keeps the focus after the redraw', (await focused(page)) === 'ac-grp-rock', await focused(page));
   // a card inside a group still drops open
   await page.tap('#ac-head-s-owls');

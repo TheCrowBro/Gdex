@@ -484,11 +484,12 @@ function foldGroup(key, searching) {
 function groupNodes(list, searching) {
   const keyOf = new Map(list.map(a => [a, mainGenreOf(a).id]));
   return GROUP_ORDER.map(key => [key, list.filter(a => keyOf.get(a) === key)]).filter(([, acts]) => acts.length).map(([key, acts]) => {
-    const id = groupId(key), open = searching ? !S.shut.has(key) : S.groups.has(key);
+    const id = groupId(key), open = searching ? !S.shut.has(key) : S.groups.has(key), label = mainGenreLabel(key);
+    // Its name is given whole ("Rock, 3 bands"): read from the spans, a browser puts a space before the comma.
     return h('section', { class: 'ac-group' + (open ? ' open' : ''), 'data-group': key || 'none' },
-      h('h2', { class: 'ac-group-h' }, h('button', { type: 'button', class: 'ac-group-head', id, 'aria-expanded': String(open), 'aria-controls': id + '-list', onclick: () => foldGroup(key, searching) },
-        h('span', { class: 'ac-group-name' }, mainGenreLabel(key)),
-        h('span', { class: 'ac-group-n' }, h('span', { 'aria-hidden': 'true' }, String(acts.length)), h('span', { class: 'sr-only' }, `, ${plural(acts.length, actWord())}`)),
+      h('h2', { class: 'ac-group-h' }, h('button', { type: 'button', class: 'ac-group-head', id, 'aria-label': `${label}, ${plural(acts.length, actWord())}`, 'aria-expanded': String(open), 'aria-controls': id + '-list', onclick: () => foldGroup(key, searching) },
+        h('span', { class: 'ac-group-name' }, label),
+        h('span', { class: 'ac-group-n', 'aria-hidden': 'true' }, String(acts.length)),
         h('span', { class: 'ac-chev', 'aria-hidden': 'true' }, '▾'))),
       h('div', { class: 'list ac-group-list', id: id + '-list', role: 'group', 'aria-labelledby': id, hidden: !open }, open ? acts.map(actCard) : []));
   });

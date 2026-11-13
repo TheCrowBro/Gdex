@@ -290,34 +290,37 @@ export const NO_GENRE = 'No genre yet';
 // space, no apostrophes). A phrase is matched whole before its words, so a phrase is also how an exception is written:
 // "punk rock" is Punk, though "rock" comes last. A word marked ~ is weak: it decides only when nothing else in the
 // genre is known ("indie" alone is Rock, "indie pop" is Pop and "hip hop alternative" is Hip hop; "gospel choir" is
-// Gospel). The '' row holds phrases that are no genre, so their words decide nothing ("house band", "covers band").
+// Gospel; "dance" alone is Electronic, "Latin dance" is Latin). The '' row holds phrases that are no genre, so their
+// words decide nothing ("house band", "covers band").
 const GENRE_TABLE = {
   rock: 'rock|~indie|~alt|~alternative|garage|grunge|shoegaze|shoegazer|shoegazing|post rock|post punk|psych|psychedelic|psychedelia|prog|' +
-    'progressive|stoner|surf|emo|britpop|madchester|rocknroll|rockabilly|psychobilly|krautrock|new wave|~goth|~gothic|glam|slowcore|sadcore|coldwave|deathrock|postpunk|postrock',
+    'progressive|stoner|surf|emo|britpop|madchester|rocknroll|rockabilly|psychobilly|krautrock|new wave|~goth|~gothic|glam|slowcore|sadcore|coldwave|deathrock|postpunk|postrock|' +
+    'jam band|jamband|nugaze|nu gaze',
   metal: 'metal|~heavy|doom|thrash|sludge|djent|metalcore|deathcore|grindcore|grind|mathcore|blackgaze|nwobhm|numetal',
   punk: 'punk|punk rock|hardcore|oi|crust|riot grrrl|riot grrl|screamo|skacore|d beat|cowpunk|poppunk',
-  pop: 'pop|synthpop|electropop|europop|hyperpop|kpop|jpop|cpop|cantopop|mandopop|bubblegum|easy listening|adult contemporary|schlager|top 40|boy band|girl group',
+  pop: 'pop|synthpop|electropop|europop|hyperpop|kpop|jpop|cpop|cantopop|mandopop|bubblegum|easy listening|adult contemporary|schlager|top 40|boy band|girl group|dreampop',
   hiphop: 'hip hop|hiphop|rap|~rapper|trap|drill|grime|boom bap|chillhop|crunk|horrorcore|phonk|turntablism|g funk|gangsta|~mc|~emcee|hyphy',
   rnb: 'rnb|soul|neosoul|funk|funky|motown|doo wop|doowop|new jack swing|quiet storm|~urban|swingbeat',
   electronic: 'electronic|electronica|electro|edm|idm|house|techno|trance|psytrance|dnb|drumnbass|jungle|dubstep|brostep|ambient|synthwave|retrowave|' +
     'outrun|vaporwave|chillwave|darkwave|ebm|industrial|breakbeat|breaks|big beat|uk garage|speed garage|future garage|2 step|bass music|future bass|uk funky|' +
-    'hardstyle|gabber|happy hardcore|electro swing|glitch|footwork|juke|downtempo|chillout|chill out|trip hop|triphop|dance|eurodance|disco|italo|hi nrg|' +
-    'electroclash|synth|synths|modular|~dj|rave|acid|moombahton|gqom|folktronica|indietronica|livetronica|chiptune|8 bit|lofi beats|lo fi beats',
-  folk: 'folk|singer songwriter|singersongwriter|songwriter|~acoustic|celtic|~trad|~traditional|shanty|shanties|antifolk|neofolk|skiffle|cajun|zydeco|polka|~roots',
-  country: 'country|americana|bluegrass|honky tonk|honkytonk|~western|western swing',
+    'hardstyle|gabber|happy hardcore|electro swing|glitch|footwork|juke|downtempo|chillout|chill out|trip hop|triphop|~dance|eurodance|disco|italo|hi nrg|' +
+    'electroclash|synth|synths|modular|~dj|rave|acid|moombahton|gqom|folktronica|indietronica|livetronica|chiptune|8 bit|lofi beats|lo fi beats|' +
+    'deep house|breakcore|neurofunk|big room',
+  folk: 'folk|singer songwriter|singersongwriter|songwriter|~acoustic|celtic|~trad|~traditional|shanty|shanties|antifolk|neofolk|skiffle|cajun|zydeco|polka|~roots|ceilidh|ceili|barn dance|irish dance',
+  country: 'country|americana|bluegrass|honky tonk|honkytonk|~western|western swing|hillbilly|line dance|line dancing',
   jazz: 'jazz|swing|bebop|bop|big band|dixieland|ragtime|~fusion|manouche|lounge|jazz funk',
   blues: 'blues|bluesy|boogie woogie',
   classical: 'classical|neoclassical|~opera|~orchestra|~orchestral|~choir|~choral|symphony|~symphonic|baroque|chamber music|string quartet|early music|' +
     'film score|~soundtrack|~composer|lieder|art song|minimalism',
-  reggae: 'reggae|ska|dub|dancehall|rocksteady|ragga|raggamuffin|lovers rock|two tone|2 tone|mento|riddim',
+  reggae: 'reggae|ska|dub|dancehall|rocksteady|ragga|raggamuffin|lovers rock|two tone|2 tone|mento|riddim|dance hall',
   latin: 'latin|latino|latina|salsa|reggaeton|bachata|merengue|cumbia|tango|bossa nova|bossa|samba|mariachi|ranchera|norteno|banda|tejano|corrido|' +
     'corridos|regional mexican|bolero|mambo|cha cha|chachacha|flamenco|vallenato|mpb|forro|dembow|urbano|son cubano|nueva cancion|~tropical|rumba|' +
-    'tex mex|musica mexicana|latin pop|latin rock|latin rap|latin trap|latin hip hop|latin urban|latin alternative|latin soul|baile funk|funk carioca|afro cuban',
+    'tex mex|musica mexicana|latin pop|latin rock|latin rap|latin trap|latin hip hop|latin urban|latin alternative|latin soul|baile funk|funk carioca|afro cuban|rock en espanol',
   world: 'world|global|afrobeat|afrobeats|afropop|~afro|highlife|juju|soukous|mbalax|makossa|kwaito|amapiano|bhangra|bollywood|qawwali|carnatic|hindustani|' +
     'raga|fado|klezmer|balkan|gypsy|rai|gnawa|tuareg|arabic|middle eastern|calypso|soca|zouk|kompa|gamelan|chanson|enka|throat singing|indian classical|desert blues',
   gospel: 'gospel|~christian|worship|praise|ccm|hymn|hymns|spirituals|contemporary christian|christian rock|christian metal|christian pop|christian rap|' +
-    'christian hip hop|christian punk|christian country|christian folk',
-  '': 'house band|covers band|cover band|tribute band|tribute act|wedding band|function band|pop up',
+    'christian hip hop|christian punk|christian country|christian folk|church',
+  '': 'house band|covers band|cover band|tribute band|tribute act|wedding band|function band|pop up|coffee house',
 };
 const GENRE_WORDS = new Map(), GENRE_WEAK = new Set();
 for (const [id, list] of Object.entries(GENRE_TABLE)) for (const w of list.split('|')) { const p = w.replace(/^~/, ''); GENRE_WORDS.set(p, id); if (w !== p) GENRE_WEAK.add(p); }
