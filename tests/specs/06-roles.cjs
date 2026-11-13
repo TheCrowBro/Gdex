@@ -327,9 +327,9 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await go(page, 'tools');
     await go(page, 'backline');
     ok('one bonus track gives way to another: still seven tabs, the new one last', (await at()) === 'backline' && JSON.stringify(await tabs()) === JSON.stringify([...R.menus.scout, 'backline']) && (await marked()) === 'backline:page');
-    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('producer')));
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('solo'))); // the producer has Backline on its menu now (item 17)
     await sleep(500);
-    ok('a new role redraws the tabs: the producer’s menu, with Backline still open as its bonus tab', JSON.stringify(await tabs()) === JSON.stringify([...R.menus.producer, 'backline']) && !R.menus.producer.includes('backline') && (await at()) === 'backline' && (await marked()) === 'backline:page' && /^Bonus track/.test(await page.textContent('#deck .dk-meta')), (await tabs()).join(','));
+    ok('a new role redraws the tabs: the solo artist’s menu, with Backline still open as its bonus tab', JSON.stringify(await tabs()) === JSON.stringify([...R.menus.solo, 'backline']) && !R.menus.solo.includes('backline') && (await at()) === 'backline' && (await marked()) === 'backline:page' && /^Bonus track/.test(await page.textContent('#deck .dk-meta')), (await tabs()).join(','));
     await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('band')));
     await sleep(500);
     ok('…and for a role that has Backline on its menu, it is one of the tracks, with no bonus tab', R.menus.band.includes('backline') && JSON.stringify(await tabs()) === JSON.stringify(R.menus.band) && (await at()) === 'backline' && (await marked()) === 'backline:page' && (await page.textContent('#deck .dk-meta')).startsWith(`Track ${R.menus.band.indexOf('backline') + 1} of ${R.menus.band.length}`), `${(await tabs()).join(',')} · ${await page.textContent('#deck .dk-meta')}`);

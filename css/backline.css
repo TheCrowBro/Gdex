@@ -53,6 +53,31 @@
 .bl-link:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
 .bl-in-packs { margin: 0; }
 
+/* ---------- backline: the gear by band (item 17), folds that look and behave as the acts list's genre groups ---------- */
+/* The heading is one button: the act's name, the count and the chevron on its first line; the total value and your
+   investment on the line under it (each drops under the other where the two do not fit). */
+.bl-bands { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.bl-band { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.bl-band-h { margin: 0; font-size: 1rem; line-height: 1.25; letter-spacing: 0; text-transform: none; color: inherit; }
+.bl-band-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%; min-height: var(--hit); padding: 7px 10px 7px 14px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); color: inherit; font: inherit; font-size: 1.05rem; font-weight: 800; text-align: left; cursor: pointer; }
+.bl-band-head:hover { border-color: var(--accent); }
+.bl-band-head:hover .bl-band-name, .bl-band-head:focus-visible .bl-band-name { color: var(--accent); }
+.bl-band-name { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.bl-band-n { flex: none; min-width: 2em; padding: 2px 8px; border-radius: 999px; background: var(--bg2); color: color-mix(in srgb, var(--muted) 70%, var(--text)); font-size: .85rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.bl-chev { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--bg2); color: var(--muted); transition: transform .2s; }
+.bl-band-head[aria-expanded="true"] .bl-chev { transform: rotate(180deg); color: var(--accent); }
+.bl-band-sum { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 0 14px; margin-top: -2px; padding-bottom: 2px; font-size: .85rem; font-weight: 500; line-height: 1.35; color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
+.bl-band-sum > span { min-width: 0; overflow-wrap: anywhere; }
+.bl-band-sum b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bl-band-list { padding-left: 10px; min-width: 0; }
+/* A card in a fold is a little narrower: its value ("$1,234,567 each · $3,703,701") wraps between the amounts, never inside one. */
+.bl-band-list .bl-val { white-space: normal; overflow-wrap: normal; text-align: right; }
+.bl-band-list .bl-group > h3 { margin-top: 10px; }
+.bl-band-list .bl-group:first-child > h3 { margin-top: 2px; }
+@media (min-width: 760px) { .bl-band-list .bl-group > h3 { margin-top: 2px; } }
+@media (prefers-reduced-motion: reduce) { .bl-chev { transition: none; } }
+
 /* ---------- backline: stage packs ---------- */
 .bl-intro { margin: -2px 0 12px; }
 .bl-pack .card-row { align-items: flex-start; }

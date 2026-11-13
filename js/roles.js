@@ -33,7 +33,7 @@ const HIDE_ALL = ['lineup', 'advance', 'deal', 'running', 'guests', 'settlement'
 export const ROLES = [
   { id: 'producer', label: 'Producer', icon: '🎛️', what: 'Producer',
     blurb: 'Studio sessions on the clock, take logs, songs and splits, your artists and the invoices.',
-    sections: ['bookings', 'sessions', 'songs', 'acts', 'money', 'people', 'venues', 'tools'], start: 'bookings', names: { acts: 'Artists' },
+    sections: ['bookings', 'sessions', 'songs', 'acts', 'backline', 'money', 'people', 'venues', 'tools'], start: 'bookings', names: { acts: 'Artists' },
     newKind: 'session', kinds: ['session', 'show', 'other', 'rehearsal'], hide: ['guests', 'settlement'], money: true,
     kindHelp: { session: 'Studio time with an artist: the rate, the clock, the songs, the take log and what you deliver.', show: 'A live date you are producing or playing: times, the deal, the setlist and the day sheet.' },
     welcome: 'Gdex is set up for a producer: studio sessions on one calendar, a clock for the hours, take logs with the keepers, the songs you cut with their split sheets, your artists, and invoices for the time. This takes about a minute. Tap Skip any time.',
@@ -47,7 +47,7 @@ export const ROLES = [
     pages: { bookings: { open: { session: ['clock', 'takes'] } }, acts: { seen: 'logged', empty: 'Add an artist you produce: their name, links and members. Their page keeps the tech rider and their sessions coming up.' }, people: { group: 'session' }, tools: { tool: 'tempo' } } },
   { id: 'manager', label: 'Manager', icon: '💼', what: 'Artist manager',
     blurb: 'Your acts’ dates, deals and deposits, advancing, settlements and the people around them.',
-    sections: ['bookings', 'acts', 'money', 'people', 'venues', 'insurance'], start: 'bookings', names: { acts: 'Roster' },
+    sections: ['bookings', 'acts', 'backline', 'money', 'people', 'venues', 'insurance'], start: 'bookings', names: { acts: 'Roster' },
     newKind: 'show', kinds: ['show', 'session', 'rehearsal', 'other'], hide: ['clock', 'takes'], money: true,
     kindHelp: { show: 'A date for one of your acts: the deal and deposit, advancing, the guest list, settlement and invoice.', session: 'Studio time for one of your acts: the songs, the rate and what gets delivered.' },
     welcome: 'Gdex is set up for a manager: every act on your roster on one calendar, with holds and offers, deals and deposits, advancing, day sheets, settlements and payouts, and the people around them. This takes about a minute. Tap Skip any time.',
@@ -147,6 +147,10 @@ export const blockFolded = id => !blockShown(id) && !(moneyOff() && MONEY_BLOCKS
 export const newKind = () => role().newKind || 'show';
 export const kindHelp = kind => (role().kindHelp || {})[kind] || '';
 export const moneyShown = () => role().money !== false;
+// Backline in a fold per band, with what you put in (item 17): for the roles that invest in the acts they work with, a
+// producer and a manager (Backline is on their menus, right after their acts) and Jack of Trades. A page reads it here.
+const GEAR_BY_BAND = ['producer', 'manager', 'all'];
+export const gearByBand = () => GEAR_BY_BAND.includes(roleId());
 // A page's default for this role (see pages above): pageOpt('tools', 'tool', 'tuner').
 export const pageOpt = (page, key, fallback) => { const v = ((role().pages || {})[page] || {})[key]; return v === undefined ? fallback : v; };
 // The kinds of booking in the order the role uses them: its usual kind first.

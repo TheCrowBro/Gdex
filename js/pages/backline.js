@@ -9,6 +9,9 @@ import { printElement, docPage, saveFile, fileName, csv } from '../print.js';
 import { sheetTutorial } from '../tour.js';
 import { sectionName } from '../roles.js';
 import { formerlyNote } from '../model.js'; // "formerly The Night Owls": a booking from before its act changed its name
+// Gear by band (item 17): the act an item is for, who paid for it, and the sums; every reading of them is the model's.
+import { gearActId, gearPaidBy, gearWorth, gearInvested, earlierNames } from '../model.js';
+import { actWord, moneyShown, gearByBand } from '../roles.js';
 
 // What the page is showing. Kept here so it survives the redraw after every change.
 const S = { view: 'items', q: '', owner: '' }; // owner: '' everyone, 'band' (nobody's own), or a person's id
@@ -52,7 +55,7 @@ const PLACE_HINT = 'e.g. Rehearsal room, Van, Maya’s flat, Flight case 2, At t
 
 const matchOwner = g => !S.owner || (S.owner === 'band' ? !ownerOf(g) : g.owner === S.owner && !!ownerOf(g));
 // Exported: the search at the top of every page finds an item by the same words.
-export const gearText = g => [g.name, g.make, g.model, g.serial, g.location, g.notes, catOf(g), ownerName(g)].map(x => String(x || '')).join(' ').toLowerCase();
+export const gearText = g => [g.name, g.make, g.model, g.serial, g.location, g.notes, catOf(g), ownerName(g), ...bandNames(g)].map(x => String(x || '')).join(' ').toLowerCase();
 
 // Redraw without losing the box someone is typing in or the chip they tapped (by id).
 function keepFocus(root, fn) {
@@ -74,7 +77,7 @@ export const backline = {
     const draw = () => keepFocus(root, () => root.replaceChildren(...nodes(S.view === 'packs' ? packsView(draw) : itemsView(draw))));
     draw();
   },
-  tutorial: () => (S.view === 'packs' ? PACK_STEPS : ITEM_STEPS),
+  tutorial: () => (S.view === 'packs' ? PACK_STEPS : itemSteps()),
 };
 
 const stat = (v, label, cls = '') => h('div', { class: 'stat' + (cls ? ' ' + cls : '') }, h('b', null, String(v)), h('span', null, label));
@@ -117,7 +120,7 @@ function itemsView(draw) {
     (all.length > 5 || S.q) && h('input', { class: 'search', type: 'search', id: 'bl-search', placeholder: 'Search name, make, serial, place…', 'aria-label': 'Search backline', value: S.q, autocomplete: 'off',
       oninput: e => { S.q = e.target.value; draw(); } }),
     shown.length
-      ? h('div', { class: 'bl-groups' }, [...groupBy(shown, catOf)].map(([cat, list]) => groupSection(cat, list)))
+      ? (foldsOn(all) ? bandFolds(shown, draw) : h('div', { class: 'bl-groups' }, [...groupBy(shown, catOf)].map(([cat, list]) => groupSection(cat, list))))
       : all.length
         ? empty('Nothing matches that. Try another word, or show everyone’s gear.', clear)
         : empty('Log every guitar, amp, mic and DI the band owns, with serials and values. Then pick them for shows, pack them into stage packs, and print an inventory for insurance or a carnet.',
@@ -150,6 +153,85 @@ function itemCard(g) {
       g.location && h('span', { class: 'bl-loc' }, '📍 ' + g.location),
       g.serial && h('span', { class: 'bl-serial muted' }, 'S/N ' + g.serial),
       val && h('span', { class: 'bl-val' }, val)));
+}
+
+/* ------------------------------- by band (item 17) ------------------------------- */
+// For a producer, a manager and Jack of Trades (roles.js gearByBand), once an item is for one of the acts: the gear in a
+// fold per act, A to Z, then "Not for an act" last. Each heading says the act, how many items, their total value and
+// your investment (what you paid for: model.gearInvested), the figures only where money is shown; inside, the
+// categories as the page draws them otherwise. Folded at first; a fold opened stays open for the visit (F.open). The
+// page's search and the owner chips open every fold with a match and leave out the others (the figures are then the
+// matches'); a fold folded meanwhile (F.shut) opens again when the filter changes, and clearing it puts the folds back
+// as they were. The heading is a button (aria-expanded) with an id, so it keeps the focus as it folds and after any redraw.
+const F = { open: new Set(), shut: new Set(), filter: '', draw: null }; // draw: the page's own, for gearCard and the walkthrough
+const foldsOn = list => gearByBand() && list.some(g => gearActId(g));
+const bandFoldId = key => 'bl-band-' + (key || 'none');
+const actLabel = a => String((a && a.name) || '').trim() || 'Unnamed act';
+const anAct = () => { const w = actWord(); return (/^[aeiou]/.test(w) ? 'an ' : 'a ') + w; };
+const noBand = () => `Not for ${anAct()}`;
+const byActName = (a, b) => actLabel(a).localeCompare(actLabel(b), undefined, { sensitivity: 'base' }) || String(a.id).localeCompare(String(b.id));
+const actsSorted = () => [...db.acts].sort(byActName);
+// Every name the item's act is known by (its name now, then the earlier ones): the search finds the gear by any of them.
+function bandNames(g) { const a = byId('acts', gearActId(g)); return a ? [a.name, ...earlierNames(a).map(n => n.name)] : []; }
+// Who paid, in words: You, The artist (the role's word), a person's name; '' while it is not known.
+const youLabel = () => { const n = String(db.profile.name || '').trim(); return n ? `You (${n})` : 'You'; };
+function paidLabel(g) {
+  const p = gearPaidBy(g);
+  return p === 'me' ? youLabel() : p === 'band' ? `The ${actWord()}` : p ? (byId('people', p).name || 'Unnamed') : '';
+}
+function foldBand(key, filtering) {
+  const set = filtering ? F.shut : F.open;
+  if (set.has(key)) set.delete(key); else set.add(key);
+  if (F.draw) F.draw();
+  const head = document.getElementById(bandFoldId(key));
+  if (head) head.focus({ preventScroll: true });
+}
+function bandFolds(shown, draw) {
+  F.draw = draw;
+  const filter = S.q.trim().toLowerCase() + '\n' + S.owner, filtering = filter !== '\n';
+  if (filter !== F.filter) { F.filter = filter; F.shut.clear(); } // other words or another chip: every fold with a match opens again
+  const keyOf = new Map(shown.map(g => [g, gearActId(g)])), money = moneyShown();
+  const keys = [...[...new Set(keyOf.values())].filter(Boolean).map(id => byId('acts', id)).sort(byActName).map(a => a.id), ''];
+  return h('div', { class: 'bl-bands' }, keys.map(key => [key, shown.filter(g => keyOf.get(g) === key)]).filter(([, list]) => list.length).map(([key, list]) => {
+    const id = bandFoldId(key), open = filtering ? !F.shut.has(key) : F.open.has(key), name = key ? actLabel(byId('acts', key)) : noBand();
+    const n = list.reduce((sum, g) => sum + qtyOf(g), 0), worth = gearWorth(list), mine = gearInvested(list);
+    // Its name is given whole ("Sable, 3 items, total value $2,400, your investment $1,100"): read from the spans, a
+    // browser would put spaces before the commas.
+    const said = [name, plural(n, 'item'), money && `total value ${fmtMoney(worth)}`, money && `your investment ${fmtMoney(mine)}`].filter(Boolean).join(', ');
+    return h('section', { class: 'bl-band' + (open ? ' open' : ''), 'data-band': key || 'none' },
+      h('h2', { class: 'bl-band-h' }, h('button', { type: 'button', class: 'bl-band-head', id, 'aria-label': said, 'aria-expanded': String(open), 'aria-controls': id + '-list', onclick: () => foldBand(key, filtering) },
+        h('span', { class: 'bl-band-name' }, name),
+        h('span', { class: 'bl-band-n', 'aria-hidden': 'true' }, String(n)),
+        h('span', { class: 'bl-chev', 'aria-hidden': 'true' }, '▾'),
+        money && h('span', { class: 'bl-band-sum', 'aria-hidden': 'true' },
+          h('span', { class: 'bl-band-worth' }, 'Value ', h('b', null, fmtMoney(worth))),
+          h('span', { class: 'bl-band-mine' }, 'Your investment ', h('b', null, fmtMoney(mine)))))),
+      h('div', { class: 'bl-band-list', id: id + '-list', role: 'group', 'aria-labelledby': id, hidden: !open },
+        open ? h('div', { class: 'bl-groups' }, [...groupBy(list, catOf)].map(([cat, l]) => groupSection(cat, l))) : []));
+  }));
+}
+// The item's card on the page, its fold opened first: the search presses it there (js/search.js), as the acts list
+// opens an act's genre group. null when the page is not drawn, or its own filter leaves the item out.
+export function gearCard(id) {
+  const g = byId('gear', id);
+  if (g && F.draw && foldsOn(db.gear)) { const key = gearActId(g); F.open.add(key); F.shut.delete(key); F.draw(); }
+  return document.getElementById('bl-item-' + id);
+}
+// The walkthrough's step on an item, on folds that are all folded: the first drops open (and stays open for the visit,
+// as if tapped), so there is a card to point at.
+function openFirstFold() {
+  const first = document.querySelector('#page .bl-band');
+  if (!first || document.querySelector('#page .bl-band-head[aria-expanded="true"]') || !F.draw) return;
+  const key = first.dataset.band === 'none' ? '' : first.dataset.band;
+  if (F.filter !== '\n') F.shut.delete(key); else F.open.add(key); // while a filter is on, the fold was folded meanwhile
+  F.draw();
+}
+// Only what can be read back is stored: the key is left off for no act, and for Paid by not known.
+function withBand(rec) {
+  const out = { ...rec };
+  if (!gearActId(out)) delete out.actId;
+  if (!gearPaidBy(out)) delete out.paidBy;
+  return out;
 }
 
 /* ------------------------------- one item ------------------------------- */
@@ -197,6 +279,9 @@ export function openGear(id) {
         row('Owner', owner
           ? h('button', { type: 'button', class: 'bl-link', id: 'bl-owner-link', onclick: () => import('./people.js').then(m => m.openPerson(owner.id)).catch(e => console.error(e)) }, (owner.name || 'Unnamed') + ' ›')
           : 'The band'),
+        // Gear by band (item 17): in every role, as the form's two boxes are, so what was picked there shows; only when set.
+        row(`For ${actWord()}`, gearActId(g) ? actLabel(byId('acts', gearActId(g))) : null),
+        row('Paid by', paidLabel(g)),
         row('Where it is', g.location),
         row('Notes', g.notes)),
       h('div', { class: 'actions bl-sheet-actions' },
@@ -237,6 +322,19 @@ const num = (v, { min = 0, whole = false } = {}) => {
   return whole ? Math.floor(n) : n;
 };
 
+// The form's For band and Paid by (item 17), in every role: the acts A to Z in the role's word for one; you (the person
+// using Gdex), the act, or each person. Only a producer, a manager and Jack of Trades are told about the folds, and only
+// where money is shown about the investment.
+function bandFields() {
+  const w = actWord(), acts = actsSorted(), folds = gearByBand(), money = moneyShown();
+  return [
+    { key: 'actId', label: `For ${w}`, type: 'select', options: [['', noBand()], ...acts.map(a => [a.id, actLabel(a)])],
+      hint: !acts.length ? `Add ${anAct()} in ${sectionName('acts', 'Acts')} to pick it here.` : folds ? `${sectionName('backline', 'Backline')} folds your gear by ${w}.` : '' },
+    { key: 'paidBy', label: 'Paid by', type: 'select', options: [['', 'Not known'], ['me', youLabel()], ['band', `The ${w}`], ...peopleSorted().map(p => [p.id, p.name || 'Unnamed'])],
+      hint: folds && money ? `What you paid for adds up as your investment in the ${w} it is for.` : '' },
+  ];
+}
+
 // Add or edit an item. onSaved(record) after it is stored.
 export function editGear(g = {}, onSaved) {
   const cur = (g && g.id && byId('gear', g.id)) || g || {};
@@ -245,7 +343,7 @@ export function editGear(g = {}, onSaved) {
   openForm({
     title: cur.id ? 'Edit item' : 'Add item',
     saveLabel: cur.id ? 'Save' : 'Add item',
-    values: { qty: 1, ...cur, category: cur.category || 'Other', owner: ownerOk ? cur.owner : '' },
+    values: { qty: 1, ...cur, category: cur.category || 'Other', owner: ownerOk ? cur.owner : '', actId: gearActId(cur), paidBy: gearPaidBy(cur) },
     fields: [
       { key: 'name', label: 'Item', required: true, placeholder: 'e.g. Telecaster, Bass amp, SM58' },
       { key: 'category', label: 'Category', type: 'select', options: cats },
@@ -255,14 +353,16 @@ export function editGear(g = {}, onSaved) {
       { key: 'qty', label: 'How many', type: 'number', min: 1, hint: 'Own four SM58s? Enter 4.' },
       { key: 'value', label: 'Replacement value (each)', type: 'number', min: 0, step: 'any', placeholder: currency() },
       { key: 'owner', label: 'Whose it is', type: 'select', options: [['', 'Nobody / the band'], ...peopleSorted().map(p => [p.id, (p.name || 'Unnamed') + (p.role ? ' · ' + p.role : '')])] },
+      ...bandFields(),
       { key: 'location', label: 'Where it is', list: locations(), placeholder: PLACE_HINT },
       { key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Strings and setup, quirks, what is in the case…' },
     ],
     onSave: v => {
       const name = String(v.name || '').trim();
       if (!name) return toast('Give the item a name first.');
-      const stored = upsert('gear', { ...v, name, make: String(v.make || '').trim(), model: String(v.model || '').trim(), serial: String(v.serial || '').trim(),
-        location: String(v.location || '').trim(), qty: Math.max(1, num(v.qty, { min: 1, whole: true }) || 1), value: num(v.value), owner: v.owner || '' });
+      const stored = upsert('gear', withBand({ ...v, name, make: String(v.make || '').trim(), model: String(v.model || '').trim(), serial: String(v.serial || '').trim(),
+        location: String(v.location || '').trim(), qty: Math.max(1, num(v.qty, { min: 1, whole: true }) || 1), value: num(v.value), owner: v.owner || '' }));
+      if (foldsOn(db.gear)) F.open.add(gearActId(stored)); // its fold is open on the page, so it is there to see
       // Fewer owned now than a booking ahead needs: say so (each such booking is marked on the item's sheet).
       const short = cur.id && stored.qty < qtyOf(cur) ? aheadOf(stored.id).filter(b => gearShort(b, stored.id)).length : 0;
       toast(!cur.id ? `${name} added` : short ? `Saved, but ${plural(short, 'booking')} coming up ${short === 1 ? 'needs' : 'need'} more than you own now.` : 'Saved');
@@ -448,6 +548,21 @@ const ITEM_STEPS = [
   { title: 'Find something', text: 'Search by name, make, model, serial number or where it is.', target: ['#bl-search'] },
   { title: 'An item', text: 'Tap one for its details and the bookings it is on, with a warning when the same piece is needed in two places on one day.', target: ['.bl-card'] },
 ];
+// For a producer, a manager and Jack of Trades: a step on the folds by band (or, before any item is for one, on how to get
+// them), and the cards' step opens a fold first. Every other role's walkthrough is as it was.
+function itemSteps() {
+  if (!gearByBand()) return ITEM_STEPS;
+  const folds = foldsOn(db.gear), w = actWord(), money = moneyShown();
+  const fold = folds
+    ? { title: `By ${w}`, text: `Your gear in a fold per ${w}, A to Z, then ${noBand()} last. Each heading says how many items ${money ? 'there are, their total value (each item’s value times how many) and your investment: the value of what you paid for yourself' : 'there are'}. Tap a heading to drop its gear down or fold it away. An item’s ✎ Edit sets the ${w} it is for and who paid.`, target: ['.bl-band-head'] }
+    : { title: `By ${w}`, text: `Pick the ${w} an item is for (For ${w}) and who paid for it when you add or edit it, and this page folds your gear by ${w}${money ? ', with what it is worth and your investment: the value of what you paid for yourself' : ''}.`, target: ['#bl-add'] };
+  return ITEM_STEPS.flatMap(s => {
+    if (s.title === 'An item') return [fold, folds ? { ...s, before: openFirstFold } : s];
+    if (folds && s.title === 'Whose is it?') return [{ ...s, text: s.text + ' The folds with a match open.' }];
+    if (folds && s.title === 'Find something') return [{ ...s, text: `Search by name, make, model, serial number, where it is or the ${w} it is for. The folds with a match open; clear the search and they are as they were.` }];
+    return [s];
+  });
+}
 const PACK_STEPS = [
   { title: 'Stage packs', text: 'A saved set of backline for a kind of gig. + New pack makes one from your items, with how many of each.', target: ['.bl-head'] },
   { title: 'A pack', text: 'What is in it by category, how many pieces and what they are worth. 🖨 prints a packing list to tick off at load-in and load-out, ⧉ copies it, ✎ edits it.', target: ['.bl-pack'] },
@@ -462,6 +577,8 @@ const FORM_STEPS = [
   { title: 'What it is', text: 'A short name you would call it on stage, and its category for the lists.', target: ['[data-key=name]'] },
   { title: 'For the insurer', text: 'Make, model, serial and replacement value go on the inventory you print for insurance or a carnet.', target: ['[data-key=serial]'] },
   { title: 'How many', text: 'Own several of the same thing (mics, DIs, stands)? Enter how many, and the value of one.', target: ['[data-key=qty]'] },
+  { get title() { return `For ${anAct()}`; }, target: ['[data-key=actId]'], // gear by band (item 17): the words follow the role
+    get text() { const w = actWord(); return `The ${w} it is for, and who paid for it: you, the ${w} or a person.` + (!gearByBand() ? '' : moneyShown() ? ` ${sectionName('backline', 'Backline')} folds your gear by ${w}, and only what you paid counts as your investment.` : ` ${sectionName('backline', 'Backline')} folds your gear by ${w}.`); } },
 ];
 const PACK_FORM_STEPS = [
   { title: 'Name the pack', text: 'After the kind of gig it is for.', target: ['[data-key=name]'] },
