@@ -286,9 +286,17 @@ export function editVenue(v = {}, onSaved) {
       onSaved && onSaved(stored);
     },
     // Bookings there keep the venue's name and address as typed text (store.remove).
-    onDelete: cur.id ? () => { remove('venues', cur.id); toast(`${venueName(cur)} deleted. Bookings there keep its name and address.`); } : null,
+    onDelete: cur.id ? () => { remove('venues', cur.id); toast(`${venueName(cur)} deleted. Bookings there keep its name and address.`); keepFocusOnPage(); } : null,
   });
 }
+
+// After a delete the venue's sheet closes, and what opened it (its card, a show's Details) goes with the venue: once
+// the page is drawn again, a focus left nowhere goes to the page's heading that takes it (a show's title) or the page.
+const keepFocusOnPage = () => setTimeout(() => {
+  const a = document.activeElement;
+  if (a && a !== document.body) return;
+  (document.querySelector('#page [data-view-head]') || document.getElementById('page'))?.focus({ preventScroll: true });
+}, 60);
 
 /* ------------------------------- walkthroughs ------------------------------- */
 // Read when the walkthrough runs, so its words follow the role: a role without money goes to shows rather than plays them.

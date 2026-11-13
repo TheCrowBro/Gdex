@@ -820,6 +820,21 @@ const all = []; // every console error of every browser below
     ok('the form walkthrough’s House rules step points at one rule with its two buttons, the block’s title in view', !!step && step.onRule && step.title && step.clear, JSON.stringify(step));
     ok('…and its words show whole (the card is not cut short over a block taller than the screen)', !!step && step.whole, JSON.stringify(step));
     await page.keyboard.press('Escape'); await sleep(200); await page.keyboard.press('Escape'); await sleep(200);
+    /* ---------------- Delete in a venue's form: the focus is not lost ---------------- */
+    const delVenue = async () => { await page.focus('#vn-edit'); await page.keyboard.press('Enter'); await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250); await page.focus(FORM.edit + ' .form-actions .btn.danger'); await page.keyboard.press('Enter'); await sleep(600); };
+    const focusNow = () => page.evaluate(() => { const a = document.activeElement; return { tag: a.tagName, id: a.id, head: a.hasAttribute('data-view-head'), sheets: document.querySelectorAll('.sheet').length }; });
+    await go(page, 'venues'); await page.waitForSelector('#vn-s-echo');
+    await page.focus('#vn-s-echo'); await page.keyboard.press('Enter'); await page.waitForSelector('.vn-sheet'); await sleep(250);
+    await delVenue();
+    let lost = await focusNow();
+    ok('Delete in a venue’s form, from the Venues page: the venue is gone and the focus is on the page, not lost', lost.id === 'page' && lost.sheets === 0 && (await page.locator('#vn-s-echo').count()) === 0, JSON.stringify(lost));
+    await page.keyboard.press('Tab');
+    ok('…so the next Tab carries on in the page, not from Skip to content', await page.evaluate(() => !!document.activeElement.closest('#page')));
+    await openB(page, 's-show2');
+    await page.focus('.bk-venue [data-fk="bk-venue-details"]'); await page.keyboard.press('Enter'); await page.waitForSelector('.vn-sheet'); await sleep(250);
+    await delVenue();
+    lost = await focusNow();
+    ok('…and from a show’s page (Details, Edit, Delete): the focus is on the show’s title, the Details button gone with the venue', lost.head && lost.sheets === 0 && (await page.locator('.bk-page .bk-title').count()) === 1 && (await page.locator('.bk-venue [data-fk="bk-venue-details"]').count()) === 0, JSON.stringify(lost));
     ok('no errors in the console (the keyboard)', errors.length === 0, errors.slice(0, 5).join(' | ')); all.push(...errors);
     await browser.close();
   }

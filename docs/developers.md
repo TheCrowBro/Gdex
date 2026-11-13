@@ -598,6 +598,9 @@ press that opened it, still down) does not.
   with "Didn’t go" (`span.vn-row-went`).
 * A rule's last word and its ✗ (`Pro cameras ✗`) are drawn in `span.vn-chip-nb` (no wrap), so on a narrow card the ✗
   never starts a line of its own; the chip's text is the same.
+* Delete in a venue's form closes its sheet, and what opened it (the venue's card, a show's Details) goes with the
+  venue: once the page is drawn again, a focus left nowhere goes to the page's `[data-view-head]` (a show's title) or
+  to `#page`.
 
 ## Shared modules (core)
 
