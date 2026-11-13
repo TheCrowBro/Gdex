@@ -1129,7 +1129,8 @@ contract is in `docs/licence-server.md` (for the developer).
   later than a record's `updatedAt` removes it. An act's `seen` and a log's `takes` are joined entry by entry; removing
   one writes a tombstone for its id. `replaceAll(data, { everywhere: true })` (Replace with Drive linked) stamps every
   restored record now and tombstones every record, time seen and take the backup lacks, so every connected device
-  follows.
+  follows. The chooser syncs first, from the tap, so the records other devices have put in Drive are tombstoned too;
+  when Drive can't be read it replaces nothing and says why. A record another device has not copied to Drive yet stays.
 * `freeDaysFrom` is taken out of every copy read and handed to `adoptFreeDaysFrom`; it is written back as the earliest
   known; `normalise` drops it, so it never enters the database, a backup file or a restore.
 * Drive's state goes to `onDriveChange(fn)` listeners only (`js/backup.js`: the ☁ button and the panels), never

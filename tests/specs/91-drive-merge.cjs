@@ -5,7 +5,9 @@
 // copy taken in is never pushed straight back; duplicate gdex-db.json files merged and the extra deleted; a Vdex file
 // in Drive refused; a copy deleted in Drive meanwhile made again; Google Drive's errors in words, with the
 // connection coming back; and ties (the same time, different contents) settled alike on every device, the sample's
-// stand-in profile included. Uses 90-drive's fake Drive and device opener.
+// stand-in profile included; and Replace everywhere reading Drive first (another device's records it had not taken in
+// are replaced too; with no internet nothing is replaced and the chooser says why). Uses 90-drive's fake Drive and
+// device opener.
 const { chromium } = require('playwright');
 const { ok, sleep } = require('../helpers.cjs');
 const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, data, until, sheetOf, waitCloud, cloudState } = require('./90-drive.cjs');
@@ -87,7 +89,8 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
   await pa.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'gdex-backup-older.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
   await pa.waitForSelector(`${sheetOf('Bring back a backup')} .se-imp-replace`, { timeout: 10000 });
   ok('with Drive linked, Replace says it reaches every connected device', /Every device connected to this Google Drive ends up exactly like this backup/.test(await pa.locator(`${sheetOf('Bring back a backup')} .se-imp-replace-note`).innerText()));
-  await pa.click(`${sheetOf('Bring back a backup')} .se-imp-replace`); // the confirm is accepted
+  await pa.click(`${sheetOf('Bring back a backup')} .se-imp-replace`); // the confirm is accepted, once Drive has been read
+  await pa.waitForSelector(sheetOf('Bring back a backup'), { state: 'detached', timeout: 10000 }).catch(() => {});
   await closeSheets(pa);
   const lost = d => ({ seen: d.acts.find(a => a.id === 'm-act').seen.map(x => x.id).sort().join(), takes: d.logs.find(l => l.id === 'm-log').takes.map(x => x.id).sort().join() });
   ok('the device that replaced lost the time seen and the take the backup lacks', JSON.stringify(lost(await data(pa))) === JSON.stringify({ seen: 'm1,m3,m4', takes: 'k1,k3,k4' }), JSON.stringify(lost(await data(pa))));
@@ -198,6 +201,50 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
     for (let i = 0; i < 3; i++) { await syncOn(P.page); await syncOn(Q.page); }
     const tv = async p => ((await data(p)).venues.find(v => v.id === 'tie-v') || {}).notes;
     ok('a record made on two devices in the same millisecond with different contents settles on one copy, and syncing then writes nothing', (await tv(P.page)) === (await tv(Q.page)) && !!(await tv(P.page)) && D3.writes() === w, `${await tv(P.page)} | ${await tv(Q.page)}; ${D3.writes() - w} writes`);
+  }
+
+  /* ------------------------------ Replace everywhere reads Drive first ------------------------------ */
+  // Drive can hold records this device has not taken in yet (another device's, made since this one last synced). Replace
+  // takes them in first, so they are replaced too and every device ends up like the backup; when Drive can't be read,
+  // nothing is replaced and the chooser says why.
+  {
+    const D4 = fakeDrive();
+    const R = await device(browser, D4, { who: 'R' }); all.push(R);
+    const S2 = await device(browser, D4, { who: 'S' }); all.push(S2);
+    const pr = R.page, ps = S2.page, chooser = sheetOf('Bring back a backup');
+    await pr.evaluate(() => import('./js/store.js').then(s => s.upsert('venues', { id: 'v-kept', name: 'Kept venue' })));
+    await connect(pr); await waitCloud(pr, 'synced'); await closeSheets(pr);
+    await connect(ps); await waitCloud(ps, 'synced'); await closeSheets(ps);
+    const file = Buffer.from(JSON.stringify(await data(pr))); // a backup saved now
+    await ps.evaluate(() => import('./js/store.js').then(s => s.upsert('venues', { id: 'v-since', name: 'Added on the other device since' })));
+    ok('(the other device’s new venue is in Drive; this device has not synced since)', !!(await until(() => D4.json().venues.some(v => v.id === 'v-since'))) && !(await data(pr)).venues.some(v => v.id === 'v-since'));
+    const pick = async () => {
+      await openBackups(pr);
+      await pr.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'gdex-backup-saved.json', mimeType: 'application/json', buffer: file });
+      await pr.waitForSelector(`${chooser} .se-imp-replace`, { timeout: 10000 });
+    };
+    // no internet: nothing is replaced, and the chooser says why
+    R.allow.push(/ERR_FAILED/);
+    D4.fail = { abort: true, keep: true, match: r => r.who === 'R' };
+    await pick();
+    const note = await pr.locator(`${chooser} .se-imp-replace-note`).innerText();
+    ok('with Drive linked, the note says what a device that has not synced keeps', /Every device connected to this Google Drive ends up exactly like this backup, and anything added since is gone from all of them, except what another device has not copied to Drive yet \(a phone that is offline, say\)\./.test(note), note);
+    const venuesBefore = (await data(pr)).venues.map(v => v.id).sort().join();
+    await pr.click(`${chooser} .se-imp-replace`);
+    await pr.waitForSelector(`${chooser} .se-imp-err:not([hidden])`, { timeout: 10000 }).catch(() => {});
+    const errText = await pr.locator(`${chooser} .se-imp-err`).innerText().catch(() => '');
+    ok('Replace with no internet replaces nothing and says why, in the chooser', (await pr.locator(chooser).count()) === 1 && /^Nothing was replaced yet: Gdex reads your Google Drive first, so that every device ends up like this backup\. Can’t reach Google Drive \(no internet\?\)\./.test(errText) && (await data(pr)).venues.map(v => v.id).sort().join() === venuesBefore, errText);
+    D4.fail = null;
+    R.allow.pop();
+    // back online: Replace takes in Drive's records first, then replaces them too
+    if (!(await pr.locator(chooser).count())) await pick();
+    await pr.click(`${chooser} .se-imp-replace`); // the confirm is accepted
+    await pr.waitForSelector(chooser, { state: 'detached', timeout: 10000 }).catch(() => {});
+    await closeSheets(pr);
+    await sleep(1500); await syncOn(pr); await syncOn(ps); await syncOn(pr);
+    const ids = async p => (await data(p)).venues.map(v => v.id).sort().join();
+    ok('Replace everywhere also replaces what another device had put in Drive since this one last synced: every device ends up like the backup', (await ids(pr)) === 'v-kept' && (await ids(ps)) === 'v-kept' && D4.json().venues.map(v => v.id).join() === 'v-kept', `${await ids(pr)} | ${await ids(ps)} | ${D4.json().venues.map(v => v.id).join()}`);
+    await R.ctx.close(); await S2.ctx.close();
   }
 
   const errs = all.flatMap(d => d.errors.map(e => `${d.who}: ${e}`));

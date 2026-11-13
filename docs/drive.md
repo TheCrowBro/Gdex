@@ -82,7 +82,9 @@ Then:
   with **Also bring back** ticked: so a booking deleted by mistake comes back, on every connected device, and nothing
   else is undone. (A backup file shows the same box, not ticked: its deletions stay unless you tick it.) While Google
   Drive is connected, **Replace** makes every connected device exactly like that copy at its next sync, and anything
-  added since is gone from all of them.
+  added since is gone from all of them. It reads your Drive first, so what the other devices have already copied there
+  goes too (when Drive can't be read, nothing is replaced and Gdex says why); only what a device has not copied to Drive
+  yet, a phone that is offline say, comes back when that device next syncs.
 - **Disconnect** stops syncing on this device. Both copies stay: this device's and the one in your Drive.
 - **Delete Gdex's copy from Google Drive…** removes the shared copy and every dated copy from your Drive and disconnects
   this device. This device keeps everything. Another device still connected puts its copy back the next time it syncs,
@@ -157,7 +159,8 @@ older copy whose id it lacks and that has no tombstone; an entry of the newer co
 copy's `updatedAt` goes. Merge from a daily copy or a backup file with Also bring back (`mergeIn(data, { revive: true })`)
 stamps the records it holds that were deleted here since now and drops their tombstones here, so they are newer than
 every device's tombstone and come back everywhere. Removing a time seen or a take writes a tombstone for its id (Part 0), and Replace with Drive
-linked tombstones every record, time seen and take the backup lacks and stamps every restored record now, so every
+linked first syncs from the tap (so the records other devices have put in Drive are on this device too; when Drive
+can't be read nothing is replaced), then tombstones every record, time seen and take the backup lacks and stamps every restored record now, so every
 device follows it. Device clocks decide clashes; tombstones last 180 days.
 
 Two copies of the same time that differ (changed in the same millisecond on two devices, or never stamped) go the same
@@ -197,7 +200,9 @@ the desktop app refuses to sign in (Google knows only 47861).
   seen, in different orders); nothing pushed back after a copy is taken in; Replace everywhere with entries; duplicate
   copies; a Vdex file refused; a copy deleted meanwhile; Drive's errors in words and the connection coming back; ties
   (one record with the same time and different contents on two devices; the sample's stand-in profile on one device
-  and an empty one on another, then Remove the sample) settle the same way everywhere and stop writing.
+  and an empty one on another, then Remove the sample) settle the same way everywhere and stop writing; Replace
+  everywhere reading Drive first (another device's venue it had not taken in is replaced too; with no internet nothing
+  is replaced).
 - `92-drive-desktop`: the desktop app's bridge stood in for at localhost:47861 (served by the test, no server); a
   stand-in port; the desktop app's files in a web browser; `index.html`'s CSP.
 

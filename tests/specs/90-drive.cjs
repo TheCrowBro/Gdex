@@ -437,7 +437,8 @@ if (require.main === module) (async () => {
   await pa.waitForSelector(`${sheetOf('Bring back a backup')} .se-imp-replace`, { timeout: 10000 });
   const chooser = await pa.locator(sheetOf('Bring back a backup')).innerText();
   ok('a daily copy opens the same chooser as a backup file', /In the copy:/.test(chooser) && /Merge into this device/.test(chooser) && /Every device connected to this Google Drive ends up exactly like this copy/.test(chooser), chooser.replace(/\s+/g, ' ').slice(0, 300));
-  await pa.click(`${sheetOf('Bring back a backup')} .se-imp-replace`); // the confirm is accepted
+  await pa.click(`${sheetOf('Bring back a backup')} .se-imp-replace`); // the confirm is accepted, once Drive has been read
+  await pa.waitForSelector(sheetOf('Bring back a backup'), { state: 'detached', timeout: 10000 }).catch(() => {});
   await sleep(300);
   ok('Replace makes this device exactly like the copy', !(await data(pa)).acts.some(a => a.id === 'a-after') && /Every device connected to this Google Drive follows/.test(await toasts(pa)));
   ok('…and reaches Drive', !!(await until(() => !D.json().acts.some(a => a.id === 'a-after'))));

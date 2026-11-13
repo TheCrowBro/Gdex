@@ -231,11 +231,31 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
     const dead = store.deletedSince(data);
     const names = dead.slice(0, 3).map(x => `“${nameOf(x.c, x.r)}”`).join(', ') + (dead.length > 3 ? ` and ${dead.length - 3} more` : '');
     const revive = dead.length ? h('input', { type: 'checkbox', checked: copy }) : null;
-    const go = how => {
-      if (!store.canChange()) return; // bringing a backup back is a change: the chooser stays open and the licence's sheet explains
+    const err = h('p', { class: 'warn small se-imp-err', role: 'alert', hidden: true });
+    let reading = false;
+    const go = async (how, btn) => {
+      if (reading || !store.canChange()) return; // bringing a backup back is a change: the chooser stays open and the licence's sheet explains
+      // With Drive linked, Replace first takes in what the other devices have put in Drive since this one last synced
+      // (from the tap: signing in again when Google's hour is up), so that is replaced too. If Drive can't be read,
+      // nothing is replaced and the chooser says why.
+      if (how === 'replace' && linked) {
+        reading = true; err.hidden = true;
+        const label = btn && btn.textContent;
+        if (btn) btn.textContent = 'Reading Google Drive…';
+        let st = null;
+        try { st = await drive.syncNow({ ask: true }); } catch (e) { st = { linked: true, status: 'error', error: e.message }; }
+        finally { reading = false; if (btn) btn.textContent = label; }
+        if (done) return;
+        if (st && st.linked && st.status !== 'synced') {
+          err.textContent = `Nothing was replaced yet: Gdex reads your Google Drive first, so that every device ends up like this ${what}. ${st.status === 'needs-permission' ? DRIVE_WORDS.again : st.error || 'Google Drive didn’t answer.'} Then tap Replace again.`;
+          err.hidden = false;
+          return;
+        }
+      }
+      const nNow = totalOf(countsOf(store.db));
       if (how === 'replace' && !confirm(linked
-        ? `Replace everything on this device, and on every device connected to this Google Drive, with this ${what}? The ${plural(nHere, 'record')} here now are replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`
-        : `Replace everything on this device with this ${what}? The ${plural(nHere, 'record')} here now are replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`)) return;
+        ? `Replace everything on this device, and on every device connected to this Google Drive, with this ${what}? The ${plural(nNow, 'record')} here now are replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`
+        : `Replace everything on this device with this ${what}? The ${plural(nNow, 'record')} here now are replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`)) return;
       finish(how); s.close();
       if (how === 'replace') {
         store.replaceAll(data, { everywhere: linked });
@@ -255,10 +275,11 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
         ? [reviveLine,
           h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Merge into this device'),
           h('p', { class: 'small muted' }, `Keeps everything here and adds what the ${what} has that this device lacks${dead.length ? ' (what was deleted here since, only when ticked above)' : ''}. Where a record is in both, the one changed last wins. Nothing here is lost.`),
-          h('button', { type: 'button', class: 'btn danger se-imp-replace', onclick: () => go('replace') }, 'Replace this device’s data'),
+          h('button', { type: 'button', class: 'btn danger se-imp-replace', onclick: e => go('replace', e.currentTarget) }, 'Replace this device’s data'),
           h('p', { class: 'small muted se-imp-replace-note' }, linked
-            ? `Every device connected to this Google Drive ends up exactly like this ${what}, and anything added since is gone from all of them. Save a backup of this device first if you might want it back.`
-            : `This device ends up exactly like the ${copy ? 'copy' : 'file'}, and anything added here since that ${what} is gone. Save a backup of this device first if you might want it back.`)]
+            ? `Every device connected to this Google Drive ends up exactly like this ${what}, and anything added since is gone from all of them, except what another device has not copied to Drive yet (a phone that is offline, say). Save a backup of this device first if you might want it back.`
+            : `This device ends up exactly like the ${copy ? 'copy' : 'file'}, and anything added here since that ${what} is gone. Save a backup of this device first if you might want it back.`),
+          err]
         : [reviveLine,
           h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Bring it in'),
           h('p', { class: 'small muted' }, dead.length ? `This device has nothing of its own now, so everything ${where} comes in as it is (what was deleted here since, only when ticked above).` : `This device has nothing of its own yet, so everything ${where} comes in as it is.`)],
