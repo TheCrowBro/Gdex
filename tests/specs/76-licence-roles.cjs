@@ -36,7 +36,7 @@ async function route(ctx, srv) {
 // A page of Gdex with the licence live. seed: localStorage written once, before the first page (kept through reloads
 // and other tabs: the spec's own changes survive). Every load: the welcome tour seen and the role card dismissed unless
 // firstRun, the question as asked. The page's clock: window.__clock(ms) (sessionStorage t-clock keeps it through reloads).
-async function openLive(browser, errors, { seed = {}, firstRun = false, ask = 'off', clockAt = null, keys = null } = {}) {
+async function openLive(browser, errors, { seed = {}, firstRun = false, ask = 'off', clockAt = null, keys = null, init = null } = {}) {
   const srv = server();
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
   await ctx.route('**/js/licence-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: "export const LICENCE_SITES = ['localhost', '127.0.0.1'];\n" }));
@@ -60,6 +60,7 @@ async function openLive(browser, errors, { seed = {}, firstRun = false, ask = 'o
     window.__toasts = [];
     new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document, { childList: true, subtree: true });
   }, [seed, firstRun, ask, clockAt]);
+  if (init) await ctx.addInitScript(init);
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.message));
   // The fake server's own refusals (a 404 page, an aborted request) are the browser's network lines, not the app's errors.
@@ -434,6 +435,71 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       srv.on = true;
       await page.evaluate(() => import('./js/licence-web.js').then(m => m.status(true))); await sleep(400);
       ok('…and on again: the free days have not moved', (await state(page)).mode === 'ended' && (await stored(page)).first === first, JSON.stringify(await stored(page)));
+      await ctx.close();
+    }
+
+    /* =========== one toast per start; a pause found as a section is opened; the terms agreed later; the price =========== */
+    {
+      const started = async page => (await toasts(page)).filter(t => /free days of Gdex’s working roles have started/.test(t)).length;
+      let { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'band', 'gdex-terms': agreed() } });
+      await sleep(1800);
+      ok('opened in a working role, terms agreed: the free days start with one toast, not two', (await state(page)).mode === 'trial' && (await started(page)) === 1, JSON.stringify(await toasts(page)));
+      await ctx.close();
+      ({ ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() } }));
+      await go(page, 'settings'); await sleep(300);
+      await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
+      await page.click('#se-role .rp-card[data-role="manager"]'); await sleep(1200);
+      ok('…and when one is picked in Settings, one toast', (await state(page)).mode === 'trial' && (await started(page)) === 1, JSON.stringify(await toasts(page)));
+      await ctx.close();
+    }
+    {
+      // The status last asked 7 hours ago; the server now says paused, as the Audiophile taps People.
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': { on: true, statusAt: Date.now() - 7 * HOUR } } });
+      srv.on = false;
+      const shown = await go(page, 'people'); await sleep(400);
+      ok('a pause found as an Audiophile opens People: it opens (paused, everything is open), nothing started', shown === true && (await page.evaluate(() => window.logiPage())) === 'people' && (await state(page)).mode === 'off' && !(await stored(page)).first, JSON.stringify({ shown, st: await state(page) }));
+      await ctx.close();
+    }
+    {
+      // Not now at opening; then another working role picked, its terms agreed there.
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' } });
+      await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
+      await page.click('#lic-terms-later'); await sleep(400);
+      await go(page, 'settings'); await sleep(300);
+      await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
+      await page.click('#se-role .rp-card[data-role="band"]');
+      await page.waitForSelector('#lic-terms-ok', { timeout: 8000 });
+      await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); await sleep(1200);
+      const st = await state(page);
+      ok('Not now at opening, then Band picked and the terms agreed there: Band, the free days started, changes allowed', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'band' && st.mode === 'trial' && await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite())), JSON.stringify(st));
+      await ctx.close();
+    }
+    {
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' } });
+      await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
+      await page.click('#lic-terms-later'); await sleep(400);
+      srv.on = false;
+      await page.evaluate(() => import('./js/licence-web.js').then(m => m.status(true))); await sleep(400);
+      ok('Not now, then the licence paused by the server: the working role changes things again', (await state(page)).mode === 'off' && await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite())));
+      await ctx.close();
+    }
+    {
+      // An IndexedDB that never answers (some Safari versions' first open): nothing waits on it for ever.
+      const hang = () => { indexedDB.open = () => ({}); };
+      let { ctx, page } = await openLive(browser, errors, { init: hang, seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+      await page.waitForSelector('.sheet.licence-over', { timeout: 8000 }).catch(() => {});
+      ok('an IndexedDB that never answers: the free-days-over sheet still comes at opening', (await sheets(page)).join() === 'Your 30 free days are over', (await sheets(page)).join());
+      await ctx.close();
+      ({ ctx, page } = await openLive(browser, errors, { init: hang, seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() } }));
+      const shown = await Promise.race([go(page, 'songs').catch(() => 'closed'), sleep(9000).then(() => 'waiting')]);
+      ok('…and an Audiophile’s working section still opens, starting the free days', shown === true && (await state(page)).mode === 'trial', JSON.stringify({ shown, st: await state(page) }));
+      await ctx.close();
+    }
+    {
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile' } });
+      await go(page, 'settings'); await sleep(300);
+      await page.evaluate(() => { document.getElementById('se-about').open = true; document.getElementById('se-role').open = true; }); await sleep(1500);
+      ok('an Audiophile who never used a working role opens About & licence (Buy drawn): nothing is asked of the licence server, the price reads 20 USD', srv.asked.length === 0 && /Buy a licence · 20 USD/.test(await page.textContent('#se-about')), srv.asked.join(' '));
       await ctx.close();
     }
   } catch (e) { ok('licence roles crashed', false, e.stack); }

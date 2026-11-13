@@ -182,6 +182,15 @@ async function signIn(page) {
       let st = await state(page);
       ok('a hand-written sign-in with a broken signature is not believed, and its token is removed', st.mode === 'ended' && !(await stored(page)).token && !(await stored(page)).licence, JSON.stringify(st));
       await ctx.close();
+      // No signature at all, or a token that is not one: checked like any other (nothing counts as already checked).
+      const forged = {};
+      for (const [name, token] of [['no signature', { kid: 2, data: good.data }], ['a word', 'licensed'], ['an empty object', {}]]) {
+        ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': signedIn(token) } }));
+        await page.evaluate(() => import('./js/licence-state.js').then(m => m.licenceReady()));
+        forged[name] = [(await state(page)).mode, !!(await stored(page)).token];
+        await ctx.close();
+      }
+      ok('…nor is one with no signature at all, a word, or an empty object: each removed', Object.values(forged).every(([m, t]) => m === 'ended' && !t), JSON.stringify(forged));
       // Genuine, but for another licence.
       ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': { ...signedIn(good), licence: { ...LICENCE, ref: '2:9999' } } } }));
       st = await state(page);

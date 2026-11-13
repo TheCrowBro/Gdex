@@ -153,7 +153,8 @@ window.logiGo = async id => {
   if (typeof id === 'string' && tabOf(id)) {
     const may = mayOpen(id);
     if (may === 'locked') { refuse(id); return false; }
-    if (may === 'start') { if (!(await startFreeDays())) return false; toastStarted(); }
+    // Not started after all: it opens when it may now (the licence server paused it as it was asked), else not.
+    if (may === 'start') { if (await startFreeDays()) toastStarted(); else if (mayOpen(id) !== 'open') return false; }
   }
   let i = typeof id === 'number' ? id : tabs.findIndex(t => t.id === id);
   if (i < 0 && typeof id === 'string' && tabOf(id)) {

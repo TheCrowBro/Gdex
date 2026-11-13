@@ -140,18 +140,20 @@ export function changeLicence(fn) {
 // A token counts only once its signature checks out (Ed25519, GDEX-WEB, key 2) and it names the licence it came with
 // (the build spec [S-40]). Until the check has run (a few milliseconds) it is believed. A browser that cannot check
 // (no Ed25519) believes it, as Vdex does, and leaves it to the daily check.
-let verified = '', checking = null;
+// What was checked: the token whole and the licence it names, so a change to any of them is checked again.
+const tokenKey = s => JSON.stringify([s.token, (s.licence && s.licence.ref) || '', (s.licence && s.licence.email) || '']);
+let verified = null, checking = null; // the token that checked out this visit (null: none yet)
 function watchToken() {
   const s = read();
   if (!liveSite() || !s.token || checking) return checking;
-  const sig = String(s.token.sig || '');
+  const sig = tokenKey(s);
   if (sig === verified) return null;
   checking = (async () => {
     let note = null, cannot = false;
     try { note = await readWebNote(s.token); } catch (e) { if (e && e.name === 'NotSupportedError') cannot = true; }
     checking = null;
     const now = read();
-    if (!now.token || String(now.token.sig || '') !== sig) return watchToken(); // changed meanwhile: check the new one
+    if (!now.token || tokenKey(now) !== sig) return watchToken(); // changed meanwhile: check the new one
     const l = now.licence || {};
     if (cannot || (note && String(note.ref || '') === String(l.ref || '') && String(note.email || '') === String(l.email || ''))) { verified = sig; return; }
     delete now.token; delete now.licence; delete now.via; // forged or for another licence: signed out (not "cancelled")
@@ -164,7 +166,9 @@ function watchToken() {
 // Joined at load: the earlier start and the later time seen of the two, written back where they differed ([S-27]).
 async function joinDays() {
   let d = null;
-  try { d = await kvGet(DAYS); } catch { return; } // no IndexedDB here: not an error
+  // No IndexedDB here, or one that never answers (some Safari versions' first open): not an error, and nothing waits on it
+  // for more than 3 seconds (the sheets at opening and the free days' start wait for this).
+  try { d = await Promise.race([kvGet(DAYS), new Promise((_, no) => setTimeout(() => no(new Error('IndexedDB did not answer')), 3000))]); } catch { return; }
   const s = read();
   const a = num(s.first) > 0 ? num(s.first) : 0, b = d && num(d.first) > 0 ? num(d.first) : 0;
   const first = a && b ? Math.min(a, b) : a || b;
@@ -201,10 +205,12 @@ export const mayOpen = id => (sectionNeedsLicence(id) ? mayWork() : 'open');
 export const mayPickRole = id => (roleNeedsLicence(id) ? answer(false) : 'open');
 
 let declined = false; // the terms sheet was closed without agreeing this visit ([S-37])
-export const termsDeclined = () => declined;
+// Only while the terms are still not agreed: agreeing anywhere later (the role picker asks them again) ends it.
+export const termsDeclined = () => declined && termsDue(true);
 export function canWrite() {
   const s = licenceNow(), paid = roleNeedsLicence(roleId());
-  if (s.canEdit) return !(declined && paid && !s.started && !hasLicence(s));
+  if (s.mode === 'off') return true; // switched off, or paused by the licence server: everything as before
+  if (s.canEdit) return !(termsDeclined() && paid && !s.started && !hasLicence(s));
   if (paid) return false;
   let page = 'bookings'; try { page = (window.logiPage && window.logiPage()) || 'bookings'; } catch { /* not drawn yet */ }
   return !sectionNeedsLicence(page);
@@ -215,7 +221,8 @@ const workOpen = () => !licenceOn() || roleNeedsLicence(roleId()) || FREE_KEEPS_
 // open; on 'start' once the free days have started (the terms sheet first if due); on 'locked' the licence is offered.
 export function gateWork(fn) {
   if (workOpen()) { fn(); return; }
-  if (mayWork() === 'start') { startFreeDays().then(ok => { if (ok) { toastStarted(); fn(); } }).catch(e => console.error(e)); return; }
+  // Not started after all: open anyway when it has opened meanwhile (the licence server paused it as it was asked).
+  if (mayWork() === 'start') { startFreeDays().then(ok => { if (ok) toastStarted(); if (ok || workOpen()) fn(); }).catch(e => console.error(e)); return; }
   import('./licence.js').then(m => (licenceNow().mode === 'away' ? m.awaySheet() : m.offerSection('work'))).catch(e => console.error(e));
 }
 
@@ -245,8 +252,13 @@ export function roleBadge(id) {
 /* ------------------------------------ the free days ------------------------------------ */
 // The day the free days end, in words ("Dec 13"), and the toast that says they started (§9.1).
 export const endsWords = s => { const t = s && s.trialEnds ? new Date(s.trialEnds + 'T12:00:00') : null; return t && !Number.isNaN(+t) ? t.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''; };
+// Said once per start: several callers can be waiting on the same start (the opening or a role change, and the licence
+// event that the start itself fires), and each of them asks for the toast.
+let toldStart = 0;
 export function toastStarted() {
   const s = licenceNow(), until = endsWords(s);
+  if (!s.started || !(s.first > 0) || s.first === toldStart) return;
+  toldStart = s.first;
   toast(`Your 30 free days of Gdex’s working roles have started on this device${until ? `: until ${until}` : ''}.`);
 }
 
@@ -341,7 +353,7 @@ export function initLicenceSource() {
   if (!liveSite()) return Promise.resolve();
   const web = () => import('./licence-web.js');
   const tick = () => web().then(m => m.recheck(false)).catch(() => {}).then(() => refreshLicence());
-  window.addEventListener('storage', e => { if (e.key === KEY) { verified = ''; fire(); } });
+  window.addEventListener('storage', e => { if (e.key === KEY) { verified = null; fire(); } });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
   window.addEventListener('online', tick);
   setInterval(tick, 3600e3);

@@ -45,8 +45,11 @@ const tag = () => (T.local ? `${T.local.total} USD with ${T.local.tax}` : '20 US
 const once = () => (T.local ? `${T.local.total} USD once in ${T.local.place}, including ${T.local.rate}% ${T.local.tax}` : '20 USD once plus any tax where you live');
 const tagEl = () => h('span', { 'data-lic': 'tag' }, tag());
 const onceEl = () => h('span', { 'data-lic': 'once' }, once());
+// Asked only where the licence server already hears from this device ([S-43]): a working role in use, the free days
+// started, or a licence. An Audiophile who never used a working role sends nothing, so its Buy says 20 USD.
+const priceMatters = () => { const s = licenceNow(); return roleNeedsLicence(roleId()) || !!s.started || !!s.licence; };
 function askLocalPrice() {
-  if (T.asked || T.local) return;
+  if (T.asked || T.local || !priceMatters()) return;
   T.asked = true;
   Promise.resolve().then(() => src.localPrice()).then(b => {
     if (!b || typeof b !== 'object' || b.error) { T.asked = false; return; } // no answer: asked again with the next Buy button
