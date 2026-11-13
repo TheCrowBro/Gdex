@@ -4,9 +4,10 @@
 // had none, junk stored shown as empty); the act's drop-down card: a small QR code of the link (the very code
 // acts-docs.qrFor makes for it), its host in words, Show big (the press kit's full-screen pattern) and Share link (the
 // device's share sheet, else the link copied, else a sheet to copy it by hand); with no sample link the act's first
-// link, said so in words; with no link at all a line saying to add one in ✎ Edit, whose button opens the form in the
-// box; drawn when a genre group's fold opens; the keyboard and the focus (Tab order, Enter and Space, back from the
-// sheet, after a redraw, after a save); what a screen reader is told; the walkthroughs; Producer, Manager and
+// link, said so in words, with the ✎ Edit the words speak of; with no link at all a line saying to add one in ✎ Edit,
+// whose button opens the form in the box; the part's words at 4.5:1 or more, light and dark; drawn when a genre
+// group's fold opens; the keyboard and the focus (Tab order, Enter and Space, back from the sheet, after a redraw,
+// after a save); what a screen reader is told; the walkthroughs; Producer, Manager and
 // Everything have it, Band, Solo artist, Scout and Audiophile see nothing new and keep the stored link; the press kit,
 // the rider, the day sheet and the calendar file unchanged; the search does not show the link; 320 px with
 // extra-large text and large buttons in each of the three section menus.
@@ -26,6 +27,18 @@ const spoken = (page, sel) => page.locator(sel).ariaSnapshot();
 const shown = (page, sel) => page.$eval(sel, el => { const c = el.cloneNode(true); c.querySelectorAll('.sr-only').forEach(x => x.remove()); return c.textContent.trim(); });
 const listSteps = page => page.evaluate(() => import('./js/pages/acts.js').then(m => m.acts.tutorial().map(s => [s.title, s.text, (s.target || []).join(',')])));
 const sheetSteps = (page, title) => page.evaluate(t => import('./js/tour.js').then(m => { const s = m.sheetSteps(t); return (typeof s === 'function' ? s() : s || []).map(x => [x.title, x.text, (x.target || []).join(',')]); }), title);
+// The contrast (the WCAG ratio) of an element's text on what is behind it, every background on the way composited as drawn.
+const contrast = (page, sel) => page.evaluate(s => {
+  const el = document.querySelector(s);
+  if (!el) return 0;
+  const cx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  const over = (base, col) => { cx.fillStyle = base; cx.fillRect(0, 0, 1, 1); cx.fillStyle = col; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return `rgb(${d[0]},${d[1]},${d[2]})`; };
+  const chain = []; for (let e = el; e; e = e.parentElement) chain.unshift(e);
+  const bg = chain.reduce((acc, e) => over(acc, getComputedStyle(e).backgroundColor), '#fff'), fg = over(bg, getComputedStyle(el).color);
+  const lum = c => { const [r, g, b] = c.match(/\d+/g).map(Number).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const x = lum(fg), y = lum(bg);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}, sel);
 // The acts list with a group dropped open (the sample's two acts are in two main genres, so the list is in folds).
 const toList = async page => {
   await go(page, 'acts');
@@ -90,6 +103,7 @@ const save = async page => { await topSheet(page).locator('button[type=submit]')
   ok('…a small one (about 100 px)', sz.w >= 90 && sz.w <= 130, JSON.stringify(sz));
   ok('…its host in words, under “Sample work”', (await part.locator('.ac-sample-h').textContent()) === 'Sample work' && (await part.locator('.ac-sample-host').textContent()) === 'soundcloud.com' && !(await part.locator('.ac-sample-say').count()));
   ok('…with Show big and Share link', (await shown(page, '#ac-sample-big-s-owls')) === '⛶ Show big' && (await shown(page, '#ac-sample-share-s-owls')) === '📤 Share link', await part.innerText());
+  ok('…and no ✎ Edit while it has its sample work link', (await page.locator('#ac-sample-add-s-owls').count()) === 0);
   ok('…at the head of the open card, before the times seen', await page.evaluate(() => document.querySelector('#ac-pnl-s-owls').firstElementChild.classList.contains('ac-sample')));
   let tree = await spoken(page, '#ac-pnl-s-owls .ac-sample');
   ok('a screen reader hears a group called Sample work, the code as a picture with its host, and two buttons that say what they do', /group "Sample work"/.test(tree) && /img "QR code of the sample work, soundcloud\.com"/.test(tree) && /button "Show big: the sample work’s QR code"/.test(tree) && /button "Share link to the sample work"/.test(tree), tree);
@@ -191,12 +205,32 @@ const save = async page => { await topSheet(page).locator('button[type=submit]')
   await sleep(200);
   shared = await page.evaluate(() => window.__shared);
   ok('Share link shares the first link, under the act’s name', same(shared, [{ title: 'The Night Owls', url: first.url }]), JSON.stringify(shared));
+  // The line says "Add one in ✎ Edit": the button is on the card (the times seen under it have ✎ pencils of their own).
+  ok('…and the card has the ✎ Edit its line speaks of, read out as what it does', (await shown(page, '#ac-sample-add-s-owls')) === '✎ Edit' && /button "Edit The Night Owls: add the sample work link"/.test(await spoken(page, '#ac-pnl-s-owls .ac-sample')), await spoken(page, '#ac-pnl-s-owls .ac-sample'));
+  ok('…after Show big and Share link', await page.evaluate(() => [...document.querySelectorAll('#ac-pnl-s-owls .ac-sample-actions .btn')].map(b => b.id).join() === 'ac-sample-big-s-owls,ac-sample-share-s-owls,ac-sample-add-s-owls'));
+  await page.focus('#ac-sample-add-s-owls');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.sheet[aria-label="Edit act"] input[data-key=sampleWork]');
+  await sleep(150);
+  ok('…which opens the act’s form with the focus in the Sample work box', await page.evaluate(() => document.activeElement === document.querySelector('.sheet[aria-label="Edit act"] input[data-key=sampleWork]')));
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sheet', { state: 'detached' });
+  ok('…and Escape gives the focus back to it', (await focused(page)) === 'ac-sample-add-s-owls', await focused(page));
 
   /* no link at all */
   await openCard(page, 't-bare');
   const none = page.locator('#ac-pnl-t-bare .ac-sample');
   ok('with no link at all: no code, a line saying to add one in ✎ Edit, and an Edit button', (await none.locator('.ac-sample-qr').count()) === 0 && (await none.locator('.ac-sample-say').textContent()) === 'No sample work or other link for this act yet. Add one in ✎ Edit and its QR code shows here, ready to share.' && (await shown(page, '#ac-sample-add-t-bare')) === '✎ Edit');
   ok('…its button read out as what it does', /button "Edit Bare Bones: add the sample work link"/.test(await spoken(page, '#ac-pnl-t-bare .ac-sample')), await spoken(page, '#ac-pnl-t-bare .ac-sample'));
+  // The words on the part's --bg2 panel read at 4.5:1 or more, light and dark, in the Stage colours and in Brass (the
+  // lowest muted-on-panel contrast of the light palettes).
+  const low = [];
+  for (const [palette, scheme] of [['stage', 'light'], ['stage', 'dark'], ['brass', 'light'], ['brass', 'dark']]) {
+    await page.evaluate(([p, s]) => { document.documentElement.dataset.palette = p; document.documentElement.dataset.scheme = s; }, [palette, scheme]);
+    for (const sel of ['#ac-pnl-s-owls .ac-sample-h', '#ac-pnl-s-owls .ac-sample-host', '#ac-pnl-s-owls .ac-sample-say', '#ac-pnl-t-bare .ac-sample-say']) { const r = await contrast(page, sel); if (!(r >= 4.5)) low.push(`${palette} ${scheme} ${sel} ${r.toFixed(2)}`); }
+  }
+  await page.evaluate(() => import('./js/a11y.js').then(m => m.applyPrefs()));
+  ok('the part’s heading, host and lines read at 4.5:1 or more, light and dark', !low.length, low.join('; '));
   await page.focus('#ac-sample-add-t-bare');
   await page.keyboard.press('Enter');
   await page.waitForSelector('.sheet[aria-label="Edit act"] input[data-key=sampleWork]');
@@ -371,7 +405,7 @@ const save = async page => { await topSheet(page).locator('button[type=submit]')
     const btns = await p2.$$eval('.ac-sample-actions .btn', (bs, hit) => bs.every(b => b.getBoundingClientRect().height >= hit - 0.5), is.hit);
     ok(`320px, ${menu}: extra-large text and large buttons are on`, is.text === 'xlarge' && is.menu === menu && is.hit >= 54, JSON.stringify(is));
     ok(`320px, ${menu}: open cards with sample work (a long name and host too) do not push the page sideways`, wide <= 320 && inside, JSON.stringify({ wide, inside }));
-    ok(`320px, ${menu}: Show big, Share link and Edit are full-size buttons`, btns && (await p2.locator('.ac-sample-actions .btn').count()) === 5);
+    ok(`320px, ${menu}: Show big, Share link and Edit are full-size buttons`, btns && (await p2.locator('.ac-sample-actions .btn').count()) === 6);
     if (process.env.S) {
       await p2.evaluate(() => { const d = document.getElementById('deck').getBoundingClientRect().bottom; const r = document.getElementById('ac-sample-h-s-owls').getBoundingClientRect(); window.scrollTo(0, scrollY + r.top - d - 8); });
       await sleep(300);

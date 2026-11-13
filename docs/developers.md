@@ -829,9 +829,12 @@ the act form and the card, and its walkthroughs.
   `data-fk` and an `aria-label` that starts with its words: "Show big: the sample work’s QR code", "Share link to the
   sample work"). With no sample work link the code holds the act's first link (`parseLinks(a.links)[0]`, as the press
   kit's), and `span.ac-sample-say` says so ("No sample work link yet: this is the artist’s first link (Website). Add one
-  in ✎ Edit."), as do the code's and the buttons' names. With no link at all: `div.ac-sample.ac-sample-none`, a line
-  saying to add one in ✎ Edit and `#ac-sample-add-<id>` "✎ Edit", which opens the act form with the focus in the Sample
-  work box; after a save the focus goes to the card's Show big.
+  in ✎ Edit."), as do the code's and the buttons' names, and a third button, `#ac-sample-add-<id>` "✎ Edit" (as below),
+  is on the card (the times seen under it have ✎ pencils of their own, which edit a time seen). With no link at all:
+  `div.ac-sample.ac-sample-none`, a line saying to add one in ✎ Edit and `#ac-sample-add-<id>` "✎ Edit", which opens
+  the act form with the focus in the Sample work box; after a save the focus goes to the card's Show big. The lines
+  (`.ac-sample-say`) are muted text mixed with the text colour, as the heading is: muted alone is under 4.5:1 on
+  `--bg2` in the light schemes.
 * **Show big** is `acts-docs.bigQr` (the press kit's ⛶ Show it big uses it too): the sheet "Sample work" with the act's
   name, `.ac-qr-full`, the link under it and how to scan it. **Share link**: `navigator.share({ title, url })` where there
   is one ("The Night Owls – sample work"; the act's name alone for its first link); else the link is copied, with a

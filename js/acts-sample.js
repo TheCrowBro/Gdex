@@ -63,8 +63,9 @@ export function sampleSave(fields, v, latest) {
 }
 
 /* ------------------------------- the act's card ------------------------------- */
-// At the head of an open card: a small QR code of the link, its host in words, Show big and Share link; with no link at
-// all, a line saying to add one in ✎ Edit, and a button that opens the form there. edit: the act form (editAct).
+// At the head of an open card: a small QR code of the link, its host in words, Show big and Share link; with no sample
+// work link (the code is the first link) and with no link at all, a line saying to add one in ✎ Edit, and that button,
+// which opens the form there. edit: the act form (editAct).
 // null for a role without sample work. Its buttons have ids (and data-fk), so the focus comes back to them after a
 // redraw and when a sheet they opened closes.
 export function samplePart(a, edit) {
@@ -88,10 +89,13 @@ export function samplePart(a, edit) {
         !t.own && h('span', { class: 'small muted ac-sample-say' }, `No sample work link yet: this is ${firstLink(t)}. Add one in ✎ Edit.`))),
     h('div', { class: 'actions ac-sample-actions' },
       btn('big', '⛶', 'Show big', t.own ? ': the sample work’s QR code' : `: the QR code of ${firstLink(t)}`, () => showSampleBig(a.id)),
-      btn('share', '📤', 'Share link', t.own ? ' to the sample work' : ` to ${firstLink(t)}`, () => shareSample(a.id))));
+      btn('share', '📤', 'Share link', t.own ? ' to the sample work' : ` to ${firstLink(t)}`, () => shareSample(a.id)),
+      // The line says "Add one in ✎ Edit": the button is here, not only on the act's page (the times seen under it have
+      // ✎ pencils of their own, which edit a time seen).
+      !t.own && btn('add', '✎', 'Edit', ` ${nameOf(a)}: add the sample work link`, () => addLink(a, edit))));
 }
-// ✎ Edit from a card with no link: the act's form, with the focus in the Sample work box; after a save the focus goes to
-// what the card now has (Show big once there is a link).
+// ✎ Edit from a card with no sample work link: the act's form, with the focus in the Sample work box; after a save the
+// focus goes to what the card now has (Show big once there is a link).
 function addLink(a, edit) {
   if (typeof edit !== 'function') return;
   edit(a, () => setTimeout(() => {
