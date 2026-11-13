@@ -224,7 +224,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       const e1 = await sheets(page); await closeTop(page);
       await page.click('#bk-status'); await sleep(400);
       const e2 = await sheets(page); await closeTop(page);
-      ok('…Edit and its status offer the licence instead', e1.join() === 'The working boxes need a licence' && e2.join() === 'The working boxes need a licence', JSON.stringify([e1, e2]));
+      ok('…Edit and its status offer the licence instead, in the session\'s words', e1.join() === 'Studio sessions need a licence' && e2.join() === 'Studio sessions need a licence', JSON.stringify([e1, e2]));
       // Its own things still change: a show's notes.
       await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1'))); await sleep(500);
       await page.fill('#bk-notes-text', 'Front row'); await page.click('.bk-hero h2'); await sleep(400);
