@@ -524,7 +524,9 @@ buttons, ‹ title Today ›, the view's body, the legend under squares) and Com
   and ", didn’t go" for a show answered so (there is no room to write either in a square).
   Arrow keys move between squares; past the edge of two weeks they step as ‹ › do.
 * **Week** is `section.bk-wday` per day: `h3.bk-wday-h > button.bk-wday-head` (the day's name; a tap opens the day),
-  then its rows in playing order, each with `cardExtras(b)` as direct children of `span.bk-wrow-main`. An empty day
+  then its rows in playing order, each with `cardExtras(b)` as direct children of `span.bk-wrow-main`. A show with no
+  on-stage time yet starts its muted line with the time it is sorted by and that time's name, as its card and its block
+  do (`Doors 19:30`, `Soundcheck 17:00`; never a bare "doors"). An empty day
   reads "Nothing on" on the same line as its name. A row with no time has a dash (`aria-hidden`) and says "no time
   yet" once, in its muted line.
 * **3 days and Day** are a time grid (`.bk-grid`, `--n` columns, `--hh` px an hour: 44, or 52 in the Day view). Only

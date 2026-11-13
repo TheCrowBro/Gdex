@@ -313,8 +313,9 @@ function weekList(R, all, today) {
 // A booking on one day of the week (class bk-ev: an entry in the view's own body, never a Coming up card). A booking
 // over several days has a row on each of them.
 function weekRow(b, iso) {
-  const time = playClock(b);
-  const sub = [multi(b) && `to ${fmtShort(lastDay(b))}`, fallBack(b).toLowerCase(), venueLine(b), model.isAfterMidnight(b) && 'after midnight', !time && 'no time yet'].filter(Boolean).join(' · ');
+  const time = playClock(b), by = fallBack(b);
+  // A show with no on-stage time yet says which time it is sorted by, as its card and its block do: "Doors 19:30".
+  const sub = [multi(b) && `to ${fmtShort(lastDay(b))}`, by && `${by} ${time}`, venueLine(b), model.isAfterMidnight(b) && 'after midnight', !time && 'no time yet'].filter(Boolean).join(' · ');
   const row = h('button', { type: 'button', class: `bk-wrow bk-ev ${tone(b.status)}`, id: `bk-ev-${b.id}-${iso}`, 'data-id': b.id, style: actStyle(b), title: 'Tap to open; press and hold to delete',
     onclick: () => { if (!wasHeld(row)) X.showBooking(b, iso); } },
     h('span', { class: 'bk-wrow-time' }, time ? time + ' ' : h('span', { 'aria-hidden': 'true' }, '—')), // "no time yet" is in the line under the name

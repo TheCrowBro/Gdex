@@ -280,7 +280,10 @@ async function press(page, loc, ms) {
   ids = await weekIds(page, T1);
   ok('…and has a row on its second day as well, among that day’s own (10:00 session, doors 19:30, then no time)', same(ids, ['c-S', 'c-B', 'c-W']) && (await page.locator(`#bk-ev-c-W-${T1}`).count()) === 1, ids.join(','));
   const subB = await page.locator(`#bk-ev-c-B-${T1} .bk-wrow-sub`).textContent(), timeB = (await page.locator(`#bk-ev-c-B-${T1} .bk-wrow-time`).textContent()).trim();
-  ok('a show sorted by its doors shows that time and says “doors”', timeB === '19:30' && subB.startsWith('doors'), `${timeB} ${subB}`);
+  ok('a show sorted by its doors shows that time, and its line reads “Doors 19:30” (the label and the time), never a bare “doors”', timeB === '19:30' && subB.startsWith('Doors 19:30 · ') && !/\bdoors\b/.test(subB), `${timeB} ${subB}`);
+  await reach(page, `#bk-wd-${T4}`, 'Next week');
+  const subH = await page.locator(`#bk-ev-c-H-${T4} .bk-wrow-sub`).textContent(), subK = await page.locator(`#bk-ev-c-K-${T4} .bk-wrow-sub`).textContent();
+  ok('…as does one sorted by its soundcheck (“Soundcheck 17:00”), and one by its doors alone (“Doors 20:00”)', subH.startsWith('Soundcheck 17:00 · ') && subK.startsWith('Doors 20:00 · ') && ![subH, subK].some(s => /\b(doors|soundcheck|load-in)\b/.test(s)), `${subH} | ${subK}`);
   await toWeek(page, T);
   const empties = await page.evaluate(() => [...document.querySelectorAll('.bk-wday')].filter(d => !d.querySelector('.bk-ev')).map(d => d.querySelector('.bk-none').textContent));
   ok('a day with nothing on says “Nothing on”', empties.length >= 1 && empties.every(t => t === 'Nothing on'), empties.join('|'));
