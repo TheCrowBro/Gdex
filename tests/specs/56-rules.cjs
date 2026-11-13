@@ -237,7 +237,7 @@ const all = []; // every console error of every browser below
     const more = { level: 'some', label: '📷 Pro cameras ✗ · 3 more', spoken: 'House rules: Pro cameras not allowed, and 3 more', tag: 'SPAN', kids: 2, controls: 0 };
     ok('the open sheet follows the edit: the chip counts the age limit, the ID and the note', same(await chip(page, '.vn-sheet .vn-rules-sec'), more), JSON.stringify(await chip(page, '.vn-sheet .vn-rules-sec')));
     f = await full(page, '.vn-sheet .vn-rules-sec');
-    ok('…and the sheet lists them all, the note last with its lines', !!f && !f.show && same(f.rows, [['Not allowed', 'Pro cameras'], ['Allowed', 'Point-and-shoots · Phones'], ['Good to know', '18+ · ID needed · Seated and standing · Earplugs not needed'], ['Other rules', 'Coats in the cloakroom.\nNo re-entry after 11pm.']]), JSON.stringify(f));
+    ok('…and the sheet lists them all, naming what the chip counted (the age limit and the ID under Restricted, the pick with its rule’s name), the note last with its lines', !!f && !f.show && same(f.rows, [['Not allowed', 'Pro cameras'], ['Restricted', 'Age limit: 18+ · ID needed'], ['Allowed', 'Point-and-shoots · Phones'], ['Good to know', 'Seated or standing: Seated and standing · Earplugs not needed'], ['Other rules', 'Coats in the cloakroom.\nNo re-entry after 11pm.']]), JSON.stringify(f));
     ok('the note keeps its line breaks on screen', (await page.$eval('.vn-sheet .vn-rules-list dd:last-child', d => getComputedStyle(d).whiteSpace)) === 'pre-wrap');
     await page.click('#vn-edit');
     await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250);
@@ -479,7 +479,7 @@ const all = []; // every console error of every browser below
     await page.click('#vn-s-harbour');
     await page.waitForSelector('.vn-sheet');
     f = await full(page, '.vn-sheet .vn-rules-sec');
-    ok('Harbour Hall’s sheet: green, what is allowed and what to know', same(await chip(page, '.vn-sheet .vn-rules-sec'), HARBOUR) && same(f.rows, [['Allowed', 'Pro cameras · Point-and-shoots · Phones · Re-entry'], ['Good to know', 'All ages']]), JSON.stringify(f));
+    ok('Harbour Hall’s sheet: green, what is allowed and what to know', same(await chip(page, '.vn-sheet .vn-rules-sec'), HARBOUR) && same(f.rows, [['Allowed', 'Pro cameras · Point-and-shoots · Phones · Re-entry'], ['Good to know', 'Age limit: All ages']]), JSON.stringify(f));
     await page.keyboard.press('Escape'); await sleep(200);
     const pageTour = await page.evaluate(() => import('./js/pages/venues.js').then(m => m.venues.tutorial().find(s => s.title === 'A place').text));
     ok('the venues page’s walkthrough mentions the house rules on a card', /its house rules and your next booking there/.test(pageTour), pageTour);

@@ -35,7 +35,9 @@ export function rulesFull(v, { where = 'venue' } = {}) {
   const onShow = where === 'show';
   const name = String((v && v.name) || '').trim();
   const list = rulesList(v);
-  const rows = [['Not allowed', list.no.join(' · ')], ['Allowed', list.yes.join(' · ')], ['Good to know', list.know.join(' · ')]].filter(([, words]) => words);
+  // What the chip counts comes first, each by name: the permissions not allowed, then the facts and pick-lists that
+  // restrict (an age limit, cash only, strobes); then what is allowed, and the rest.
+  const rows = [['Not allowed', list.no.join(' · ')], ['Restricted', list.restricted.join(' · ')], ['Allowed', list.yes.join(' · ')], ['Good to know', list.know.join(' · ')]].filter(([, words]) => words);
   return h('div', { class: onShow ? 'vn-rules vn-rules-show' : 'vn-rules' },
     h('div', { class: 'vn-rules-head' }, h('strong', { class: 'vn-rules-name' }, onShow && name ? `House rules at ${name}` : 'House rules'), venueChip(v)),
     (rows.length > 0 || list.note || list.tone) && h('dl', { class: 'vn-rules-list' },

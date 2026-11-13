@@ -221,6 +221,11 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       },
       list: [m.rulesList(lantern), m.rulesList({ rules: { age: '18', idNeeded: 'no', floor: 'both', strobes: 'yes', reentry: 'no' }, rulesNote: ' Two lines\nhere ' }), m.rulesList({}),
         ...['relaxed', 'some', 'strict', 'junk'].map(t => m.rulesList({ rules: { phones: 'yes' }, rulesTone: t }))],
+      // For each venue: as many restrictions in the full rules (Not allowed and Restricted, and a note) as the chip names and counts.
+      counted: [{ rules: { proCameras: 'no', age: '21', cashOnly: 'yes', strobes: 'yes' } }, { rules: { age: '18', idNeeded: 'yes', bags: 'no' }, rulesNote: 'x' }, { rules: { cashOnly: 'yes', earplugs: 'yes', floor: 'seated' } }, { rules: { phones: 'no', proCameras: 'no', compacts: 'no', strobes: 'yes' } }].map(v => {
+        const c = m.rulesChipText(v), l = m.rulesList(v), more = Number((/· (\d+) more$/.exec(c.label) || [0, 0])[1]), main = /No phones or cameras/.test(c.label) ? 3 : /No cameras/.test(c.label) ? 2 : 1;
+        return { label: c.label, list: l, named: l.no.length + l.restricted.length + (l.note ? 1 : 0) === main + more };
+      }),
     };
   }));
   ok('seventeen house rules with their own ids, in four groups; four tones', hr.ids.length === 17 && new Set(hr.ids).size === 17 && same(hr.groups, ['cameras', 'entry', 'inside', 'crowd']) && same(hr.ruleGroups, hr.groups) && same(hr.tones, ['', 'relaxed', 'some', 'strict']) && hr.kinds, hr.ids.join(','));
@@ -244,8 +249,10 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   ok('…on a restricted venue it changes the colour and the words shown stay the rule’s', same(hr.chip.tonesBad.map(c => c[0]), ['ok', 'some', 'strict', 'some']) && hr.chip.tonesBad.every(c => c[1] === '📷 Pro cameras ✗'), JSON.stringify(hr.chip.tonesBad));
   ok('…while the spoken words say how strict it was set, and an automatic colour’s say nothing more', same(hr.chip.tonesBad.map(c => c[2]), ['House rules, set to relaxed: Pro cameras not allowed', 'House rules, set to some rules: Pro cameras not allowed', 'House rules, set to strict: Pro cameras not allowed', 'House rules: Pro cameras not allowed']), JSON.stringify(hr.chip.tonesBad.map(c => c[2])));
   ok('…and beside a note the words stay the note’s', hr.chip.tonesNote.every(c => c[1] === '📝 Ask at the door') && same(hr.chip.tonesNote.map(c => c[0]), ['ok', 'some', 'strict', 'some']) && hr.chip.tonesFineNote.every(c => c[1] === '📝 Ask at the door') && same(hr.chip.tonesFineNote.map(c => c[0]), ['ok', 'some', 'strict', 'some']) && same(hr.chip.tonesNote.map(c => c[2]), ['House rules, set to relaxed: Note: Ask at the door', 'House rules, set to some rules: Note: Ask at the door', 'House rules, set to strict: Note: Ask at the door', 'House rules: Note: Ask at the door']), JSON.stringify([hr.chip.tonesNote, hr.chip.tonesFineNote]));
-  ok('the full rules of The Lantern Rooms: not allowed, allowed, good to know', same(hr.list[0], { no: ['Pro cameras', 'Flash'], yes: ['Point-and-shoots', 'Phones'], know: ['Earplugs advised'], note: '', tone: '' }), JSON.stringify(hr.list[0]));
-  ok('…facts and pick-lists in their own words, in list order, and the whole note', same(hr.list[1], { no: ['Re-entry'], yes: [], know: ['18+', 'No ID needed', 'Seated and standing', 'Strobe lighting'], note: 'Two lines\nhere', tone: '' }) && same(hr.list[2], { no: [], yes: [], know: [], note: '', tone: '' }), JSON.stringify(hr.list[1]));
+  ok('the full rules of The Lantern Rooms: not allowed, allowed, good to know', same(hr.list[0], { no: ['Pro cameras', 'Flash'], restricted: [], yes: ['Point-and-shoots', 'Phones'], know: ['Earplugs advised'], note: '', tone: '' }), JSON.stringify(hr.list[0]));
+  ok('…facts and pick-lists in their own words, in list order, a pick always with its rule’s name; the facts and picks the chip counts as restrictions in a list of their own; and the whole note',
+    same(hr.list[1], { no: ['Re-entry'], restricted: ['Age limit: 18+', 'Strobe lighting'], yes: [], know: ['No ID needed', 'Seated or standing: Seated and standing'], note: 'Two lines\nhere', tone: '' }) && same(hr.list[2], { no: [], restricted: [], yes: [], know: [], note: '', tone: '' }), JSON.stringify(hr.list[1]));
+  ok('…so the full rules name each restriction the chip counts: the main rule and every one in “· N more”', hr.counted.every(c => c.named), JSON.stringify(hr.counted));
   ok('…and a colour set by hand in words: Relaxed, Some rules or Strict, set by hand; nothing for an automatic one', same(hr.list.slice(3).map(l => l.tone), ['Relaxed, set by hand', 'Some rules, set by hand', 'Strict, set by hand', '']), JSON.stringify(hr.list.slice(3)));
   // Loading the sample again: rules come to a sample venue that never had the fields, not to one cleared by hand.
   const again = await store(page, s => {

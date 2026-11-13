@@ -331,7 +331,10 @@ House rules: `RULE_GROUPS`, `HOUSE_RULES` (17 rules: `{ id, group, kind: 'allow'
 yes?, no?, bad? }`), `RULE_TONES`, `rulesOf(v)` (`{ values, note, tone, known, restricted }`), `unknownRules(v)` (the
 stored answers to rules this build does not know, as stored: the venue form keeps them), `rulesLevel(v)` (`''`,
 `'ok'`, `'some'`, `'strict'`), `rulesChipText(v)` (`null`, or `{ level, label, spoken }`), `rulesList(v)`
-(`{ no, yes, know, note, tone }`), `showRulesVenue(b)` (the saved venue of a show that is not cancelled, else `null`). The
+(`{ no, restricted, yes, know, note, tone }`: the full rules, naming everything the chip counts: `no` the permissions
+not allowed, `restricted` the facts and pick-lists whose answer restricts (`Age limit: 21+`, `Cash only`), `know`
+the other facts and pick-lists; a fact in its own words, a pick-list's choice always after its rule's name, never
+`21+` alone), `showRulesVenue(b)` (the saved venue of a show that is not cancelled, else `null`). The
 colour: a tone set by hand wins; else red (`strict`) when phones are not allowed, or neither pro cameras nor
 point-and-shoots are; amber (`some`) when anything else is restricted (an age limit, ID needed, cash only, strobes
 count) or when there is free text (a written rule is a rule, with answers beside it or without); green (`ok`) when
@@ -673,7 +676,7 @@ Every record goes on using the current name, so lists and search stay in one pie
   ones in `> .sr-only` (the chip's whole `textContent` runs both together). On Coming up cards and Week rows through
   `cardExtras`, on the venue's card, and at the head of the full rules.
 * The full rules: `div.vn-rules` (`.vn-rules-show` on a show's page, in a box of its own) with a head line and
-  `dl.vn-rules-list` (Not allowed, Allowed, Good to know, Other rules, and How strict when the colour was set by hand:
+  `dl.vn-rules-list` (Not allowed, Restricted, Allowed, Good to know, Other rules, and How strict when the colour was set by hand:
   `Strict, set by hand`). On the venue's sheet they sit in
   `section.vn-rules-sec`, where the head line's "House rules" is hidden under the section's own heading.
 * The form's part: `div.vn-rules-edit`, a `fieldset.vn-rules-group` per group, one `div.vn-rule[data-rule]` per rule

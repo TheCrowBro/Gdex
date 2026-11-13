@@ -369,15 +369,19 @@ export function rulesChipText(v) {
 }
 // How strict, when it was set by hand: 'Relaxed', 'Some rules' or 'Strict' ('' when the colour is automatic).
 const toneSaid = tone => (tone && (RULE_TONES.find(t => t[0] === tone) || [])[1]) || '';
-// The full rules as lists of words, each in list order: no (permissions answered Not allowed), yes (permissions
-// answered Allowed), know (each answered fact in its own words and each pick-list's choice), the note, and tone: how
-// strict, in words, when it was set by hand ("Strict, set by hand"; '' when the colour is automatic).
+// The full rules as lists of words, each in list order, naming everything the chip counts: no (permissions answered
+// Not allowed), restricted (the facts and pick-lists whose answer is a restriction: "Age limit: 21+", "Cash only"),
+// yes (permissions answered Allowed), know (every other answered fact and pick-list), the note, and tone: how strict,
+// in words, when it was set by hand ("Strict, set by hand"; '' when the colour is automatic). A fact reads in its own
+// words; a pick-list's choice always follows its rule's name ("Age limit: 21+", never "21+" alone).
 export function rulesList(v) {
-  const r = rulesOf(v), answered = HOUSE_RULES.filter(q => q.id in r.values);
+  const r = rulesOf(v), answered = HOUSE_RULES.filter(q => q.id in r.values), bad = q => r.restricted.includes(q);
+  const words = q => (q.kind === 'fact' ? q[r.values[q.id]] : `${q.label}: ${(q.options.find(o => o[0] === r.values[q.id]) || [])[1] || ''}`);
   return {
     no: answered.filter(q => q.kind === 'allow' && r.values[q.id] === 'no').map(q => q.label),
+    restricted: answered.filter(q => q.kind !== 'allow' && bad(q)).map(words).filter(Boolean),
     yes: answered.filter(q => q.kind === 'allow' && r.values[q.id] === 'yes').map(q => q.label),
-    know: answered.filter(q => q.kind !== 'allow').map(q => (q.kind === 'fact' ? q[r.values[q.id]] : (q.options.find(o => o[0] === r.values[q.id]) || [])[1])).filter(Boolean),
+    know: answered.filter(q => q.kind !== 'allow' && !bad(q)).map(words).filter(Boolean),
     note: r.note,
     tone: r.tone ? `${toneSaid(r.tone)}, set by hand` : '',
   };
