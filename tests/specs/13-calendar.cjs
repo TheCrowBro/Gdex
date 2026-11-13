@@ -828,6 +828,42 @@ async function press(page, loc, ms) {
     await c.browser.close();
   }
 
+  /* ------------------------------ in the small hours: last night's show that has not played yet ------------------------------ */
+  // The page's clock is Playwright's, at 00:10 on a day of the spec's own. A show dated the day before, on stage at 00:30
+  // (the end of that night), is still to come; one that played at 20:00 is over.
+  {
+    const c = await open();
+    const D = '2031-07-10', N = '2031-07-11';
+    const at = (iso, hm) => c.page.evaluate(([iso, hm]) => { const [y, mo, d] = iso.split('-').map(Number), [hh, mm] = hm.split(':').map(Number); return new Date(y, mo - 1, d, hh, mm).getTime(); }, [iso, hm]);
+    await c.ctx.clock.install({ time: await at(N, '00:10') });
+    await c.page.reload(); await c.page.waitForSelector('.bk-monthview');
+    await put(c.page, 'bookings', { id: 'n-late', kind: 'show', status: 'confirmed', title: 'Late Set', date: D, venueName: 'The Crown', setTime: '00:30' });
+    await put(c.page, 'bookings', { id: 'n-done', kind: 'show', status: 'confirmed', title: 'Early Set', date: D, venueName: 'The Crown', setTime: '20:00', setLength: 60 });
+    await put(c.page, 'bookings', { id: 'n-next', kind: 'show', status: 'confirmed', title: 'Next Night', date: N, venueName: 'The Crown', setTime: '21:00' });
+    await sleep(400);
+    const cards = () => c.page.evaluate(() => [...document.querySelectorAll('.bk-agenda .bk-card')].map(e => [e.dataset.id, e.querySelector('.bk-card-sub').textContent.split(' · ')[0]]));
+    const count = () => c.page.evaluate(() => document.querySelector('#deck .dk-meta').textContent);
+    let s = await cards();
+    ok('00:10: last night’s show still to play stays at the top of Coming up, marked “Tonight”; the one that is over has gone', same(s, [['n-late', 'Tonight'], ['n-next', 'Today']]), JSON.stringify(s));
+    ok('…and it counts in the menu’s “coming up” number', /\b2 coming up/.test(await count()), await count());
+    ok('…while the calendar marks the calendar’s date as today', same(await c.page.evaluate(() => [...document.querySelectorAll('.bk-cal-panel [aria-current="date"]')].map(e => e.dataset.date)), [N]));
+    await view(c.page, 'day');
+    ok('…and the Day view opens on the calendar’s date, “· today”', (await c.page.locator('.bk-cal-panel .cal-title').textContent()) === `${await c.page.evaluate(iso => import('./js/util.js').then(u => u.fmtLong(iso)), N)} · today`);
+    await view(c.page, 'month');
+    // On stage 00:30, with no set length and no curfew: over two hours later, at 02:30. Left on screen until 02:40.
+    await c.page.clock.fastForward(150 * 60000); await sleep(400);
+    s = await cards();
+    ok('02:40, once it is over, it leaves Coming up by itself, and the count follows', same(s, [['n-next', 'Today']]) && /\b1 coming up/.test(await count()), JSON.stringify([s, await count()]));
+    // After 06:00 nothing from the night before is tonight's, over or not (a set at 05:30 is the end of that night).
+    await put(c.page, 'bookings', { id: 'n-dawn', kind: 'show', status: 'confirmed', title: 'Dawn Set', date: D, venueName: 'The Crown', setTime: '05:30', setLength: 90 });
+    await sleep(300);
+    ok('a set at 05:30 from the night before is tonight’s at 02:40…', (await cards())[0][0] === 'n-dawn' && (await cards())[0][1] === 'Tonight', JSON.stringify(await cards()));
+    await c.page.clock.fastForward(4 * 60 * 60000); await sleep(400);
+    ok('…and not at 06:40, though it plays until 07:00', same(await cards(), [['n-next', 'Today']]), JSON.stringify(await cards()));
+    ok('no errors in the console (the small hours)', c.errors.length === 0, c.errors.slice(0, 5).join(' | '));
+    await c.browser.close();
+  }
+
   /* ------------------------------ the digital player over the five views, on a narrow phone ------------------------------ */
   for (const scheme of ['light', 'dark']) {
     const d = await open({ sample: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('gdex-prefs', '${JSON.stringify({ scheme, menu: 'digital', text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });

@@ -2,7 +2,7 @@
 // keys, and the pure sums every page agrees on (set lengths, deal and settlement maths, a booking's income). Nothing
 // here touches the page or the store's storage; pass records in, get values out. Pages import from here instead of
 // keeping their own lists, so a show reads the same on the calendar, the day sheet and the money page.
-import { db, byId, update, overlaps, nightMin, playField, playKey, byPlay, byDayPlay, byDayPlayDesc } from './store.js';
+import { db, byId, update, overlaps, upcoming, nightMin, playField, playKey, byPlay, byDayPlay, byDayPlayDesc } from './store.js';
 import { pad, ymd, parseISO } from './util.js';
 
 /* ------------------------------- bookings ------------------------------- */
@@ -97,6 +97,17 @@ export function showEnd(b) {
   return d;
 }
 export const showOver = (b, now = new Date()) => { const end = showEnd(b); return !!end && now >= end; };
+// In the small hours (before 06:00) a show from the night before that is not over yet is tonight's: its last day was
+// yesterday by the calendar, but its set (00:30, say) is still to come. Coming up keeps it at its top, marked
+// "Tonight", and the menu counts it; the calendar's days still turn at midnight.
+export function tonightShows(now = new Date()) {
+  if (now.getHours() >= 6) return [];
+  const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1), yesterday = ymd(y);
+  return (db.bookings || []).filter(b => b && b.kind === 'show' && isLive(b) && isIso(b.date) && lastDate(b) === yesterday && !showOver(b, now)).sort(byDayPlay);
+}
+export const isTonight = (b, now = new Date()) => tonightShows(now).includes(b);
+// Coming up: tonight's shows from the night before (in the small hours), then everything from today on (store.upcoming).
+export const comingUp = (now = new Date()) => [...tonightShows(now), ...upcoming(ymd(now))];
 // What the person said about a show: 'seen' when the act's log has it (a score always wins), 'no' when it is marked
 // "Didn’t go" (booking.went === 'no'), else ''.
 export const seenAnswer = b => {

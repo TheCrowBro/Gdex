@@ -9,7 +9,7 @@ import { initClockBar } from './clock.js';
 import { initUpdates } from './update.js';
 import { bookings, dayTurned } from './pages/bookings.js';
 import { roleChosen, menuSections, offMenu, startSection, sectionName, askSeen, moneyShown } from './roles.js';
-import { waitingShows } from './model.js';
+import { waitingShows, comingUp, tonightShows, showEnd } from './model.js';
 
 applyPrefs();
 try { localStorage.removeItem('gdex-tab'); } catch { /* blocked storage */ } // the section open last no longer decides where Gdex opens
@@ -30,7 +30,7 @@ const section = (id, label, icon, load, count) => ({ id, label, icon, load, coun
 // Each section's count shows as its "length" on the section menu's track list (and under Now playing).
 const many = (list, one, more) => () => ({ n: (store.db[list] || []).length, one, many: more });
 const ALL_TABS = [
-  { id: bookings.id, label: bookings.label, icon: bookings.icon, page: bookings, count: () => ({ n: store.upcoming().length, one: 'coming up', many: 'coming up' }) },
+  { id: bookings.id, label: bookings.label, icon: bookings.icon, page: bookings, count: () => ({ n: comingUp().length, one: 'coming up', many: 'coming up' }) }, // as Coming up counts: last night's show still to play too
   section('acts', 'Acts', '🎸', () => import('./pages/acts.js').then(m => m.acts), many('acts', 'act', 'acts')),
   section('people', 'People', '👥', () => import('./pages/people.js').then(m => m.people), many('people', 'person', 'people')),
   section('songs', 'Songs', '🎼', () => import('./pages/songs.js').then(m => m.songs), many('songs', 'song', 'songs')),
@@ -107,7 +107,8 @@ const flush = () => { clearTimeout(pressTimer); if (redrawQueued) setTimeout(red
 document.addEventListener('pointerdown', () => { pressed = true; clearTimeout(pressTimer); pressTimer = setTimeout(() => { pressed = false; flush(); }, 1500); }, true);
 for (const t of ['pointerup', 'pointercancel']) document.addEventListener(t, () => { if (!pressed) return; pressed = false; setTimeout(flush, 0); }, true); // after the click that follows the release
 let deck = null; // the section menu, made below once the start section is known
-store.subscribe(() => { deck && deck.refresh(); if (redrawQueued) return; redrawQueued = true; if (!pressed) setTimeout(redraw, 0); });
+let setDone = 0; // the timer for the end of last night's next show still to play (tonightCheck, below)
+store.subscribe(() => { deck && deck.refresh(); tonightCheck(); if (redrawQueued) return; redrawQueued = true; if (!pressed) setTimeout(redraw, 0); });
 
 // Where to start: always the role's start section, the calendar (js/roles.js).
 const start = Math.max(0, tabs.findIndex(t => t.id === startSection()));
@@ -214,7 +215,17 @@ const dayCheck = () => {
   const n = new Date();
   midnight = setTimeout(dayCheck, new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) - n + 1000);
   if (dayTurned()) store.redraw();
+  tonightCheck();
 };
+// In the small hours Coming up keeps last night's shows that are still to play (model.tonightShows): when the first of
+// them is over, or at 06:00, when none of them is tonight's any more, the page and the menu's count are drawn again.
+// Looked at again at every change of the data (a show added in the night) and whenever the day is.
+function tonightCheck() {
+  clearTimeout(setDone);
+  const n = new Date(), now = +n, six = new Date(n.getFullYear(), n.getMonth(), n.getDate(), 6).getTime();
+  const next = Math.min(...tonightShows(n).map(b => Math.min(+showEnd(b), six)).filter(t => t > now));
+  if (Number.isFinite(next)) setDone = setTimeout(() => { store.redraw(); tonightCheck(); }, next - now + 1000);
+}
 dayCheck();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') hiddenAt = Date.now(); else { dayCheck(); cameBack(); } });
 window.addEventListener('pagehide', () => { if (hiddenAt === null) hiddenAt = Date.now(); }); // for a browser that keeps the page without calling it hidden

@@ -69,7 +69,8 @@ the band by any of its names. Press kits, riders, day sheets, invoices and calen
 - **Five views:** Month, 2 weeks, Week, 3 days and Day, from the row of buttons above the calendar. Month and 2 weeks
   are day squares (a 2-week square shows each booking's time and the start of its name; on the narrowest phones, the
   time alone); Week lists each day; 3 days and Day put each booking on an hour grid. Tap a day to open it. Gdex opens
-  on the view you picked last, on today. **Coming up** is under every view.
+  on the view you picked last, on today. **Coming up** is under every view; in the small hours, last night's show
+  that has not played yet stays at its top, marked **Tonight**.
 - **In the order the bands play:** bookings on the same day run by the time on stage (doors, soundcheck or load-in
   when there is no set time yet; a session by its start), a set after midnight at the end of the night (a session,
   rehearsal or diary entry before 06:00 is that morning's, first in its day), and anything with no time last. Two

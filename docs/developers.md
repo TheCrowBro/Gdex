@@ -325,7 +325,10 @@ When a show is over: `showEnd(b)` (a `Date`, or `null` for anything that is not 
 length, the curfew (the booking's own, else its saved venue's; with an on-stage time, only when it is not before the
 set; with none, a curfew before the doors, soundcheck or load-in the show is sorted by, or one alone and before noon,
 is the next morning's: an all-nighter, doors 22:00 and curfew 06:00); with an on-stage time and neither, two hours
-after it; with no times, or only doors, soundcheck or load-in, 06:00 the next morning. `ASK_DAYS` (14); `seenAnswer(b)` (`'seen'` when the act's log has the show, else `'no'` when
+after it; with no times, or only doors, soundcheck or load-in, 06:00 the next morning. In the small hours: `tonightShows(now?)` (before 06:00, the live shows whose last day was yesterday and that are not
+over yet: a set at 00:30 still to come), `isTonight(b, now?)`, and `comingUp(now?)` (those, then `store.upcoming()`):
+Coming up keeps them at its top marked "Tonight", and the menu's "coming up" number counts them; the calendar's day
+still turns at midnight, and the Day view opens on the calendar's date. `ASK_DAYS` (14); `seenAnswer(b)` (`'seen'` when the act's log has the show, else `'no'` when
 `b.went === 'no'`, else `''`; always `''` when the booking's act is not in Acts, as after a merge that brought in a No
 for a show whose act was deleted on another device); `waitingShows(now?, { holds })` (shows that are over, not cancelled, with an act that
 is in Acts, at most `ASK_DAYS` days after their last day, with no answer; newest first; `holds: false` leaves out
@@ -493,7 +496,9 @@ just after the next local midnight (set afresh at every call), on `visibilitycha
 `pageshow`. When today is not the day the page last knew, a calendar whose `S.day` was that day moves to the new today
 (one moved to another day, and a booking's page with its day for Back, stay as they are), and `app.js` calls
 `store.redraw()`: today's mark, Coming up, + New's date, the menu's count and every "Today" / "Tomorrow" follow.
-`13-calendar` moves Playwright's page clock over midnight (`fastForward` fires the timer; `setSystemTime` fires none,
+In the small hours `app.js` (`tonightCheck`, at every change of the data and every look at the day) also sets a timer
+for the end of the first of last night's shows still to play (`model.tonightShows`), or 06:00, and draws the page and
+the menu's count again then. `13-calendar` moves Playwright's page clock over midnight (`fastForward` fires the timer; `setSystemTime` fires none,
 for the checks that come back from out of sight).
 
 Hooks the specs and walkthroughs rely on, whatever the view: `.bk-calview` (the calendar's frame, also

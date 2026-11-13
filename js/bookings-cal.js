@@ -10,7 +10,7 @@
 // from a booking is the Day view for this visit only.
 // Adapted from Vdex's bookings page: the month grid, press and hold to delete.
 import { h, ymd, todayISO, parseISO, fmtLong, fmtShort, daysUntil, empty, wasHeld, announce } from './util.js';
-import { db, byId, upcoming, covers, lastDay, byPlay } from './store.js';
+import { db, byId, covers, lastDay, byPlay } from './store.js';
 import * as model from './model.js';
 import { moneyShown, sectionName, actWord } from './roles.js';
 import { runOfDay } from './ics.js';
@@ -169,7 +169,7 @@ function filters() {
 // "Coming up", under every view: the next bookings, soonest first; on the same day, in the order the bands play.
 function comingUp() {
   const { S, go } = X;
-  const list = upcoming().filter(X.passes), shown = S.all ? list : list.slice(0, 8);
+  const list = model.comingUp().filter(X.passes), shown = S.all ? list : list.slice(0, 8); // in the small hours, last night's show still to play first
   return [
     h('h3', { class: 'bk-agenda-head' }, X.filtersOn() ? 'Coming up (filtered)' : 'Coming up'),
     list.length
@@ -184,7 +184,9 @@ function comingUp() {
 
 function agendaCard(b) {
   const d = parseISO(b.date), n = daysUntil(b.date);
-  const when = n < 0 ? (lastDay(b) < todayISO() ? '' : 'On now') : n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : n < 14 ? `In ${n} days` : ''; // one that is over (the search lists those too) says nothing here
+  // One that is over (the search lists those too) says nothing here; last night's show still to play in the small hours
+  // is "Tonight" (model.tonightShows).
+  const when = n < 0 ? (lastDay(b) >= todayISO() ? 'On now' : model.isTonight(b) ? 'Tonight' : '') : n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : n < 14 ? `In ${n} days` : '';
   const card = h('button', { type: 'button', class: 'card tap bk-card', style: actStyle(b), 'data-id': b.id, title: 'Tap to open; press and hold to delete',
     onclick: () => { if (!wasHeld(card)) X.showBooking(b); } },
     h('span', { class: 'bk-date', 'aria-hidden': 'true' },
