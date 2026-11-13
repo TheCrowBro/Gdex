@@ -2,7 +2,7 @@
 // A step can carry a form (its body) that is saved on Next, so a walkthrough can set things up as well as point.
 import { h, nodes } from './util.js';
 import { db, update } from './store.js';
-import { role, roleChosen, menuSections, offMenu, sectionName, moneyShown } from './roles.js';
+import { role, roleChosen, menuSections, offMenu, sectionName, moneyShown, startSection } from './roles.js';
 
 // The first-run walkthrough (also Settings → Help → Take the welcome tour). It follows the role (js/roles.js): its own
 // welcome, then the sections on its menu in order. The profile card saves what is typed on Next.
@@ -30,7 +30,7 @@ export const STOP_TEXT = {
   songs: 'Keys, tempos and lengths for every song, split sheets for the writers, and setlists that add up to the slot.',
   sessions: 'The studio log: each session’s takes, keepers and notes, song by song.',
   backline: 'Your gear: what you own, what goes to each booking, and what is out on loan.',
-  venues: 'Every room, studio and festival you play or visit: the stage, the PA, load-in, curfew and the contact.',
+  venues: 'Every room, studio and festival you play or visit: the stage, the PA, load-in, curfew, the contact, and the house rules that show on every show there.',
   money: 'What you are owed and what you have been paid: settlements, invoices and the year’s totals.',
   tools: 'A tuner, a metronome with tap tempo, delay times for any tempo, a sound level meter and a set timer.',
   insurance: 'Your policies and what they cover, next to the backline they insure.',
@@ -85,14 +85,19 @@ export const sheetSteps = title => sheetTours.get(title) || null;
 
 let active = null;
 export const tourActive = () => !!active;
-export function startTour(from = 0) {
+// The welcome tour moves from section to section and its last card is Settings. However it ends (Done, Skip, Escape),
+// the first-run tour (first: true) leaves the person on the calendar, where Gdex opens; taken again later (from ?, Aa
+// or Settings) it leaves them on the section where they started it.
+export function startTour(from = 0, { first = false } = {}) {
   let at = from; try { const saved = Number(localStorage.getItem(RESUME)); if (!from && saved) at = saved; localStorage.removeItem(RESUME); } catch { /* ignore */ }
-  return runTour(welcomeSteps(), { remember: true, from: at });
+  const back = first ? startSection() : (window.logiPage && window.logiPage()) || startSection();
+  return runTour(welcomeSteps(), { remember: true, from: at, onEnd: () => { if (window.logiPage && window.logiPage() !== back) window.logiGo?.(back); } });
 }
 // Runs any list of steps: { title, text, target: [selectors], go?: tabId, before?: fn, body?: ctx => node, onNext?: fn }.
 // Steps whose target is not on screen are skipped. A body is a form inside the card (saved by onNext, which may return
-// false to stay on the step); ctx has refresh(), next(), stop() and index.
-export function runTour(steps, { remember = false, from = 0, footer = null, root = null } = {}) {
+// false to stay on the step); ctx has refresh(), next(), stop() and index. onEnd runs once the tour has gone, however
+// it ended.
+export function runTour(steps, { remember = false, from = 0, footer = null, root = null, onEnd = null } = {}) {
   if (active) return;
   const STEPS = steps;
   const app = document.getElementById('app');
@@ -104,7 +109,7 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   document.body.append(layer); if (app) app.inert = true;
   let i = from, target = null, dir = 1;
   const seen = new Set(); // steps already shown: they keep their place in the count when going back
-  const stop = () => { if (!active) return; active = null; layer.remove(); if (app) app.inert = wasInert; window.removeEventListener('resize', place); window.removeEventListener('scroll', onScroll, true); document.removeEventListener('keydown', keys, true); if (remember) done(); };
+  const stop = () => { if (!active) return; active = null; layer.remove(); if (app) app.inert = wasInert; window.removeEventListener('resize', place); window.removeEventListener('scroll', onScroll, true); document.removeEventListener('keydown', keys, true); if (remember) done(); if (onEnd) onEnd(); };
   active = { stop };
   // Arrow keys move between steps, except while typing in a field of the card; Escape always leaves.
   const keys = e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && e.key !== 'Escape') return; if (e.key === 'Escape') { e.stopPropagation(); stop(); } else if (e.key === 'ArrowRight') { e.stopPropagation(); next(); } else if (e.key === 'ArrowLeft') { e.stopPropagation(); dir = -1; show(i - 1); } };

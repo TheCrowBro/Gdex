@@ -488,5 +488,11 @@ export function calendarSteps(ctx) {
       { title: pageName(), text: 'Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-dayview .bk-grid'] },
     ] : []),
     { title: 'Coming up', text: 'Your next bookings, soonest first; on the same day, in the order the bands play. Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-agenda', '.bk-calview > .empty'] },
+    // The lines a card can carry, each explained only when one is on screen.
+    ...(onScreen('.vn-chip') ? [{ title: 'House rules', text: RULES_HELP, target: ['.bk-agenda .vn-chip', '.bk-cal-panel .vn-chip'] }] : []),
+    ...(onScreen('.bk-overlap') ? [{ title: 'Overlapping sets', text: 'Another show that day has a set at the same time: the note names it and when it plays. In 3 days and Day the two sit side by side.', target: ['.bk-agenda .bk-overlap', '.bk-cal-panel .bk-overlap'] }] : []),
   ];
 }
+// Whether the calendar as drawn now shows a line of that kind (a house-rules chip, an overlap note) anywhere.
+const onScreen = sel => [...document.querySelectorAll('.bk-calview ' + sel)].some(el => el.getClientRects().length > 0);
+const RULES_HELP = 'The coloured line on a show is its venue’s house rules: green when nothing is restricted, amber when something is (an age limit, cash only, a written rule), red when phones or every camera are not allowed. It names the main rule; “·\u00a01\u00a0more” counts the others. The show’s page and the venue’s page have them in full.';

@@ -331,6 +331,13 @@ async function press(page, loc, ms) {
   const k6 = await viewKey(' ');
   ok('…and so does Space', k6.mode === 'two' && k6.saved === 'two' && k6.focus === 'bk-view-two', JSON.stringify(k6));
   await view(page, 'week');
+  // The calendar's ? explains the house-rules chip and the overlap note, which this week's rows carry.
+  const helpSteps = await steps(page), hr = helpSteps.find(x => x[0] === 'House rules'), ov = helpSteps.find(x => x[0] === 'Overlapping sets');
+  ok('the calendar’s walkthrough explains the house-rules chip: green, amber and red, what “· 1 more” counts, and where the full rules are', !!hr && /green/.test(hr[1]) && /amber/.test(hr[1]) && /red when phones/.test(hr[1]) && /“·\u00a01\u00a0more” counts the others/.test(hr[1]) && /The show’s page and the venue’s page have them in full/.test(hr[1]) && hr[2][0] === '.bk-agenda .vn-chip', JSON.stringify(hr));
+  ok('…and the “Overlaps with …” note, both after Coming up', !!ov && /set at the same time/.test(ov[1]) && helpSteps.map(x => x[0]).slice(-3).join() === 'Coming up,House rules,Overlapping sets', JSON.stringify(helpSteps.map(x => x[0])));
+  const walked = await tourTitles(page);
+  ok('…and the walkthrough shows both cards', walked.slice(-2).join() === 'House rules,Overlapping sets', walked.join(', '));
+
   // + New starts on today when today is on screen, else on the first day shown; on the day in view in Day and 3 days
   const newDate = async () => { await page.locator('.bk-new').click(); await page.locator('.bk-kind[data-kind="other"]').click(); const f = sheetNamed(page, 'New diary entry'); await f.waitFor(); const v = await f.locator('[data-key="date"]').inputValue(); await f.locator('button', { hasText: 'Cancel' }).click(); await sleep(250); return v; };
   ok('+ New in a week without today starts on its Monday', (await newDate()) === (await monday(page, T)));
@@ -420,8 +427,10 @@ async function press(page, loc, ms) {
   await page.locator('.bk-actions .bk-delete').click(); await sheetNamed(page, 'Delete this booking?').waitFor();
   await page.locator('.sheet button', { hasText: 'Delete booking' }).click(); await sleep(400);
   ok('Delete on a booking’s page lands in the Day view on its day', (await page.locator('.bk-dayview').count()) === 1 && (await page.locator(`.bk-col[data-day="${T}"]`).count()) === 1 && (await page.locator(`#bk-ev-c-Z-${T}`).count()) === 0 && (await page.locator(`#bk-ev-c-P-${T}`).count()) === 1);
+  // The steps for the lines a card can carry come after Coming up, each only when one is on screen.
+  const lines = async () => [...((await page.locator('.bk-calview .vn-chip').count()) ? ['House rules'] : []), ...((await page.locator('.bk-calview .bk-overlap').count()) ? ['Overlapping sets'] : [])];
   let walk = await tourTitles(page);
-  ok('a day with bookings: its walkthrough shows The calendar and the step for its bookings', same(walk, ['New booking', 'Export calendar', 'Filters', 'Views', 'The calendar', 'Add to this day', 'Bookings', 'Coming up']), walk.join(', '));
+  ok('a day with bookings: its walkthrough shows The calendar and the step for its bookings', same(walk, ['New booking', 'Export calendar', 'Filters', 'Views', 'The calendar', 'Add to this day', 'Bookings', 'Coming up', ...(await lines())]), walk.join(', '));
 
   // the hours fit what is on
   await page.click('[aria-label="Next day"]'); await sleep(250);
@@ -437,7 +446,7 @@ async function press(page, loc, ms) {
   await page.click('[aria-label="Next day"]'); await sleep(250);
   ok('a day with nothing on draws no grid', (await title(page)) === (await wantTitle(page, 'day', T3, T3)) && (await page.locator('.bk-grid').count()) === 0 && (await page.locator('.bk-dayview .bk-none').textContent()) === 'Nothing booked on this day.' && (await page.locator('.bk-new-day').count()) === 1);
   walk = await tourTitles(page);
-  ok('…and its walkthrough leaves out The calendar’s hours and the bookings to tap, which are not there', same(walk, ['New booking', 'Export calendar', 'Filters', 'Views', 'Add to this day', 'Coming up']), walk.join(', '));
+  ok('…and its walkthrough leaves out The calendar’s hours and the bookings to tap, which are not there', same(walk, ['New booking', 'Export calendar', 'Filters', 'Views', 'Add to this day', 'Coming up', ...(await lines())]), walk.join(', '));
   // only "any time": no empty hours
   await put(page, 'bookings', { id: 'c-U', kind: 'other', status: 'hold', title: 'Untimed', date: T3 }); await sleep(300);
   ok('a day with nothing timed shows the “any time” row and “No times set yet.”, without empty hours', (await page.locator('.bk-any #bk-ev-c-U-any').count()) === 1 && (await page.locator('.bk-grid-body').count()) === 0 && (await page.locator('.bk-grid-note').textContent()) === 'No times set yet.' && (await page.locator('.bk-cal-panel .bk-none').count()) === 0);

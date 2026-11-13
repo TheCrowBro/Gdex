@@ -517,10 +517,13 @@ async function firstOpen(dbJson) {
   await page.waitForSelector('.tour-card');
   await sleep(1500);
   ok('…then the welcome tour, with nothing over it', (await sheetsOf(page)).length === 0 && (await tours(page)) === 1, (await sheetsOf(page)).join(' | '));
+  for (let i = 0; i < 4; i++) { await page.click('.tour-actions .btn.primary'); await sleep(900); } // on to the acts page's card
+  const skippedOn = await page.evaluate(() => window.logiPage());
   await page.click('.tour-actions .btn.ghost.small'); // Skip
   await page.locator(Q).waitFor({ timeout: 4000 }).catch(() => {});
   await sleep(200);
   ok('…and only after Skip, “Did you see them?”, with both shows', same(await sheetsOf(page), [QUESTION]) && (await tours(page)) === 0 && same(await rowIds(page), ['w-2', 'w-13']), (await sheetsOf(page)).join(' | '));
+  ok('…asked over the calendar, where the first-run tour ends (it was on another section when skipped)', skippedOn !== 'bookings' && (await page.evaluate(() => window.logiPage())) === 'bookings' && (await page.locator('#page .bk-calview').count()) === 1, `${skippedOn} → ${await page.evaluate(() => window.logiPage())}`);
   ok('…never two of them at once', (await page.evaluate(() => window.__most)) === 1, String(await page.evaluate(() => window.__most)));
   ok('…with the focus on the first Yes', (await focusId(page)) === 'ac-ask-yes-w-2', await focusId(page));
   await page.click('#ac-ask-no-w-2'); await sleep(300);

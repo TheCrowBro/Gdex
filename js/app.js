@@ -187,7 +187,9 @@ const askSeenNow = () => {
   import('./acts-ask.js').then(m => whenClear(() => { asking = false; if (!due.length) return; m.askAtOpen(due); askSheet = document.querySelector('.sheet-back'); })).catch(e => { asking = false; console.error(e); });
 };
 const askSeenAtOpen = () => { askedAtOpen = true; askSeenNow(); };
-const tourThenAsk = () => { startTour(); askSeenAtOpen(); }; // the tour is on screen at once, so the question waits for it to end
+// The tour is on screen at once, so the question waits for it to end; the first-run tour ends on the calendar, so the
+// question is asked there.
+const tourThenAsk = () => { startTour(0, { first: true }); askSeenAtOpen(); };
 // Coming back counts as opening, for the question only. An installed app is seldom loaded afresh: it is brought back from
 // the background, sometimes days later, and someone who went to a show last night would never be asked. So after three
 // hours or more out of sight (the screen hidden, or the page kept by the browser and restored), the waiting shows are

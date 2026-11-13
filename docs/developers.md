@@ -68,7 +68,9 @@ off the menu as the bonus track.
 ## Roles (`js/roles.js`, `js/role-pick.js`)
 
 The first open asks who is using Gdex: producer, manager, band, solo artist, scout or audiophile, or everything
-(`askRole` in `js/role-pick.js`, then the welcome tour for that role). Settings → Your role swaps it (`rolePanel`). A
+(`askRole` in `js/role-pick.js`, then the welcome tour for that role, `startTour(0, { first: true })`, which ends on
+the calendar however it ends, so "Did you see them?" is asked there; taken again later, from ?, Aa or Settings, the
+tour ends on the section it was started from: `runTour(steps, { onEnd })`). Settings → Your role swaps it (`rolePanel`). A
 device whose welcome tour was done before roles came gets one card under the menu instead (`nudgeRole`, shown once:
 `gdex-role-nudged`; closing the first-run question without a pick sets it too, so that person never sees the card).
 The question and the tour wait while a sheet (the sleeve, tapped in the first moment) is open. Their words, like the
@@ -472,6 +474,7 @@ may call it.
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
 | `js/tour.js` `sheetTutorial(title, steps)` | core | Register walkthrough steps for a sheet by its title. |
+| `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended. |
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
 | `blocks/guests.js` `guestCounts(b)`; `blocks/settlement.js` `isSettled(b)` / `settlementDoc(b)` | show | Names, heads and in / whether the night is settled / the printable settlement. |
 | `js/daysheet-doc.js` `cleanDaySheet(data)` / renderer | daysheet | Pure (no store): the whitelist and renderer shared by the app and `daysheet.html`. |
@@ -557,7 +560,10 @@ buttons, one control: ← → move the focus between them, round from the last t
   has a time. Three days with nothing on keep their three day names above "Nothing on these three days."; a Day with
   nothing on draws no grid. The walkthrough's "The calendar" step says what is drawn (`gridHelp`): hours when there
   are some; with only the "any time" row, that nothing has a time yet (when "No times set yet." shows) or that a
-  booking over several days sits there; three days with nothing on are their names, to tap; an empty Day has no step. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
+  booking over several days sits there; three days with nothing on are their names, to tap; an empty Day has no step.
+  After Coming up come "House rules" (what the chip's green, amber and red mean, what "· 1 more" counts, where the full
+  rules are) and "Overlapping sets", each only when a chip or an overlap note is on screen. The welcome tour's Venues
+  stop says, in every role that has one, that a venue holds house rules that show on every show there. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
   shorter than two lines puts its name and time on one line, and a narrow one drops the kind's icon and the word
   before the time ("Doors"), which a screen reader still gets.
 * **What a block says.** A block or pill is too small for the overlap note and the house-rules chip: a hidden span

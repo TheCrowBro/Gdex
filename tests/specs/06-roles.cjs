@@ -36,6 +36,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     for (let i = 0; i < 14 && await page.locator('.tour-card').count(); i++) { titles.push(await page.textContent('#tour-title')); await page.click('.tour-actions .btn.primary'); await sleep(900); }
     const menu = R.menus.producer.filter(id => id !== 'settings');
     ok('then the welcome tour runs through the role’s own sections', titles[0] === 'Welcome to Gdex' && titles.includes('Your sections are tracks') && titles[titles.length - 1] === 'Settings', titles.join(' › '));
+    ok('…and ends on the calendar, where Gdex opens, not on Settings where its last card was', (await page.evaluate(() => window.logiPage())) === 'bookings' && (await page.locator('.bk-calview').count()) === 1, await page.evaluate(() => window.logiPage()));
     const stops = titles.slice(3, -1);
     ok('…in its menu order, and only sections on its menu', stops.length > 0 && stops.length <= 5, stops.join(', '));
     const s = await sleeve(page);
@@ -344,6 +345,28 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('manager')));
     const mgr = await page.evaluate(() => import('./js/tour.js').then(m => m.welcomeSteps().map(s => s.text)));
     ok('a role with money keeps quotes and invoices on the last card', /quotes and invoices/.test(mgr[mgr.length - 1]));
+    // Each role whose welcome tour stops at Venues says there that a venue can hold house rules.
+    const venueStops = await page.evaluate(() => Promise.all([import('./js/roles.js'), import('./js/tour.js')]).then(([r, t]) => [...r.ROLES, r.EVERYTHING].map(x => { r.setRole(x.id); const st = t.welcomeSteps().find(s => s.go === 'venues'); return [x.id, st ? st.text : null]; }).concat([['(any other)', t.STOP_TEXT.venues]])));
+    const withStop = venueStops.filter(v => v[1]);
+    ok('every role whose welcome tour stops at Venues says a venue holds house rules, shown on its shows', withStop.length >= 5 && withStop.every(v => /house rules/.test(v[1]) && /every (show|gig) there/.test(v[1])), JSON.stringify(withStop));
+    // Taken again later, from Aa or from ?, the tour ends where the person started it, whether they finish it or skip it.
+    await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('scout')));
+    await go(page, 'venues');
+    await page.click('#displayBtn'); await page.waitForSelector('.sheet');
+    await page.locator('.sheet button', { hasText: 'Take the tour again' }).click();
+    await page.waitForSelector('.tour-card');
+    for (let i = 0; i < 14 && await page.locator('.tour-card').count(); i++) { await page.click('.tour-actions .btn.primary'); await sleep(900); }
+    ok('the welcome tour taken again from Aa, on Venues, ends on Venues after its last card (Settings)', (await page.locator('.tour-card').count()) === 0 && (await page.evaluate(() => window.logiPage())) === 'venues', await page.evaluate(() => window.logiPage()));
+    await go(page, 'acts');
+    await page.click('#helpBtn'); await page.waitForSelector('.tour-card');
+    await page.locator('.tour-actions button', { hasText: 'Other pages…' }).click();
+    await page.waitForSelector('.sheet[aria-label="Tutorials"]');
+    await page.locator('.sheet button', { hasText: 'The welcome tour' }).click();
+    await page.waitForSelector('.tour-card'); await sleep(300);
+    for (let i = 0; i < 3; i++) { await page.click('.tour-actions .btn.primary'); await sleep(900); }
+    const mid = await page.evaluate(() => window.logiPage());
+    await page.click('.tour-actions .btn.ghost.small'); await sleep(500); // Skip
+    ok('…and from ?, on the acts page, Skip half-way (on another section) brings it back to the acts page', mid !== 'acts' && (await page.locator('.tour-card').count()) === 0 && (await page.evaluate(() => window.logiPage())) === 'acts', `${mid} → ${await page.evaluate(() => window.logiPage())}`);
     ok('no errors in the console (tour)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
