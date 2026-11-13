@@ -2,7 +2,10 @@
 // The desktop app's smoke test: launches the Electron app (under xvfb-run on Linux: `xvfb-run -a npm run
 // test:desktop`) against a local stand-in for the licence server, and checks the window, the local server, the bridge,
 // the permissions, Google's sign-in page, that Gdex's files are only for its own window, and that nothing but this
-// computer is contacted (no Google, no gdex.crowmade.app, no download address) by someone who never linked Drive.
+// computer is contacted (no Google, no gdex.crowmade.app, no download address) by someone who never linked Drive:
+// both the window's requests (GDEX_TEST_NET_WATCH) and everything Chromium's network stack tries, which goes through a
+// local recording proxy that answers every outside request with a refusal and forwards nothing (Electron's own
+// downloads, such as spellchecker dictionaries or the location service, never pass the window's request hooks).
 //   1. As built: the licence follows desktop/licence-on.json and desktop/licence-keys.json (off in the repository).
 //   2. With throw-away keys (GDEX_TEST_LICENCE_KEYS, read only by a development run): the free days start when the
 //      page asks, the start is mirrored in desktop-state.json, and the price comes from the licence server.
@@ -43,6 +46,13 @@ const stub = createServer((req, res) => {
 await new Promise(r => stub.listen(0, '127.0.0.1', r));
 const SITE = `http://127.0.0.1:${stub.address().port}`;
 
+// The recording proxy (--proxy-server): every outside address Chromium tries is written down and refused; nothing is
+// forwarded. localhost and 127.0.0.1 never go through a proxy, so the app and the stub are reached directly.
+const tried = [];
+const proxy = createServer((req, res) => { tried.push(req.method + ' ' + req.url); res.writeHead(502); res.end(); });
+proxy.on('connect', (req, sock) => { tried.push('CONNECT ' + req.url); sock.end('HTTP/1.1 403 Forbidden\r\n\r\n'); });
+await new Promise(r => proxy.listen(0, '127.0.0.1', r));
+
 // The app's usual port can be held for a moment by another test run (78 opens a page there on purpose): wait for it.
 const portFree = p => new Promise(r => { const s = netServer(); s.once('error', () => r(false)); s.listen(p, '127.0.0.1', () => s.close(() => r(true))); });
 const waitForPort = async () => { for (let i = 0; i < 60; i++) { if (await portFree(47861)) return true; await sleep(1000); } return false; };
@@ -53,7 +63,7 @@ const get = (url, headers = {}) => new Promise((res, rej) => { const q = request
 async function launch(profile, extraEnv = {}) {
   await waitForPort();
   const app = await electron.launch({
-    executablePath: electronPath, args: ['.', '--no-sandbox', '--use-fake-device-for-media-stream'], cwd: repo, timeout: 60000,
+    executablePath: electronPath, args: ['.', '--no-sandbox', '--use-fake-device-for-media-stream', `--proxy-server=http://127.0.0.1:${proxy.address().port}`], cwd: repo, timeout: 60000,
     env: { ...process.env, NODE_OPTIONS: '', GDEX_TEST_NO_BROWSER: '1', GDEX_TEST_NET_WATCH: '1', GDEX_LICENCE_SITE: SITE, GDEX_TEST_PROFILE: profile, ...extraEnv },
   });
   const win = await app.firstWindow({ timeout: 60000 });
@@ -79,6 +89,9 @@ try {
   if (!usual) console.log(`(another program held localhost:47861, so Gdex opened at ${port}: Google's sign-in is checked as refused below)`);
   const who = await app.evaluate(({ app }) => ({ name: app.getName(), data: app.getPath('userData'), version: app.getVersion() }));
   ok('it is called Gdex, keeps its data in the test profile, and carries the web app’s version', who.name === 'Gdex' && resolve(who.data) === resolve(profile) && who.version === /VERSION = '([^']+)'/.exec(readFileSync(join(repo, 'js', 'version.js'), 'utf8'))[1], JSON.stringify(who));
+  const mac = process.platform === 'darwin';
+  const spell = await app.evaluate(({ session }) => ({ on: session.defaultSession.isSpellCheckerEnabled(), langs: session.defaultSession.getSpellCheckerLanguages() }));
+  ok(mac ? 'the spellchecker is the Mac’s own' : 'the spellchecker is off, with no languages, so no dictionaries are fetched (Electron gets them from Google on Windows and Linux)', mac || (spell.on === false && spell.langs.length === 0), JSON.stringify(spell));
   const members = await win.evaluate(() => ({ top: Object.keys(window.gdexDesktop).sort(), licence: Object.keys(window.gdexDesktop.licence).sort(), platform: window.gdexDesktop.platform, vdex: 'vdexDesktop' in window }));
   ok('the bridge window.gdexDesktop has exactly its members (no Dropbox, Microsoft or iCloud sign-in)',
     members.top.join() === ['checkForUpdates', 'googleSignIn', 'installUpdate', 'licence', 'onStatus', 'openDownload', 'platform', 'updateState'].join()
@@ -115,6 +128,8 @@ try {
   const wake = await win.evaluate(() => navigator.wakeLock.request('screen').then(l => l.release().then(() => 'held'), e => e.name + ': ' + e.message));
   const perms = await app.evaluate(() => global.__gdexPermissions);
   ok('the screen can be kept on (the wake lock resolves)', wake === 'held', wake + ' — permissions asked: ' + JSON.stringify([...new Set(perms.map(p => p.permission))]));
+  const geo = await win.evaluate(async mac => ({ state: (await navigator.permissions.query({ name: 'geolocation' })).state, ask: mac ? 'not asked on a Mac' : await new Promise(r => navigator.geolocation.getCurrentPosition(() => r('position'), e => r('error ' + e.code), { timeout: 8000 })) }), mac);
+  ok(mac ? 'location is allowed on a Mac (the system finds it)' : 'location is refused on Windows and Linux (Chromium would ask Google’s location service), and asking for it contacts nothing', mac ? geo.state === 'granted' : geo.state === 'denied' && geo.ask === 'error 1' && tried.length === 0, JSON.stringify(geo) + ' ' + tried.join(', '));
   const notified = await win.evaluate(() => Notification.requestPermission());
   ok('…and anything else is refused (notifications, which Gdex never uses)', notified === 'denied', notified);
 
@@ -123,8 +138,8 @@ try {
   ok('from outside the app (no window key), the app’s files answer 403 “Open Gdex from its desktop app.”', plain.every(r => r.status === 403 && /Open Gdex from its desktop app/.test(r.body)), plain.map(r => r.status).join());
   const forged = await get(base + '/index.html', { 'X-Gdex-App': 'guessed' });
   ok('…a guessed key is refused too', forged.status === 403);
-  const rebound = await get(base + '/__gdex/google?n=x', { Host: 'evil.example:' + port });
-  ok('…and a request addressed to another name (a page pointing its own name at this computer) is refused', rebound.status === 403);
+  const rebound = await Promise.all([`evil.example:${port}`, 'localhost', `localhost:${port}.evil.example`].map(h => get(base + '/__gdex/google?n=x', { Host: h })));
+  ok('…and a request addressed to another name (a page pointing its own name at this computer) is refused', rebound.every(r => r.status === 403), rebound.map(r => r.status).join());
   const licReq = await get(base + '/licence/web/status');
   ok('the licence server’s addresses are never the app: a JSON 404', licReq.status === 404 && /^application\/json/.test(licReq.type) && licReq.body === '{"error":"not-found"}', JSON.stringify(licReq));
   ok('/sw.js is 404 (the offline worker is the website’s only)', (await get(base + '/sw.js')).status === 404);
@@ -160,6 +175,7 @@ try {
   }
   signin.oddClientRefused = (await win.evaluate(() => window.gdexDesktop.googleSignIn({ client: 'not a client', scope: 'https://www.googleapis.com/auth/drive.appdata' }))).error === (usual ? 'refused' : 'address_taken');
   signin.oddScopeRefused = (await win.evaluate(() => window.gdexDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://evil.example/all' }))).error === (usual ? 'refused' : 'address_taken');
+  signin.wholeDriveRefused = (await win.evaluate(() => window.gdexDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive' }))).error === (usual ? 'refused' : 'address_taken');
   ok('Google’s sign-in opens once in the web browser with the hint and a nonce CSP, refuses an answer without the page’s key or from another origin, hands the token to the window, then is gone', Object.values(signin).every(Boolean), JSON.stringify(signin));
 
   // Nobody who never linked Google Drive contacts anyone: type in a field for a moment, open every section.
@@ -172,6 +188,7 @@ try {
   const allowed = new Set([`localhost:${port}`, `127.0.0.1:${stub.address().port}`]);
   ok(`typing and opening all ${sections.length} sections contacts nothing but this computer (no Google, no gdex.crowmade.app, no download address)`, hosts.length > 0 && hosts.every(h => allowed.has(h)), hosts.join(', '));
   ok('…and with licences off the licence server was asked nothing at all', on && keysIn ? true : asked.length === 0, asked.join(', '));
+  ok('…nor did anything else in Electron try an outside address (the recording proxy saw nothing: no dictionaries, no location service)', tried.length === 0, tried.join(', '));
   // Links: a mail link and the shop open outside; the window stays on the app. (Last: Playwright then waits for the
   // navigation the app cancelled, so nothing is clicked after this.)
   await win.evaluate(() => { location.href = 'mailto:someone@example.com'; }); await sleep(600);
@@ -204,6 +221,7 @@ try {
   const bad2 = (await run.win.evaluate(() => window.gdexDesktop.licence.enter('VDEX-0A1B2-C3D4E-F5G6H'))).error;
   ok('a Vdex code pasted in gets its own message', /This is a Vdex licence code\. Gdex has its own licence/.test(bad2 || ''), bad2);
   ok('no errors in the console (licences on)', run.bad.length === 0, run.bad.join(' | '));
+  ok('…and with licences on, nothing outside was tried either (the licence server is the local stand-in here)', tried.length === 0, tried.join(', '));
   await run.app.close();
   rmSync(join(profile2, 'licence.json'));
   run = await launch(profile2, { GDEX_TEST_LICENCE_KEYS: testKeys });
@@ -213,7 +231,7 @@ try {
 } catch (e) {
   ok('the desktop smoke test ran to the end', false, (e && e.stack) || String(e));
 } finally {
-  stub.close();
+  stub.close(); proxy.close();
   for (const p of profiles) try { rmSync(p, { recursive: true, force: true }); } catch { /* still in use */ }
 }
 console.log(failed ? `\n${failed} failed` : '\nall passed');

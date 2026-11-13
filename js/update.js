@@ -83,10 +83,11 @@ export function updatePanel() {
         : s === 'ready' ? `${v} is ready to install.`
         : s === 'available' ? `${v} is ready to download.`
         : s === 'current' ? `Up to date${when ? ' · checked ' + when : ''}.`
-        : s === 'error' ? `Couldn’t look for a new version (${String(ds.error || 'no connection').slice(0, 120)}).`
+        : s === 'error' ? 'Couldn’t look for a new version just now. Check the internet connection, then tap Check for updates, or get the latest from the download page.'
         : 'Gdex looks for a new version when it starts and every few hours, and installs it when you restart.';
       if (s === 'ready') actions.push(h('button', { class: 'btn primary', onclick: () => d.installUpdate() }, '↻ Restart to update'));
-      if (s === 'available' || s === 'error') actions.push(h('button', { class: 'btn ghost', onclick: () => d.openDownload() }, '⤓ Download the new version'));
+      // The download page in the web browser: the new version (a Mac that cannot update itself), or the latest after a failed check.
+      if (s === 'available' || s === 'error') actions.push(h('button', { class: 'btn ghost', onclick: () => d.openDownload() }, s === 'available' ? '⤓ Download the new version' : '⤓ Open the download page'));
       canCheck = s !== 'dev';
     } else {
       line = st.ready ? 'A new version has been downloaded. Reload to use it.'

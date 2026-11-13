@@ -43,6 +43,8 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   ok('the page says the Audiophile is free, and which roles need a licence after 30 free days', /Audiophile[^.]*free for good/.test(html) && /<b>Audiophile: free<\/b>/.test(html) && /Producer, Manager, Band, Solo artist, Scout and Everything: a licence/.test(html) && /free for 30 days on each/.test(html));
   ok('it tells how to enter a code (Settings → About &amp; licence → Enter licence code, a GDEX- code) and how to bring work over (Google Drive, or a backup file)', /Settings → About &amp; licence → Enter licence code/.test(html) && /<code>GDEX-<\/code>/.test(html) && /connect the same Google Drive in both/.test(html) && /backup file/.test(html));
   ok('…with the installing notes for each system (SmartScreen, Open Anyway, chmod +x and libfuse2)', /Run anyway/.test(html) && /Open Anyway/.test(html) && /chmod \+x Gdex\.AppImage/.test(html) && /libfuse2/.test(html));
+  const words = html.slice(html.indexOf('<body>')).replace(/<[^>]*>/g, ' ');
+  ok('…in the app’s typography: curly apostrophes and quotes, no straight ones in what is read', !/['"]/.test(words), (words.match(/.{0,30}['"].{0,30}/g) || []).join(' | '));
 
   const { PAGES, ROOT_FILES, DIRS } = await esm('tools/site-files.mjs');
   const files = (pkg.build && pkg.build.files) || [];
@@ -73,13 +75,14 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   const browser = await chromium.launch();
   const errors = [];
   try {
-    for (const [w, hgt] of [[420, 900], [320, 700]]) for (const scheme of ['light', 'dark']) {
+    // 213×467: a 320×700 phone with its browser zoomed to 150% (the page has no text size setting of its own).
+    for (const [w, hgt] of [[420, 900], [320, 700], [213, 467]]) for (const scheme of ['light', 'dark']) {
       const ctx = await browser.newContext({ viewport: { width: w, height: hgt }, colorScheme: scheme });
       const page = await ctx.newPage();
       page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
       await page.goto(BASE + 'download.html');
       const fit = await page.evaluate(() => ({ wide: document.documentElement.scrollWidth <= window.innerWidth, bg: getComputedStyle(document.body).backgroundColor, img: document.querySelector('header img').naturalWidth > 0 }));
-      ok(`download page at ${w}×${hgt}, ${scheme}: no sideways scrolling, its icon shown, the ${scheme} colours`, fit.wide && fit.img && (scheme === 'dark' ? fit.bg === 'rgb(18, 15, 26)' : fit.bg === 'rgb(239, 236, 245)'), JSON.stringify(fit));
+      ok(`download page at ${w}×${hgt}${w === 213 ? ' (320 zoomed to 150%)' : ''}, ${scheme}: no sideways scrolling, its icon shown, the ${scheme} colours`, fit.wide && fit.img && (scheme === 'dark' ? fit.bg === 'rgb(18, 15, 26)' : fit.bg === 'rgb(239, 236, 245)'), JSON.stringify(fit));
       await page.screenshot({ path: `${OUT}/86-download-${w}-${scheme}.png`, fullPage: w === 420 });
       await ctx.close();
     }
@@ -148,6 +151,10 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
       ok('…and Check for updates asks the bridge too', JSON.stringify(await page.evaluate(() => window.__calls)) === JSON.stringify(['install', 'open', 'check']));
       await page.evaluate(() => window.__push({ status: 'dev', version: '0.1.0', available: null, progress: 0, url: '', error: '' })); await sleep(100);
       ok('…a development copy says so, with nothing to check', /A development copy: updates are only looked for in the installed app\./.test(await about.innerText()) && !(await page.locator('#se-about button', { hasText: 'Check for updates' }).count()));
+      await page.evaluate(() => { window.__calls.length = 0; window.__push({ status: 'error', version: '0.1.0', available: null, progress: 0, url: '', error: 'net::ERR_NAME_NOT_RESOLVED' }); }); await sleep(100);
+      const errText = await about.innerText();
+      await page.locator('#se-about button', { hasText: 'Open the download page' }).click(); await sleep(100);
+      ok('…a failed check says so in plain words (no error code), and offers the download page through the bridge', /Couldn’t look for a new version just now\. Check the internet connection/.test(errText) && !/net::|ERR_/.test(errText) && !/Download the new version/.test(errText) && JSON.stringify(await page.evaluate(() => window.__calls)) === '["open"]', errText.split('\n').filter(l => /version|download/i.test(l)).join(' / '));
       await page.evaluate(() => window.__push({ status: 'downloading', version: '0.1.0', available: '0.2.0', progress: 42.4, url: '', error: '' })); await sleep(100);
     }
     const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);

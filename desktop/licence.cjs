@@ -219,6 +219,9 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
   // Takes the code off this computer, freeing its place for another one. Needs the internet, except when the
   // computer was never on the list.
   async function release() {
+    // While licences are off nothing is asked of the licence server ([S-9], spec §0.3), not even to free a place a code
+    // took under an earlier version with licences on: the code stays here, untouched.
+    if (!enabled) return state();
     const s = read(); if (!s.code) return state();
     const listed = s.act && (s.act.status === 'active' || s.act.status === 'released');
     if (listed) {

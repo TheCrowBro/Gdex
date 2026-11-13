@@ -39,16 +39,21 @@ xvfb-run -a npm run test:desktop     # Linux without a screen (CI's "desktop" jo
 npm run test:desktop                 # on a computer with a screen
 ```
 
-It starts a stand-in for the licence server on `127.0.0.1`, launches the app twice with a temporary data folder, and
+It starts a stand-in for the licence server on `127.0.0.1`, launches the app three times with temporary data folders, and
 checks: the address and the name; the bridge's members; updates (`dev`), no service worker, Install hidden; the
-licence following the two switches (off in the repository: nothing asked, not even the price); the microphone allowed
-and the camera refused; the screen wake lock; Google's sign-in page (served once, nonce CSP, the page's key and the
-origin checked, the token handed back, then gone); that the app's files answer 403 to anything but its own window, that
-`/licence/…` is a JSON 404 and `/sw.js` a 404; that typing and opening every section contacts nothing but this computer;
-links to mail and the shop opening outside; no console errors. The second launch switches licences on with throw-away
-keys and checks the free days start only when the page asks, are mirrored in `desktop-state.json` (deleting
-`licence.json` brings them back from there), take an earlier start from Google Drive, and that the price comes from the
-licence server. Without Electron installed it prints SKIP; with the `CI` variable set it fails instead.
+licence following the two switches (off in the repository: nothing asked, not even the price); the spellchecker off
+(Windows and Linux); the microphone allowed and the camera refused; location refused (Windows and Linux); the screen
+wake lock; Google's sign-in page (served once, nonce CSP, the page's key and the origin checked, only the
+`drive.appdata` scope, the token handed back, then gone); that the app's files answer 403 to anything but its own
+window, that `/licence/…` is a JSON 404 and `/sw.js` a 404; that typing and opening every section contacts nothing but
+this computer; links to mail and the shop opening outside; no console errors. "Contacts nothing" is checked twice: the
+window's own requests (`GDEX_TEST_NET_WATCH`), and everything Chromium's network stack tries, through a recording proxy
+on this computer (`--proxy-server`) that refuses every outside address and forwards nothing. The second matters:
+Electron's own downloads (spellchecker dictionaries, the location service) never pass the window's request hooks. The
+second and third launches switch licences on with throw-away keys and check that the free days start only when the
+page asks, are mirrored in `desktop-state.json` (deleting `licence.json` brings them back from there), take an earlier
+start from Google Drive, and that the price comes from the licence server. Without Electron installed it prints SKIP;
+with the `CI` variable set it fails instead.
 
 The test hooks are read only by a development run, never by an installed app:
 
@@ -82,8 +87,14 @@ deleted).
 
 ## What it sends, and to whom
 
-- Nothing, for someone who never links Google Drive and while licences are off. The spellchecker is the Mac's own on a
-  Mac and off on Windows and Linux (Electron would download dictionaries from Google there).
+- Nothing but the update check (last below), for someone who never links Google Drive and while licences are off.
+  - The spellchecker is the Mac's own on a Mac. On Windows and Linux it is off with no languages
+    (`setSpellCheckerLanguages([])` at start, `noDictionaries` in `main.cjs`): Electron's session otherwise downloads
+    Hunspell dictionaries from Google (redirector.gvt1.com) at every start, even with `spellcheck: false` in the
+    window's settings.
+  - Location ("I'm here now" on a venue) works on a Mac only, where the system finds it. On Windows and Linux it is
+    refused: Chromium would ask Google's location service (www.googleapis.com), which also needs a Google key Gdex does
+    not have. "Find from address" (OpenStreetMap) and a pasted map link still fill a venue's place there.
 - Google, only after "Connect Google Drive…": the sign-in opens in the person's web browser at the app's address, and
   the Drive files go to Google's Drive API from the window.
 - The licence server at `https://gdex.crowmade.app`, only with licences on: the price for the Buy button, activating a

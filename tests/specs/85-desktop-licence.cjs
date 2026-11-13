@@ -72,6 +72,15 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     s = await offNoKeys.lic.start(); const s2 = await offSwitch.lic.start();
     ok('start() keeps both off, and starts no free days', s.mode === 'off' && s2.mode === 'off' && !fileOf(offNoKeys.lic).first && !fileOf(offSwitch.lic).first);
     ok('…and while off, entering a code and checking ask the licence server nothing', !!(await offSwitch.lic.enter(paid)).error && (await offSwitch.lic.recheck(true)).mode === 'off' && server.calls.length === 0);
+    // A code activated under an earlier version with licences on, then a version with them off: releasing it asks
+    // nothing either (the build spec §0.3), and the code stays for when licences come back.
+    const earlier = make({ on: true });
+    await earlier.lic.enter(paid);
+    const keptCode = await earlier.lic.code(), laterOff = createLicence({ dir: path.dirname(earlier.lic.file), keys: KEYS, on: false, now: () => T0, post: (u, b) => server.post(u, b), site: 'http://licence.test' });
+    server.calls = [];
+    s = await laterOff.release();
+    ok('…nor does releasing a code an earlier version activated: nothing is sent, and the code stays', s.mode === 'off' && server.calls.length === 0 && !!keptCode && (await laterOff.code()) === keptCode, JSON.stringify(server.calls.map(c => c.url)));
+    server.lists.clear();
 
     /* ------------------------------ free days ------------------------------ */
     const { box, mirror } = mirrorBox();

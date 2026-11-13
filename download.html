@@ -22,21 +22,23 @@
   a { color: var(--accent); }
   a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
   .lead { font-size: 1.05rem; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 18px 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px; margin: 18px 0; }
   .dl { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-height: 44px; text-decoration: none; color: var(--text); }
   .dl:hover, .dl:focus-visible { border-color: var(--accent); }
   .dl b { display: block; font-size: 1.1rem; } .dl span { color: var(--muted); font-size: .9rem; }
-  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 14px 0; padding: 0; list-style: none; }
+  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 14px 0; padding: 0; list-style: none; }
   .roles li { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin: 0; max-width: none; }
   .roles b { display: block; }
   .buy { display: inline-block; background: var(--accent); color: var(--ink); font-weight: 700; padding: 12px 22px; min-height: 44px; border-radius: 12px; text-decoration: none; margin: 4px 12px 4px 0; }
   .muted { color: var(--muted); }
-  .prices { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 0 14px; font-size: .95rem; }
-  .prices.wide { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); font-size: 1rem; }
+  .prices { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(172px, 100%), 1fr)); gap: 0 14px; font-size: .95rem; }
+  .prices.wide { grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); font-size: 1rem; }
   .prices li { margin: 3px 0; }
   .prices span { white-space: nowrap; }
   code { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: .92em; overflow-wrap: anywhere; }
   .back { display: inline-block; margin-top: 32px; }
+  /* A phone with its browser zoomed in: the title keeps beside a smaller icon instead of running off the side. */
+  @media (max-width: 260px) { header img { width: 40px; height: 40px; border-radius: 10px; } h1 { font-size: 1.35rem; overflow-wrap: anywhere; } }
 </style>
 </head>
 <body>
@@ -66,7 +68,7 @@
     <li data-c="GB">United Kingdom <b>24.00</b> <span class="muted">20% VAT</span></li>
     <li data-c="AU">Australia <b>22.00</b> <span class="muted">10% GST</span></li>
   </ul>
-  <p>In the European Union, with your country's VAT:</p>
+  <p>In the European Union, with your country’s VAT:</p>
   <ul class="prices">
     <li data-c="AT">Austria <b>24.00</b> <span class="muted">20%</span></li>
     <li data-c="BE">Belgium <b>24.20</b> <span class="muted">21%</span></li>
@@ -96,7 +98,7 @@
     <li data-c="ES">Spain <b>24.20</b> <span class="muted">21%</span></li>
     <li data-c="SE">Sweden <b>25.00</b> <span class="muted">25%</span></li>
   </ul>
-  <p class="muted">At checkout you can pay in US dollars, or in your own currency at Stripe's exchange rate (2 to 4% more).</p>
+  <p class="muted">At checkout you can pay in US dollars, or in your own currency at Stripe’s exchange rate (2 to 4% more).</p>
   <p><a class="buy" href="/buy">Buy a licence</a> <span class="muted">You can also buy from inside Gdex, at any time during the free days or after them.</span></p>
   <p class="muted">You are buying a licence to use Gdex, not ownership of a copy of it. It can be cancelled in the cases the <a href="terms.html#paid">terms</a> describe.</p>
 
@@ -106,14 +108,14 @@
     <li>Go to <b>Settings → About &amp; licence → Enter licence code</b>.</li>
     <li>Paste the whole code from your email (it starts with <code>GDEX-</code>) and press <b>Activate</b>. Gdex needs the internet for this, once.</li>
   </ol>
-  <p>One licence works on up to 3 of your computers with the desktop app. To move it to a new one, use <b>Release this computer</b> on the old one, or choose which computer to move it from when you activate the new one. On the website, choose <b>Sign in</b> in Settings → About &amp; licence and use the email address you bought with; Gdex emails you a 6-digit code. Signing in on the website doesn't use one of your 3 places.</p>
-  <p class="muted">A Vdex licence code doesn't work in Gdex: the two apps have licences of their own.</p>
+  <p>One licence works on up to 3 of your computers with the desktop app. To move it to a new one, use <b>Release this computer</b> on the old one, or choose which computer to move it from when you activate the new one. On the website, choose <b>Sign in</b> in Settings → About &amp; licence and use the email address you bought with; Gdex emails you a 6-digit code. Signing in on the website doesn’t use one of your 3 places.</p>
+  <p class="muted">A Vdex licence code doesn’t work in Gdex: the two apps have licences of their own.</p>
 
   <h2>Installing</h2>
   <ul>
-    <li><b>Windows:</b> open Gdex-Setup.exe. While Gdex is new, Windows may show "Windows protected your PC" or say the app is not commonly downloaded: choose <b>More info</b>, check the publisher, then <b>Run anyway</b>. Gdex updates itself after that.</li>
+    <li><b>Windows:</b> open Gdex-Setup.exe. While Gdex is new, Windows may show “Windows protected your PC” or say the app is not commonly downloaded: choose <b>More info</b>, check the publisher, then <b>Run anyway</b>. Gdex updates itself after that.</li>
     <li><b>Mac:</b> open Gdex.dmg and drag Gdex into Applications. If macOS says it cannot check the app, open <b>System Settings → Privacy &amp; Security</b>, scroll down and choose <b>Open Anyway</b>.</li>
-    <li><b>Linux:</b> make the file runnable (<code>chmod +x Gdex.AppImage</code>, or tick "Allow executing file as program" in its properties) and open it. On Ubuntu 22.04 and later, install <code>libfuse2</code> first (<code>libfuse2t64</code> on 24.04).</li>
+    <li><b>Linux:</b> make the file runnable (<code>chmod +x Gdex.AppImage</code>, or tick “Allow executing file as program” in its properties) and open it. On Ubuntu 22.04 and later, install <code>libfuse2</code> first (<code>libfuse2t64</code> on 24.04).</li>
   </ul>
   <p class="muted">Uninstalling keeps your work on the computer, so installing Gdex again brings it back.</p>
 

@@ -90,12 +90,13 @@ const ready = () => { go.disabled = false; go.onclick = () => google.accounts.oa
 window.google && google.accounts ? ready() : addEventListener('load', ready);
 </script></body>`);
 }
-// Only a Google client id, Google's own scopes and an address-like hint go into the page.
+// Only a Google client id, the one scope Gdex uses (its hidden app folder in Drive, the build spec §3.10: never the
+// person's other files) and an address-like hint go into the page.
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const googleOpts = o => {
-  const client = String((o && o.client) || ''), scope = String((o && o.scope) || ''), hint = String((o && o.hint) || '');
-  const scopes = scope.split(' ').filter(Boolean);
-  if (!/^[A-Za-z0-9._-]{1,200}\.apps\.googleusercontent\.com$/.test(client) || !scopes.length || scopes.length > 4 || !scopes.every(s => /^https:\/\/www\.googleapis\.com\/auth\/[a-z0-9._/-]{1,80}$/.test(s)) || hint.length > 320) return null;
-  return { client, scope: scopes.join(' '), hint };
+  const client = String((o && o.client) || ''), scope = String((o && o.scope) || '').trim(), hint = String((o && o.hint) || '');
+  if (!/^[A-Za-z0-9._-]{1,200}\.apps\.googleusercontent\.com$/.test(client) || scope !== DRIVE_SCOPE || hint.length > 320) return null;
+  return { client, scope, hint };
 };
 ipcMain.handle('signin:google', (e, opts = {}) => new Promise(resolve => {
   if (!fromApp(e)) return resolve({ error: 'refused' });
@@ -210,8 +211,7 @@ function createWindow() {
     minWidth: 360, minHeight: 600,
     title: 'Gdex', backgroundColor: '#120f1a', autoHideMenuBar: true, show: false,
     icon: path.join(ROOT, 'icons', 'icon-512.png'),
-    // The spellchecker is the system's own on a Mac. On Windows and Linux Electron would download its dictionaries
-    // from Google, which nobody who never linked Google Drive should contact ([S-14], [S-16]), so it is off there.
+    // The spellchecker is the system's own on a Mac, and off on Windows and Linux (noDictionaries below).
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: process.platform === 'darwin' },
   });
   if (readState().maximized) win.maximize();
@@ -230,11 +230,15 @@ function createWindow() {
 }
 
 // What Gdex's own pages may use, and nothing for any other page ([S-14]): the microphone (the tuner and the sound
-// meter; never the camera), location (a venue's place), files (a backup kept in a file), copying to the clipboard,
-// full screen, and keeping the screen on (the set timer and the meter). Electron 45 asks for the screen wake lock as
-// 'screen-wake-lock' (not in its documented list: seen in a development run with GDEX_TEST_NET_WATCH, which records the
-// names asked; tests/desktop.mjs checks the request resolves, so an Electron that renames it fails that test).
-const ALLOWED = new Set(['media', 'geolocation', 'fileSystem', 'clipboard-sanitized-write', 'fullscreen', 'screen-wake-lock']);
+// meter; never the camera), files (a backup kept in a file), copying to the clipboard, full screen, keeping the screen
+// on (the set timer and the meter), and on a Mac location (a venue's place, "I'm here now"). Location is refused on
+// Windows and Linux: there Chromium asks Google's location service (www.googleapis.com, seen in a development run on
+// Linux behind tests/desktop.mjs's recording proxy; Electron documents it needs a Google key on those systems), which
+// nobody who never linked Google Drive should contact ([S-16]); a Mac asks the system. Electron 45 asks for the screen
+// wake lock as 'screen-wake-lock' (in its typed list of permission names, and seen in a development run with
+// GDEX_TEST_NET_WATCH, which records the names asked; tests/desktop.mjs checks the request resolves, so an Electron that
+// renames it fails that test).
+const ALLOWED = new Set(['media', 'fileSystem', 'clipboard-sanitized-write', 'fullscreen', 'screen-wake-lock', ...(process.platform === 'darwin' ? ['geolocation'] : [])]);
 function setPermissions() {
   const ses = session.defaultSession;
   const ours = contents => { try { return isOurs(contents.getURL()); } catch { return false; } };
@@ -282,8 +286,22 @@ app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (!win && origin) createWindow(); });
 
+// No spellchecker dictionaries from Google ([S-14], [S-16]). On Windows and Linux Electron's session downloads its
+// Hunspell dictionaries from redirector.gvt1.com as soon as it starts, even with spellcheck off in the window's
+// webPreferences (seen in a development run behind tests/desktop.mjs's recording proxy). No languages stop it (it is
+// then off too), and the download address is pointed at nothing on this computer in case a language is ever added.
+// A Mac checks spelling with the system's own dictionaries and downloads nothing.
+function noDictionaries() {
+  if (process.platform === 'darwin') return;
+  const ses = session.defaultSession;
+  try { ses.setSpellCheckerLanguages([]); } catch { /* no spellchecker in this build */ }
+  try { ses.setSpellCheckerEnabled(false); } catch { /* ditto */ }
+  try { ses.setSpellCheckerDictionaryDownloadURL('http://127.0.0.1:9/'); } catch { /* ditto */ }
+}
+
 app.whenReady().then(async () => {
   if (!primary) return;
+  noDictionaries(); // first, before anything waits: the download starts with the session
   try {
     port = await startServer();
     listen(port, '::1').catch(e => { if (e.code === 'EADDRINUSE') loopbackShared = true; }); // IPv6 loopback as well, where the system has it; taken by someone else means no sign-ins
