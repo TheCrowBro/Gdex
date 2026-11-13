@@ -121,6 +121,8 @@ async function licenceForSession(s, env) {
   return { code, ref, name, email: email || '', sessionId: s.id };
 }
 
+// The cancellation of a code (x:<ref>: { why: 'refund' | 'dispute' | 'owner', at }), or null.
+const cancelled = async (env, ref) => (env.LICENCES ? env.LICENCES.get('x:' + ref, 'json') : null);
 async function thanks(url, env) {
   const id = url.searchParams.get('session_id') || '';
   const closed = () => page(503, 'The shop is not open yet', '<h1>The shop is not open yet</h1><p>If you have paid, reply to your receipt email and we’ll send your licence code.</p>');
@@ -130,6 +132,8 @@ async function thanks(url, env) {
   if (r.error === 'not-ready') return closed(); // a paid order, but no shop key (or not the one built into Gdex)
   if (r.error === 'not-paid') return page(202, 'Your payment is on its way', `<h1>Your payment is on its way</h1><p>Some ways of paying take a little while to confirm. <a href="/licence/thanks?session_id=${esc(encodeURIComponent(id))}">Reload this page</a> in a minute.${env.RESEND_API_KEY ? ' We’ll also email your licence as soon as the payment is confirmed.' : ''}</p>`);
   if (r.error) return page(404, 'We couldn’t find that order', '<h1>We couldn’t find that order</h1><p>If you have just paid, wait a minute and reload this page. If it still doesn’t work, reply to your receipt email and we’ll send your licence code.</p>');
+  const x = await cancelled(env, r.ref); // refunded, disputed or cancelled by the owner: the code is not shown as a licence
+  if (x) return page(410, 'This order’s licence no longer works', `<h1>This order’s licence no longer works</h1><p>${x.why === 'refund' ? 'This order was refunded, so its licence code no longer works.' : x.why === 'dispute' ? 'The payment for this order was disputed, so its licence code doesn’t work.' : 'The licence code of this order has been cancelled.'} Questions? Reply to your receipt email.</p>`);
   const who = r.name || r.email, web = await webReady(env), mailed = !!(env.RESEND_API_KEY && r.email);
   return page(200, 'Thank you: here is your Gdex licence', `<h1>Thank you: here is your Gdex licence</h1>
 <p>${who ? `Licensed to <b>${esc(who)}</b>. ` : ''}It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).${mailed ? ` We’ve emailed it to you too, at ${esc(r.email)}.` : ' Keep a copy: this page is the only place it is shown.'}</p>
@@ -159,6 +163,7 @@ async function webhook(request, env) {
     const r = await licenceForSession(o, env);
     if (r.error === 'not-ready') return json(503, { error: 'not-ready' }); // Stripe tries again for up to 3 days
     if (r.error) return json(200, { ignored: r.error });
+    if (await cancelled(env, r.ref)) return json(200, { ignored: 'cancelled' }); // Stripe trying again after a refund: no email
     const v = await readCode(r.code); // the website signs in with the buyer's email; a failure here must not stop their email
     if (v && r.email) await linkEmail(env, r.email, v.licence).catch(e => console.error('Could not link the order\'s email: ' + e.message));
     if (env.RESEND_API_KEY && r.email && !(await sendCode(env, r, await webReady(env)))) return json(502, { error: 'email-failed' });

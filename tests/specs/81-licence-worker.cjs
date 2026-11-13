@@ -168,6 +168,14 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const rf = await (await signed({ type: 'charge.refunded', data: { object: { refunded: true, payment_intent: sessions.get(rsid).payment_intent } } })).json();
     const rfa = await post('/licence/activate', { code: rcode, install: id(20) });
     ok('a full refund cancels the code bought with that payment, and only that one (403 cancelled)', rf.cancelled === 1 && rfa.status === 403 && (await rfa.json()).error === 'cancelled' && (await act(id(8))).status === 200);
+    { // after the refund nothing presents the code as a working licence: a reload of the thank-you page, or Stripe trying
+      // again with a purchase webhook that had failed (the email was down)
+      const after = await get('/licence/thanks?session_id=' + rsid), afterHtml = await after.text();
+      ok('…the thank-you page then says the order was refunded and its code no longer works, and shows no code', after.status === 410 && /This order was refunded, so its licence code no longer works\./.test(afterHtml) && !afterHtml.includes(rcode) && !/GDEX-|Thank you: here is/.test(afterHtml), `${after.status} ${afterHtml.slice(afterHtml.indexOf('<h1>'), afterHtml.indexOf('<h1>') + 120)}`);
+      calls.length = 0;
+      const retried = await (await signed({ type: 'checkout.session.completed', data: { object: sessions.get(rsid) } })).json();
+      ok('…and a purchase webhook Stripe tries again after it emails nothing (ignored: cancelled)', retried.ignored === 'cancelled' && mails().length === 0, JSON.stringify(retried));
+    }
     const dsid = 'cs_test_disputeMe000000000002'; sessions.set(dsid, session(dsid, { payment_intent: 'pi_disputeMe00002' }));
     const dcode = (await (await get('/licence/thanks?session_id=' + dsid)).text()).match(/<textarea id="code"[^>]*>([^<]+)</)[1];
     const dp = await (await signed({ type: 'charge.dispute.created', data: { object: { payment_intent: sessions.get(dsid).payment_intent } } })).json();

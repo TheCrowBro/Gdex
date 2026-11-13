@@ -229,7 +229,8 @@ it.
 2. Buy a licence yourself. Check the thank-you page shows a code, the email arrives, and (once the desktop app is
    released, `docs/desktop.md`) **Enter licence code** activates it.
 3. Refund yourself in Stripe. The code is cancelled within a minute: the generator's **Look up** says CANCELLED (refund),
-   and the website signs out at its next daily check. Stripe keeps its fee on a refund.
+   the thank-you page now says the order was refunded (and shows no code), and the website signs out at its next daily
+   check. Stripe keeps its fee on a refund.
 4. Make a free code in the generator (Part 8) and sign in with it on the website.
 
 ## Part 8. Everyday
