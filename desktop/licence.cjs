@@ -41,7 +41,8 @@ const MESSAGES = {
 const looksVdex = text => /(^|[^0-9A-Z])VDEX-[0-9A-Z]/i.test(text) && !/(^|[^0-9A-Z])GDEX-[0-9A-Z]/i.test(text);
 
 // `mirror` keeps a copy of when the free days started outside licence.json, in the desktop app's own window-state
-// file, so deleting licence.json does not start them again.
+// file, so deleting licence.json does not start them again; and likewise `graceFrom`, when this computer's 14 days for
+// a code the licence server has not said yes to began.
 const NO_MIRROR = { get: () => null, set: () => {} };
 function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date.now(), post, site = SITE, os = OS[process.platform] || 'Computer', mirror = NO_MIRROR, onChange = () => {} }) {
   const file = path.join(dir, 'licence.json');
@@ -49,7 +50,8 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
   const enabled = on === true && !!keys && typeof keys[1] === 'string' && keys[1].length > 0;
   const read = () => { try { const s = JSON.parse(fs.readFileSync(file, 'utf8')); return s && typeof s === 'object' ? s : {}; } catch { return {}; } };
   const write = s => { try { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(file + '.tmp', JSON.stringify(s)); fs.renameSync(file + '.tmp', file); } catch { /* a read-only disk: carry on */ } };
-  const keep = s => { write(s); if (s.first) mirror.set({ first: s.first, seen: s.seen }); };
+  const mirrored = s => ({ first: s.first, seen: s.seen, ...(s.graceFrom ? { graceFrom: s.graceFrom } : {}) });
+  const keep = s => { write(s); const m = mirror.get(); if (s.first || s.graceFrom || (m && m.graceFrom)) mirror.set(mirrored(s)); };
   const receiptOk = new Map(); // a receipt's signature -> whether it is good for this code and computer (checked once per run)
   let last = '';
 
@@ -63,6 +65,7 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     const m = mirror.get();
     if (m && Number.isFinite(m.first) && m.first > 0 && (!s.first || m.first < s.first)) { s.first = m.first; dirty = true; }
     if (m && Number.isFinite(m.seen) && m.seen > (s.seen || 0)) { s.seen = m.seen; dirty = true; }
+    if (m && Number.isFinite(m.graceFrom) && m.graceFrom > 0 && (!s.graceFrom || m.graceFrom < s.graceFrom)) { s.graceFrom = m.graceFrom; dirty = true; }
     if (t > (s.seen || 0) + 60e3 || !s.seen) { s.seen = Math.max(s.seen || 0, t); dirty = true; }
     if (dirty) keep(s);
     return s;
@@ -147,7 +150,7 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
       const elapsed = Math.max(0, (s.seen || 0) - s.first);
       s.first = T - elapsed; s.seen = T;
       // the mirror is set rather than joined here: it holds the same wrong values
-      write(s); mirror.set({ first: s.first, seen: s.seen });
+      write(s); mirror.set(mirrored(s));
       return;
     }
     if (!s.first && (s.seen || 0) > T + 2 * DAY) s.seen = T;
@@ -175,6 +178,9 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
   const active = (receipt, t) => ({ status: 'active', receipt, checked: t, tried: t });
 
   // Checks a pasted code and activates it on this computer. Returns the new state, or { error } / { error: 'full', computers }.
+  // A code the licence server cannot be asked about (no internet, or gdex.crowmade.app blocked) works for 14 days, once
+  // on this computer: they count from `graceFrom`, which Remove the code keeps, so entering the same code again, or
+  // another one, starts no new 14 days. Only the server's yes for this computer (the code activated) clears it.
   async function enter(text, { release } = {}) {
     text = String(text || '').slice(0, 4000);
     if (looksVdex(text)) return { error: MESSAGES.vdex };
@@ -187,9 +193,13 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     if (a.full) return { error: 'full', computers: a.computers, swapsLeft: a.swapsLeft, seats: r.licence.seats };
     for (const k of ['cancelled', 'swaps', 'invalid']) if (a[k]) return { error: MESSAGES[k] };
     const s2 = read(), t = now();
-    if (s2.code !== code) { s2.code = code; s2.enteredAt = t; s2.act = {}; }
-    s2.act = a.ok ? active(a.receipt, t) : { ...(s2.act || {}), tried: t, answered: !!a.answered };
-    write(s2);
+    if (s2.code !== code) { s2.code = code; s2.enteredAt = a.ok ? t : s2.graceFrom || t; s2.act = {}; }
+    if (a.ok) { s2.act = active(a.receipt, t); delete s2.graceFrom; }
+    else {
+      s2.act = { ...(s2.act || {}), tried: t, answered: !!a.answered };
+      if (!s2.act.status && !s2.graceFrom) s2.graceFrom = s2.enteredAt || t; // pending: its 14 days are this computer's one go
+    }
+    keep(s2);
     return { ...(await state()), offline: !a.ok };
   }
 
@@ -208,16 +218,16 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     const res = await activate(s.code, s.install, '');
     const s2 = read(); if (s2.code !== s.code) return state(); // changed while we waited
     const t2 = now();
-    if (res.ok) s2.act = active(res.receipt, t2);
+    if (res.ok) { s2.act = active(res.receipt, t2); delete s2.graceFrom; }
     else if (res.full) s2.act = { status: 'released', tried: t2 };
     else if (res.cancelled) s2.act = { status: 'cancelled', tried: t2 };
     else s2.act = { ...a, tried: t2, answered: !!res.answered }; // offline, or an answer to look at again later
-    write(s2);
+    keep(s2);
     return state();
   }
 
   // Takes the code off this computer, freeing its place for another one. Needs the internet, except when the
-  // computer was never on the list.
+  // computer was never on the list. `graceFrom` stays: a code entered again with no internet has no new 14 days.
   async function release() {
     // While licences are off nothing is asked of the licence server ([S-9], spec §0.3), not even to free a place a code
     // took under an earlier version with licences on: the code stays here, untouched.

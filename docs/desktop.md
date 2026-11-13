@@ -81,9 +81,9 @@ website's only). A request addressed to any other host name is refused too.
 
 Where the data lives (`productName` decides the folder): `%APPDATA%\Gdex` on Windows, `~/Library/Application
 Support/Gdex` on a Mac, `~/.config/Gdex` on Linux. Uninstalling keeps it (`deleteAppDataOnUninstall: false`). Next to
-Chromium's own files are `licence.json` (`{ install, first?, seen, code?, enteredAt?, act? }`) and `desktop-state.json`
-(the window's size and place, and `licence: { first, seen }`, the copy that keeps the free days when `licence.json` is
-deleted).
+Chromium's own files are `licence.json` (`{ install, first?, seen, code?, enteredAt?, graceFrom?, act? }`) and
+`desktop-state.json` (the window's size and place, and `licence: { first, seen, graceFrom? }`, the copy that keeps the
+free days, and the start of the 14 days below, when `licence.json` is deleted).
 
 ## What it sends, and to whom
 
@@ -110,6 +110,12 @@ as Vdex has: a later version with licences on starts everyone at "free days not 
 start when the page asks (`licence.start()`: a working role or section used for the first time), and an earlier start
 on the same Google Drive is taken with `licence.adopt(t)`. A device clock more than a day out reads as `clock`
 (read-only) until it is right or the licence server's time puts the record right.
+
+A code entered while the licence server cannot be reached is `pending`: it works for 14 days, then is read-only once a
+check made after them has failed. Those 14 days come **once per computer** (`graceFrom`): Remove the code keeps their
+start, so entering the same code again, or another one, gives no new days, and blocking gdex.crowmade.app buys 14 days
+at most; the 3 computers and a refund still count. Only the server's yes for this computer (the code activated) clears
+it, so a code entered with no internet after that has its own 14 days. `85-desktop-licence` checks it.
 
 **Switching it on** is part of a release, never a commit on its own, and only once the shop is open (`docs/go-live.md`,
 step (e)):

@@ -204,6 +204,35 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     pc6.c.t += 23 * 3600e3; s = await pc6.lic.recheck();
     ok('it activates by itself once the server answers', s.mode === 'licensed' && s.licence.comp);
 
+    // The 14 days come once: a code that never reached the licence server does not get them again by Remove the code
+    // and Enter licence code (nor does another code, nor deleting licence.json), so blocking gdex.crowmade.app buys 14
+    // days at most and the 3 computers and a refund still count. Only the server's yes for this computer lets a code
+    // entered later with no internet have its own 14 days.
+    server.mode = 'down';
+    const once = mirrorBox(), po = make({ mirror: once.mirror }); await po.lic.start(); po.c.t = T0 + 40 * DAY;
+    const offA = await codes.signCode(ownerKey, 1, { name: 'Offline Ann', serial: 501, comp: true, issued: '2026-11-02' });
+    const offB = await codes.signCode(ownerKey, 1, { name: 'Offline Ben', serial: 502, comp: true, issued: '2026-11-02' });
+    s = await po.lic.enter(offA);
+    ok('a code entered with no internet and the free days over: 14 days', s.mode === 'pending' && s.daysLeft === 14 && s.canEdit);
+    po.c.t += 15 * DAY; s = await po.lic.recheck();
+    ok('…15 days on, with a check that fails, it is read-only', s.mode === 'pending' && s.canEdit === false);
+    s = await po.lic.release();
+    ok('…Remove the code works with no internet (this computer was never on the code’s list)', !s.error && s.mode === 'ended' && !(await po.lic.code()), s.error || s.mode);
+    s = await po.lic.enter(offA);
+    ok('…but the same code entered again gets no new 14 days: still read-only', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    po.c.t += 15 * DAY; await po.lic.release(); s = await po.lic.enter(offA);
+    ok('…nor a fortnight later', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    await po.lic.release(); s = await po.lic.enter(offB);
+    ok('…nor another code', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    fs.rmSync(po.lic.file); s = await po.lic.enter(offB);
+    ok('…nor deleting licence.json (desktop-state.json keeps the date too)', s.mode === 'pending' && s.daysLeft === 0 && s.canEdit === false && s.first === T0, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    server.mode = 'ok'; s = await po.lic.recheck(true);
+    ok('…once the licence server can be reached the code activates', s.mode === 'licensed' && s.canEdit);
+    s = await po.lic.release();
+    server.mode = 'down'; s = await po.lic.enter(offA);
+    ok('…and after that yes, a code entered with no internet has its 14 days again', s.mode === 'pending' && s.daysLeft === 14 && s.canEdit, JSON.stringify({ mode: s.mode, daysLeft: s.daysLeft, canEdit: s.canEdit }));
+    server.mode = 'ok';
+
     const pc7 = make(); await pc7.lic.state();
     const short = await codes.signCode(ownerKey, 1, { name: 'Short Term', comp: true, issued: '2026-11-02', expires: '2026-11-10' });
     ok('a free code with an end date activates', (await pc7.lic.enter(short)).mode === 'licensed');
