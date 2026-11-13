@@ -75,8 +75,17 @@ export const loadGIS = () => gis || (gis = new Promise((res, rej) => {
   document.head.append(s);
 }));
 
-// The token, kept for its hour so reopening Gdex within it needs no tap (exp: a minute early).
-const stored = () => { try { const t = JSON.parse(LS.get(K.tokens)); return t && t.value && Number(t.exp) > Date.now() ? t : null; } catch { return null; } };
+// The token, kept for its hour so reopening Gdex within it needs no tap (exp: a minute early). One whose hour is over
+// (or that can't be read) is removed the first time Gdex looks for it, unless another tab has just put a new one there.
+const stored = () => {
+  const raw = LS.get(K.tokens);
+  if (raw == null) return null;
+  let t = null;
+  try { t = JSON.parse(raw); } catch { /* removed below */ }
+  if (t && t.value && Number(t.exp) > Date.now()) return t;
+  if (LS.get(K.tokens) === raw) LS.del(K.tokens);
+  return null;
+};
 export const liveToken = () => { const t = stored(); return t ? t.value : null; };
 export const forgetGoogleToken = () => LS.del(K.tokens);
 

@@ -103,7 +103,8 @@ Then:
 
 What leaves the device: the whole Gdex database goes to your own Google Drive (and nowhere else), with your Google
 account's address and name kept on the device to show who is signed in and to skip Google's account chooser. The
-sign-in itself is kept on the device for its hour.
+sign-in itself (Google's token) is kept on the device for its hour, and removed the first time Gdex looks for it after
+that (when Gdex opens, at the latest).
 
 ---
 
@@ -204,7 +205,7 @@ the desktop app refuses to sign in (Google knows only 47861).
   bringing a daily copy back and Replace on every device; a booking deleted by mistake brought back by Merge (Also bring
   back: ticked for a daily copy, not for a backup file) on both devices; Disconnect, Delete, Erase (the changes Drive lacks copied
   first, signing in again from the tap; with no internet nothing erased until Erase anyway); a first sync that fails, then Not
-  now; two tabs, Erase in one (the other takes in the empty database and shows Drive disconnected); where the focus goes when the card is redrawn (after connecting, Sign in again, Disconnect, Delete, Not now);
+  now; a token whose hour is over removed at the next look; two tabs, Erase in one (the other takes in the empty database and shows Drive disconnected); where the focus goes when the card is redrawn (after connecting, Sign in again, Disconnect, Delete, Not now);
   `freeDaysFrom` with a stand-in licence state.
 - `91-drive-merge`: `mergeDb` entry by entry; two devices logging at once; no ping-pong (records, or one act's times
   seen, in different orders); nothing pushed back after a copy is taken in; Replace everywhere with entries; duplicate

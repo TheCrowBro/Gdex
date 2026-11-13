@@ -4,7 +4,7 @@
 // joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
 // page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
 // and Replace reaching every device; a record deleted by mistake brought back by Merge (Also bring back); Disconnect, Delete Gdex's copy and Erase (the changes Drive lacks copied first, or
-// said, with Erase anyway); two tabs, Erase in one not undone by the other; where the focus goes when the Drive card
+// said, with Erase anyway); two tabs, Erase in one not undone by the other; Google's token removed once its hour is over; where the focus goes when the Drive card
 // is redrawn; and the earliest free day carried in the Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in
 // script is served by the test, and one Google Drive held here in Node answers every device (each browser context is
 // one device).
@@ -616,6 +616,17 @@ if (require.main === module) (async () => {
     ok('Erase in one tab stays erased after a change in another open tab', saved.venues.length === 0 && saved.songs.some(x => x.id === 't2-song') && (await data(t2)).venues.length === 0, `venues kept: ${saved.venues.length}`);
     ok('…and the other tab shows Google Drive disconnected, and sends nothing to Drive', !(await state(t2)).linked && (await cloudState(t2))[0] === '' && !D7.json().songs.some(x => x.id === 't2-song'), JSON.stringify(await state(t2)));
     await T.ctx.close();
+  }
+
+  /* ------------------------------ Google's token goes once its hour is over ------------------------------ */
+  {
+    const V = await device(browser, fakeDrive(), { who: 'V' }); all.push(V);
+    const pv = V.page;
+    await connect(pv); await waitCloud(pv, 'synced'); await closeSheets(pv);
+    await pv.evaluate(() => { const t = JSON.parse(localStorage.getItem('gdex-google-tokens')); localStorage.setItem('gdex-google-tokens', JSON.stringify({ ...t, exp: Date.now() - 5 * 864e5 })); }); // five days on
+    await syncOn(pv);
+    ok('a token whose hour is over is removed from the device at the next look, not kept until the next sign-in', (await state(pv)).status === 'needs-permission' && (await pv.evaluate(() => localStorage.getItem('gdex-google-tokens'))) === null && (await pv.evaluate(() => localStorage.getItem('gdex-google-email'))) === 'gee@example.com');
+    await V.ctx.close();
   }
 
   /* ------------------------------ Google's sign-in script not loading ------------------------------ */
