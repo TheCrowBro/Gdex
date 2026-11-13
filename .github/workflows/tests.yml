@@ -49,3 +49,40 @@ jobs:
           name: test-output-${{ matrix.licence }}
           path: tests/output
           if-no-files-found: ignore
+  desktop:
+    # The desktop app's smoke test (tests/desktop.mjs) under a virtual screen: on pull requests, by hand, and on pushes
+    # that change the desktop app (desktop/, package.json, its lock, the smoke test or this workflow). Electron itself is
+    # downloaded only here (the web job skips it).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Did the desktop app change?
+        id: changed
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          run=true
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] && git fetch --no-tags --depth=1 origin "$BEFORE" 2>/dev/null; then
+            # a push that changed none of these skips it; anything unclear (a new branch, a forced push) runs it
+            if changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA"); then
+              echo "$changed" | grep -qE '^(desktop/|package(-lock)?\.json$|tests/desktop\.mjs$|\.github/workflows/tests\.yml$)' || run=false
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          [ "$run" = true ] || echo "The desktop app did not change in this push: its smoke test is skipped." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.changed.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.changed.outputs.run == 'true'
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2t64
+        if: steps.changed.outputs.run == 'true'
+      - run: xvfb-run -a npm run test:desktop
+        if: steps.changed.outputs.run == 'true'

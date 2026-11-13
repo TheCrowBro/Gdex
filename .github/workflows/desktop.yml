@@ -1,0 +1,116 @@
+# Builds the desktop installers: Gdex-Setup-<version>.exe (Windows), Gdex-<version>.dmg and .zip (Mac) and
+# Gdex-<version>.AppImage (Linux), plus the latest*.yml files installed apps read to update themselves. The version is
+# the one in js/version.js.
+#
+# Only by hand ("Run workflow"), and it publishes nothing: the installers are kept as the run's Artifacts for 3 days.
+# Putting them at https://gdex-download.crowmade.app/ (the R2 bucket gdex-downloads, Gdex's alone) is done by the
+# owner, by hand, in the order docs/desktop.md gives, only once the owner says publish.
+#
+# Signing is optional and switches itself on: with the Apple secrets the Mac app is signed and notarized (and can update
+# itself); with the Azure secrets and variables the Windows installer is signed through Azure Artifact Signing. Without
+# them the installers come out unsigned (the download page says how to open them). docs/desktop.md lists every secret.
+name: Build desktop installers
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --win
+          - os: macos-latest
+            args: --mac
+          - os: ubuntu-latest
+            args: --linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      # The licence is on in a build only with both desktop/licence-on.json { "on": true } and the owner's public keys
+      # in desktop/licence-keys.json (the build spec [S-41]). Switched on without the owner's key 1 it would stay off
+      # while the release notes said otherwise, so that build is refused. The run's summary says which it is.
+      - name: The licence switch and its keys
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs');
+            const on = JSON.parse(fs.readFileSync('desktop/licence-on.json', 'utf8')).on === true;
+            const keys = JSON.parse(fs.readFileSync('desktop/licence-keys.json', 'utf8'));
+            const key1 = !!keys && typeof keys[1] === 'string' && keys[1].length > 0;
+            const say = t => fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, t + '\n');
+            if (on && !key1) { console.log('::error::desktop/licence-on.json is on but desktop/licence-keys.json has no key 1 (the owner\'s public keys, docs/desktop.md)'); process.exit(1); }
+            say(on ? '**Licence: ON** in this build: the working roles have 30 free days on each computer, then need a licence code.' : '**Licence: off** in this build (desktop/licence-on.json is off): every role is free, nothing is asked of the licence server.');
+          "
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - run: node tools/stamp-build.mjs
+        env:
+          BUILD_SHA: ${{ github.sha }}
+      - id: certs
+        shell: bash
+        run: |
+          echo "mac=$([ -n "$MAC_P12" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "notarize=$([ -n "$MAC_P12" ] && [ -n "$APPLE_ID" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "azure=$([ -n "$AZ_SECRET" ] && [ -n "$AZ_ACCOUNT" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        env:
+          MAC_P12: ${{ secrets.MAC_CERT_P12 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          AZ_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZ_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+      - name: Build
+        shell: bash
+        run: |
+          # An empty CSC_LINK is read as a certificate path (the project folder) and stops the Mac build
+          [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
+          extra=()
+          if [ "$RUNNER_OS" = macOS ] && [ "$NOTARIZE" = true ]; then extra+=(--config.mac.notarize=true); fi
+          # No certificate: sign ad hoc, or Apple silicon Macs call the app "damaged" instead of offering Open Anyway
+          if [ "$RUNNER_OS" = macOS ] && [ -z "${CSC_LINK:-}" ]; then extra+=(--config.mac.identity=-); fi
+          if [ "$RUNNER_OS" = Windows ] && [ "$AZURE" = true ]; then
+            extra+=("--config.win.azureSignOptions.publisherName=$AZ_PUBLISHER"
+                    "--config.win.azureSignOptions.endpoint=$AZ_ENDPOINT"
+                    "--config.win.azureSignOptions.codeSigningAccountName=$AZ_ACCOUNT"
+                    "--config.win.azureSignOptions.certificateProfileName=$AZ_PROFILE")
+          fi
+          npm run dist -- ${{ matrix.args }} "${extra[@]}"
+          echo "- ${RUNNER_OS}: built $(ls dist | grep -E '\.(exe|dmg|zip|AppImage)$' | tr '\n' ' ')(signed: mac ${MAC_SIGNED}, notarized ${NOTARIZE}, windows ${AZURE})" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          NOTARIZE: ${{ steps.certs.outputs.notarize }}
+          AZURE: ${{ steps.certs.outputs.azure }}
+          MAC_SIGNED: ${{ steps.certs.outputs.mac }}
+          # Mac: a Developer ID Application certificate (.p12, base64) and notarization
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.certs.outputs.mac }}
+          CSC_LINK: ${{ secrets.MAC_CERT_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows: Azure Artifact Signing (an app registration with the "Artifact Signing Certificate Profile Signer" role)
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZ_PUBLISHER: ${{ vars.AZURE_SIGNING_PUBLISHER }}   # the name on the certificate
+          AZ_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}     # e.g. https://wus2.codesigning.azure.net
+          AZ_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          AZ_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gdex-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.zip
+            dist/latest*.yml
+            dist/*.blockmap
+          if-no-files-found: error
+          retention-days: 3

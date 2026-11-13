@@ -5,6 +5,7 @@ import { h, fmtShort } from './util.js';
 import { unpack } from './link-pack.js';
 import { docCss } from './doc-css.js';
 import { fileName } from './print.js';
+import { publicHref } from './version.js';
 import { cleanDaySheet, fromLink, renderDaySheet, daySheetIcs, dsDocCss, dayLabel, typeLabel } from './daysheet-doc.js';
 
 const bar = document.getElementById('bar'), box = document.getElementById('doc');
@@ -35,7 +36,7 @@ async function show() {
 
   document.title = `${d.title || typeLabel(d)}${d.date ? ' – ' + fmtShort(d.date) : ''} · Day sheet`;
   const from = [d.from.name, d.from.business].filter(Boolean).join(' · ');
-  const ics = daySheetIcs(d, location.href);
+  const ics = daySheetIcs(d, publicHref()); // the website's address, also when opened in the desktop app
   bar.replaceChildren(
     h('div', { class: 'ds-who' }, h('span', { class: 'ds-kick' }, 'Day sheet'), h('strong', null, d.title || typeLabel(d)), h('small', null, [dayLabel(d, fmtShort), from && 'from ' + from].filter(Boolean).join(' · '))),
     h('div', { class: 'ds-acts' },
