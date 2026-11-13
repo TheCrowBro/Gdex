@@ -813,14 +813,16 @@ The songs list folds its songs the way the acts list folds its acts under their 
 look and behave the same. Everything lives in one block of `pages/songs.js` ("folds").
 
 * **When.** By act when the library's songs are of two or more acts (songs with no act, or whose act is gone, count as
-  one more); inside an act's fold, by album once one of that act's songs has one (`model.albumOf`); an act none of
-  whose songs has an album lists its songs straight in its fold. With songs of one act (or of none), its album folds
-  only, and with no album either the list is as it always was: the act's name over its cards (`section.sg-group >
-  h3`), none of the hooks below. Whether there are folds, and each album's name, come from the whole library, never
+  one more); inside every act's fold, by album once any song in the library has one (`model.albumOf`), so an act
+  none of whose songs has an album holds a lone Singles & unreleased fold (the owner: "Songs with none go in a SINGLES
+  & UNRELEASED fold, last in each band"); with no album anywhere, an act's fold lists its songs straight. With songs
+  of one act (or of none), its album folds only, and with no album either the list is as it always was: the act's
+  name over its cards (`section.sg-group > h3`), none of the hooks below. Whether there are folds, and each album's name, come from the whole library, never
   from the search's matches.
 * **The folds.** `div.list.sg-folds` holds the top folds: `section.sg-fold.sg-fold-act[data-act=<actId|none>]` per act,
   A to Z, then No act, or (one act) `section.sg-fold.sg-fold-album[data-act][data-album=<albumKey|none>]` per album, A to
-  Z, then Singles & unreleased (`NO_ALBUM`); `.open` while open. Each starts with `h2.sg-fold-h > button.sg-fold-head`
+  Z, then Singles & unreleased (`NO_ALBUM`; an album whose key is `none`, as "N.O.N.E", is `data-album=none_`, so
+  the two never share an id); `.open` while open. Each starts with `h2.sg-fold-h > button.sg-fold-head`
   (an album inside an act: `h3`), a real disclosure button: `aria-expanded`, `aria-controls="<id>-list"`, the label in
   `span.sg-fold-name`, the count in `span.sg-fold-n` and the chevron (`span.sg-chev`, turned while open), both hidden
   from a screen reader, which reads the button's `aria-label` instead: "The Night Owls, 8 songs". Ids: `#sg-act-<actId>`

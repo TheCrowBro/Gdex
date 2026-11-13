@@ -72,6 +72,11 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
     steps = await tutorial(page);
     const fs = steps.find(s => s[2] === '.sg-fold-head');
     ok('…and the walkthrough speaks of album folds only', !!fs && fs[0] === 'By album' && fs[1] === 'The songs fold under each album or release, A to Z, with Singles & unreleased last. Tap a heading to drop it down or fold it away.' && steps[0][1].endsWith('by album.'), JSON.stringify(fs));
+    // An album whose letters spell "none" is an album of its own, with an id of its own (not Singles & unreleased's).
+    await page.evaluate(() => import('./js/store.js').then(s => s.patch('songs', 'o-2', { album: 'N.O.N.E' })));
+    await page.waitForSelector('.sg-fold-head >> text=N.O.N.E', T);
+    const ids = await page.$$eval('#page [id]', els => els.map(e => e.id));
+    ok('an album called “N.O.N.E” has a fold and ids of its own, apart from Singles & unreleased', same((await heads(page)).map(x => x[0]), ['First Light', 'N.O.N.E', 'Singles & unreleased']) && ids.length === new Set(ids).size && ids.includes('sg-alb-o-me-none_') && ids.includes('sg-alb-o-me-none'), JSON.stringify(ids.filter(i => i.startsWith('sg-alb'))));
     ok('no errors in the console (one act)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }
@@ -105,7 +110,12 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
   ok('Singles & unreleased holds the act’s songs with no album, A to Z', same(await songsIn(page, 'sg-alb-s-owls-none'), ['Ghost Signal', 'Lanterns', 'Last Ferry Home']), JSON.stringify(await songsIn(page, 'sg-alb-s-owls-none')));
   await page.tap('#sg-act-t-moth');
   await page.waitForSelector('#sg-act-t-moth[aria-expanded="true"]', T); await sleep(100);
-  ok('an act none of whose songs has an album lists them straight in its fold (junk stored as an album reads as none)', (await page.locator('#sg-act-t-moth-list .sg-fold').count()) === 0 && same(await songsIn(page, 'sg-act-t-moth'), ['Moth Song']));
+  // The owner: "Songs with none go in a SINGLES & UNRELEASED fold, last in each band", so an act with no album has one too
+  // (once any song has an album: the sample, with none anywhere, lists each act's songs straight in its fold).
+  ok('an act none of whose songs has an album holds a lone Singles & unreleased fold, folded (junk stored as an album reads as none)', same(await inner(page, 'sg-act-t-moth'), [['Singles & unreleased', '1', 'false']]) && !(await songsIn(page, 'sg-act-t-moth')).length, JSON.stringify(await inner(page, 'sg-act-t-moth')));
+  await page.tap('#sg-alb-t-moth-none');
+  await page.waitForSelector('#sg-alb-t-moth-none[aria-expanded="true"]', T); await sleep(100);
+  ok('…which a tap drops down to its song', same(await songsIn(page, 'sg-alb-t-moth-none'), ['Moth Song']) && (await focused(page)) === 'sg-alb-t-moth-none', await focused(page));
   await page.tap('#sg-act-none');
   await page.waitForSelector('#sg-act-none[aria-expanded="true"]', T); await sleep(100);
   ok('No act comes after the acts, and folds its songs by album too', same(await inner(page, 'sg-act-none'), [['Tapes', '1', 'false'], ['Singles & unreleased', '1', 'false']]), JSON.stringify(await inner(page, 'sg-act-none')));
@@ -255,7 +265,7 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
   let steps = await tutorial(page);
   const fstep = steps.find(s => s[2] === '.sg-fold-head');
   ok('the songs walkthrough explains the folds, after Songs and setlists and before Search, in the role’s words',
-    !!fstep && fstep[0] === 'By act and album' && fstep[1] === 'Each act’s songs fold under its name, A to Z. Songs with no act come last, under No act. Inside, they fold under each album or release, A to Z, with Singles & unreleased last, once one of them has an album. Tap a heading to drop it down or fold it away.'
+    !!fstep && fstep[0] === 'By act and album' && fstep[1] === 'Each act’s songs fold under its name, A to Z. Songs with no act come last, under No act. Inside, they fold under each album or release, A to Z, with Singles & unreleased last. Tap a heading to drop it down or fold it away.'
     && steps.indexOf(fstep) === steps.findIndex(s => s[0] === 'Songs and setlists') + 1 && steps[steps.indexOf(fstep) + 1][0] === 'Search', JSON.stringify(steps.map(s => s[0])));
   ok('…its first step, its search step and its Add a song step speak of albums', steps[0][1] === 'Every song with its key, tempo, length and status, by act and album.' && steps.find(s => s[0] === 'Search')[1] === 'Find a song by title, album, key, tuning, ISRC or writer. The folds with a match open; clear the search and they are as they were.' && /^Title, album or release,/.test(steps.find(s => s[0] === 'Add a song')[1]) && !steps.some(s => s[2] === '.sg-acts'));
   const sheetStep = await page.evaluate(() => import('./js/tour.js').then(m => (m.sheetSteps('Song') || []).find(s => s.title === 'Key, tempo, length').text));
@@ -267,7 +277,7 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
   await page.waitForSelector('.tour-card', T);
   const titles = [];
   for (let i = 0; i < 8 && await page.locator('.tour-card').count(); i++) { titles.push(await page.textContent('#tour-title')); await page.click('.tour-actions .btn.primary'); await sleep(700); }
-  ok('the walkthrough runs through the folds and, on a folded list, drops the first one open to show a song', same(titles, ['Songs', 'Songs and setlists', 'By act and album', 'Search', 'A song', 'Add a song']) && same((await heads(page)).filter(x => x[2] === 'true').map(x => x[0]), ['Moth Choir']), titles.join(' › ') + ' / ' + JSON.stringify(await heads(page)));
+  ok('the walkthrough runs through the folds and, on a folded list, drops the first one open (and its first album) to show a song', same(titles, ['Songs', 'Songs and setlists', 'By act and album', 'Search', 'A song', 'Add a song']) && same((await heads(page)).filter(x => x[2] === 'true').map(x => x[0]), ['Moth Choir']) && same(await songsIn(page, 'sg-alb-t-moth-none'), ['Moth Song']), titles.join(' › ') + ' / ' + JSON.stringify(await heads(page)));
   ok('no errors in the console (the list, the form, the search)', errors.length === 0, errors.slice(0, 5).join(' | '));
 
   /* ---------------- every role that has Songs, and one that reaches it as a bonus track ---------------- */

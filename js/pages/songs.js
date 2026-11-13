@@ -91,7 +91,7 @@ function songSteps() {
   const sh = libraryShape(), w = actWord(), noAct = sh.albums.has(NO_ACT) ? ` Songs with no ${w} come last, under No ${w}.` : '';
   const folds = sh.byAct || sh.anyAlbum;
   const foldText = sh.byAct
-    ? `Each ${w}’s songs fold under its name, A to Z.${noAct} Inside, ${sh.anyAlbum ? `they fold under each album or release, A to Z, with ${NO_ALBUM} last, once one of them has an album` : 'they fold under each album or release once a song has one: ✎ Edit on a song sets it'}. Tap a heading to drop it down or fold it away.`
+    ? `Each ${w}’s songs fold under its name, A to Z.${noAct} Inside, ${sh.anyAlbum ? `they fold under each album or release, A to Z, with ${NO_ALBUM} last` : 'they fold under each album or release once a song has one: ✎ Edit on a song sets it'}. Tap a heading to drop it down or fold it away.`
     : `The songs fold under each album or release, A to Z, with ${NO_ALBUM} last. Tap a heading to drop it down or fold it away.`;
   return [
     { target: ['.page-head'], title: 'Songs', text: `Every song with its key, tempo, length and status, ${folds ? (sh.byAct ? `by ${w}${sh.anyAlbum ? ' and album' : ''}` : 'by album') : `grouped by ${w}`}.` },
@@ -147,8 +147,9 @@ function songsList(draw) {
 // The songs list folds its songs (item 13), as the acts list folds its acts under their main genres (pages/acts.js):
 // with songs of two or more acts (songs with no act count as one more), a fold per act, A to Z, then No act (in the
 // role's word: No artist, No band); inside it a fold per album or release (model.albumOf), A to Z, then
-// "Singles & unreleased", once one of the act's songs has an album (an act with none lists its songs straight in its
-// fold). With songs of one act (or none), its album folds only; with no album either, the list is as it always was.
+// "Singles & unreleased", last in each act, once any song in the library has an album (so an act with no album has a
+// lone Singles & unreleased fold, as the owner asked; with no album anywhere an act's fold lists its songs straight).
+// With songs of one act (or none), its album folds only; with no album either, the list is as it always was.
 // Inside a fold the songs are in the list's own order (A to Z). Whether there are folds, and each album's name, come from
 // the whole library, not from the search's matches. Every fold is folded at first, and one opened stays open for the
 // visit (S.folds). The page's own search opens every fold with a match and leaves out the others (the counts are the
@@ -160,7 +161,10 @@ const ALB = '\n'; // between an act's key and an album's in a fold's key
 const cmp = (a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base', numeric: true });
 const idPart = k => (k === NO_ACT ? 'none' : String(k).replace(/\s+/g, '_'));
 const actFoldId = k => 'sg-act-' + idPart(k);
-const albumFoldId = (k, ak) => `sg-alb-${idPart(k)}-${ak || 'none'}`;
+// An album's part of an id: its key, or none for Singles & unreleased. A key is letters and digits only, so an album
+// whose letters spell "none" ("N.O.N.E") is none_, and never shares an id with Singles & unreleased.
+const albumPart = ak => (!ak ? 'none' : ak === 'none' ? 'none_' : ak);
+const albumFoldId = (k, ak) => `sg-alb-${idPart(k)}-${albumPart(ak)}`;
 // The library's shape: whether its songs are of two or more acts (byAct), and each act's albums as [albumKey, name], A
 // to Z: the name is the spelling most of the act's songs use, the first A to Z on a tie.
 function libraryShape(all = db.songs) {
@@ -185,12 +189,12 @@ function foldTree(found, sh) {
     const by = new Map();
     for (const s of list) { const ak = albumKey(albumOf(s)); if (!by.has(ak)) by.set(ak, []); by.get(ak).push(s); }
     return [...(sh.albums.get(k) || []), ['', NO_ALBUM]].filter(([ak]) => by.has(ak))
-      .map(([ak, label]) => ({ key: k + ALB + ak, id: albumFoldId(k, ak), kind: 'album', label, songs: by.get(ak), kids: null, data: { 'data-act': idPart(k), 'data-album': ak || 'none' } }));
+      .map(([ak, label]) => ({ key: k + ALB + ak, id: albumFoldId(k, ak), kind: 'album', label, songs: by.get(ak), kids: null, data: { 'data-act': idPart(k), 'data-album': albumPart(ak) } }));
   };
   const groups = groupsOf(found);
   if (!sh.byAct) return groups.flatMap(([k, , list]) => albumsIn(k, list));
   return groups.map(([k, name, list]) => ({ key: k, id: actFoldId(k), kind: 'act', label: k === NO_ACT ? 'No ' + actWord() : name, songs: list,
-    kids: (sh.albums.get(k) || []).length ? albumsIn(k, list) : null, data: { 'data-act': idPart(k) } }));
+    kids: sh.anyAlbum ? albumsIn(k, list) : null, data: { 'data-act': idPart(k) } }));
 }
 const isOpen = (key, searching) => (searching ? !S.shut.has(key) : S.folds.has(key));
 function foldNodes(nodes, level, searching) {
