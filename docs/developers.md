@@ -142,6 +142,10 @@ A choice that storage cannot keep (private mode, or storage full) still holds fo
 preferences and the calendar's view live in memory while the page is open, and `askSetting()` reads storage every
 time except straight after a write that failed, when its copy in memory answers until a write works again.
 
+Aa and Settings → Display are two copies of one panel (`a11y.js` `displayPanel()`). Every choice fires `gdex-prefs`
+on `window`; each copy on the page draws itself again on it, and Settings' closed line follows it, so a choice made in
+Aa over Settings shows there at once.
+
 ## Page contract
 
 ```js

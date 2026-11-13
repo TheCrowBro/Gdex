@@ -355,8 +355,9 @@ export const settings = {
     };
     // A backup saved or the file copy written is not a change to the data, so the page is not redrawn: its line is.
     done.push(onBackupChange(() => { sec.backups.sub.textContent = backupSummary(); }));
-    // The display choices are kept on the device, not in the data: their line follows a tap in the panel.
-    display.el.addEventListener('click', () => setTimeout(() => { sec.display.sub.textContent = cap(prefsSummary()); }));
+    // The display choices are kept on the device, not in the data: their line follows every change, made in the panel or in Aa.
+    const onPrefs = () => { sec.display.sub.textContent = cap(prefsSummary()); };
+    window.addEventListener('gdex-prefs', onPrefs); done.push(() => window.removeEventListener('gdex-prefs', onPrefs));
 
     root.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Settings')),

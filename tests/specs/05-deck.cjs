@@ -279,6 +279,12 @@ const page$ = page => page.evaluate(() => window.logiPage());
   ok('Settings → Display offers it too, and its closed line names the digital player', (await page.locator('#se-display [data-pref^="menu:"]').count()) === 3 && /digital player/i.test(await page.textContent('#se-display .se-sub')) && !/digital|tape/i.test(asRecord) && (await page.locator('#deck .dk-player').count()) === 1, `${asRecord} → ${await page.textContent('#se-display .se-sub')}`);
   const tourText = await page.evaluate(() => import('./js/tour.js').then(m => m.welcomeSteps().find(s => s.title === 'Your sections are tracks').text));
   ok('the welcome tour describes the digital player when that is the menu: ☰ and the row, no sides', /☰/.test(tourText) && /the row under it has every track one tap away/.test(tourText) && !/Side A|sleeve|cassette/.test(tourText), tourText);
+  // A choice made in Aa while Settings is open shows in Settings → Display at once (the two stay in step): pressed there too, and on its line.
+  await page.click('#displayBtn'); await page.waitForSelector('.sheet[aria-label="Display & accessibility"]');
+  await page.click('.sheet [data-pref="menu:tape"]'); await page.click('.sheet [data-pref="text:large"]'); await sleep(200);
+  await page.keyboard.press('Escape'); await sleep(300);
+  const twin = await page.evaluate(() => { const said = p => document.querySelector(`#se-display [data-pref="${p}"]`).getAttribute('aria-pressed'); return { tape: said('menu:tape'), digital: said('menu:digital'), large: said('text:large'), normal: said('text:normal'), line: document.querySelector('#se-display .se-sub').textContent }; });
+  ok('a choice made in Aa with Settings open shows in Settings → Display at once: the menu and the text size pressed, and on its line', twin.tape === 'true' && twin.digital === 'false' && twin.large === 'true' && twin.normal === 'false' && /tape deck/i.test(twin.line) && /large text/i.test(twin.line) && (await page.locator('#deck .dk-cassette').count()) === 1, JSON.stringify(twin));
 
   // Narrow phones with extra-large text and buttons: nothing runs off the screen, in any of the three menus.
   for (const menu of ['record', 'tape', 'digital']) {

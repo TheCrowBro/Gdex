@@ -85,7 +85,11 @@ export function displayPanel({ onTour } = {}) {
   const el = h('div', { class: 'stack' }, theme, groups,
     onTour && h('div', { class: 'pref' }, h('div', { class: 'pref-label' }, 'Help'), h('button', { class: 'btn ghost', onclick: onTour }, '🧭 Take the tour again')),
     h('p', { class: 'muted small' }, '“Small touches” are short, gentle effects: buttons pressing, cards lifting, new notes popping in, the tour spotlight gliding. Nothing slides across the screen. Choose Menu only or None to stop them; everything also stops if your phone is set to reduce motion.'));
-  return { el, destroy: () => {} };
+  // Aa and Settings → Display stay in step: a choice made in the other one (Aa opened over Settings) shows here at once.
+  // A panel no longer on the page stops listening.
+  const onPrefs = () => { if (!el.isConnected) { window.removeEventListener('gdex-prefs', onPrefs); return; } draw(); drawTheme(); };
+  window.addEventListener('gdex-prefs', onPrefs);
+  return { el, destroy: () => window.removeEventListener('gdex-prefs', onPrefs) };
 }
 
 export function openDisplaySettings() {
