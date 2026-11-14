@@ -32,6 +32,10 @@
   .legal .important { border: 2px solid var(--accent); border-radius: var(--radius); padding: 4px 18px 14px; margin: 32px 0 8px; }
   .legal .important > h2:first-child { border: 0; margin-top: 14px; padding-top: 0; color: var(--accent); }
   .legal .important h3 { font-size: 1.15rem; margin: 22px 0 8px; }
+  .legal .toc details { margin: 16px 0 0; }
+  .legal .toc summary { cursor: pointer; color: var(--accent); font-weight: 600; min-height: var(--hit); display: flex; align-items: center; }
+  .legal .toc ol { margin: 4px 0 0; }
+  .legal .toc li { margin: 4px 0; }
   .legal .foot { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--line); }
   .legal :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 </style>
@@ -50,9 +54,9 @@
     <h2>The short version</h2>
     <p>This summary helps you find the important parts. The full terms below are what apply.</p>
     <ul>
-      <li>Tourbook keeps your own records of your shows, sessions, deals, songs and the people you work with. It is not an agent, promoter, manager, label or publisher, takes no part in your bookings or deals, and never handles money (<a href="#what">section 2</a>).</li>
+      <li>Tourbook keeps your own records of your shows, sessions, deals, songs and the people you work with. It is not an agent, promoter, manager, label or music publisher, takes no part in your bookings or deals, and never handles money (<a href="#what">section 2</a>).</li>
       <li>Tourbook is free for people who go to shows: the Audiophile role, with your gigs, the bands you follow, venues and tools, is free for good.</li>
-      <li>The working roles (Producer, Manager, Band, Solo artist, Scout and Jack of Trades) are free for 30 days on each device, then need a licence: 20 US dollars once, plus any tax where you live, for one person on up to 3 devices, which you can use for your own work, including paid work. It is not a subscription (<a href="#paid">section 3</a>). Until licences are switched on at tourbook.crowmade.app, every role is free and the licence parts of these terms do not apply yet.</li>
+      <li>The working roles (Producer, Manager, Band, Solo artist, Scout and Jack of Trades) are free for 30 days on each device, then need a licence: 20 US dollars once, plus any tax where you live, for one person on up to 3 devices. You can use it for your own work, including paid work. It is not a subscription, and if you change your mind within 14 days of buying, you get all your money back (<a href="#paid">section 3</a>). Until licences are switched on at tourbook.crowmade.app, every role is free and the licence parts of these terms do not apply yet.</li>
       <li>Your work stays on your device, and the developer never receives it. Google Drive is optional and free for everyone: it keeps your devices the same, with a dated copy each day, in a private Tourbook folder of your own Drive.</li>
       <li>Tourbook comes as it is. It can have mistakes, stop working or lose information, so keep your own backups.</li>
       <li>You stay responsible for your shows and sessions, the deals and splits you agree, what you send (day sheets, quotes and invoices), your taxes, people’s safety, and the information you keep about other people.</li>
@@ -60,67 +64,110 @@
     </ul>
   </section>
 
-  <h2>1. Who we are, and agreeing to these terms</h2>
+  <nav class="toc" aria-label="Contents">
+    <details>
+      <summary>Contents: all 20 sections</summary>
+      <ol>
+        <li><a href="#who">Who we are, and agreeing to these terms</a></li>
+        <li><a href="#what">What Tourbook is, and what it is not</a></li>
+        <li><a href="#paid">Free as an Audiophile, and the licence for the working roles</a> (the price, refunds)</li>
+        <li><a href="#bookings">Bookings, venues, day sheets and the tools</a></li>
+        <li><a href="#songs">Sessions, songs, acts and My card</a></li>
+        <li><a href="#money">Money, gear and insurance</a></li>
+        <li><a href="#your-information">Your information, backups and security</a></li>
+        <li><a href="#other-people">Other people’s details, and what you send</a></li>
+        <li><a href="#other-services">Other services</a></li>
+        <li><a href="#fair-use">Using Tourbook fairly</a></li>
+        <li><a href="#updates">Updates, support and changes to Tourbook</a></li>
+        <li><a href="#ownership">Who owns what, and your right to use Tourbook</a></li>
+        <li><a href="#no-warranty">No warranty for business use</a></li>
+        <li><a href="#limits">Limits on our liability</a></li>
+        <li><a href="#claims">Claims caused by your use</a></li>
+        <li><a href="#your-rights">Your rights under the law</a></li>
+        <li><a href="#stopping">Stopping, and removing your information</a></li>
+        <li><a href="#changes">Changes to these terms</a></li>
+        <li><a href="#general">General</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ol>
+    </details>
+  </nav>
+
+  <h2 id="who">1. Who we are, and agreeing to these terms</h2>
   <p>Tourbook is made and published by Laurence Simmonds, known online as TheCrowBro ("we" and "us" below), in California, USA. You can email us at <!--email_off--><a href="mailto:support@crowmade.app">support@crowmade.app</a><!--/email_off-->. Our postal address and phone number are available upon request.</p>
   <p>Get Tourbook only from <a href="https://tourbook.crowmade.app/">tourbook.crowmade.app</a>, or from a download link we give there. These terms, and anything we say about Tourbook, cover only Tourbook as we publish it there. We are not responsible for copies that anyone else builds, hosts, changes or distributes.</p>
   <p>These terms are an agreement between you and us. Using Tourbook means you agree to them. Before the working roles’ free days start on a device, Tourbook also shows you these terms and asks you to agree: ticking the box and tapping “Agree and continue” means you agree. When you buy a licence, the checkout asks you to accept them too. If you do not agree, do not use Tourbook.</p>
-  <p>You must be 18 or over and able to make a binding agreement where you live. If you use Tourbook for a business, such as a band, a studio or a management company, you agree to these terms for that business too, and you confirm that you are allowed to.</p>
+  <p>You must be 18 or over and able to make a binding agreement where you live. If you use Tourbook for a business, such as a studio, a management company, or a band or artist run as a business, you agree to these terms for that business too, and you confirm that you are allowed to.</p>
   <p>The <a href="privacy.html">privacy policy</a> explains how Tourbook handles information. It is there to inform you and is not part of this agreement.</p>
 
   <h2 id="what">2. What Tourbook is, and what it is not</h2>
   <p>Tourbook is a booking deck for people who make and play music: shows, studio sessions and rehearsals on one calendar, with the acts, people, songs and setlists, backline, venues, money (deals, settlements, quotes and invoices), insurance records and tools that go with them. It has working roles for producers, managers, bands, solo artists and scouts, Jack of Trades with every section, and a free role for gig-goers, the Audiophile.</p>
-  <p>What you keep in Tourbook is your own record:</p>
+  <p>Tourbook keeps your own records, and takes no part in your dealings with anyone:</p>
   <ul>
-    <li>Tourbook is not a booking agency, promoter, manager, label, publisher or collecting society, and does not act for you. It is not a party to any booking, deal or agreement between you and venues, promoters, artists, studios, clients or anyone else, and does not check, guarantee or enforce what anyone agrees.</li>
-    <li>A hold, an offer, a confirmed show, a deal or a rider in Tourbook is your note of what was asked or agreed, not a contract and not proof of one. Make and keep your agreements with the people concerned.</li>
-    <li>Tourbook never contacts venues, promoters, artists or anyone else for you, and never handles money (section 6). What reaches other people goes from you: by your own email or messages, your device’s share sheet, a printout, a file or a link.</li>
+    <li>Tourbook is not a booking agency, promoter, manager, label, music publisher or collecting society, and does not act for you. It is not a party to any booking, deal or agreement between you and venues, promoters, artists, studios, clients or anyone else, and does not check, guarantee or enforce what anyone agrees.</li>
+    <li>A hold, an offer, a confirmed show, a deal or a rider in Tourbook is your own note of what was asked or agreed: Tourbook does not make it a contract, and it is no substitute for one. Make and keep your agreements, in writing, with the people concerned.</li>
+    <li>Tourbook never contacts venues, promoters, artists or anyone else for you, and never handles money (<a href="#money">section 6</a>). What reaches other people goes from you: by your own email, messages or calls, your device’s share sheet, a QR code someone scans from your screen, a printout, a file or a link.</li>
   </ul>
-  <p>Nor is Tourbook a bank or payment service, an accountant, a lawyer, a tax or insurance adviser, a safety device or a calibrated measuring instrument. Its backup features are not a substitute for keeping your own separate copies. Its checklists, templates, suggested lines, tutorials and guides are general examples: not complete for any show or session, and no replacement for your own checks, the law or professional advice. Nothing in Tourbook is professional advice.</p>
+  <p>Tourbook is also not a bank or payment service, an accountant, a lawyer, a tax or insurance adviser, a safety device or a calibrated measuring instrument. Its backup features are not a substitute for keeping your own separate copies. Its checklists, templates, suggested lines, tutorials and guides are general examples: not complete for any show or session, and no replacement for your own checks, the law or professional advice. Nothing in Tourbook is professional advice.</p>
 
   <h2 id="paid">3. Free as an Audiophile, and the licence for the working roles</h2>
-  <p><strong>Free as an Audiophile.</strong> The Audiophile role is free for good, with or without a licence. It is made for going to shows and following bands, not for working in music, and has the calendar of the shows you go to, the bands you like (your scores, the times you saw them, “Did you see them?” and the names a band had before), venues with their house rules, the search, notes, My card and the Audiophile’s tools. The working parts of Tourbook come with the working roles: the boxes on a booking for line-up, advancing, running order, guest list, day sheets, setlists, the session clock, take logs, songs worked on and deliverables; studio sessions and rehearsals; the records of People, Songs, Backline and the other working sections; and everything about money. As an Audiophile without a licence you can see the sessions and rehearsals already on the device but not add or change them, and + New makes a show.</p>
-  <p><strong>The working roles: 30 days free, then a licence.</strong> Producer, Manager, Band, Solo artist, Scout and Jack of Trades, and the sections that belong to them (People, Songs, Studio log, Backline, Money and Insurance), are free for 30 days in each web browser and on each computer running the desktop app, counted from the first time a working role or one of those sections is used there. Devices connected to the same Google Drive share one count, from the earliest of them. A device whose date and time are wrong by more than a day counts its free days as over until its clock is right. After the free days, those roles are read-only on that device until there is a licence: you can still open, search, print and share everything, save a backup file, keep Google Drive in step and erase the device (<a href="#stopping">section 17</a>), but not change anything, bring back a backup or load the sample. Nothing is deleted, and you can carry on free as an Audiophile at any time, with everything you already have. Until licences are switched on at tourbook.crowmade.app, every role is free and the licence parts of these terms do not apply yet.</p>
+  <p><strong>Until licences are switched on at tourbook.crowmade.app, every role is free and the licence parts of these terms do not apply yet.</strong></p>
+  <h3>Free as an Audiophile</h3>
+  <p>The Audiophile role is free for good, with or without a licence. It is made for going to shows and following bands, and has:</p>
+  <ul>
+    <li>the calendar of the shows you go to;</li>
+    <li>the bands you like: your scores, the times you saw them, “Did you see them?” and the names a band had before;</li>
+    <li>venues with their house rules, the search, notes, My card and the Audiophile’s tools.</li>
+  </ul>
+  <p>The working parts of Tourbook come with the working roles: the boxes on a booking for line-up, advancing, running order, guest list, day sheets, setlists, the session clock, take logs, songs worked on and deliverables; studio sessions and rehearsals; the records of People, Songs, Backline and the other working sections; and everything about money. As an Audiophile without a licence you can see the sessions and rehearsals already on the device but not add or change them, and + New makes a show.</p>
+  <h3>The working roles: 30 days free, then a licence</h3>
+  <p>Producer, Manager, Band, Solo artist, Scout and Jack of Trades, and the sections that belong to them (People, Songs, Studio log, Backline, Money and Insurance), are free for 30 days in each web browser and on each computer running the desktop app, counted from the first time a working role or one of those sections is used there.</p>
+  <ul>
+    <li>Devices connected to the same Google Drive share one count, from the earliest of them.</li>
+    <li>A device whose date and time are wrong by more than a day counts its free days as over until its clock is right.</li>
+    <li>After the free days, those roles are read-only on that device until there is a licence: you can still open, search, print and share everything, save a backup file, keep Google Drive in step and erase the device (<a href="#stopping">section 17</a>), but not change anything, bring back a backup or load the sample. Nothing is deleted, and you can carry on free as an Audiophile at any time, with everything you already have.</li>
+  </ul>
+  <h3>The licence</h3>
   <ul>
     <li><strong>Price.</strong> A licence costs 20 US dollars once, plus any tax shown at checkout. It is not a subscription, and it includes the desktop updates we publish. It is for one person, on up to 3 devices that person uses: each computer running the desktop app takes one of the 3 places; signing in to the website in a web browser takes none. A licence covers every role on the device. We also give some licences for free; they work the same way, but may cover a different number of devices and may have an end date, which we tell you when we give one.</li>
     <li><strong>Buying.</strong> Licences are sold through Stripe. The seller named on your receipt (Link, LLC) takes the payment, charges any tax and sends the receipt, and your licence code is shown as soon as you have paid, and emailed to you. You are buying a licence to use Tourbook, not ownership of a copy of it.</li>
     <li><strong>Signing in and activating.</strong> On the website, sign in with the email address your licence belongs to (Settings → About &amp; licence → Sign in): we email you a 6-digit code to type in. In the desktop app, enter your licence code (Settings → About &amp; licence → Enter licence code): the first time a licence is used on a computer, Tourbook adds that computer online. After that it checks about once a week that the computer is still on the licence, and a signed-in website checks about once a day; each needs the internet at least once every 90 days. You can free a computer’s place yourself at any time (Release this computer), which needs the internet, and sign out of the website (Sign out). When all 3 places are taken, you can move the licence from one of those computers to a new one, up to 3 times in 30 days; write to us if you need more. If we ever stop running the licence check, we will first publish an update that no longer needs it.</li>
-    <li><strong>Changing your mind.</strong> If you bought a licence, you can cancel within 14 days of buying, for any reason, and get all your money back. Tell us in any words, by replying to the email your licence came in or by emailing <!--email_off--><a href="mailto:support@crowmade.app">support@crowmade.app</a><!--/email_off-->, or ask Link (support.link.com). We refund you within 14 days, to the way you paid. A fully refunded licence stops working on its devices at their next check. If Tourbook is faulty, you also have the rights in section 16, which last longer than 14 days.</li>
+    <li><strong>Changing your mind.</strong> If you bought a licence, you can cancel within 14 days of buying, for any reason, and get all your money back. Tell us in any words, by replying to the email your licence came in or by emailing <!--email_off--><a href="mailto:support@crowmade.app">support@crowmade.app</a><!--/email_off-->, or ask Link (support.link.com). We refund you within 14 days, to the way you paid. A fully refunded licence stops working on its devices at their next check. If Tourbook is faulty, you also have the rights in <a href="#your-rights">section 16</a>, which last longer than 14 days.</li>
     <li><strong>Keeping it yours.</strong> Do not share, sell or publish your code, or let others sign in with your email address. We may cancel a licence that was refunded or charged back, obtained by fraud, or whose code was published or used by other people. Except for a refund, a chargeback or fraud, we will tell you first, where we have a way to reach you, and give you 14 days to explain or put things right. A cancelled licence stops working on each of its devices at that device’s next check (about a week on a computer, about a day on the website): the working roles there go back to their free days if any are left, and are read-only after that, and the website is signed out. The Audiophile role stays free.</li>
   </ul>
 
-  <h2>4. Bookings, venues, day sheets and the tools</h2>
+  <h2 id="bookings">4. Bookings, venues, day sheets and the tools</h2>
   <ul>
-    <li>The calendar shows what you enter. Overlap notes, the “after curfew” mark, set lengths and running orders are worked out from the times you enter: they are aids for planning, and are wrong or missing when a time is.</li>
-    <li>A venue’s house rules (cameras, phones, the age limit, bags and the rest), curfew and noise limit are what you entered, or what the made-up sample came with, not the venue’s own policy. Check a venue’s times and rules with the venue.</li>
-    <li>Day sheets, press kits, riders, input lists and stage plots are made from what you enter. Tourbook does not check any of it. A day sheet link is a copy from when it was made and does not update itself. Check each one before you send it, send a new one whenever plans change, and make sure everyone gets current safety and emergency information from you, the promoter or the venue, not from Tourbook alone.</li>
-    <li>The tuner, the metronome, tap tempo, the set timer, address lookups, map pins and directions give estimates for planning. They can be wrong, late or unavailable.</li>
-    <li>The sound level meter is not a calibrated instrument, even with an offset you set against another meter. Do not use it to protect your hearing or anyone else’s, or to decide whether a show keeps to a legal noise limit. Follow the venue’s rules, the law and your own professional judgement.</li>
+    <li>The calendar shows what you enter. Overlap and clash notes (a show at the same time as another, or a person or a piece of gear on two bookings), curfew and the other warnings about a venue, the “after curfew” mark, off-stage times, setlist lengths and the running order’s warnings are worked out from what you enter: they are aids for planning, and can be wrong or missing, for example when a time is.</li>
+    <li>A venue’s house rules (cameras, phones, the age limit, bags and the rest), curfew and noise limit are what you entered, or what the sample data came with (Settings → Sample data), not the venue’s own policy. Check a venue’s times and rules with the venue.</li>
+    <li>Day sheets, press kits, riders, input lists and stage plots are made from what you enter. Tourbook does not check that any of it is right or complete. A day sheet link is a copy from when it was made and does not update itself. Check each one before you send it, send a new one whenever plans change, and make sure everyone gets current safety and emergency information from you, the promoter or the venue, not from Tourbook alone.</li>
+    <li>The tuner, the metronome, tap tempo and the set timer are aids for practice and timing, and address lookups, map pins and directions are aids for planning. Any of them can be wrong, late or unavailable.</li>
+    <li>The sound level meter is not a calibrated instrument, even with an offset you set against another meter. Do not use it to protect your hearing or anyone else’s, or to decide whether a show keeps to a legal noise limit. Follow the venue’s rules, the law and your own judgement.</li>
     <li>Reminders and questions such as “Did you see them?” appear only when Tourbook is open. Tourbook does not remind you about shows, sessions, deposits or insurance renewals while it is closed. Do not rely on Tourbook alone for deadlines.</li>
   </ul>
 
-  <h2>5. Sessions, songs and acts</h2>
+  <h2 id="songs">5. Sessions, songs, acts and My card</h2>
   <ul>
     <li>The session clock and take logs hold only what you tap and type: times, take numbers, ratings and notes. Tourbook records no audio and keeps none of your recordings or files: they stay yours, wherever you keep them. Check your recordings and files yourself before you rely on a take log or delete anything.</li>
-    <li>Songs and split sheets are records you keep, with the writers, publishers, shares and codes (PRO, IPI, ISRC) you type in. Tourbook adds up the shares and warns when they do not make 100%; it cannot know who wrote what. A split sheet in Tourbook, printed or not, is not a registration of a song and not a publishing or royalty agreement, and Tourbook is not a party to anything the writers sign. Tourbook registers nothing with any collecting society, PRO or publisher, and collects no royalties or other money for anyone.</li>
-    <li>Scores, “Did you see them?” answers and the notes you keep on acts, scouting notes included, are your own opinions. Tourbook does not put them on the press kits, riders, day sheets, quotes, invoices or links it makes. If you share them, you are responsible for what you share, as you would be for anything you say about someone.</li>
+    <li>Songs and split sheets are records you keep, with the writers, their shares, PROs and IPI numbers, the publishers and the ISRC you type in. Tourbook adds up the shares and warns when they do not make 100%; it cannot know who wrote what. A split sheet is not a registration of a song or a publishing deal. The printed split sheet is a form for the writers to check and sign: what a signed one means is between them, under the law that applies to them. Tourbook is not a party to it or to anything else the writers sign, and does not check or enforce it. Tourbook registers nothing with any collecting society, PRO or publisher, and collects no royalties or other money for anyone.</li>
+    <li>Scores, “Did you see them?” answers and the notes you keep on acts, from scouting notes to what you thought of a set, are your own opinions: if you share them, you are responsible for what you share, as you would be for anything you say about someone. Tourbook does not put them on the press kits, riders, day sheets, quotes, invoices or links it makes. A booking’s notes are different: they go on its day sheet unless you leave them off there, so keep your opinions out of a booking’s notes, or leave the notes off its day sheet.</li>
     <li>My card shows the contact details you put on it to whoever scans its code, and gives them as a file or through your device’s share sheet when you choose. Put on it only what you are happy to give out.</li>
-    <li>A sample-work link opens a page on another service, under that service’s terms, and its QR code opens whatever the link points to. Anyone who has the link or scans the code can open that page, unless the service itself limits who can. Share only work you are allowed to share.</li>
+    <li>A sample-work link opens a page on another service, under that service’s terms, and the QR code on the act’s card opens whatever that link points to (with no sample-work link, the act’s first link). Anyone who has the link or scans the code can open that page, unless the service itself limits who can. Share only work you are allowed to share.</li>
   </ul>
 
-  <h2>6. Money, gear and insurance</h2>
+  <h2 id="money">6. Money, gear and insurance</h2>
   <ul>
     <li>Deals, splits, settlements, each person’s share and the money totals are sums on what you enter. Check them against your agreement and the venue’s figures before anyone is paid.</li>
     <li>Tourbook suggests lines and does the arithmetic, but you must check every quote and invoice each time you send, print or link it: the prices, taxes, totals, currency, dates, your payment details and anything the law where you work requires. Each copy is made from your settings at that moment, so changing your currency, payment or business details also changes copies you make later of older documents.</li>
-    <li>Pay buttons open another service (PayPal, Venmo, Cash App, Monzo, Revolut or a payment page of your own), with the amount filled in where that service allows it. Some services work in one currency only, and a button does not show which currency it uses. Before you send an invoice, open each Pay button yourself and check the amount, the currency and the account. We are not responsible for a payment made in the wrong amount or currency, or to the wrong account.</li>
+    <li>Pay buttons open another service (PayPal, Venmo, Cash App, Monzo, Revolut or a payment page of your own), with the amount filled in where that service allows it. Some services work in one currency only, and a button does not show which currency it uses. Before you send an invoice, open each Pay button yourself and check the amount, the currency and the account. Check your bank details and the bank-transfer QR code too: the code fills in the amount only on an invoice in euros. We are not responsible for a payment made in the wrong amount or currency, or to the wrong account.</li>
     <li>Tourbook never handles money. Any payment, fee, deposit, refund, chargeback or dispute is between you, the other person and the payment service, under its terms. Tourbook is not told whether a payment was made.</li>
     <li>Tourbook does not check who made a quote or invoice, what it says, or the payment details on it. A Tourbook link shows only what the person who made it put in. Anyone can make or change one, so a link is not proof of who sent it, of an agreement or of a payment. You are responsible for everything in the links you create, including the payment details.</li>
     <li>Your tax, accounting and record-keeping duties stay yours.</li>
     <li>Backline values and “your investment” add up what you enter; they are not a valuation. The insurance section records the policies you enter and compares your cover with the backline value you logged. Those records are notes, not insurance and not insurance advice: they do not tell you whether a loss is covered.</li>
   </ul>
 
-  <h2>7. Your information, backups and security</h2>
+  <h2 id="your-information">7. Your information, backups and security</h2>
   <p>Tourbook keeps what you enter on your own device, and in your own Google Drive only if you connect it. We do not hold a copy.</p>
-  <p>Keeping backups is your responsibility. Saving backup files and connecting Google Drive are free, for every role, with or without a licence. Information can be lost in many ways, for example:</p>
+  <p>Keeping backups is your responsibility. Saving backup files and connecting Google Drive are free, for every role, with or without a licence. Google Drive works once Tourbook’s Google sign-in is switched on; until then Tourbook says Google Drive isn’t set up yet. Information can be lost in many ways, for example:</p>
   <ul>
     <li>clearing your browser’s data, uninstalling Tourbook, or losing or breaking the device;</li>
     <li>a browser removing a website’s stored data on its own, as Safari may for a site that has not been opened for a while unless Tourbook is added to the home screen;</li>
@@ -130,36 +177,50 @@
   <p>With Google Drive, Tourbook keeps its copy and its daily copies in a hidden folder of your Drive that only Tourbook can open, not as files you can see. If Tourbook stops working with Google Drive, or stops being offered, you may not be able to get them back. So also save a backup file you can open yourself now and then (☁ → Save a backup), and keep it somewhere safe.</p>
   <p>Tourbook has no PIN or lock of its own: anyone who can use your device and its browser can open Tourbook and see what is in it. The copy in your Google Drive is protected only by your Google account. You are responsible for keeping your devices, accounts, passwords and backup files secure.</p>
 
-  <h2>8. Other people’s details, and what you send</h2>
+  <h2 id="other-people">8. Other people’s details, and what you send</h2>
   <p>You can keep details about band members, session players, crew, promoters, agents, venue contacts and other people in Tourbook, including the names on a guest list and the writers on a split sheet. When you do, you decide what is kept and why, and you are responsible for being allowed to keep and use it, including under any data-protection law that applies to you. We never receive that information.</p>
-  <p>Deleting someone in Tourbook removes their record from this device and, with Google Drive connected, from your other devices when they next sync. Their name stays where it was copied or typed, such as quotes, invoices, day sheets, settlements, line-ups, guest lists, split sheets and notes, so change those too. It does not remove them from backup files, from Google Drive’s daily copies until those are replaced, or from documents, links and calendar files already sent. A device that has not synced for about six months, or an old backup you bring back, can bring deleted records back. If you need someone’s details gone, delete them in those places too.</p>
-  <p>You decide who receives what you send from Tourbook, and whoever gets a file, a printout or a copied text from you (a press kit, rider, door list, split sheet, setlist, take log, calendar file, contact card or backup) can keep it. Anyone who has a day sheet, quote or invoice link can read what is in it, including names and contact details. A day sheet carries the show’s times, the address, the line-up, the setlist, the guest list and the contacts you put on it, and never any money (the deal, fees, settlement or budget). A sent link cannot be withdrawn or changed: if you correct a document, send a new link and tell the people who have the old one that it is out of date. Links open through Tourbook’s website and may stop working if Tourbook changes or stops, so keep a printed copy or a PDF as your record.</p>
+  <p>Deleting someone in Tourbook removes their record from this device and, with Google Drive connected, from your other devices when they next sync. It also takes them off line-ups, settlement shares, an act’s members and the gear they own or paid for. Their name stays where it was typed or copied, so change those too: a booking’s contact and running order, guest lists, split sheets and notes, and quotes and invoices already made. It does not remove them from backup files, from Google Drive’s daily copies until those are replaced, or from documents, links and calendar files already printed, copied or sent, day sheets and settlements among them. A device that has not synced for about six months, or an old backup you bring back, can bring deleted records back. If you need someone’s details gone, delete them in those places too.</p>
+  <p>You decide who receives what you send from Tourbook:</p>
+  <ul>
+    <li>Whoever gets a file, a printout or a copied text from you (a press kit, rider, door list, split sheet, setlist, take log, calendar file, contact card or contacts file, spreadsheet, backline inventory or backup) can keep it.</li>
+    <li>Anyone who has a day sheet, quote or invoice link can read what is in it, including names and contact details.</li>
+    <li>A day sheet carries what the day needs: the times, the place and its address, the running order, who is playing and the contacts (yours among them) with phone numbers and email addresses, the setlist and songs, what is due, backline, hospitality and accommodation, how many are on the guest list (and their names, only if you choose), and the booking’s notes unless you leave them off. It never carries any money (the deal, fees, settlement or budget), unless you type it into those notes.</li>
+    <li>A sent link cannot be withdrawn or changed: if you correct a document, send a new link and tell the people who have the old one that it is out of date.</li>
+    <li>Links open through Tourbook’s website and may stop working if Tourbook changes or stops, so keep a printed copy or a PDF as your record.</li>
+  </ul>
 
-  <h2>9. Other services</h2>
-  <p>OpenStreetMap (maps and address search), Google Drive and Google’s sign-in (only if you connect Google Drive), the map apps that directions open (Google Maps, Apple Maps), the payment services your Pay buttons open, the pages your links and sample-work links open, Cloudflare (which hosts Tourbook, its licence server and the desktop app’s downloads at tourbook-download.crowmade.app), Stripe and Link (which sell licences) and Resend (which emails licence codes and sign-in codes) are run by others under their own terms and privacy policies. When you use one, you are responsible for following its terms, for your account with it, and for any storage or costs it involves. We are not responsible for those services: whether they are available, how they change, or what they do with your information. Tourbook may stop working with a service if that service changes or withdraws access. Cloudflare, Link, Stripe and Resend help us run and sell Tourbook: if you are a consumer, we stay responsible to you for what these terms promise, even when it depends on them.</p>
+  <h2 id="other-services">9. Other services</h2>
+  <p>These are run by others, under their own terms and privacy policies:</p>
+  <ul>
+    <li>OpenStreetMap (maps and address search);</li>
+    <li>Google Drive and Google’s sign-in (only if you connect Google Drive), and the map apps that directions open (Google Maps, Apple Maps);</li>
+    <li>the payment services your Pay buttons open, and the pages an act’s links and sample-work links open;</li>
+    <li>Cloudflare (which hosts Tourbook, its licence server and the desktop app’s downloads at tourbook-download.crowmade.app), Stripe and Link (which sell licences) and Resend (which emails licence codes and sign-in codes).</li>
+  </ul>
+  <p>When you use one, you are responsible for following its terms, for your account with it, and for any storage or costs it involves. We are not responsible for those services: whether they are available, how they change, or what they do with your information. Tourbook may stop working with a service if that service changes or withdraws access. Cloudflare, Link, Stripe and Resend help us run and sell Tourbook: if you are a consumer, we stay responsible to you for what these terms promise, even when it depends on them.</p>
 
-  <h2>10. Using Tourbook fairly</h2>
+  <h2 id="fair-use">10. Using Tourbook fairly</h2>
   <p>Use Tourbook lawfully. Do not use it to store or send unlawful material, to harass or spam anyone, or to infringe other people’s rights, including in files you import and in work you share through a sample-work link. Do not use Tourbook to make a quote, invoice, day sheet, split sheet or link that pretends to come from someone else, asks for money that is not owed, or is otherwise false or misleading. Do not use it to interfere with the services it connects to, or misuse Tourbook’s sign-in registration with Google.</p>
   <p><strong>Export and sanctions.</strong> Do not use, export or re-export Tourbook where export control or sanctions laws forbid it, including those of the United States, the UK and the EU. You confirm that you are not in a country or region under an embargo by any of them, and that you are not on any of their lists of people or organisations that may not be supplied.</p>
 
-  <h2>11. Updates, support and changes to Tourbook</h2>
-  <p>We give the support, fixes and updates the law requires (section 16), and no more: we are not obliged to add features, and we answer email about Tourbook when we can. We may change, add or remove features, or stop offering Tourbook, at any time. If we decide to stop offering Tourbook, we will try to say so in the app first, and to let everyone save their information, licence or not.</p>
+  <h2 id="updates">11. Updates, support and changes to Tourbook</h2>
+  <p>We give the support, fixes and updates the law requires (<a href="#your-rights">section 16</a>), and no more: we are not obliged to add features, and we answer email about Tourbook when we can. We may change, add or remove features, or stop offering Tourbook, at any time. If we decide to stop offering Tourbook, we will try to say so in the app first, and to let everyone save their information, licence or not.</p>
   <p>Updates reach the web app automatically. On Windows, Linux and a signed Mac, the desktop app downloads updates by itself and installs them when you restart or close it. Otherwise (a Mac copy that is not signed), Settings → About shows when a new version is out, with a link to download it.</p>
 
-  <h2>12. Who owns what, and your right to use Tourbook</h2>
-  <p>What you put into Tourbook, from your songs and lyrics to your notes, is yours, and we claim no rights in it.</p>
-  <p>We give you a personal, non-exclusive, non-transferable licence to install and use Tourbook for your own personal or business purposes, including paid work, as long as you follow these terms (the Audiophile role is for following shows and bands, and the working roles need a licence after their free days: <a href="#paid">section 3</a>). This gives you no other rights in Tourbook’s code, name or design. We may end your licence if you seriously or repeatedly break these terms; unless it is fraud, we will tell you first, where we have a way to reach you, and give you a reasonable chance to put it right. You can end it at any time by stopping using Tourbook.</p>
+  <h2 id="ownership">12. Who owns what, and your right to use Tourbook</h2>
+  <p>We claim no rights in what you put into Tourbook, from your songs and lyrics to your notes: what is yours stays yours.</p>
+  <p>We give you a personal, non-exclusive, non-transferable licence to install and use Tourbook for your own personal or business purposes, including paid work, as long as you follow these terms (the Audiophile role is free; the working roles need a licence after their free days: <a href="#paid">section 3</a>). This gives you no other rights in Tourbook’s code, name or design. We may end your licence if you seriously or repeatedly break these terms; unless it is fraud, we will tell you first, where we have a way to reach you, and give you a reasonable chance to put it right. You can end it at any time by stopping using Tourbook.</p>
   <p>The Tourbook name, icon and design belong to the developer. Being able to read Tourbook’s source code does not by itself give permission to copy, change or publish it, except as a licence published with the code allows. Parts of Tourbook made by others keep their own licences. Those in the website are listed, with their licence texts, in <a href="vendor/LICENSES.md">the open-source licences</a>, and the desktop app also includes the licences of Electron, Chromium and the libraries it uses.</p>
 
   <section class="important" id="liability">
     <h2>Important: no warranty, and limits on our liability</h2>
 
     <p>Sections 13 and 14.2 to 14.5 apply if you use Tourbook for your business or profession. If you use it as a consumer, section 14.6 applies instead. Section 14.7 applies to everyone.</p>
-    <h3>13. No warranty for business use (subject to section 16)</h3>
+    <h3 id="no-warranty">13. No warranty for business use (subject to section 16)</h3>
     <p class="clause"><strong>If you use Tourbook for your business or profession, Tourbook is provided “as is” and “as available”. We make no promises or warranties of any kind, express or implied,</strong> including any implied warranty of merchantability, satisfactory quality, fitness for a particular purpose, accuracy or non-infringement, or any warranty arising from course of dealing or usage of trade. We do not promise that Tourbook will be secure, free of errors or available without interruption, that it will work with any other service, or that information will not be lost.</p>
     <p class="clause">We describe Tourbook as accurately as we can, in the app, its guides and on our website. If you are a consumer, those descriptions are part of what we must supply. If you use Tourbook for a business, they explain how Tourbook is meant to work, and where they seem to say more than these terms, these terms apply. The privacy policy says how we handle information, and we keep to it.</p>
 
-    <h3>14. Limits on our liability (subject to section 16)</h3>
+    <h3 id="limits">14. Limits on our liability (subject to section 16)</h3>
     <p class="clause"><strong>14.1</strong> This section applies to every kind of claim, including a claim for breach of contract, for negligence, for breach of a legal duty or for misrepresentation.</p>
     <p class="clause"><strong>14.2 For business use, we are not liable for any indirect, incidental, special, consequential or punitive loss.</strong></p>
     <p class="clause"><strong>14.3 For business use, we are not liable for loss or corruption of information or recordings; for lost income, profit, business, contracts, clients, bookings, goodwill or savings; or for a missed show, session, deadline or payment.</strong></p>
@@ -169,16 +230,16 @@
     <p class="clause"><strong>14.7</strong> Nothing in these terms excludes or limits our liability for death or personal injury caused by our negligence, for fraud, for loss we caused deliberately or by gross negligence, or for anything else that the law that applies to you does not allow us to exclude or limit.</p>
   </section>
 
-  <h2>15. Claims caused by your use</h2>
+  <h2 id="claims">15. Claims caused by your use</h2>
   <p>If you use Tourbook for a business, you will cover our reasonable losses and costs, including reasonable legal fees, from a claim someone else brings against us because you broke these terms or the law, or because of what you chose to put in information, documents or links you kept or sent using Tourbook. This does not apply to the extent that we caused the claim. We will tell you about the claim promptly, let you take part in defending it, and not settle it without your agreement, which you will not unreasonably refuse.</p>
 
-  <h2>16. Your rights under the law</h2>
+  <h2 id="your-rights">16. Your rights under the law</h2>
   <p>Some laws give you rights that cannot be taken away by any agreement. Nothing in these terms takes those rights away, and sections 13 to 15 apply to you only as far as the law that applies to you allows.</p>
   <p>If you use Tourbook as a consumer (not for your business or profession):</p>
   <ul>
     <li>In the UK, Tourbook must be as described, fit for purpose and of satisfactory quality. If it is not, you can ask us to repair or replace it, and if we cannot, or do not within a reasonable time and without significant inconvenience to you, you can get some or all of your money back. If Tourbook damages your device or other digital content because we did not use reasonable care and skill, we will repair the damage or pay you compensation (Consumer Rights Act 2015).</li>
     <li>In the EU, Tourbook must conform to these terms and to what you can reasonably expect, including the updates needed to keep it working and secure. If it does not, you can ask us to put it right, and if we do not, you can have the price reduced, or end the agreement and get your money back.</li>
-    <li>In California, our name and email address are in section 1 (our postal address and phone number are available upon request), the price is in section 3, and you can raise a complaint with us as section 20 describes. Under Civil Code section 1789.3, you may also contact the Complaint Assistance Unit of the Division of Consumer Services of the California Department of Consumer Affairs (its Consumer Information Center) in writing at 1625 North Market Blvd., Suite N 112, Sacramento, CA 95834, or by phone on (800) 952-5210.</li>
+    <li>In California, our name and email address are in <a href="#who">section 1</a> (our postal address and phone number are available upon request), the price is in <a href="#paid">section 3</a>, and you can raise a complaint with us as <a href="#contact">section 20</a> describes. Under Civil Code section 1789.3, you may also contact the Complaint Assistance Unit of the Division of Consumer Services of the California Department of Consumer Affairs (its Consumer Information Center) in writing at 1625 North Market Blvd., Suite N 112, Sacramento, CA 95834, or by phone on (800) 952-5210.</li>
     <li>Elsewhere, you keep any rights that consumer law where you live gives you and that cannot be excluded.</li>
   </ul>
   <p><strong>Australia.</strong> If the Australian Consumer Law applies to you, Tourbook comes with guarantees that cannot be excluded, and that law can apply even if you use Tourbook for your business. Nothing in these terms excludes, restricts or changes those guarantees. Tourbook’s working roles are not of a kind ordinarily bought for personal, domestic or household use, so, where that law allows, our liability for failing to meet a guarantee is limited to replacing Tourbook or supplying equivalent software, repairing it, or paying the cost of doing so, unless it would not be fair or reasonable for us to rely on this limit.</p>
@@ -193,12 +254,12 @@
     <li>Uninstall Tourbook. Uninstalling alone may leave Tourbook’s information on the device (the desktop app keeps it in its own folder), which is why erasing comes first.</li>
     <li>To have your licence records removed, use Delete my licence records under Settings → About &amp; licence while you are signed in on the website (it removes the email address your licence is linked to), and Release this computer in the desktop app on each of your computers (it takes that computer off your licence), or email <!--email_off--><a href="mailto:support@crowmade.app">support@crowmade.app</a><!--/email_off-->.</li>
   </ol>
-  <p>Sections 2 and 4 to 9, the refund and cancellation parts of section 3, and sections 12 to 16 and 19 still apply after you stop.</p>
+  <p>Sections 2 and 4 to 9, the refund and cancellation parts of section 3, section 12 except your right to use Tourbook, and sections 13 to 16 and 19 still apply after you stop.</p>
 
-  <h2>18. Changes to these terms</h2>
+  <h2 id="changes">18. Changes to these terms</h2>
   <p>We may update these terms, for example to cover new features, changes in the law or changes to the services Tourbook connects to. When they change, Tourbook shows you the new terms the next time you use a working role and asks you to agree before you carry on in it. As an Audiophile, carrying on using Tourbook after the new terms are published means you agree to them. A change does not apply to anything that happened before it took effect. If you do not agree, you can stop using Tourbook, or carry on free as an Audiophile: your information stays where it is, and you can save a backup file of it at any time. Each version is dated at the top.</p>
 
-  <h2>19. General</h2>
+  <h2 id="general">19. General</h2>
   <p><strong>Whole agreement.</strong> These terms are the whole agreement between you and us about Tourbook and replace anything said before. This does not limit liability for anything said fraudulently, or anything consumer law treats as part of the agreement.</p>
   <p><strong>Transfer.</strong> We may transfer this agreement to someone who takes over Tourbook. We will tell you in the app and on tourbook.crowmade.app, and by email if we have your address, and the transfer will not reduce your rights under these terms. If you do not want to continue, you can stop using Tourbook. You may not transfer your rights under these terms.</p>
   <p><strong>Notices.</strong> We give notices in the app and on tourbook.crowmade.app, and by email if we have your address. You can send us a formal notice by email to <!--email_off--><a href="mailto:support@crowmade.app">support@crowmade.app</a><!--/email_off-->, or by post to our postal address, which we give upon request.</p>
@@ -208,7 +269,7 @@
   <p><strong>Nobody else.</strong> Only you and we can enforce these terms. They give no rights to anyone else.</p>
   <p><strong>Separate parts.</strong> Each section, and each sentence within a section, is separate. If a court decides that one cannot be enforced, the rest still apply. If we do not enforce part of these terms straight away, we can still enforce it later.</p>
 
-  <h2>20. Contact</h2>
+  <h2 id="contact">20. Contact</h2>
   <p>Email <!--email_off--><a href="mailto:support@crowmade.app">support@crowmade.app</a><!--/email_off--> about anything to do with Tourbook, including anything private or legal, bugs and suggestions. Our postal address and phone number are available upon request.</p>
 
   <nav class="foot" aria-label="More">

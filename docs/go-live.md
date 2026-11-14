@@ -84,9 +84,11 @@ The guides each step points to:
 `terms.html` and `privacy.html` in the repository (they open in a browser from the file too). The privacy policy was
 adapted from Vdex's. The terms were rewritten for Tourbook on 14 November 2026 (decisions §20): they follow how people use
 it (who we are; what Tourbook is and is not in the music world; what is free and the licence, section 3; bookings, day
-sheets and the tools; sessions, songs and acts; money, gear and insurance; information, other people, other services),
+sheets and the tools; sessions, songs, acts and My card; money, gear and insurance; information, other people, other services),
 and sections 13 to 20 (no warranty, the liability limits, consumers' rights, stopping, changes, the law and the courts)
-are the earlier terms' words, adapted from Vdex's, unchanged but for two section numbers. Who provides Tourbook, the contact address, the law, the courts, the
+are the earlier terms' words, adapted from Vdex's, unchanged but for their references to sections 1 to 12: section 16's
+California item (name in section 1, price in section 3) and section 17's list of what still applies after you stop (which
+leaves out your right to use Tourbook, as before). A Contents fold under the short version lists the sections. Who provides Tourbook, the contact address, the law, the courts, the
 liability cap and the 14-day refund are as you published them for Vdex. Tell the developer anything to change.
 
 ## 2. Cloudflare (15 minutes)
@@ -132,8 +134,10 @@ question 2 below. Steps: `docs/licence-server.md`, Part 5.
 A new Google Cloud project named Tourbook; the Google Drive API; branding (name Tourbook, support email, home page, privacy and
 terms addresses, authorised domain crowmade.app); the one scope `…/auth/drive.appdata`; a Web application client with the
 JavaScript origins `https://tourbook.crowmade.app` and `http://localhost:47861`; publish the app; give the developer the
-client id (it goes in `js/cloud-config.js`). Until then the Google Drive card says "Not set up yet". Steps:
-`docs/drive.md`.
+client id (it goes in `js/cloud-config.js`). Until then the Google Drive card says "Not set up yet", and section 7 of the
+terms says so too ("Google Drive works once Tourbook’s Google sign-in is switched on; until then Tourbook says Google Drive
+isn’t set up yet."): once Drive works on the live site, that sentence can come out, with the terms' date and
+`TERMS_VERSION` in `js/terms.js` moved to that day. Steps: `docs/drive.md`.
 
 ## 7. Code signing (optional)
 

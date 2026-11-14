@@ -119,6 +119,10 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('#se-role .rp-card[data-role="producer"]');
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]');
       ok('picking Producer shows the terms sheet first, with its tick box and Agree off until ticked', await page.$eval('#lic-terms-agree', b => b.disabled) && /I am 18 or over, and I have read and agree to the terms of service\./.test(await page.textContent('.lic-terms-check')) && (await page.locator('.lic-terms a[href="terms.html"]').count()) > 0 && (await page.locator('.lic-terms a[href="privacy.html"]').count()) > 0);
+      // At 420×900 the sheet scrolls; it opens at its top (the free days and the price first), the tick box focused.
+      await sleep(400);
+      const top = await page.evaluate(() => { const p = document.querySelector('.lic-terms-sheet form > p'), r = p.getBoundingClientRect(); return { top: Math.round(r.top), sheet: Math.round(document.querySelector('.lic-terms-sheet').getBoundingClientRect().top), focus: document.activeElement && document.activeElement.id }; });
+      ok('…it opens at its top, its first line (the free days and the price) in view, with the tick box focused', top.top >= 0 && top.top >= top.sheet && top.focus === 'lic-terms-ok', JSON.stringify(top));
       await page.click('#lic-terms-later'); await sleep(400);
       st = await state(page);
       ok('…Not now keeps the role as it was and starts nothing', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'audiophile' && st.mode === 'unstarted' && !(await stored(page)).first && !(await page.evaluate(() => localStorage.getItem('tourbook-terms'))), JSON.stringify(st));

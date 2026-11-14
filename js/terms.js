@@ -39,7 +39,7 @@ export function askTerms({ once = '20 USD once plus any tax where you live' } = 
       // The points are the short version of terms.html word for word (but its Audiophile and price points, which the line
       // above says), in its order, linking the same sections; tests/specs/83-legal-pages checks the two stay the same.
       h('ul', { class: 'lic-terms-points' },
-        h('li', null, 'Tourbook keeps your own records of your shows, sessions, deals, songs and the people you work with. It is not an agent, promoter, manager, label or publisher, takes no part in your bookings or deals, and never handles money (', link('terms.html#what', 'section 2'), ').'),
+        h('li', null, 'Tourbook keeps your own records of your shows, sessions, deals, songs and the people you work with. It is not an agent, promoter, manager, label or music publisher, takes no part in your bookings or deals, and never handles money (', link('terms.html#what', 'section 2'), ').'),
         h('li', null, 'Your work stays on your device, and the developer never receives it. Google Drive is optional and free for everyone: it keeps your devices the same, with a dated copy each day, in a private Tourbook folder of your own Drive.'),
         h('li', null, 'Tourbook comes as it is. It can have mistakes, stop working or lose information, so keep your own backups.'),
         h('li', null, 'You stay responsible for your shows and sessions, the deals and splits you agree, what you send (day sheets, quotes and invoices), your taxes, people’s safety, and the information you keep about other people.'),
@@ -49,7 +49,8 @@ export function askTerms({ once = '20 USD once plus any tax where you live' } = 
       h('div', { class: 'actions' }, go, h('button', { type: 'button', class: 'btn ghost', id: 'lic-terms-later', onclick: () => close() }, 'Not now')));
     const { el, close } = sheet(changed ? 'The terms have changed' : 'Before you use the working roles', form, { onClose: () => { asking = null; resolve(agreed); } });
     el.classList.add('lic-terms-sheet');
-    setTimeout(() => { if (el.isConnected) box.focus(); }, 60);
+    // The tick box takes the focus without scrolling the sheet: it opens at its top, on the free days and the price.
+    setTimeout(() => { if (el.isConnected) box.focus({ preventScroll: true }); }, 60);
   });
   return asking;
 }
