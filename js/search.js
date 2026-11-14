@@ -1,6 +1,6 @@
 // Search: a box at the top of every page, in every role, under the top bar and above the section menu (it tucks away
 // with the menu when the page scrolls), and the "/" key that jumps into it. Typing in it opens the results over the page,
-// in one of Gdex's sheets whose own box takes the words and the caret where they were, so the person types on. The
+// in one of Tourbook's sheets whose own box takes the words and the caret where they were, so the person types on. The
 // results come in tabs: All (the best matches of every kind in one list), then each kind with its count: the bookings
 // (shows, sessions, rehearsals, diary entries, and the times seen in a band's log that have no booking), the bands, the
 // venues, the people, the songs, the setlists, the gear, the studio log and, for a role that sees money, the invoices
@@ -528,9 +528,9 @@ export function initSearch(bar) {
     bar.replaceChildren(label, ico, input, help);
     BOX = { bar, input, label, help };
     boxWords(); setEmpty();
-    window.addEventListener('gdex-role', () => { boxWords(); if (UI) draw(); });
+    window.addEventListener('tourbook-role', () => { boxWords(); if (UI) draw(); });
     window.addEventListener(LICENCE_EVENT, () => { boxWords(); if (UI) draw(); }); // the licence decides kinds too (searchKinds)
-    window.addEventListener('gdex-prefs', () => requestAnimationFrame(boxWords)); // a text size: the placeholder may need to be shorter, or may be longer
+    window.addEventListener('tourbook-prefs', () => requestAnimationFrame(boxWords)); // a text size: the placeholder may need to be shorter, or may be longer
     let wide = window.innerWidth;
     window.addEventListener('resize', () => { if (window.innerWidth !== wide) { wide = window.innerWidth; boxWords(); } });
   }
@@ -768,7 +768,7 @@ function openResult(el) {
   Promise.resolve(OPEN[kind](el)).catch(e => console.error(e));
 }
 
-// The results, over the page: one of Gdex's sheets with a box of its own at the top (the words, and the caret or the
+// The results, over the page: one of Tourbook's sheets with a box of its own at the top (the words, and the caret or the
 // selection the box at the top of the page had), the tabs under it, and the list. first: the focus goes to the first
 // result (↓ in the box at the top of the page).
 function openResults({ first = false } = {}) {

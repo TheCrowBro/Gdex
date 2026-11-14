@@ -164,7 +164,7 @@ const dayIso = n => { const d = new Date(); d.setDate(d.getDate() + n); return `
   ok('the list walkthrough covers the drop-down and the dates', titles.includes('Drop it open') && titles.includes('Dates coming up'), titles.join(' › '));
 
   /* dark, wide text */
-  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ scheme: 'dark', text: 'xlarge' })); });
+  await page.evaluate(() => { localStorage.setItem('tourbook-prefs', JSON.stringify({ scheme: 'dark', text: 'xlarge' })); });
   await page.reload();
   await page.waitForSelector('#deck .dk-next');
   await go(page, 'acts'); // a reload opens the calendar

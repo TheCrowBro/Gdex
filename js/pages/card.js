@@ -64,7 +64,7 @@ async function shareCard() {
 
 /* ------------------------------- Show big ------------------------------- */
 // The code alone on a plain white screen, over everything (the app under it inert), the screen kept on while it shows
-// (the tools' wake lock, asked again when Gdex comes back into sight). A tap anywhere, Escape, ✕ Close or Back closes
+// (the tools' wake lock, asked again when Tourbook comes back into sight). A tap anywhere, Escape, ✕ Close or Back closes
 // it: it adds an entry to the browser's history, which Back takes away, and which a close of any other kind takes
 // away too. The focus goes back to Show big.
 let big = null, backing = 0; // backing: Back pressed by the code itself, whose popstate is not the person's
@@ -88,7 +88,7 @@ function showBig() {
     else if (e.key === 'Tab') { e.preventDefault(); shut.focus(); } // the one control: the focus stays on it
   };
   const back = () => { if (document.visibilityState === 'visible') keepAwake(); }; // the browser lets the lock go while out of sight
-  // The focus stays on ✕ Close: a sheet that opens under it (the question when Gdex comes back after hours) cannot take
+  // The focus stays on ✕ Close: a sheet that opens under it (the question when Tourbook comes back after hours) cannot take
   // it to a button no one can see, which Enter would then press.
   const guard = e => { if (!el.contains(e.target)) shut.focus({ preventScroll: true }); };
   const state = {
@@ -101,7 +101,7 @@ function showBig() {
       document.removeEventListener('visibilitychange', back);
       document.removeEventListener('focusin', guard, true);
       letSleep();
-      if (pushed && !popped && history.state && history.state.gdexBig) { backing++; history.back(); }
+      if (pushed && !popped && history.state && history.state.tourbookBig) { backing++; history.back(); }
       // The focus back on Show big, or on a sheet that opened under it and is now on top.
       ([...document.querySelectorAll('.sheet-back .sheet')].pop() || document.getElementById('cd-big'))?.focus({ preventScroll: true });
     },
@@ -111,7 +111,7 @@ function showBig() {
   document.addEventListener('keydown', keys, true);
   document.addEventListener('visibilitychange', back);
   document.addEventListener('focusin', guard, true);
-  try { history.pushState({ gdexBig: true }, ''); pushed = true; } catch { /* no history here: a tap and Escape still close it */ }
+  try { history.pushState({ tourbookBig: true }, ''); pushed = true; } catch { /* no history here: a tap and Escape still close it */ }
   document.body.append(el); document.body.classList.add('cd-big-on');
   if (app) app.inert = true;
   keepAwake();

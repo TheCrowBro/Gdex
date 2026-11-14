@@ -43,7 +43,7 @@ const MAX_STOPS = 5; // the tour stays about a minute: the first sections on the
 // leaves on the page (data-menu: the choice in use, also when storage could not keep it), else from storage.
 const menuKind = () => {
   let m = document.documentElement.dataset.menu;
-  if (!m) { try { m = JSON.parse(localStorage.getItem('gdex-prefs') || '{}').menu; } catch { m = ''; } }
+  if (!m) { try { m = JSON.parse(localStorage.getItem('tourbook-prefs') || '{}').menu; } catch { m = ''; } }
   return m === 'tape' || m === 'digital' ? m : 'record';
 };
 // The search box at the top of every page gives the welcome tour a stop of its own, just after the section menu, in
@@ -58,7 +58,7 @@ export function welcomeSteps() {
   const bonus = offMenu(r).map(id => sectionName(id, NAMES[id]));
   const sideA = Math.ceil(menu.length / 2);
   return [
-    { title: 'Welcome to Gdex', text: r.welcome || 'The booking deck for producers and bands: shows, studio sessions and rehearsals, your acts and people, backline, venues, songs and setlists, settlements and invoices, and the tools you need on the night. This takes about a minute. Tap Skip any time.' },
+    { title: 'Welcome to Tourbook', text: r.welcome || 'The booking deck for producers and bands: shows, studio sessions and rehearsals, your acts and people, backline, venues, songs and setlists, settlements and invoices, and the tools you need on the night. This takes about a minute. Tap Skip any time.' },
     profileStep,
     { go: stopsOn[0] || 'settings', target: ['.deck'], title: 'Your sections are tracks',
       get text() {
@@ -81,9 +81,9 @@ export function welcomeSteps() {
       } },
   ];
 }
-const RESUME = 'gdex-tour-at'; // the step to resume at when a step leaves the page (a calendar sign-in that redirects)
-const done = () => { try { localStorage.setItem('gdex-tour', 'done'); } catch { /* ignore */ } };
-export const tourSeen = () => { try { return !!localStorage.getItem('gdex-tour'); } catch { return true; } };
+const RESUME = 'tourbook-tour-at'; // the step to resume at when a step leaves the page (a calendar sign-in that redirects)
+const done = () => { try { localStorage.setItem('tourbook-tour', 'done'); } catch { /* ignore */ } };
+export const tourSeen = () => { try { return !!localStorage.getItem('tourbook-tour'); } catch { return true; } };
 export const resumeTourAt = n => { try { if (n == null) localStorage.removeItem(RESUME); else localStorage.setItem(RESUME, String(n)); } catch { /* ignore */ } };
 
 // Steps for a sheet, by the sheet's title (its aria-label): sheetTutorial('Edit setlist', steps or () => steps).
@@ -95,7 +95,7 @@ export const sheetSteps = title => sheetTours.get(title) || null;
 let active = null;
 export const tourActive = () => !!active;
 // The welcome tour moves from section to section and its last card is Settings. However it ends (Done, Skip, Escape),
-// the first-run tour (first: true) leaves the person on the calendar, where Gdex opens; taken again later (from ?, Aa
+// the first-run tour (first: true) leaves the person on the calendar, where Tourbook opens; taken again later (from ?, Aa
 // or Settings) it leaves them on the section where they started it.
 export function startTour(from = 0, { first = false } = {}) {
   let at = from; try { const saved = Number(localStorage.getItem(RESUME)); if (!from && saved) at = saved; localStorage.removeItem(RESUME); } catch { /* ignore */ }
@@ -168,7 +168,7 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   const willShow = s => !s.target || !!s.go || !!s.before || !!find(s);
   const step = async n => {
     if (n < 0) return;
-    if (n >= STEPS.length) { if (!seen.size && !STEPS.some(x => !x.target)) { stop(); window.dispatchEvent(new CustomEvent('gdex-tour-empty')); return; } return stop(); }
+    if (n >= STEPS.length) { if (!seen.size && !STEPS.some(x => !x.target)) { stop(); window.dispatchEvent(new CustomEvent('tourbook-tour-empty')); return; } return stop(); }
     i = n; const s = STEPS[n];
     if (s.go) { window.logiGo?.(s.go); await new Promise(r => setTimeout(r, 650)); }
     if (s.before) { try { await s.before(); } catch { /* the step still shows */ } await new Promise(r => setTimeout(r, 250)); }

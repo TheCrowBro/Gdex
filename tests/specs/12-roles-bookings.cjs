@@ -478,7 +478,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   /* ---------------- 320px, extra-large text: the action buttons and the status sheet ---------------- */
   for (const [text, w] of [['xlarge', 320], ['large', 320], ['normal', 320], ['normal', 420]]) {
     const { browser, page, errors } = await open({ sample: true, viewport: { width: w, height: 700 } });
-    await page.evaluate(x => { localStorage.setItem('gdex-prefs', x); }, JSON.stringify(text === 'normal' ? {} : { text, targets: 'large' }));
+    await page.evaluate(x => { localStorage.setItem('tourbook-prefs', x); }, JSON.stringify(text === 'normal' ? {} : { text, targets: 'large' }));
     await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
     for (const r of ['scout', 'all']) {
       await setRole(page, r);

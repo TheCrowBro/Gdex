@@ -1,29 +1,29 @@
-// The website at https://gdex.crowmade.app: a Cloudflare Worker that serves the static files, plus a small script
-// (worker.mjs) that answers only /buy and /licence/… (Gdex's licence server: selling, activating and signing in); every
+// The website at https://tourbook.crowmade.app: a Cloudflare Worker that serves the static files, plus a small script
+// (worker.mjs) that answers only /buy and /licence/… (Tourbook's licence server: selling, activating and signing in); every
 // other address is served straight from the files without running it, but one that is none of the files, which the
 // script answers with a 404 page (not_found_handling "none"). The address is a Custom Domain: on the first
 // publish Cloudflare creates its DNS record and certificate by itself, in the crowmade.app zone, touching nothing else
 // there (not Vdex's Worker, not crowmade.app's pages). The files come from cloudflare/site, built by
 // tools/stage-site.mjs. html_handling "none" serves /index.html, /invoice.html and the rest by their own names (the
 // offline copy and every shared link use them) instead of redirecting them.
-// The publish workflow (.github/workflows/publish.yml) refuses to deploy unless the name is "gdex" and the only route
-// is gdex.crowmade.app, so a mistake here can never replace Vdex's Worker.
+// The publish workflow (.github/workflows/publish.yml) refuses to deploy unless the name is "tourbook" and the only route
+// is tourbook.crowmade.app, so a mistake here can never replace Vdex's Worker.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "gdex",
+  "name": "tourbook",
   "compatibility_date": "2026-10-01",
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [{ "pattern": "gdex.crowmade.app", "custom_domain": true }],
+  "routes": [{ "pattern": "tourbook.crowmade.app", "custom_domain": true }],
   "main": "worker.mjs",
   // Secrets and variables set in the Cloudflare dashboard stay when a new version is published.
   "keep_vars": true,
   // The computers on each licence code, which email addresses belong to which licences, and the cancelled codes. No
-  // id: Wrangler creates the namespace (gdex-licences) on the first publish and keeps using it.
+  // id: Wrangler creates the namespace (tourbook-licences) on the first publish and keeps using it.
   "kv_namespaces": [{ "binding": "LICENCES" }],
   // Each email address's sign-in code, its tries and when codes were sent to it: a Durable Object per address
   // (SignInCodes in worker.mjs), which takes one request at a time, so guesses sent together cannot get round the 5
-  // tries (KV cannot count them). Gdex's own class in this Worker; Wrangler creates it on the first publish.
+  // tries (KV cannot count them). Tourbook's own class in this Worker; Wrangler creates it on the first publish.
   "durable_objects": { "bindings": [{ "name": "SIGNIN", "class_name": "SignInCodes" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SignInCodes"] }],
   "assets": {

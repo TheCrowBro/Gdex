@@ -89,7 +89,7 @@ const sentence = (label, head) => { const i = Math.max(label.indexOf(': ' + head
   }), T);
   ok('a session, rehearsal or diary entry at 05:15 sorts by 05:15 that morning; a show’s doors at 05:15 are the end of the night', same(early.keys, [315, 315, 315, 1755]) && early.clock === '05:15' && same(early.late, [false, false, false, true]), JSON.stringify(early));
   ok('…so it comes first in its day: the 05:15 session, noon, the evening’s show, then its set after midnight', same(early.order, ['ses', 'noon', 'eve', 'late']), early.order.join(','));
-  ok('…and the calendar file puts it on the same morning Gdex does', same(early.file, [T.replace(/-/g, '') + 'T051500', T.replace(/-/g, '') + 'T070000']), JSON.stringify(early.file));
+  ok('…and the calendar file puts it on the same morning Tourbook does', same(early.file, [T.replace(/-/g, '') + 'T051500', T.replace(/-/g, '') + 'T070000']), JSON.stringify(early.file));
   ok('a tie is exactly 0, so the stored order stands; a booking with no date sorts first and never throws', m.ties.every(x => x === 0) && m.noDate.every(Boolean), JSON.stringify([m.ties, m.noDate]));
   ok('a day sorts morning, evening, after midnight, then no time', same(m.sorted, ['am', 'eve', 'late', 'none']), m.sorted.join(','));
   ok('sets that only touch do not overlap; a minute over does; a 00:30 set never meets the next night’s', m.touch === false && m.over === true && m.nextNight === false);
@@ -157,7 +157,7 @@ const sentence = (label, head) => { const i = Math.max(label.indexOf(': ' + head
   await page.evaluate(() => import('./js/roles.js').then(r => r.setRole('scout'))); await sleep(400);
   coming = await cards();
   ok('a scout sees the same order and the same notes', same(coming.map(c => c.id), LIVE) && note('o-E') === 'Overlaps with Sable, 21:30' && note('o-A') === 'Overlaps with The Night Owls, 21:00', coming.map(c => c.id + ':' + c.note).join(' | '));
-  await page.evaluate(() => { localStorage.removeItem('gdex-role'); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+  await page.evaluate(() => { localStorage.removeItem('tourbook-role'); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
 
   /* ---------------- an act's dates, a person's bookings, a venue's bookings ---------------- */
   await put(page, 'acts', { id: 't-act', name: 'Test Pilots' });

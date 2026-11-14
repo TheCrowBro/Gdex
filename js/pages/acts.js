@@ -200,7 +200,7 @@ function namesEditor(a) {
   return { node, read: () => rows.map(r => ({ name: r.name.trim(), until: r.until })).reverse() };
 }
 
-// "New name?": one of Gdex's own sheets, over the act form, asked once as a changed name is saved. It shows the old
+// "New name?": one of Tourbook's own sheets, over the act form, asked once as a changed name is saved. It shows the old
 // and the new name, a "Since when?" day (today; it can go back to the day the old name began, `since`, never past
 // today) and two answers. onPick({ kind: 'new' | 'fix', since }) after an answer; closing it without one gives none:
 // the form under it is as it was, and back() puts the focus in it.
@@ -742,7 +742,7 @@ const listSteps = () => {
     { title: yours(), text: (logged ? 'Each card shows their dates coming up on the calendar and, once you log a time you saw them play, how many times, your average and latest score out of 100.' : 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.')
       + (db.acts.some(x => formerName(x)) ? ' “formerly …” under a name is the name they had before.' : '')
       + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'], before: inGroups ? openFirstGroup : undefined },
-    inGroups && { title: 'Main genres', text: `Your ${w}s are grouped by main genre, A to Z. Gdex works it out from the genre typed: indie rock and folk rock are Rock, doom folk is Folk, and a genre it doesn’t know goes under Unique; ${w}s with no genre come last, under No genre yet. Tap a heading to drop its ${w}s down or fold them away. ${/^[aeiou]/.test(w) ? 'An' : 'A'} ${w}’s ✎ Edit sets its main genre by hand.`, target: ['.ac-group-head'] },
+    inGroups && { title: 'Main genres', text: `Your ${w}s are grouped by main genre, A to Z. Tourbook works it out from the genre typed: indie rock and folk rock are Rock, doom folk is Folk, and a genre it doesn’t know goes under Unique; ${w}s with no genre come last, under No genre yet. Tap a heading to drop its ${w}s down or fold them away. ${/^[aeiou]/.test(w) ? 'An' : 'A'} ${w}’s ✎ Edit sets its main genre by hand.`, target: ['.ac-group-head'] },
     { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. You can log a time you saw them play there too; once you have, the card keeps the log: when, where, the score and your notes.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
     { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
     sampleStep(), // Sample work on an open card: a producer, a manager and Jack of Trades
@@ -797,12 +797,12 @@ export const acts = {
 
 // The press kit is named only for a role that keeps it on the act's page.
 // Changing a name is asked about only in the Edit form (a new act has no name to change).
-const RENAME_HELP = ' Change it and Gdex asks whether it is a new name or a spelling fix: a new name keeps the old one, shown as “formerly …”.';
+const RENAME_HELP = ' Change it and Tourbook asks whether it is a new name or a spelling fix: a new name keeps the old one, shown as “formerly …”.';
 const formSteps = () => [
   { title: 'Name', text: (hasTab('epk') ? 'The band or artist name, as it goes on posters and the press kit.' : 'The band or artist name, as it goes on posters.') + (document.querySelector('.sheet[aria-label="Edit act"]') ? RENAME_HELP : ''), target: ['input[data-key=name]'] },
   { title: 'Earlier names', text: 'Names the act had before, each with the day it stopped using that name. The latest shows under the name as “formerly …”, and bookings and scores from before that day say which name it had. Add one by hand if the name changed before you kept the act here; ✕ takes one away.', target: ['.ac-was'] },
   // In words that fit a band and a solo artist alike, as the rest of the form's walkthrough (the hint names the list).
-  { title: 'Main genre', text: 'The heading it sits under on the list. Automatic works it out from the genre and shows what it found: indie rock and folk rock are Rock, and a genre Gdex doesn’t know is Unique. Pick a main genre to choose it yourself.', target: ['select[data-key=mainGenre]'] },
+  { title: 'Main genre', text: 'The heading it sits under on the list. Automatic works it out from the genre and shows what it found: indie rock and folk rock are Rock, and a genre Tourbook doesn’t know is Unique. Pick a main genre to choose it yourself.', target: ['select[data-key=mainGenre]'] },
   { title: 'Colour', text: 'The stripe on the act’s cards, so its bookings and songs are quick to tell apart.', target: ['select[id$="-color"]'] },
   { title: 'Links', text: hasTab('epk') ? 'One per line: a name, a colon, the address. They become buttons on the act, lines on the press kit, and the first one is its QR code.' : 'One per line: a name, a colon, the address. They become buttons on the act.', target: ['textarea[data-key=links]'] },
   sampleFormStep(), // Sample work, for the roles that have it

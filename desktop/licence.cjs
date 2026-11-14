@@ -1,10 +1,10 @@
-// The desktop app's licence: Gdex's working roles are free for 30 days on this computer, counted from the first time
+// The desktop app's licence: Tourbook's working roles are free for 30 days on this computer, counted from the first time
 // one is used here (the page asks start() then), and after that need a licence code (bought for 20 USD, or a free one
 // from the owner). The Audiophile role never needs one; the page decides which role is in use (js/licence-state.js),
 // so "read-only" here means "the paid roles and sections may not change things". A code covers up to 3 computers: the
-// first time a code is used on a computer, Gdex activates it online at gdex.crowmade.app, which keeps a list of the
+// first time a code is used on a computer, Tourbook activates it online at tourbook.crowmade.app, which keeps a list of the
 // computers using each code (a random ID made for this install and "Mac", "Windows" or "Linux"; nothing about the
-// person or the hardware). After that Gdex checks about once a week that this computer is still on the list, and needs
+// person or the hardware). After that Tourbook checks about once a week that this computer is still on the list, and needs
 // the internet at least once every 90 days.
 //
 // Everything else is decided here, offline: the code's signature, the free-day count, and what the page may do.
@@ -25,20 +25,20 @@ const DAY = 86400e3, HOUR = 3600e3;
 const RECHECK = 7 * DAY;          // a licensed computer confirms it is still on the code's list about once a week
 const OFFLINE_LIMIT = 90 * DAY;   // and has to reach the internet at least once in 90 days
 const PENDING_LIMIT = 14 * DAY;   // a code entered with no connection works for 14 days before it must be activated
-const EARLIEST = Date.UTC(2026, 0, 1); // no free days started before Gdex had a licence
-const SITE = 'https://gdex.crowmade.app';
+const EARLIEST = Date.UTC(2026, 0, 1); // no free days started before Tourbook had a licence
+const SITE = 'https://tourbook.crowmade.app';
 const OS = { darwin: 'Mac', win32: 'Windows', linux: 'Linux' };
 
 const MESSAGES = {
   cancelled: 'This code has been cancelled, for example after a refund. If you think that is a mistake, reply to the email your code came in.',
   swaps: 'This code has been moved between devices 3 times in the last 30 days, so it cannot move again yet. Reply to the email your code came in and we will sort it out.',
   invalid: 'The licence server does not recognise this code. Check you copied all of it, or reply to the email your code came in.',
-  vdex: 'This is a Vdex licence code. Gdex has its own licence: buy one at gdex.crowmade.app.',
-  off: 'This version of Gdex does not use licence codes yet: every role is free.',
-  offline: 'Gdex could not reach the licence server. Connect to the internet and try again, so the code can be used on another computer.',
+  vdex: 'This is a Vdex licence code. Tourbook has its own licence: buy one at tourbook.crowmade.app.',
+  off: 'This version of Tourbook does not use licence codes yet: every role is free.',
+  offline: 'Tourbook could not reach the licence server. Connect to the internet and try again, so the code can be used on another computer.',
 };
-// A Vdex code pasted into Gdex (its own prefix, and no Gdex code beside it).
-const looksVdex = text => /(^|[^0-9A-Z])VDEX-[0-9A-Z]/i.test(text) && !/(^|[^0-9A-Z])GDEX-[0-9A-Z]/i.test(text);
+// A Vdex code pasted into Tourbook (its own prefix, and no Tourbook code beside it).
+const looksVdex = text => /(^|[^0-9A-Z])VDEX-[0-9A-Z]/i.test(text) && !/(^|[^0-9A-Z])TOURBOOK-[0-9A-Z]/i.test(text);
 
 // `mirror` keeps a copy of when the free days started outside licence.json, in the desktop app's own window-state
 // file, so deleting licence.json does not start them again; and likewise `graceFrom`, when this computer's 14 days for
@@ -61,7 +61,7 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     const s = read(), t = now();
     let dirty = false;
     if (!s.install) { s.install = codes.b64u.enc(globalThis.crypto.getRandomValues(new Uint8Array(16))); dirty = true; }
-    if ('founder' in s) { delete s.founder; dirty = true; } // never a Gdex state ([S-7])
+    if ('founder' in s) { delete s.founder; dirty = true; } // never a Tourbook state ([S-7])
     const m = mirror.get();
     if (m && Number.isFinite(m.first) && m.first > 0 && (!s.first || m.first < s.first)) { s.first = m.first; dirty = true; }
     if (m && Number.isFinite(m.seen) && m.seen > (s.seen || 0)) { s.seen = m.seen; dirty = true; }
@@ -94,7 +94,7 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     const base = { kind: 'desktop', enabled, buyUrl: site + '/buy', os, seats: codes.SEATS };
     if (!enabled) return { ...base, mode: 'off', canEdit: true, started: false, first: 0, trialLeft: TRIAL_DAYS, trialEnds: '', licence: null };
     const started = !!s.first;
-    // A wrong clock ([S-38]): the free days began more than a day ahead of the device's time, or Gdex has seen a time
+    // A wrong clock ([S-38]): the free days began more than a day ahead of the device's time, or Tourbook has seen a time
     // more than two days ahead of it. The days left count as none until the clock is right (or a server time puts the
     // record right, serverTime below); a working licence is not affected.
     const clock = started && (s.first > t + DAY || (s.seen || 0) > t + 2 * DAY);
@@ -110,7 +110,7 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
     const a = s.act || {};
     if (a.status === 'cancelled') return { ...base, ...trial, licence, mode: 'cancelled', canEdit: left > 0 };
     if (a.status === 'released') return { ...base, ...trial, licence, mode: 'released', canEdit: left > 0 };
-    // Past a limit, Gdex turns read-only only once a check made after the limit has failed, so someone opening Gdex
+    // Past a limit, Tourbook turns read-only only once a check made after the limit has failed, so someone opening Tourbook
     // after a long break is not shown read-only while it is still checking. Both limits count with the latest time
     // seen, as the free days do, so winding the clock back gains nothing.
     const at = Math.max(t, s.seen || 0);
@@ -180,7 +180,7 @@ function createLicence({ dir, keys = KEYS, on = ON.on === true, now = () => Date
   const active = (receipt, t) => ({ status: 'active', receipt, checked: t, tried: t });
 
   // Checks a pasted code and activates it on this computer. Returns the new state, or { error } / { error: 'full', computers }.
-  // A code the licence server cannot be asked about (no internet, or gdex.crowmade.app blocked) works for 14 days, once
+  // A code the licence server cannot be asked about (no internet, or tourbook.crowmade.app blocked) works for 14 days, once
   // on this computer: they count from `graceFrom`, which Remove the code keeps, so entering the same code again, or
   // another one, starts no new 14 days. Only the server's yes for this computer (the code activated) clears it.
   async function enter(text, { release } = {}) {

@@ -225,7 +225,7 @@ const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(
 // stopped being used ('YYYY-MM-DD'): the day the next name began, so a show on that day already has the new name. It
 // is '' when the day is not known (a name added by hand): such a name shows on the act's card and page and is found
 // by search, but no booking or score is dated by it. An act without formerNames reads as it always did.
-// Earlier names stay inside Gdex: nothing printed, sent or exported for another program carries them (they all go
+// Earlier names stay inside Tourbook: nothing printed, sent or exported for another program carries them (they all go
 // through actName and bookingTitle, the name now); a backup file does. Every page reads them through these helpers.
 const realDay = s => isIso(s) && ymd(parseISO(s)) === s; // a day that exists (not 30 February)
 // A name without its capitals, spaces and punctuation: two names with the same key are one name, spelt two ways (a
@@ -353,8 +353,8 @@ function genreFromWords(words) {
 }
 const genreSeen = new Map(); // genreOf's answers, by the text: every act on the list asks at every draw
 // The main genre id of a typed genre: '' when there is none (empty, not text, no letter or digit in it, or only words
-// like "TBC"), 'unique' when Gdex cannot place it. Several genres ("Indie rock, electronic"): the first written that
-// Gdex can place decides. Capitals, accents, hyphens and apostrophes are ignored. Never throws.
+// like "TBC"), 'unique' when Tourbook cannot place it. Several genres ("Indie rock, electronic"): the first written that
+// Tourbook can place decides. Capitals, accents, hyphens and apostrophes are ignored. Never throws.
 export function genreOf(text) {
   if (typeof text !== 'string') return '';
   if (genreSeen.has(text)) return genreSeen.get(text);
@@ -410,7 +410,7 @@ export const ROLES = ['Vocals', 'Guitar', 'Bass', 'Drums', 'Keys', 'Producer', '
   'Label', 'Publisher', 'Studio manager', 'Photographer / video', 'Other'];
 export const GEAR_CATS = ['Guitars', 'Basses', 'Amps & cabs', 'Drums & percussion', 'Keys & synths', 'Pedals & effects', 'Microphones', 'DI & interfaces',
   'Stands & hardware', 'Cables', 'PA & monitors', 'Lighting', 'Computers & software', 'Cases & transport', 'Other'];
-// Gear by band (item 17): an item can be for one act (gear.actId) and paid for by you, the person using Gdex ('me'), by
+// Gear by band (item 17): an item can be for one act (gear.actId) and paid for by you, the person using Tourbook ('me'), by
 // the act ('band') or by a person (their id); gear.paidBy '' is not known. Read them only through these: anything else
 // stored there (an act or a person deleted since, junk from a backup edited by hand) reads as no act and not known, so
 // old gear reads exactly as before. The sums are value × quantity (store.totalValue); only what you paid is yours.
@@ -466,7 +466,7 @@ export function rulesOf(v) {
   const tone = v && RULE_TONES.some(t => t[0] && t[0] === v.rulesTone) ? v.rulesTone : '';
   return { values, note: v && typeof v.rulesNote === 'string' ? v.rulesNote.trim() : '', tone, known: Object.keys(values).length, restricted: HOUSE_RULES.filter(r => r.id in values && ruleBad(r).includes(values[r.id])) };
 }
-// The stored answers to rules this build does not know (a rule added by a newer Gdex, or a backup edited by hand), as
+// The stored answers to rules this build does not know (a rule added by a newer Tourbook, or a backup edited by hand), as
 // they were stored: {} when there are none. The venue form keeps them, and replaces only the rules it knows.
 export function unknownRules(v) {
   const raw = v && v.rules && typeof v.rules === 'object' && !Array.isArray(v.rules) ? v.rules : {};

@@ -388,7 +388,7 @@ const save = async page => { await topSheet(page).locator('button[type=submit]')
 
   /* ---------------- 320 px, extra-large text and large buttons, in each section menu ---------------- */
   for (const menu of ['record', 'tape', 'digital']) {
-    const prefs = `try { localStorage.setItem('gdex-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large', menu }))}); localStorage.setItem('gdex-role', 'producer'); } catch (e) { /* ignore */ }`;
+    const prefs = `try { localStorage.setItem('tourbook-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large', menu }))}); localStorage.setItem('tourbook-role', 'producer'); } catch (e) { /* ignore */ }`;
     const { browser: b2, page: p2, errors: e2 } = await open({ sample: true, viewport: { width: 320, height: 700 }, init: prefs });
     await p2.evaluate(u => import('./js/store.js').then(s => { s.patch('acts', 's-owls', { sampleWork: u }); s.upsert('acts', { id: 't-long', name: 'The Extraordinarily Long-Named Orchestra of Somewhere', genre: 'Indie rock', members: [], links: 'Our very long website name: https://www.an-extraordinarily-long-domain-name-for-a-band.example.com/press' }); }), URL1);
     await sleep(250);

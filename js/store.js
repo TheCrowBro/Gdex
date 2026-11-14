@@ -4,11 +4,11 @@
 // time, saves, and tells the page to redraw.
 import { uid, ymd } from './util.js';
 
-const KEY = 'gdex-db-v1';
+const KEY = 'tourbook-db-v1';
 // Every list of records, in the order the backup file shows them.
 export const COLLECTIONS = ['bookings', 'acts', 'people', 'gear', 'kits', 'venues', 'songs', 'setlists', 'logs', 'shifts', 'insurance'];
 const blank = () => ({
-  app: 'gdex', version: 1, updatedAt: 0,
+  app: 'tourbook', version: 1, updatedAt: 0,
   profile: { name: '', business: '', role: '', phone: '', email: '', website: '', location: '', address: '', currency: '$', bio: '', updatedAt: 0 },
   ...Object.fromEntries(COLLECTIONS.map(c => [c, []])),
   deleted: {},              // id -> time deleted: a merge with an older backup does not bring records back
@@ -34,7 +34,7 @@ export function normalise(raw) {
   });
   out.deleted = Object.fromEntries(Object.entries(raw && raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {}).filter(([, t]) => Date.now() - t < 180 * 864e5));
   for (const k of ['templates', 'billing', 'priceList']) out[k] = raw && raw[k] && typeof raw[k] === 'object' ? raw[k] : b[k];
-  out.app = 'gdex';
+  out.app = 'tourbook';
   delete out.freeDaysFrom; // the Drive copy's earliest free day (js/sync.js): never part of the database
   return out;
 }
@@ -45,7 +45,7 @@ function load() {
 }
 
 export let db = load();
-// Another tab of Gdex on this device wrote the database (a change, a sync, an Erase): this tab takes in what it wrote,
+// Another tab of Tourbook on this device wrote the database (a change, a sync, an Erase): this tab takes in what it wrote,
 // so its own next change, which writes the database whole, does not put back what the other tab changed or erased.
 // Nothing is written or sent from here: the other tab has already saved it.
 try {
@@ -353,9 +353,9 @@ export function eraseAll() {
   sealed = false; dirty = false;
   flush(); emit();
   // Display preferences (the theme, the calendar's view), and the licence's own: the free-day count and the website
-  // sign-in (gdex-licence), and the terms agreed (gdex-terms). IndexedDB is not touched, so its licence-days copy stays.
-  const KEEP = new Set(['gdex-prefs', 'gdex-cal-view', 'gdex-licence', 'gdex-terms']);
-  try { const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); keys.filter(k => k && k.startsWith('gdex-') && k !== KEY && !KEEP.has(k)).forEach(k => localStorage.removeItem(k)); } catch { /* blocked storage */ }
+  // sign-in (tourbook-licence), and the terms agreed (tourbook-terms). IndexedDB is not touched, so its licence-days copy stays.
+  const KEEP = new Set(['tourbook-prefs', 'tourbook-cal-view', 'tourbook-licence', 'tourbook-terms']);
+  try { const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); keys.filter(k => k && k.startsWith('tourbook-') && k !== KEY && !KEEP.has(k)).forEach(k => localStorage.removeItem(k)); } catch { /* blocked storage */ }
 }
 
 /* ------------------------------- sample ------------------------------- */

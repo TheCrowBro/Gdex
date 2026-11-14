@@ -2,11 +2,11 @@
 // kept; two devices logging at once both keep their entries; Replace everywhere with entries reaching the other device
 // and staying; no ping-pong (two devices with their records, or one act's times seen, in different orders write nothing
 // once they agree); a
-// copy taken in is never pushed straight back; duplicate gdex-db.json files merged and the extra deleted; a Vdex file
+// copy taken in is never pushed straight back; duplicate tourbook-db.json files merged and the extra deleted; a Vdex file
 // in Drive refused; a copy deleted in Drive meanwhile made again; Google Drive's errors in words, with the
 // connection coming back; and ties (the same time, different contents) settled alike on every device, the sample's
 // stand-in profile included; and Replace everywhere reading Drive first (another device's records it had not taken in
-// are replaced too; with no internet nothing is replaced and the chooser says why); and a shared copy Gdex can't read
+// are replaced too; with no internet nothing is replaced and the chooser says why); and a shared copy Tourbook can't read
 // (the daily copy still saved, and Put this device's copy in its place keeping the bad one and the daily copies). Uses
 // 90-drive's fake Drive and device opener.
 const { chromium } = require('playwright');
@@ -87,7 +87,7 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
   const backup = await data(pa);
   { const a = backup.acts.find(x => x.id === 'm-act'); a.seen = a.seen.filter(x => x.id !== 'm2'); const l = backup.logs.find(x => x.id === 'm-log'); l.takes = l.takes.filter(x => x.id !== 'k2'); }
   await openBackups(pa);
-  await pa.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'gdex-backup-older.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
+  await pa.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'tourbook-backup-older.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
   await pa.waitForSelector(`${sheetOf('Bring back a backup')} .se-imp-replace`, { timeout: 10000 });
   ok('with Drive linked, Replace says it reaches every connected device', /Every device connected to this Google Drive ends up exactly like this backup/.test(await pa.locator(`${sheetOf('Bring back a backup')} .se-imp-replace-note`).innerText()));
   await pa.click(`${sheetOf('Bring back a backup')} .se-imp-replace`); // the confirm is accepted, once Drive has been read
@@ -115,27 +115,27 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
   ok('two changes to one act in the same millisecond: both devices keep both times seen, and once they agree nothing is written', [tied.a, tied.b].every(x => x.split(',').sort().join() === 'm1,m3,m4,m5,m6') && tied.writes === 0, JSON.stringify(tied));
 
   /* ------------------------------ duplicates, a Vdex file, a copy deleted meanwhile ------------------------------ */
-  const oldest = D.named('gdex-db.json')[0].id;
-  const dup = D.json(); dup.acts.push({ id: 'dup-act', name: 'From The Other File', updatedAt: Date.now() }); D.put('gdex-db.json', dup);
-  ok('(Drive holds two gdex-db.json files, as when two devices link at the same moment)', D.named('gdex-db.json').length === 2);
+  const oldest = D.named('tourbook-db.json')[0].id;
+  const dup = D.json(); dup.acts.push({ id: 'dup-act', name: 'From The Other File', updatedAt: Date.now() }); D.put('tourbook-db.json', dup);
+  ok('(Drive holds two tourbook-db.json files, as when two devices link at the same moment)', D.named('tourbook-db.json').length === 2);
   await syncOn(pa);
-  ok('a sync merges the extra gdex-db.json into the oldest and deletes it', (await data(pa)).acts.some(a => a.id === 'dup-act') && D.named('gdex-db.json').length === 1 && D.named('gdex-db.json')[0].id === oldest && D.json().acts.some(a => a.id === 'dup-act'));
+  ok('a sync merges the extra tourbook-db.json into the oldest and deletes it', (await data(pa)).acts.some(a => a.id === 'dup-act') && D.named('tourbook-db.json').length === 1 && D.named('tourbook-db.json')[0].id === oldest && D.json().acts.some(a => a.id === 'dup-act'));
 
-  const good = D.named('gdex-db.json')[0].body, mine = JSON.stringify(await data(pa));
-  D.named('gdex-db.json')[0].body = JSON.stringify({ version: 3, bookings: [{ id: 'v1', title: 'Wedding shoot' }], gear: [{ id: 'g1', name: 'FX3' }], crew: [{ id: 'c1', name: 'Cam Op' }] });
-  const vdexBody = D.named('gdex-db.json')[0].body;
+  const good = D.named('tourbook-db.json')[0].body, mine = JSON.stringify(await data(pa));
+  D.named('tourbook-db.json')[0].body = JSON.stringify({ version: 3, bookings: [{ id: 'v1', title: 'Wedding shoot' }], gear: [{ id: 'g1', name: 'FX3' }], crew: [{ id: 'c1', name: 'Cam Op' }] });
+  const vdexBody = D.named('tourbook-db.json')[0].body;
   await syncOn(pa);
   const vs = await state(pa);
-  ok('a Vdex file in Drive is refused, said in words, and left alone', vs.status === 'error' && /is a Vdex file, not a Gdex one/.test(vs.error) && D.named('gdex-db.json')[0].body === vdexBody && JSON.stringify(await data(pa)) === mine, vs.error);
-  D.named('gdex-db.json')[0].body = good;
+  ok('a Vdex file in Drive is refused, said in words, and left alone', vs.status === 'error' && /is a Vdex file, not a Tourbook one/.test(vs.error) && D.named('tourbook-db.json')[0].body === vdexBody && JSON.stringify(await data(pa)) === mine, vs.error);
+  D.named('tourbook-db.json')[0].body = good;
   await syncOn(pa);
-  ok('…and syncing carries on once it is Gdex’s again', (await state(pa)).status === 'synced');
+  ok('…and syncing carries on once it is Tourbook’s again', (await state(pa)).status === 'synced');
 
   A.allow.push(/status of 404/);
-  D.drop(D.named('gdex-db.json')[0].id);
-  const made = await pa.evaluate(() => import('./js/drive.js').then(async d => { localStorage.setItem('gdex-drive-file', 'gone-id'); await d.driveAdapter().write('{"app":"gdex","bookings":[],"songs":[]}'); return localStorage.getItem('gdex-drive-file'); }));
+  D.drop(D.named('tourbook-db.json')[0].id);
+  const made = await pa.evaluate(() => import('./js/drive.js').then(async d => { localStorage.setItem('tourbook-drive-file', 'gone-id'); await d.driveAdapter().write('{"app":"tourbook","bookings":[],"songs":[]}'); return localStorage.getItem('tourbook-drive-file'); }));
   A.allow.pop();
-  ok('a copy deleted in Drive meanwhile (404) is looked for again, then made', D.named('gdex-db.json').length === 1 && D.named('gdex-db.json')[0].id === made && made !== 'gone-id');
+  ok('a copy deleted in Drive meanwhile (404) is looked for again, then made', D.named('tourbook-db.json').length === 1 && D.named('tourbook-db.json')[0].id === made && made !== 'gone-id');
   await syncOn(pa);
   ok('…and the next sync fills it from this device', D.json().acts.some(a => a.id === 'm-act'));
 
@@ -144,9 +144,9 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
   D.fail = { abort: true, keep: true, match: r => r.who === 'A' };
   await syncOn(pa);
   const off = await state(pa);
-  ok('no connection: said plainly, and the changes are safe here', off.status === 'error' && off.error === 'Can’t reach Google Drive (no internet?). Gdex tries again when you’re back online.', off.error);
+  ok('no connection: said plainly, and the changes are safe here', off.status === 'error' && off.error === 'Can’t reach Google Drive (no internet?). Tourbook tries again when you’re back online.', off.error);
   await openBackups(pa);
-  ok('…in the card too', /Can’t reach Google Drive \(no internet\?\)\. Gdex tries again when you’re back online\. Your changes are safe on this device\./.test(await pa.locator(`${sheetOf('Backups')} .se-bk-drive`).innerText()));
+  ok('…in the card too', /Can’t reach Google Drive \(no internet\?\)\. Tourbook tries again when you’re back online\. Your changes are safe on this device\./.test(await pa.locator(`${sheetOf('Backups')} .se-bk-drive`).innerText()));
   D.fail = null;
   A.allow.pop();
   await pa.evaluate(() => window.dispatchEvent(new Event('online')));
@@ -162,7 +162,7 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
   A.allow.push(/status of 429/);
   D.fail = { status: 429, reason: 'rateLimitExceeded', match: r => r.who === 'A' };
   await syncOn(pa);
-  ok('Google’s rate limit is said in words', (await state(pa)).error === 'Google Drive is busy: Gdex will try again in a minute.');
+  ok('Google’s rate limit is said in words', (await state(pa)).error === 'Google Drive is busy: Tourbook will try again in a minute.');
   A.allow.pop();
   await closeSheets(pa);
 
@@ -221,7 +221,7 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
     ok('(the other device’s new venue is in Drive; this device has not synced since)', !!(await until(() => D4.json().venues.some(v => v.id === 'v-since'))) && !(await data(pr)).venues.some(v => v.id === 'v-since'));
     const pick = async () => {
       await openBackups(pr);
-      await pr.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'gdex-backup-saved.json', mimeType: 'application/json', buffer: file });
+      await pr.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'tourbook-backup-saved.json', mimeType: 'application/json', buffer: file });
       await pr.waitForSelector(`${chooser} .se-imp-replace`, { timeout: 10000 });
     };
     // no internet: nothing is replaced, and the chooser says why
@@ -234,7 +234,7 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
     await pr.click(`${chooser} .se-imp-replace`);
     await pr.waitForSelector(`${chooser} .se-imp-err:not([hidden])`, { timeout: 10000 }).catch(() => {});
     const errText = await pr.locator(`${chooser} .se-imp-err`).innerText().catch(() => '');
-    ok('Replace with no internet replaces nothing and says why, in the chooser', (await pr.locator(chooser).count()) === 1 && /^Nothing was replaced yet: Gdex reads your Google Drive first, so that every device ends up like this backup\. Can’t reach Google Drive \(no internet\?\)\./.test(errText) && (await data(pr)).venues.map(v => v.id).sort().join() === venuesBefore, errText);
+    ok('Replace with no internet replaces nothing and says why, in the chooser', (await pr.locator(chooser).count()) === 1 && /^Nothing was replaced yet: Tourbook reads your Google Drive first, so that every device ends up like this backup\. Can’t reach Google Drive \(no internet\?\)\./.test(errText) && (await data(pr)).venues.map(v => v.id).sort().join() === venuesBefore, errText);
     D4.fail = null;
     R.allow.pop();
     // back online: Replace takes in Drive's records first, then replaces them too
@@ -248,7 +248,7 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
     await R.ctx.close(); await S2.ctx.close();
   }
 
-  /* ------------------------------ a shared copy Gdex can't read ------------------------------ */
+  /* ------------------------------ a shared copy Tourbook can't read ------------------------------ */
   // The daily copies carry on from this device's data, and the card offers to put this device's copy in its place,
   // keeping the unreadable one aside and every daily copy.
   {
@@ -257,25 +257,25 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
     const pu = U.page;
     await pu.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { id: 'u-old', kind: 'show', date: '2026-12-01', title: 'Before' })));
     await connect(pu); await waitCloud(pu, 'synced'); await closeSheets(pu);
-    const wkName = `gdex-backup-${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]}.json`;
+    const wkName = `tourbook-backup-${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]}.json`;
     await until(() => D6.named(wkName).length);
-    const bad = '{"app":"gdex","bookings":[{"id":"u-old","title":"Bef'; // cut short
-    D6.named('gdex-db.json')[0].body = bad;
-    await pu.evaluate(() => localStorage.removeItem('gdex-backup-cloud')); // a new day's first sync
+    const bad = '{"app":"tourbook","bookings":[{"id":"u-old","title":"Bef'; // cut short
+    D6.named('tourbook-db.json')[0].body = bad;
+    await pu.evaluate(() => localStorage.removeItem('tourbook-backup-cloud')); // a new day's first sync
     await pu.evaluate(() => import('./js/store.js').then(s => s.upsert('bookings', { id: 'u-new', kind: 'show', date: '2026-12-02', title: 'Made today' })));
     await sleep(1200); await syncOn(pu);
     const st = await state(pu);
-    ok('(the shared copy can’t be read: the sync stops and says so, and leaves it alone)', st.status === 'error' && /isn’t a Gdex file, so Gdex left it alone/.test(st.error) && D6.named('gdex-db.json')[0].body === bad, st.error);
+    ok('(the shared copy can’t be read: the sync stops and says so, and leaves it alone)', st.status === 'error' && /isn’t a Tourbook file, so Tourbook left it alone/.test(st.error) && D6.named('tourbook-db.json')[0].body === bad, st.error);
     ok('…but today’s copy is still saved, from this device', JSON.parse(D6.named(wkName)[0].body).bookings.some(b => b.id === 'u-new') && !st.backupError, JSON.parse(D6.named(wkName)[0].body).bookings.map(b => b.id).join());
     await openBackups(pu);
     const cardU = pu.locator(`${sheetOf('Backups')} .se-bk-drive`);
     ok('…and the card offers to put this device’s copy in its place', (await cardU.locator('.se-bk-drive-fix').count()) === 1 && (await cardU.locator('.se-bk-drive-fix').innerText()) === 'Put this device’s copy in its place…' && /Today’s copy: saved at/.test(await cardU.innerText()));
-    const copies = D6.files.filter(f => /^gdex-backup-/.test(f.name)).length;
+    const copies = D6.files.filter(f => /^tourbook-backup-/.test(f.name)).length;
     await pu.click(`${sheetOf('Backups')} .se-bk-drive-fix`); // the confirm is accepted
     await waitCloud(pu, 'synced');
     const today = await pu.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
-    const aside = D6.named(`gdex-db-unreadable-${today}.json`);
-    ok('Put this device’s copy in its place: Drive’s copy is this device’s, the unreadable one is kept aside, and every daily copy stays', D6.json().bookings.some(b => b.id === 'u-new') && aside.length === 1 && aside[0].body === bad && D6.files.filter(f => /^gdex-backup-/.test(f.name)).length === copies && (await state(pu)).status === 'synced', D6.files.map(f => f.name).join(' '));
+    const aside = D6.named(`tourbook-db-unreadable-${today}.json`);
+    ok('Put this device’s copy in its place: Drive’s copy is this device’s, the unreadable one is kept aside, and every daily copy stays', D6.json().bookings.some(b => b.id === 'u-new') && aside.length === 1 && aside[0].body === bad && D6.files.filter(f => /^tourbook-backup-/.test(f.name)).length === copies && (await state(pu)).status === 'synced', D6.files.map(f => f.name).join(' '));
     ok('…and the card no longer offers it', (await cardU.locator('.se-bk-drive-fix').count()) === 0);
     await closeSheets(pu);
     await U.ctx.close();

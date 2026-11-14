@@ -15,7 +15,7 @@ import { waitingShows, comingUp, tonightShows, showEnd } from './model.js';
 import { actWord } from './roles.js'; // the menu's count of acts says the role's word: 7 bands, 7 artists, 7 acts
 
 applyPrefs();
-try { localStorage.removeItem('gdex-tab'); } catch { /* blocked storage */ } // the section open last no longer decides where Gdex opens
+try { localStorage.removeItem('tourbook-tab'); } catch { /* blocked storage */ } // the section open last no longer decides where Tourbook opens
 const help = () => import('./tutorials.js').then(m => m.openTutorial()); // the tutorials load on first use
 document.getElementById('helpBtn')?.addEventListener('click', help);
 window.logiHelp = help; // sheets show a ? too
@@ -24,7 +24,7 @@ initInstall(document.getElementById('installBtn'));
 initSearch(document.getElementById('srch-bar')); // the search box at the top of every page, and "/" (js/search.js)
 initClockBar(document.getElementById('clockbar'));
 
-// Gdex always opens on Bookings (the calendar), so it loads with the app. Every other section is fetched and parsed the first
+// Tourbook always opens on Bookings (the calendar), so it loads with the app. Every other section is fetched and parsed the first
 // time it is opened (the service worker keeps them all offline regardless), which keeps the start-up parse small.
 // Sections are known by their id everywhere (window.logiGo('venues')), never by position: which ones are tracks on the
 // section menu, and in what order, depends on the role (js/roles.js). A section off the role's menu opens all the same
@@ -63,7 +63,7 @@ let tabs = buildTabs();
 // itself never changes: the mark is drawn beside it (js/deck.js).
 const extras = () => offMenu().map(tabOf).filter(Boolean).map(t => ({ ...t, mark: sectionMark(t.id) }));
 // Every section, the role's menu first (the tutorials' chooser lists them all).
-window.gdexPages = () => [...tabs.filter(t => !t.bonus).map(t => tabOf(t.id)), ...extras()].map(t => ({ id: t.id, label: t.label, icon: t.icon, page: t.page || null }));
+window.tourbookPages = () => [...tabs.filter(t => !t.bonus).map(t => tabOf(t.id)), ...extras()].map(t => ({ id: t.id, label: t.label, icon: t.icon, page: t.page || null }));
 const pageOf = x => { const t = tabOf(x.id); return t.page ? Promise.resolve(t.page) : (t.loading || (t.loading = t.load().then(p => { t.page = p; return p; }).catch(e => { t.loading = null; throw e; }))); };
 const page = document.getElementById('page');
 let current = -1;
@@ -172,7 +172,7 @@ window.logiGo = async id => {
 };
 // A new role (Settings → Your role, or the first-run question): the menu changes in place. From Settings you stay on
 // Settings; a role chosen at the first-run question opens on its start section, the calendar.
-window.addEventListener('gdex-role', e => {
+window.addEventListener('tourbook-role', e => {
   const was = tabs[current] ? tabs[current].id : null;
   guest = null; tabs = buildTabs();
   // A section the new role may not open (a working one, for an Audiophile without a licence) is not kept on screen.
@@ -186,7 +186,7 @@ window.addEventListener('gdex-role', e => {
 });
 // The licence changed (the free days started or ran out, a sign-in, a pause): the menu's marks, the bar, Settings and
 // the page follow; a section that may not be open any more goes back to the calendar. A working role in use starts the
-// free days once it is on (the owner switched it on while Gdex was open, or a pause was lifted).
+// free days once it is on (the owner switched it on while Tourbook was open, or a pause was lifted).
 let barLoaded = false;
 const loadBar = () => { if (barLoaded || !licenceOn()) return; barLoaded = true; import('./licence.js').then(m => m.initBar()).catch(e => { barLoaded = false; console.error(e); }); };
 window.addEventListener(LICENCE_EVENT, () => {
@@ -213,7 +213,7 @@ idle(() => import('./backup.js').then(m => m.nudgeIfStale && m.nudgeIfStale()).c
 // First launch: who are you (the role sets the menu), then the welcome walkthrough for that role. After them, or on any
 // later open: "Did you see them?" about the shows that are over (js/acts-ask.js).
 const waitingIds = holds => { try { return waitingShows(new Date(), { holds }).map(b => b.id); } catch { return []; } };
-// Shows that were over, with no answer, as Gdex opened. Holds are counted here and sifted by role when the sheet opens.
+// Shows that were over, with no answer, as Tourbook opened. Holds are counted here and sifted by role when the sheet opens.
 let due = waitingIds(true);
 // Nothing opens over a sheet or the welcome tour (the sleeve, tapped in the first moment): it waits until they are gone.
 const whenClear = fn => { const t = () => (document.querySelector('.sheet-back, .tour') ? setTimeout(t, 300) : fn()); t(); };
@@ -226,8 +226,8 @@ const askSeenNow = () => {
   import('./acts-ask.js').then(m => whenClear(() => { asking = false; if (!due.length) return; m.askAtOpen(due); askSheet = document.querySelector('.sheet-back'); })).catch(e => { asking = false; console.error(e); });
 };
 const askSeenAtOpen = () => { askedAtOpen = true; askSeenNow(); };
-// Gdex opened (or came back) in a working role: the free days start, once the first run is settled (a role picked, the
-// welcome tour done or the first-run question closed), so a newcomer is never counted while "Who's using Gdex?" is up
+// Tourbook opened (or came back) in a working role: the free days start, once the first run is settled (a role picked, the
+// welcome tour done or the first-run question closed), so a newcomer is never counted while "Who's using Tourbook?" is up
 // ([S-2]). The terms sheet comes first, the first time; after its Not now it is not asked again on its own this visit.
 // Resolves once that is done.
 const noteUse = () => {
@@ -250,7 +250,7 @@ const tourThenAsk = () => { startTour(0, { first: true }); licenceThenAsk(); };
 // hours or more out of sight (the screen hidden, or the page kept by the browser and restored), the waiting shows are
 // worked out again and asked about as at open: after any sheet or tour, and never while the question is already up.
 // A shorter absence does nothing, and the section stays the one the person was on (only a fresh load opens on the
-// calendar). The moment Gdex went out of sight is kept in memory only.
+// calendar). The moment Tourbook went out of sight is kept in memory only.
 const AWAY_MS = 3 * 60 * 60 * 1000;
 let hiddenAt = document.visibilityState === 'hidden' ? Date.now() : null;
 const cameBack = () => {
@@ -263,9 +263,9 @@ const cameBack = () => {
   // The free-days-over sheet comes back too (installed apps are seldom reloaded), always before the question ([S-5]).
   whenClear(() => import('./licence.js').then(m => m.overSheetIfDue()).catch(e => console.error(e)).then(ask));
 };
-// The day turns while Gdex is open, or while it is out of sight: the calendar moves on to the new today and the page is
+// The day turns while Tourbook is open, or while it is out of sight: the calendar moves on to the new today and the page is
 // drawn again (today's mark, Coming up, "Tomorrow" on an act's card, the menu's count). A timer set for just after the
-// next midnight, set afresh at every look (a phone asleep stops the clock timers run by), and a look each time Gdex
+// next midnight, set afresh at every look (a phone asleep stops the clock timers run by), and a look each time Tourbook
 // comes back into sight.
 let midnight = 0;
 const dayCheck = () => {
@@ -293,7 +293,7 @@ if (!tourSeen()) {
   if (roleChosen()) setTimeout(() => whenClear(tourThenAsk), 700);
   else setTimeout(() => import('./role-pick.js').then(m => whenClear(() => m.askRole({ then: tourThenAsk }))).catch(e => { console.error(e); whenClear(tourThenAsk); }), 500);
 } else {
-  // Gdex was in use before roles came: say once, without getting in the way, that it can set itself up for a role.
+  // Tourbook was in use before roles came: say once, without getting in the way, that it can set itself up for a role.
   if (!roleChosen()) idle(() => import('./role-pick.js').then(m => m.nudgeRole(document.getElementById('clockbar'))).catch(e => console.error(e)));
   setTimeout(licenceThenAsk, 900);
 }

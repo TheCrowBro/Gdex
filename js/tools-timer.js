@@ -10,7 +10,7 @@ import { registerState } from './audio.js';
 import { pref, clamp, num, keepAwake, letSleep, wakeState } from './tools-ui.js';
 import { sectionName } from './roles.js';
 
-const KEY = 'gdex-settimer';
+const KEY = 'tourbook-settimer';
 const MAX_MIN = 600;
 // total and left are seconds; endsAt (ms since 1970) is set only while running; bookingId: the show it came from.
 const T = (() => {

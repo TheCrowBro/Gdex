@@ -28,9 +28,9 @@ export const tone = s => model.statusTone(s);
 export const pill = s => h('span', { class: 'pill ' + tone(s) }, model.statusLabel(s));
 
 /* ------------------------------- the calendar's view, kept on this device ------------------------------- */
-// gdex-cal-view: 'month' | 'two' (two weeks) | 'week' | 'three' (three days) | 'day'. A display preference like the
+// tourbook-cal-view: 'month' | 'two' (two weeks) | 'week' | 'three' (three days) | 'day'. A display preference like the
 // theme: it is not in backups, and Erase this device keeps it (js/store.js). Only the calendar's view buttons save it.
-const CAL_KEY = 'gdex-cal-view';
+const CAL_KEY = 'tourbook-cal-view';
 export const CAL_MODES = ['month', 'two', 'week', 'three', 'day'];
 let chosen = ''; // the view picked this visit, for a browser that blocks storage
 export const calMode = () => { try { const v = localStorage.getItem(CAL_KEY); return CAL_MODES.includes(v) ? v : 'month'; } catch { return chosen || 'month'; } };

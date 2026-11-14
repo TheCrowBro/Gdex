@@ -299,7 +299,7 @@ export function editVenue(v = {}, onSaved) {
       if (!nm) return toast('Give the place a name first.');
       // All three house-rules fields are always stored (rules as an object, {} when nothing is known), so a venue saved
       // here is told apart from one that never had them (the sample adds its rules only to the latter). The form
-      // replaces only the rules this build knows: answers to any other rule (from a newer Gdex) are kept as stored.
+      // replaces only the rules this build knows: answers to any other rule (from a newer Tourbook) are kept as stored.
       const stored = upsert('venues', { ...val, name: nm, capacity: numOrBlank(val.capacity, true), noiseLimit: numOrBlank(val.noiseLimit), rate: numOrBlank(val.rate),
         website: String(val.website || '').trim(), email: String(val.email || '').trim(), phone: String(val.phone || '').trim(),
         rules: { ...unknownRules(byId('venues', cur.id) || cur), ...editor.read() }, rulesNote: String(val.rulesNote || '').trim(), rulesTone: RULE_TONES.some(t => t[0] === val.rulesTone) ? val.rulesTone : '' });

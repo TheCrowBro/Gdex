@@ -13,7 +13,7 @@ const sheetNamed = (page, title) => page.locator(`.sheet[aria-label="${title}"]`
 const view = async (page, v) => { await page.click('#bk-view-' + v); await sleep(250); };
 const modeOf = page => page.evaluate(() => (document.querySelector('.bk-calview').className.match(/bk-mode-(\w+)/) || [])[1]);
 const title = page => page.locator('.bk-cal-panel .cal-title').evaluate(el => el.textContent);
-const saved = page => page.evaluate(() => localStorage.getItem('gdex-cal-view'));
+const saved = page => page.evaluate(() => localStorage.getItem('tourbook-cal-view'));
 const steps = page => page.evaluate(() => import('./js/pages/bookings.js').then(m => m.bookings.tutorial().map(s => [s.title, s.text, s.target])));
 // What was last said aloud for a screen reader (util.js announce() fills #sr-live a moment after it is called).
 const spoken = page => page.evaluate(() => new Promise(r => setTimeout(() => r((document.getElementById('sr-live') || {}).textContent || ''), 120)));
@@ -132,13 +132,13 @@ async function press(page, loc, ms) {
       && (await page.getAttribute('.bk-views', 'role')) === 'group' && (await page.getAttribute('.bk-views', 'aria-label')) === 'Calendar view', JSON.stringify(btns));
     ok('…and nothing is saved about the view yet', (await saved(page)) === null);
 
-    // A day opened from its square is the Day view for this visit; it is not the view Gdex opens on next time.
+    // A day opened from its square is the Day view for this visit; it is not the view Tourbook opens on next time.
     await page.locator(`.bk-day[data-date="${today}"]`).click(); await page.waitForSelector('.bk-dayview');
     ok('tapping a day square opens the Day view on that day, with the focus on its name', (await modeOf(page)) === 'day' && (await title(page)) === (await wantTitle(page, 'day', today, today)) + ' · today'
       && await page.evaluate(() => document.activeElement && document.activeElement.matches('h2.cal-title[data-view-head]')) && (await page.getAttribute('#bk-view-day', 'aria-pressed')) === 'true', await title(page));
     ok('…and that is not saved', (await saved(page)) === null);
     await page.reload(); await page.waitForSelector('#deck .dk-next'); await page.waitForSelector('.bk-calview');
-    ok('after a reload Gdex opens on Month again', (await modeOf(page)) === 'month' && (await page.locator('.bk-monthview').count()) === 1);
+    ok('after a reload Tourbook opens on Month again', (await modeOf(page)) === 'month' && (await page.locator('.bk-monthview').count()) === 1);
 
     // each button draws its view, saves it and keeps the focus; the frame is the same around every view
     for (const v of ['two', 'week', 'three', 'day', 'month']) {
@@ -199,19 +199,19 @@ async function press(page, loc, ms) {
       const cal = (tour.find(s => s[0] === 'The calendar') || [])[1] || '';
       // The filter chips are under the calendar: their step comes after it, as a keyboard and a screen reader meet them.
       ok(`${v}: the walkthrough has New booking, Export calendar, Views, The calendar, Filters and Coming up`, same(names.filter(n => !['Add to this day', 'Bookings'].includes(n)), ['New booking', 'Export calendar', 'Views', 'The calendar', 'Filters', 'Coming up'])
-        && (tour.find(s => s[0] === 'Views') || [])[1] === 'Month, 2 weeks, Week, 3 days or Day. Gdex opens on the one you picked here last.' && same((tour.find(s => s[0] === 'Coming up') || [])[2], ['.bk-agenda', '.bk-calview > .empty']), names.join(', '));
+        && (tour.find(s => s[0] === 'Views') || [])[1] === 'Month, 2 weeks, Week, 3 days or Day. Tourbook opens on the one you picked here last.' && same((tour.find(s => s[0] === 'Coming up') || [])[2], ['.bk-agenda', '.bk-calview > .empty']), names.join(', '));
       ok(`${v}: …and its Filters step says the chips are under the calendar, and points at them`, same(tour.find(s => s[0] === 'Filters'), ['Filters', 'Under the calendar: show one act, or one kind of booking, on the calendar and in Coming up.', ['.bk-filters']]), JSON.stringify(tour.find(s => s[0] === 'Filters')));
       ok(`${v}: …and The calendar step speaks of this view`, cal.startsWith({ month: 'Each line or dot is a booking', two: 'Two weeks of days, each booking with the time the band plays.', week: 'One week of tall days, each booking with the time the band plays, in the order they play. Tap a day to open it; swipe, or use ‹ ›, to move a week.', three: 'Three days with nothing on. Tap a day’s name to see that day alone', day: 'Hours run down the side' }[v]), cal); // no hours on three empty days (an empty Day skips the step)
       ok(`${v}: only the Day view adds “Add to this day” and a step named after the page`, names.includes('Add to this day') === (v === 'day') && names.includes('Bookings') === (v === 'day'), names.join(', '));
     }
 
-    // the view picked with a button is the view Gdex opens on, around today
+    // the view picked with a button is the view Tourbook opens on, around today
     await view(page, 'week');
     await page.reload(); await page.waitForSelector('#deck .dk-next'); await page.waitForSelector('.bk-cal-week');
     const now = await dayFromNow(page, 0);
     const wk = await page.evaluate(() => ({ pressed: document.querySelector('#bk-view-week').getAttribute('aria-pressed'), first: document.querySelector('.bk-cal-week .bk-day').dataset.date, today: [...document.querySelectorAll('.bk-cal-week .bk-day.today')].map(b => [b.dataset.date, b.getAttribute('aria-label'), b.getAttribute('aria-current')]) }));
     const long = await wantTitle(page, 'day', now, now);
-    ok('Week picked, then a reload: Gdex opens on the Week view, on this week', (await modeOf(page)) === 'week' && wk.pressed === 'true' && wk.first === (await monday(page, now)), JSON.stringify(wk));
+    ok('Week picked, then a reload: Tourbook opens on the Week view, on this week', (await modeOf(page)) === 'week' && wk.pressed === 'true' && wk.first === (await monday(page, now)), JSON.stringify(wk));
     ok('today’s square is marked, and says so to a screen reader', same(wk.today, [[now, `${long}, today: nothing booked`, 'date']]), JSON.stringify(wk.today));
     // The first square, as in two weeks, says the month as well as the number.
     const wkFirst = await page.evaluate(() => { const f = document.querySelector('.bk-cal-week .bk-day'); return [f.dataset.date, f.querySelector('.num').textContent, (f.querySelector('.bk-mon') || {}).textContent]; });
@@ -456,7 +456,7 @@ async function press(page, loc, ms) {
   ok('…and coming back finds the same week', (await modeOf(page)) === 'week' && (await page.locator(weekSq(T)).count()) === 1);
   // The five view buttons are one control: ← → move between them (round from the last to the first), Enter or Space picks.
   await page.focus('#bk-view-week');
-  const viewKey = async key => { await page.keyboard.press(key); await sleep(250); return page.evaluate(() => ({ page: window.logiPage(), focus: document.activeElement.id, mode: (document.querySelector('.bk-calview').className.match(/bk-mode-(\w+)/) || [])[1], saved: localStorage.getItem('gdex-cal-view') })); };
+  const viewKey = async key => { await page.keyboard.press(key); await sleep(250); return page.evaluate(() => ({ page: window.logiPage(), focus: document.activeElement.id, mode: (document.querySelector('.bk-calview').className.match(/bk-mode-(\w+)/) || [])[1], saved: localStorage.getItem('tourbook-cal-view') })); };
   const k1 = await viewKey('ArrowRight'), k2 = await viewKey('ArrowRight'), k3 = await viewKey('ArrowRight'), k4 = await viewKey('ArrowLeft');
   ok('on the view buttons ← → move between the buttons, round from Day to Month and back, and stay in the calendar without picking', [k1, k2, k3, k4].every(k => k.page === 'bookings' && k.mode === 'week' && k.saved === 'week') && same([k1, k2, k3, k4].map(k => k.focus), ['bk-view-three', 'bk-view-day', 'bk-view-month', 'bk-view-day']), JSON.stringify([k1, k2, k3, k4]));
   const k5 = await viewKey('Enter');
@@ -832,11 +832,11 @@ async function press(page, loc, ms) {
     const st = await page.evaluate(() => import('./js/roles.js').then(m => ({ want: m.sectionName('bookings', 'Bookings'), head: document.querySelector('.bk-calview > .page-head h1').textContent, views: document.querySelectorAll('.bk-views button').length, week: document.querySelectorAll('.bk-mode-week .bk-cal-week .bk-day').length })));
     ok(`${role}: the same week under the role’s own name for the page, with the five views`, same(await weekIds(page, T), SQUARE) && st.head === st.want && st.views === 5 && st.week === 7, JSON.stringify(st));
   }
-  await page.evaluate(() => { localStorage.removeItem('gdex-role'); });
+  await page.evaluate(() => { localStorage.removeItem('tourbook-role'); });
 
   /* ---------------- house rules in the views (js/venues-rules.js through cardExtras; the words from the model) ---------------- */
   await page.evaluate(() => import('./js/roles.js').then(r => r.setRole('all'))); await sleep(400);
-  await page.evaluate(() => { localStorage.removeItem('gdex-role'); });
+  await page.evaluate(() => { localStorage.removeItem('tourbook-role'); });
   // A Week square has no room for a chip: its spoken name says the rules (from the model), and the calendar draws none.
   const blockOf = (id, iso) => page.evaluate(([id, iso]) => { const b = document.getElementById(`bk-ev-${id}-${iso}`); return b ? { said: b.querySelector('.sr-only').textContent.trim(), chips: b.querySelectorAll('.vn-chip, .bk-overlap, .bk-went').length } : null; }, [id, iso]);
   const chipsDrawn = () => page.locator('.bk-cal-panel .vn-chip').count();
@@ -876,7 +876,7 @@ async function press(page, loc, ms) {
   /* ------------------------------ a narrow phone, extra-large text and buttons ------------------------------ */
   for (const scheme of ['light', 'dark']) {
     const menu = scheme === 'dark' ? 'tape' : 'record'; // the two section menus, one in each pass
-    const n = await open({ sample: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('gdex-prefs', '${JSON.stringify({ scheme, menu, text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });
+    const n = await open({ sample: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('tourbook-prefs', '${JSON.stringify({ scheme, menu, text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });
     await n.page.waitForSelector('.bk-monthview');
     const D = await dayFromNow(n.page, 8);
     for (const rec of seed.filter(x => x.date)) await put(n.page, 'bookings', rec);
@@ -981,7 +981,7 @@ async function press(page, loc, ms) {
     await a.page.reload(); await a.page.waitForSelector('#deck .dk-next');
     const Q = '.sheet[aria-label="Did you see them?"]';
     await a.page.locator(Q).waitFor({ timeout: 8000 }).catch(() => {}); await sleep(250);
-    ok('with a show that is over, Gdex opens on the calendar and asks “Did you see them?” about it', (await a.page.evaluate(() => window.logiPage())) === 'bookings' && same(await a.page.$$eval(`${Q} .ac-ask-row`, rs => rs.map(r => r.dataset.id)), ['c-ask']));
+    ok('with a show that is over, Tourbook opens on the calendar and asks “Did you see them?” about it', (await a.page.evaluate(() => window.logiPage())) === 'bookings' && same(await a.page.$$eval(`${Q} .ac-ask-row`, rs => rs.map(r => r.dataset.id)), ['c-ask']));
     await a.page.click('#ac-ask-no-c-ask'); await sleep(300);
     await a.page.click('#ac-ask-close'); await sleep(300);
     ok('No, then Done: the sheet is closed and the booking is marked', (await a.page.locator('.sheet').count()) === 0 && (await a.page.evaluate(() => import('./js/store.js').then(st => st.byId('bookings', 'c-ask').went))) === 'no');
@@ -1010,10 +1010,10 @@ async function press(page, loc, ms) {
     await a.browser.close();
   }
 
-  /* ------------------------------ the day turns while Gdex is open, or while it is out of sight ------------------------------ */
+  /* ------------------------------ the day turns while Tourbook is open, or while it is out of sight ------------------------------ */
   // Decision 1: the calendar opens on today, and an installed app is seldom loaded afresh. The page's clock here is
   // Playwright's, set to 23:50 on a day of the spec's own (worked out in the page, so in the run's own time zone) and
-  // running on from there: fastForward moves it on and fires the timers that fall due (Gdex's own, at midnight);
+  // running on from there: fastForward moves it on and fires the timers that fall due (Tourbook's own, at midnight);
   // setSystemTime moves it and fires none, as for a phone that slept. "Out of sight" is document.visibilityState with a
   // visibilitychange event, or pagehide and pageshow for a page the browser kept.
   {
@@ -1113,7 +1113,7 @@ async function press(page, loc, ms) {
 
   /* ------------------------------ the digital player over the five views, on a narrow phone ------------------------------ */
   for (const scheme of ['light', 'dark']) {
-    const d = await open({ sample: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('gdex-prefs', '${JSON.stringify({ scheme, menu: 'digital', text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });
+    const d = await open({ sample: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('tourbook-prefs', '${JSON.stringify({ scheme, menu: 'digital', text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });
     await d.page.waitForSelector('.bk-monthview');
     const D = await dayFromNow(d.page, 8);
     for (const rec of seed.filter(x => x.date)) await put(d.page, 'bookings', rec);
@@ -1143,7 +1143,7 @@ async function press(page, loc, ms) {
   // large buttons, behind the digital player. Each view says "formerly" where it says the rest: written on the show's
   // page, in the hidden words of the grid's blocks and in a day square's spoken name (the Week's with every other line).
   {
-    const f = await open({ sample: true, ask: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('gdex-prefs', '${JSON.stringify({ scheme: 'light', menu: 'digital', text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });
+    const f = await open({ sample: true, ask: true, viewport: { width: 320, height: 700 }, init: `try { localStorage.setItem('tourbook-prefs', '${JSON.stringify({ scheme: 'light', menu: 'digital', text: 'xlarge', targets: 'large' })}'); } catch (e) {}` });
     const P4 = await dayFromNow(f.page, -4), C2 = await dayFromNow(f.page, -2); // the show four days back, the new name from two days back
     await f.page.evaluate(C2 => import('./js/store.js').then(st => { st.patch('acts', 's-owls', { name: 'Owl Parliament', formerNames: [{ name: 'The Night Owls', until: C2 }] }); st.patch('venues', 's-lantern', { rulesTone: 'strict' }); }), C2);
     await put(f.page, 'bookings', { id: 'c-f1', kind: 'show', status: 'confirmed', actId: 's-owls', date: P4, venueId: 's-lantern', setTime: '21:00', setLength: 60 });

@@ -6,7 +6,7 @@
 // the place, the show itself, the notes; one list, newest first, with a line for today; the calendar's own card; the
 // kind row and the place chips; a time seen from a band's log), All and the tabs, the keyboard, what a screen reader is
 // told, each role's words, money, and how quick it is with 2,000 bookings, 200 bands, 500 people, 500 songs and 300
-// pieces of gear. Then a browser with the rest of Gdex (the question, the calendar's views, a show's page, the menus, a
+// pieces of gear. Then a browser with the rest of Tourbook (the question, the calendar's views, a show's page, the menus, a
 // support act, a renamed band); then the date reader in four time zones with the page's clock moved (a Sunday, the turn
 // of a month and of a year); then a 320 px phone with extra-large text and large buttons, light and dark, with each of
 // the three section menus; then the small hours, with last night's show still to play.
@@ -45,7 +45,7 @@ const finds = (page, q) => page.evaluate(q => import('./js/search.js').then(m =>
 const every = (page, q) => page.evaluate(q => import('./js/search.js').then(m => m.searchReady().then(() => m.searchAll(q))), q);
 const said = page => page.evaluate(() => (document.getElementById('sr-live') || { textContent: '' }).textContent);
 const focused = page => page.evaluate(() => { const a = document.activeElement; return a ? (a.id ? '#' + a.id : a.dataset.seen || a.dataset.id || a.dataset.kind || a.className) : ''; });
-const setRole = async (page, id) => { await page.evaluate(id => { if (id) localStorage.setItem('gdex-role', id); else localStorage.removeItem('gdex-role'); }, id); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(250); };
+const setRole = async (page, id) => { await page.evaluate(id => { if (id) localStorage.setItem('tourbook-role', id); else localStorage.removeItem('tourbook-role'); }, id); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(250); };
 
 // Chelsea Wolfe at The Church, Motörhead in a log, a support slot, a title, a client, and one of every kind; and one of
 // each other kind of record: people (May Okafor shares her name with a month), songs, a setlist, gear, a take log, an
@@ -115,13 +115,13 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
   ok('the top bar has no search button any more: ?, Aa and Backup (and Install when it is offered)', !b.old && same(b.buttons.filter(x => x !== 'installBtn'), ['helpBtn', 'displayBtn', 'cloudBtn']), JSON.stringify(b.buttons));
   const everywhere = [];
   for (const menu of ['record', 'tape', 'digital']) {
-    await page.evaluate(m => localStorage.setItem('gdex-prefs', JSON.stringify({ menu: m })), menu); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(200);
+    await page.evaluate(m => localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: m })), menu); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(200);
     for (const id of ['acts', 'people', 'songs', 'sessions', 'backline', 'venues', 'money', 'tools', 'insurance', 'settings', 'bookings']) { await go(page, id); const x = await box(); everywhere.push(x.inMenu && x.above && x.shown ? '' : `${menu}:${id}`); }
   }
-  await page.evaluate(() => localStorage.removeItem('gdex-prefs')); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(200);
+  await page.evaluate(() => localStorage.removeItem('tourbook-prefs')); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(200);
   ok('the box is on every page, above the record player, the tape deck and the digital player alike', everywhere.every(x => !x), everywhere.filter(Boolean).join(', '));
-  // The top bar without the button: GDEX is never cut short, "booking deck" shows whole or not at all (it goes under
-  // 470 px), and no button is squeezed but where four cannot fit at their size.
+  // The top bar without the button: TOURBOOK is never cut short, "booking deck" shows whole or not at all (it goes under
+  // 680 px), and no button is squeezed but where four cannot fit at their size.
   const bars = [];
   for (const text of ['normal', 'xlarge']) for (const targets of ['normal', 'large']) for (const install of [false, true]) for (const w of [320, 340, 360, 390, 412, 430, 469, 471, 520, 560, 600, 640, 720]) {
     await page.setViewportSize({ width: w, height: 900 });
@@ -138,8 +138,8 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
   }
   await page.setViewportSize({ width: 420, height: 900 });
   await page.evaluate(() => { Object.assign(document.documentElement.dataset, { text: 'normal', targets: 'normal' }); document.getElementById('installBtn').hidden = true; });
-  ok('the top bar from 320 to 720 px, every text and button size, Install hidden or showing: GDEX whole, “booking deck” whole or hidden, the buttons at their size (narrower only under 380 px)', bars.every(x => x.ok), bars.filter(x => !x.ok).map(x => x.at).join(' '));
-  ok('…“booking deck” is hidden on a phone and back from 471 px', bars.filter(x => /@(320|412|430|469)$/.test(x.at)).every(x => !x.small) && bars.filter(x => /@(471|520|720)$/.test(x.at)).every(x => x.small));
+  ok('the top bar from 320 to 720 px, every text and button size, Install hidden or showing: TOURBOOK whole, “booking deck” whole or hidden, the buttons at their size (narrower only under 380 px)', bars.every(x => x.ok), bars.filter(x => !x.ok).map(x => x.at).join(' '));
+  ok('…“booking deck” is hidden on a phone and up to 679 px (beside the longer TOURBOOK it would squeeze the buttons there), and back from 680 px', bars.filter(x => /@(320|412|430|469|471|520|600|640)$/.test(x.at)).every(x => !x.small) && bars.filter(x => /@720$/.test(x.at)).every(x => x.small));
   // It tucks away with the section menu when the page scrolls down, and comes back with it.
   await page.setViewportSize({ width: 420, height: 500 });
   await go(page, 'bookings');
@@ -521,7 +521,7 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
 
   // Nothing about a search is kept on the device: everything in its storage is the same after one as before it.
   await go(page, 'bookings');
-  const kept = () => page.evaluate(() => JSON.stringify([Object.entries(localStorage).sort().filter(([k]) => k !== 'gdex-studio-log'), Object.entries(sessionStorage).sort()]));
+  const kept = () => page.evaluate(() => JSON.stringify([Object.entries(localStorage).sort().filter(([k]) => k !== 'tourbook-studio-log'), Object.entries(sessionStorage).sort()]));
   const keptBefore = await kept();
   await reopen(page);
   await type(page, 'wolfe church zzqq');
@@ -530,7 +530,7 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
   await closeSearch(page);
   await reopen(page);
   const cameBack = (await page.inputValue('#srch-q')) === 'chelsea' && (await foundLine(page)) === '3 shows at The Crown';
-  ok('nothing about a search is stored on the device: its storage is the same after searching as before, though the search came back', cameBack && (await kept()) === keptBefore && !/zzqq/.test(keptBefore) && same(await page.evaluate(() => Object.keys(localStorage).sort().filter(k => k !== 'gdex-studio-log')), keysBefore), JSON.stringify(await page.evaluate(() => Object.keys(localStorage).sort())));
+  ok('nothing about a search is stored on the device: its storage is the same after searching as before, though the search came back', cameBack && (await kept()) === keptBefore && !/zzqq/.test(keptBefore) && same(await page.evaluate(() => Object.keys(localStorage).sort().filter(k => k !== 'tourbook-studio-log')), keysBefore), JSON.stringify(await page.evaluate(() => Object.keys(localStorage).sort())));
   await page.click('#srch-place-all'); await sleep(100);
   await page.focus('.srch-list .bk-card[data-id="b-w3"]');
   await store(page, st => st.patch('bookings', 'b-w4', { status: 'confirmed' }));
@@ -651,7 +651,7 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 
-  /* ------------------------------ with the rest of Gdex: the question, the calendar's views, a show's page, the menus ------------------------------ */
+  /* ------------------------------ with the rest of Tourbook: the question, the calendar's views, a show's page, the menus ------------------------------ */
   // Then a support act's time seen (it belongs to the headliner's show), and a renamed band (item 7: found by every name it
   // has had, each card saying the name it had that night).
   {
@@ -699,7 +699,7 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
     // The track list (☰) is a sheet: "/" waits for it, with each of the three menus.
     const menus = [];
     for (const menu of ['record', 'tape', 'digital']) {
-      await page.evaluate(m => { const p = JSON.parse(localStorage.getItem('gdex-prefs') || '{}'); p.menu = m; localStorage.setItem('gdex-prefs', JSON.stringify(p)); }, menu);
+      await page.evaluate(m => { const p = JSON.parse(localStorage.getItem('tourbook-prefs') || '{}'); p.menu = m; localStorage.setItem('tourbook-prefs', JSON.stringify(p)); }, menu);
       await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(250);
       await page.locator(Q).waitFor({ timeout: 8000 }).catch(() => {}); // asked again on this load
       if (await page.$(Q)) { await page.click('#ac-ask-close'); await sleep(250); }
@@ -809,7 +809,7 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
     const bad = [];
     for (const zone of zones) {
       const ctx = await browser.newContext({ timezoneId: zone, serviceWorkers: 'block' });
-      await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); localStorage.setItem('gdex-ask-seen', 'off'); } catch (e) { /* ignore */ } });
+      await ctx.addInitScript(() => { try { localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1'); localStorage.setItem('tourbook-ask-seen', 'off'); } catch (e) { /* ignore */ } });
       const pg = await ctx.newPage();
       await pg.goto(BASE); await pg.waitForSelector('#deck .dk-next');
       const at = (iso, hm) => pg.evaluate(([iso, hm]) => { const [y, mo, d] = iso.split('-').map(Number), [hh, mm] = hm.split(':').map(Number); return new Date(y, mo - 1, d, hh, mm).getTime(); }, [iso, hm]);
@@ -864,12 +864,12 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
   /* ------------------------------ a 320 px phone, extra-large text, large buttons ------------------------------ */
   for (const scheme of ['light', 'dark']) {
     const prefs = menu => JSON.stringify({ scheme, menu, text: 'xlarge', targets: 'large' });
-    const n = await open({ viewport: { width: 320, height: 700 }, init: `try { if (!localStorage.getItem('gdex-prefs')) localStorage.setItem('gdex-prefs', '${prefs('record')}'); } catch (e) {}
+    const n = await open({ viewport: { width: 320, height: 700 }, init: `try { if (!localStorage.getItem('tourbook-prefs')) localStorage.setItem('tourbook-prefs', '${prefs('record')}'); } catch (e) {}
       window.__phFits = q => { const v = q.value; q.value = q.placeholder; const fits = q.scrollWidth <= q.clientWidth; q.value = v; return fits; };` });
     await store(n.page, seed, DATES);
     await sleep(300);
     for (const menu of ['record', 'tape', 'digital']) {
-      await n.page.evaluate(p => localStorage.setItem('gdex-prefs', p), prefs(menu));
+      await n.page.evaluate(p => localStorage.setItem('tourbook-prefs', p), prefs(menu));
       await n.page.reload(); await n.page.waitForSelector('#deck .dk-next'); await sleep(250);
       await n.page.evaluate(() => { document.getElementById('installBtn').hidden = false; });
       const fit = await n.page.evaluate(() => { const brand = document.querySelector('.top .brand'), br = brand.getBoundingClientRect(), word = document.createRange(); word.selectNodeContents([...brand.childNodes].find(x => x.nodeType === 3 && x.data.trim())); const wr = word.getBoundingClientRect();
@@ -877,8 +877,8 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
         const deck = document.querySelector('.deck').getBoundingClientRect(), q = document.getElementById('srch-box'), qr = q.getBoundingClientRect(), placeholderFits = window.__phFits(q);
         return { html: document.documentElement.dataset, page: document.documentElement.scrollWidth, small: getComputedStyle(brand.querySelector('small')).display, whole: brand.scrollWidth <= brand.clientWidth + 0.5 && wr.right <= br.right + 0.5 && br.left >= 0 && wr.right <= btns[0].l + 0.5,
           btns, inRow: btns.every((x, i) => x.l >= (i ? btns[i - 1].r : br.right) - 0.5 && x.r <= innerWidth + 0.5 && Math.abs(x.t - btns[0].t) < 1), box: { l: qr.left, r: qr.right, h: qr.height, under: qr.top >= btns[0].b - 0.5, above: qr.bottom <= deck.top + 0.5, placeholderFits } }; });
-      ok(`320 px, ${scheme}, ${menu}: extra-large text and large buttons are on, Install is showing: GDEX whole, the small words hidden, no page wider than the screen`, fit.html.text === 'xlarge' && fit.html.targets === 'large' && fit.html.scheme === scheme && fit.html.menu === menu && fit.btns.length === 4 && fit.whole && fit.small === 'none' && fit.page <= 320, JSON.stringify({ whole: fit.whole, small: fit.small, page: fit.page }));
-      ok(`320 px, ${scheme}, ${menu}: the four buttons fit in one row beside GDEX, each at least 36 px wide and 44 px tall`, fit.inRow && fit.btns.every(x => x.w >= 36 && x.h >= 44), JSON.stringify(fit.btns));
+      ok(`320 px, ${scheme}, ${menu}: extra-large text and large buttons are on, Install is showing: TOURBOOK whole, the small words hidden, no page wider than the screen`, fit.html.text === 'xlarge' && fit.html.targets === 'large' && fit.html.scheme === scheme && fit.html.menu === menu && fit.btns.length === 4 && fit.whole && fit.small === 'none' && fit.page <= 320, JSON.stringify({ whole: fit.whole, small: fit.small, page: fit.page }));
+      ok(`320 px, ${scheme}, ${menu}: the four buttons fit in one row beside TOURBOOK, each at least 36 px wide and 44 px tall`, fit.inRow && fit.btns.every(x => x.w >= 36 && x.h >= 44), JSON.stringify(fit.btns));
       ok(`320 px, ${scheme}, ${menu}: the box fits between the top bar and the menu, full height, with its placeholder whole`, fit.box.l >= 0 && fit.box.r <= 320 && fit.box.h >= 54 && fit.box.under && fit.box.above && fit.box.placeholderFits, JSON.stringify(fit.box));
     }
     await n.page.focus('#srch-box'); await sleep(150);
@@ -887,7 +887,7 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
     // Each role's placeholder is written into the box for a moment, to see it fits: as many kinds as there is room for.
     const phFits = await n.page.evaluate(() => import('./js/roles.js').then(r => { const q = document.getElementById('srch-box'), out = [];
       for (const id of ['producer', 'manager', 'band', 'solo', 'scout', 'audiophile', 'all']) { r.setRole(id); out.push([id, q.placeholder, window.__phFits(q) && /^Search \w+.*…$/.test(q.placeholder)]); }
-      localStorage.removeItem('gdex-role'); return out; }));
+      localStorage.removeItem('tourbook-role'); return out; }));
     ok(`320 px, ${scheme}: the box’s placeholder fits in it, in every role’s words (as many kinds as there is room for)`, phFits.every(x => x[2]), JSON.stringify(phFits));
     await n.page.keyboard.type('c'); await n.page.waitForSelector('#srch-q'); await sleep(200);
     const tall = () => n.page.evaluate(() => { const sh = document.querySelector('.srch-sheet'), r = sh.getBoundingClientRect(), body = sh.querySelector('.sheet-body'), q = document.getElementById('srch-q').getBoundingClientRect();

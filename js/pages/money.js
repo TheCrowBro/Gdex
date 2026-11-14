@@ -33,7 +33,7 @@ const tap = (b, ...kids) => h('button', { class: 'card tap mn-row', type: 'butto
 const tx = v => { const s = v == null ? '' : String(v); return /^[=+\-@\t\r]/.test(s) ? "'" + s : s; };
 const money2 = n => r2(n).toFixed(2);
 // The year's income in the role's words: 'earned' (by you), or for a manager 'your acts earned', since the sum is the
-// acts' fees and settlements, not the manager's commission (which Gdex does not work out).
+// acts' fees and settlements, not the manager's commission (which Tourbook does not work out).
 const earnedWord = () => String(pageOpt('money', 'earned', 'earned') || 'earned');
 const ownEarned = () => earnedWord() === 'earned';
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
@@ -127,7 +127,7 @@ function render(root) {
       const t = docTotals(inv), paidOn = inv.paidAt ? new Date(inv.paidAt) : null;
       rows.push([tx(inv.number), inv.issued || '', inv.due || '', tx(bookingTitle(b)), tx((b.contact && b.contact.name) || b.client || actName(b.actId) || ''), inv.status || '', money2(t.net), money2(t.tax), money2(t.total), money2(t.paid), money2(t.due), paidOn && !isNaN(paidOn) && inv.status === 'paid' ? `${paidOn.getFullYear()}-${String(paidOn.getMonth() + 1).padStart(2, '0')}-${String(paidOn.getDate()).padStart(2, '0')}` : '']);
     }
-    if (await saveFile('﻿' + csv(rows), `gdex-invoices-${Y}.csv`, 'text/csv')) toast(`${plural(yearInv.length, 'invoice')} exported`);
+    if (await saveFile('﻿' + csv(rows), `tourbook-invoices-${Y}.csv`, 'text/csv')) toast(`${plural(yearInv.length, 'invoice')} exported`);
   };
   const exportShows = async () => {
     const shows = yearB.filter(b => b.kind === 'show').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -137,7 +137,7 @@ function render(root) {
       const s = settle(b), has = hasSettlement(b);
       rows.push([b.date || '', tx(actName(b.actId)), tx(venueOf(b).name), statusLabel(b.status), tx(dealSummary(b.deal)), has ? s.tickets : '', money2(s.price), has ? money2(s.gross) : '', money2(has ? s.fee : bookingIncome(b)), has ? money2(s.merch) : '', money2(s.costs), has ? money2(s.profit) : '', s.received == null ? '' : money2(s.received), isSettled(b) ? 'yes' : 'no']);
     }
-    if (await saveFile('﻿' + csv(rows), `gdex-shows-${Y}.csv`, 'text/csv')) toast(`${plural(shows.length, 'show')} exported`);
+    if (await saveFile('﻿' + csv(rows), `tourbook-shows-${Y}.csv`, 'text/csv')) toast(`${plural(shows.length, 'show')} exported`);
   };
 
   const section = (cls, title, ...kids) => h('section', { class: 'mn-sec ' + cls, 'aria-label': title }, h('h3', null, title), ...kids);

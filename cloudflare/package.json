@@ -1,5 +1,5 @@
 {
-  "name": "gdex-cloudflare",
+  "name": "tourbook-cloudflare",
   "private": true,
   "devDependencies": {
     "wrangler": "4.151.1"

@@ -2,7 +2,7 @@
 // Copies only the files the public website needs into a folder for publishing, never the desktop app, the licence
 // server, the tools (the licence generator among them), the docs, the tests or any key file.
 //   node tools/stage-site.mjs <folder>                      → a plain copy (to look at, or to check)
-//   node tools/stage-site.mjs cloudflare/site --cloudflare  → the gdex.crowmade.app copy, plus the _headers and
+//   node tools/stage-site.mjs cloudflare/site --cloudflare  → the tourbook.crowmade.app copy, plus the _headers and
 //                                                            _redirects files Cloudflare reads
 // With --cloudflare, each page's Content-Security-Policy header is copied from that page's own <meta> tag, so the two
 // can never drift apart; frame-ancestors is added because it only works as a header. Run after tools/stamp-build.mjs,

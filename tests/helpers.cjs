@@ -1,37 +1,37 @@
-// Shared by the browser specs: a browser with Gdex open on a phone-sized screen, the welcome tour marked as seen (and
+// Shared by the browser specs: a browser with Tourbook open on a phone-sized screen, the welcome tour marked as seen (and
 // the one-time role card dismissed, so every spec runs as Jack of Trades unless it sets a role), the “Did you see them?”
-// question turned off (gdex-ask-seen 'off', set on every load, so no sheet opens over a spec's own work),
+// question turned off (tourbook-ask-seen 'off', set on every load, so no sheet opens over a spec's own work),
 // errors collected, and a PASS / FAIL printer the runner counts.
 //   const { open, ok, sleep } = require('../helpers.cjs');
 //   const { browser, page, errors } = await open({ sample: true });
-//   open({ ask: true }) leaves gdex-ask-seen alone: a spec about the question seeds its shows, then reloads.
+//   open({ ask: true }) leaves tourbook-ask-seen alone: a spec about the question seeds its shows, then reloads.
 //   open({ touch: true }) emulates a touch screen (page.touchscreen.tap; the mouse still works).
-// Gdex always opens on the calendar: after page.reload(), go(page, id) to be anywhere else.
-// With GDEX_LICENCE=on (CI's second leg; the test server then serves licences as live on localhost) every page starts
+// Tourbook always opens on the calendar: after page.reload(), go(page, id) to be anywhere else.
+// With TOURBOOK_LICENCE=on (CI's second leg; the test server then serves licences as live on localhost) every page starts
 // inside free days already under way, with the terms agreed, unless the spec has seeded its own (the build spec [S-34]).
 const { chromium } = require('playwright');
-// The terms' version as js/terms.js has it, so the terms sheet counts as agreed (GDEX_ROOT: the scratch copy).
-const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(require('fs').readFileSync(require('path').join(process.env.GDEX_ROOT || '.', 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
-const BASE = process.env.GDEX_URL || 'http://localhost:8124/';
+// The terms' version as js/terms.js has it, so the terms sheet counts as agreed (TOURBOOK_ROOT: the scratch copy).
+const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(require('fs').readFileSync(require('path').join(process.env.TOURBOOK_ROOT || '.', 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
+const BASE = process.env.TOURBOOK_URL || 'http://localhost:8124/';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
 // The licence leg's seed (the build spec [S-34]), also for a context a spec makes itself (06-roles, 43-ask, 70-settings):
 // a trial already under way and the terms agreed, before the first page, only when absent.
 async function licenceLeg(ctx) {
-  if (process.env.GDEX_LICENCE === 'on') await ctx.addInitScript(v => { try { const t = Date.now(); if (!localStorage.getItem('gdex-licence')) localStorage.setItem('gdex-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); if (!localStorage.getItem('gdex-terms')) localStorage.setItem('gdex-terms', JSON.stringify({ v, at: t })); } catch (e) { /* ignore */ } }, TERMS_V);
+  if (process.env.TOURBOOK_LICENCE === 'on') await ctx.addInitScript(v => { try { const t = Date.now(); if (!localStorage.getItem('tourbook-licence')) localStorage.setItem('tourbook-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); if (!localStorage.getItem('tourbook-terms')) localStorage.setItem('tourbook-terms', JSON.stringify({ v, at: t })); } catch (e) { /* ignore */ } }, TERMS_V);
 }
 // The licence leg for a page whose clock a spec has moved (Playwright's clock, years on): the free days the leg seeded by
 // the real clock would be over there, and the role read-only, so they are seeded again in the page's own time, in both
-// copies (gdex-licence and IndexedDB licence-days), and the page is loaded again (sel: what to wait for). Off: nothing.
+// copies (tourbook-licence and IndexedDB licence-days), and the page is loaded again (sel: what to wait for). Off: nothing.
 async function licenceAt(page, sel = '#deck .dk-next') {
-  if (process.env.GDEX_LICENCE !== 'on') return;
-  await page.evaluate(() => import('./js/kv.js').then(k => { const t = Date.now(); localStorage.setItem('gdex-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); return k.kvSet('licence-days', { first: t, seen: t }).catch(() => {}); }));
+  if (process.env.TOURBOOK_LICENCE !== 'on') return;
+  await page.evaluate(() => import('./js/kv.js').then(k => { const t = Date.now(); localStorage.setItem('tourbook-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); return k.kvSet('licence-days', { first: t, seen: t }).catch(() => {}); }));
   await page.reload(); await page.waitForSelector(sel);
 }
 async function open({ sample = false, viewport = { width: 420, height: 900 }, tab = null, init = null, permissions = [], ask = false, touch = false } = {}) {
   const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   const ctx = await browser.newContext({ viewport, serviceWorkers: 'block', acceptDownloads: true, permissions, hasTouch: touch });
-  await ctx.addInitScript(keepAsk => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); if (!keepAsk) localStorage.setItem('gdex-ask-seen', 'off'); } catch (e) { /* ignore */ } }, ask); // no welcome tour, no role card, no question
+  await ctx.addInitScript(keepAsk => { try { localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1'); if (!keepAsk) localStorage.setItem('tourbook-ask-seen', 'off'); } catch (e) { /* ignore */ } }, ask); // no welcome tour, no role card, no question
   // The licence leg: a trial already under way and the terms agreed, before the first page, only when absent (a spec's own later changes survive reloads).
   await licenceLeg(ctx);
   if (init) await ctx.addInitScript(init);

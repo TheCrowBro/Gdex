@@ -1,4 +1,4 @@
-// The licence from end to end, every part real but the outside services: Gdex's licence server (cloudflare/worker.mjs,
+// The licence from end to end, every part real but the outside services: Tourbook's licence server (cloudflare/worker.mjs,
 // bundled as Wrangler does and run in Cloudflare's own runtime, workerd, through Miniflare; Stripe and Resend faked;
 // throw-away keys in place of desktop/licence-keys.json) answering the real web app (its /licence/* and /buy requests
 // forwarded to the Worker, with the Date header Cloudflare adds to every answer), and the real desktop licence
@@ -25,8 +25,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // cloudflare/ and desktop/ are read from the repository itself, never from the test's scratch copy ([S-26]).
 const REPO = path.resolve(__dirname, '../..');
 const NM = path.join(REPO, 'cloudflare/node_modules');
-const BASE = process.env.GDEX_URL || 'http://localhost:8124/';
-const SITE = 'https://gdex.crowmade.app';
+const BASE = process.env.TOURBOOK_URL || 'http://localhost:8124/';
+const SITE = 'https://tourbook.crowmade.app';
 const DAY = 864e5;
 
 (async () => {
@@ -40,7 +40,7 @@ const DAY = 864e5;
   const esbuild = require(path.join(NM, 'esbuild'));
   const { Miniflare, convertV4MiniflareOptions } = require(path.join(NM, 'miniflare'));
   const workers = [], errors = [];
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gdex-e2e-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tourbook-e2e-'));
   let browser;
   try {
     /* ------------------------- the licence server, as it would be live ------------------------- */
@@ -66,22 +66,22 @@ const DAY = 864e5;
       if (u.hostname === 'api.resend.com') return new Response(JSON.stringify({ id: 'email_' + calls.length }), { status: 200 });
       return new Response('unexpected', { status: 599 });
     };
-    const env = { LICENCE_SHOP_KEY: codes.b64u.enc(shop.pkcs8), STRIPE_SECRET_KEY: 'rk_test_key', STRIPE_WEBHOOK_SECRET: 'whsec_e2esecret', STRIPE_PAYMENT_LINK: 'plink_gdex', BUY_URL: 'https://buy.stripe.com/test_gdex', RESEND_API_KEY: 're_test', WEB_SIGN_IN: 'on' };
+    const env = { LICENCE_SHOP_KEY: codes.b64u.enc(shop.pkcs8), STRIPE_SECRET_KEY: 'rk_test_key', STRIPE_WEBHOOK_SECRET: 'whsec_e2esecret', STRIPE_PAYMENT_LINK: 'plink_tourbook', BUY_URL: 'https://buy.stripe.com/test_tourbook', RESEND_API_KEY: 're_test', WEB_SIGN_IN: 'on' };
     // cf: false: Miniflare never fetches Cloudflare's sample request details (each request here names its country).
     const make = bindings => { const m = new Miniflare(convertV4MiniflareOptions({ modules: true, script, compatibilityDate: '2026-10-01', cf: false, kvNamespaces: ['LICENCES'], durableObjects: { SIGNIN: { className: 'SignInCodes', useSQLite: true } }, bindings, outboundService: outbound, serviceBindings: { ASSETS: req => new Response('static file ' + new URL(req.url).pathname) } })); workers.push(m); return m; };
     const live = make(env), paused = make({ ...env, WEB_SIGN_IN: 'off' }); // paused: the owner's emergency switch
     const mails = () => calls.filter(c => c.url === 'https://api.resend.com/emails').map(c => JSON.parse(c.body));
-    const lastCode = to => { const x = mails().filter(e => e.to[0] === to).at(-1); return x && (x.subject.match(/^(\d{6}) is your Gdex sign-in code$/) || [])[1]; };
+    const lastCode = to => { const x = mails().filter(e => e.to[0] === to).at(-1); return x && (x.subject.match(/^(\d{6}) is your Tourbook sign-in code$/) || [])[1]; };
     const hook = event => { const body = JSON.stringify(event), t = Math.floor(Date.now() / 1000), sig = crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(`${t}.${body}`).digest('hex'); return live.dispatchFetch(SITE + '/licence/stripe-webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Stripe-Signature': `t=${t},v1=${sig}` }, body }).then(r => r.json()); };
-    // A purchase through Gdex's payment link: the thank-you page's code, and the same code in the email Stripe's webhook sends.
+    // A purchase through Tourbook's payment link: the thank-you page's code, and the same code in the email Stripe's webhook sends.
     let bought = 0;
     const buy = async (name, email) => {
       const id = 'cs_test_e2e' + String(++bought).padStart(12, '0') + crypto.randomBytes(4).toString('hex');
-      sessions.set(id, { id, object: 'checkout.session', status: 'complete', payment_status: 'paid', payment_link: 'plink_gdex', created: Math.floor(Date.now() / 1000) - 60, payment_intent: 'pi_e2e' + bought + crypto.randomBytes(4).toString('hex'), customer_details: { name, email } });
+      sessions.set(id, { id, object: 'checkout.session', status: 'complete', payment_status: 'paid', payment_link: 'plink_tourbook', created: Math.floor(Date.now() / 1000) - 60, payment_intent: 'pi_e2e' + bought + crypto.randomBytes(4).toString('hex'), customer_details: { name, email } });
       const html = await (await live.dispatchFetch(SITE + '/licence/thanks?session_id=' + id)).text();
       const code = (html.match(/<textarea id="code"[^>]*>([^<]+)<\/textarea>/) || [])[1] || '';
       const sent = await hook({ id: 'evt_' + id, type: 'checkout.session.completed', data: { object: sessions.get(id) } });
-      const mail = mails().filter(m => m.to[0] === email.toLowerCase() && m.subject === 'Your Gdex licence').at(-1);
+      const mail = mails().filter(m => m.to[0] === email.toLowerCase() && m.subject === 'Your Tourbook licence').at(-1);
       return { id, code, ref: sent.ref, mailed: !!mail && mail.text.includes(code), refund: () => hook({ id: 'evt_r' + id, type: 'charge.refunded', data: { object: { refunded: true, payment_intent: sessions.get(id).payment_intent } } }) };
     };
 
@@ -95,7 +95,7 @@ const DAY = 864e5;
     const computer = n => createLicence({ dir: path.join(tmp, 'pc' + n), keys: KEYS, on: true, post: deskPost, site: SITE, os: 'Linux' });
     {
       const jo = await buy('Jo Desk', 'Jo.Desk@example.com');
-      ok('a purchase: the thank-you page shows a GDEX- code, and the same code is emailed', /^GDEX-/.test(jo.code) && jo.mailed && /^2:\d+$/.test(jo.ref || ''), JSON.stringify({ code: jo.code.slice(0, 12), ref: jo.ref }));
+      ok('a purchase: the thank-you page shows a TOURBOOK- code, and the same code is emailed', /^TOURBOOK-/.test(jo.code) && jo.mailed && /^2:\d+$/.test(jo.ref || ''), JSON.stringify({ code: jo.code.slice(0, 12), ref: jo.ref }));
       const pcs = [1, 2, 3, 4].map(computer);
       let st = await pcs[0].state();
       ok('desktop: switched on (the switch and key 1), the free days wait for a working role', st.mode === 'unstarted' && st.enabled && desk.asked.length === 0, JSON.stringify(st));
@@ -129,7 +129,7 @@ const DAY = 864e5;
       ok('desktop: a start five days ahead of the clock counts as a wrong clock (read-only)', before.mode === 'clock' && before.canEdit === false, JSON.stringify(before));
       ok('…the price comes from the server for the country (the UK: 24.00 USD with 20% VAT)', price && price.taxed && price.taxed.total === '24.00' && price.taxed.tax === 'VAT' && price.taxed.rate === 20, JSON.stringify(price));
       ok('…and that answer\'s time puts the start right: the free days again, none lost, the page told', fixed.mode === 'trial' && fixed.trialLeft === 30 && Math.abs(fixed.first - Date.now()) < 60e3 && sent.some(([ch, m]) => ch === 'licence:changed' && m === 'trial'), JSON.stringify({ fixed, sent }));
-      ok('…and a page that is not Gdex\'s own is refused', (await handlers.get('licence:price')('elsewhere')).error === 'refused' && !!wired);
+      ok('…and a page that is not Tourbook\'s own is refused', (await handlers.get('licence:price')('elsewhere')).error === 'refused' && !!wired);
     }
 
     /* =============== the web app against the server, in Chromium =============== */
@@ -149,7 +149,7 @@ const DAY = 864e5;
       await r.fulfill({ status: res.status, headers, body: Buffer.from(await res.arrayBuffer()) });
     };
     const tile = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
-    // A page of Gdex with the licence live on this host. seed: localStorage written once, before the first page. The
+    // A page of Tourbook with the licence live on this host. seed: localStorage written once, before the first page. The
     // page's clock: window.__clock(ms), kept through reloads (sessionStorage t-clock). init: another script to add.
     const open = async (box, { seed = {}, firstRun = false, init = null, binding = null } = {}) => {
       const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
@@ -171,8 +171,8 @@ const DAY = 864e5;
         try {
           const kept = sessionStorage.getItem('t-clock'); if (kept) window.__clock(Number(kept));
           if (!localStorage.getItem('t-seeded')) { localStorage.setItem('t-seeded', '1'); for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); }
-          if (!firstRun) { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); }
-          localStorage.setItem('gdex-ask-seen', 'off');
+          if (!firstRun) { localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1'); }
+          localStorage.setItem('tourbook-ask-seen', 'off');
         } catch (e) { /* ignore */ }
         window.__toasts = [];
         new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document, { childList: true, subtree: true });
@@ -188,7 +188,7 @@ const DAY = 864e5;
       return { ctx, page };
     };
     const state = page => page.evaluate(() => import('./js/licence-state.js').then(m => m.licenceReady().then(() => m.licenceNow())));
-    const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('gdex-licence') || '{}'));
+    const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-licence') || '{}'));
     const toasts = page => page.evaluate(() => window.__toasts.slice());
     const sheets = page => page.$$eval('.sheet', els => els.map(x => x.getAttribute('aria-label')));
     const go = (page, id) => page.evaluate(t => window.logiGo(t), id);
@@ -207,14 +207,14 @@ const DAY = 864e5;
       await page.fill('#lic-digits', code || ''); await page.click('#lic-verify'); await sleep(1200);
       return code;
     };
-    const STARTED = /^Your 30 free days of Gdex’s working roles have started on this device: until .+\.$/;
+    const STARTED = /^Your 30 free days of Tourbook’s working roles have started on this device: until .+\.$/;
 
     /* ---------------- a free Audiophile ---------------- */
     {
       const box = newBox('DE');
       const fan = await buy('Ali Fan', 'ali.fan@example.com');
       const { ctx, page } = await open(box, { firstRun: true });
-      await page.waitForSelector('.sheet[aria-label="Who’s using Gdex?"]', { timeout: 8000 });
+      await page.waitForSelector('.sheet[aria-label="Who’s using Tourbook?"]', { timeout: 8000 });
       await page.click('.rp-ask .rp-card[data-role="audiophile"]');
       await page.waitForSelector('.tour-card'); await page.click('.tour-actions .btn.ghost');
       const own = [];
@@ -251,7 +251,7 @@ const DAY = 864e5;
       const L = label(id), As = id === 'all' ? `in the ${L} role` : `as ${L}`, [country, tag] = COUNTRY[id], email = `${id}.e2e@example.com`;
       const lic = await buy(L + ' Buyer', email);
       const box = newBox(country);
-      const { ctx, page } = await open(box, { seed: { 'gdex-role': id } });
+      const { ctx, page } = await open(box, { seed: { 'tourbook-role': id } });
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
       await agree(page);
       const st = await state(page);
@@ -260,7 +260,7 @@ const DAY = 864e5;
       await later(page, box, 31);
       await page.waitForSelector('.sheet.licence-over', { timeout: 8000 }); await sleep(900);
       const words = await page.textContent('.sheet.licence-over');
-      ok(`${L}: 31 days on, the free days are over: read-only ${As}, Buy at the price where the buyer is (${country}: ${tag})`, words.includes(`Gdex is read-only ${As} on this device until there is a licence`) && words.includes('Buy a licence · ' + tag) && box.asked.includes('/licence/price'), words.slice(0, 160));
+      ok(`${L}: 31 days on, the free days are over: read-only ${As}, Buy at the price where the buyer is (${country}: ${tag})`, words.includes(`Tourbook is read-only ${As} on this device until there is a licence`) && words.includes('Buy a licence · ' + tag) && box.asked.includes('/licence/price'), words.slice(0, 160));
       const pin = await signIn(page, '.sheet.licence-over', email);
       const st2 = await state(page), rec = await stored(page);
       ok(`${L}: …signed in with the emailed code: licensed, the token the server signed checked in the browser`, /^\d{6}$/.test(pin || '') && st2.mode === 'licensed' && st2.licence.email === email && st2.licence.ref === lic.ref && rec.token && rec.token.kid === 2 && !(await sheets(page)).length, JSON.stringify(st2));
@@ -296,7 +296,7 @@ const DAY = 864e5;
     {
       const box = newBox('US');
       box.offline = true; // the free days start while the device's clock is five days on and nothing answers
-      const { ctx, page } = await open(box, { seed: { 'gdex-role': 'manager' }, init: `try { if (!sessionStorage.getItem('t-clock')) window.__clock(Date.now() + 5 * ${DAY}); } catch (e) {}` });
+      const { ctx, page } = await open(box, { seed: { 'tourbook-role': 'manager' }, init: `try { if (!sessionStorage.getItem('t-clock')) window.__clock(Date.now() + 5 * ${DAY}); } catch (e) {}` });
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
       await agree(page);
       const ahead = (await stored(page)).first;
@@ -321,17 +321,17 @@ const DAY = 864e5;
       let page = null;
       const win = { isDestroyed: () => false, webContents: { send: (ch, s) => { if (page) page.evaluate(s => window.__licChanged && window.__licChanged(s), s).catch(() => {}); } } };
       wireLicence({ ipcMain: { handle: (ch, fn) => handlers.set(ch, fn) }, fromApp: e => e === 'app', getWindow: () => win, open: () => {}, dir: path.join(tmp, 'desk-page'), site: SITE, keys: KEYS, on: true, post: deskPost, price: deskPrice });
-      // window.gdexDesktop as desktop/preload.cjs gives it (the licence part), each call through the IPC handlers above.
+      // window.tourbookDesktop as desktop/preload.cjs gives it (the licence part), each call through the IPC handlers above.
       const bridge = `(() => {
         const call = (ch, ...a) => window.__ipc(ch, ...a), L = [];
         window.__licChanged = s => L.forEach(f => f(s));
-        window.gdexDesktop = { platform: 'linux', updateState: async () => ({ status: 'current' }), checkForUpdates: async () => ({ status: 'current' }), onStatus: () => () => {},
+        window.tourbookDesktop = { platform: 'linux', updateState: async () => ({ status: 'current' }), checkForUpdates: async () => ({ status: 'current' }), onStatus: () => () => {},
           licence: { state: () => call('licence:state'), start: () => call('licence:start'), adopt: t => call('licence:adopt', Number(t)),
             enter: (code, opts) => call('licence:enter', String(code || ''), opts && typeof opts.release === 'string' ? { release: opts.release } : {}),
             recheck: () => call('licence:recheck'), release: () => call('licence:release'), code: () => call('licence:code'), buy: () => call('licence:buy'),
             localPrice: () => call('licence:price'), onChange: cb => { L.push(cb); return () => {}; } } };
       })();`;
-      const opened = await open(box, { seed: { 'gdex-role': 'band' }, init: bridge, binding: (src, ch, ...a) => handlers.get(ch)('app', ...a) });
+      const opened = await open(box, { seed: { 'tourbook-role': 'band' }, init: bridge, binding: (src, ch, ...a) => handlers.get(ch)('app', ...a) });
       page = opened.page;
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
       await agree(page);

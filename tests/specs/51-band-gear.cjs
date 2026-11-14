@@ -299,7 +299,7 @@ const seed = page => page.evaluate(extra => import('./js/store.js').then(s => s.
   bx = await boxes(page);
   ok('…and the form: For act, The act', bx.act.label === 'For act' && bx.act.options[0][1] === 'Not for an act' && bx.paid.options[2][1] === 'The act' && /your investment in the act it is for/.test(bx.paid.hint), JSON.stringify([bx.act.label, bx.paid.options[2]]));
   await page.keyboard.press('Escape'); await sleep(300);
-  // Jack of Trades (also where Gdex is with no role chosen): the folds too.
+  // Jack of Trades (also where Tourbook is with no role chosen): the folds too.
   await role(page, 'all');
   await go(page, 'backline');
   ok('Jack of Trades sees the folds', same((await heads(page)).map(x => x[0]), ['Sable', 'The Night Owls', 'Not for an act']));
@@ -357,7 +357,7 @@ const seed = page => page.evaluate(extra => import('./js/store.js').then(s => s.
 
   /* ---------------- 320 px, extra-large text and large buttons ---------------- */
   {
-    const prefs = `try { localStorage.setItem('gdex-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large' }))}); localStorage.setItem('gdex-role', 'producer'); } catch (e) { /* ignore */ }`;
+    const prefs = `try { localStorage.setItem('tourbook-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large' }))}); localStorage.setItem('tourbook-role', 'producer'); } catch (e) { /* ignore */ }`;
     const { browser: b2, page: p2, errors: e2 } = await open({ sample: true, viewport: { width: 320, height: 700 }, init: prefs });
     await seed(p2);
     await p2.evaluate(() => import('./js/store.js').then(s => {

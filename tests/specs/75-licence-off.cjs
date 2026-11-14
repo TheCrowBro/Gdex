@@ -1,12 +1,12 @@
-// The licence switched off, as the repository has it (js/licence-config.js: LICENCE_SITES = []), and as a copy of Gdex
-// anywhere but the live site has it: Gdex works exactly as before the licence existed. Every role picks and works, every
+// The licence switched off, as the repository has it (js/licence-config.js: LICENCE_SITES = []), and as a copy of Tourbook
+// anywhere but the live site has it: Tourbook works exactly as before the licence existed. Every role picks and works, every
 // section opens (logiGo resolves true), nothing about a licence is shown (no badge, no mark, no bar; Settings → About
 // and its nine parts), the licence's sheets and code are never fetched, and not one request goes to a licence server in
 // a whole visit. Erase keeps the licence record. About's closed line names Google Drive while it is linked. The spec
 // serves the switch itself, so it reads the same in both legs of CI (the build spec §5.4).
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
-const BASE = process.env.GDEX_URL || 'http://localhost:8124/';
+const BASE = process.env.TOURBOOK_URL || 'http://localhost:8124/';
 const REPO = path.join(__dirname, '..', '..');
 const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -23,7 +23,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     ctx.on('request', r => { const p = new URL(r.url()).pathname; fetched.push(p); if (/^\/licence\/|^\/buy$/.test(p)) asked.push(p); });
     await ctx.route('**/js/licence-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: `export const LICENCE_SITES = ${JSON.stringify(sites)};\n` }));
     await ctx.route('https://api.open-meteo.com/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"daily":{"time":[]}}' }));
-    await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); localStorage.setItem('gdex-ask-seen', 'off'); } catch (e) { /* ignore */ } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1'); localStorage.setItem('tourbook-ask-seen', 'off'); } catch (e) { /* ignore */ } });
     if (init) await ctx.addInitScript(init);
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.message));
@@ -52,7 +52,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
       await go(page, 'settings'); await sleep(250);
       await page.evaluate(() => { const d = document.getElementById('se-role'); if (d && !d.open) d.open = true; });
       await page.click(`#se-role .rp-card[data-role="${id}"]`); await sleep(350);
-      const role = await page.evaluate(() => localStorage.getItem('gdex-role'));
+      const role = await page.evaluate(() => localStorage.getItem('tourbook-role'));
       const badges = await page.locator('.rp-licence').count();
       const opened = await go(page, 'people'); await sleep(250);
       const page2 = await page.evaluate(() => window.logiPage());
@@ -105,34 +105,34 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     await sleep(2500); // the idle work: the licence's sources (nothing to do while off)
     ok('…and in the whole visit, every role tried, not one request went to /licence/ or /buy', asked.length === 0, asked.join(' | '));
     ok('…and the licence’s sheets and the website licence were never fetched', !fetched.some(p => /\/js\/licence\.js$|\/js\/licence-web\.js$/.test(p)) && (await page.locator('.sheet.lic-terms-sheet, .sheet.licence-needed, .sheet.licence-over, .sheet.licence-readonly').count()) === 0, fetched.filter(p => /licence/.test(p)).join(' '));
-    ok('…and nothing about a licence was kept on the device', await page.evaluate(() => localStorage.getItem('gdex-licence') === null && localStorage.getItem('gdex-terms') === null));
+    ok('…and nothing about a licence was kept on the device', await page.evaluate(() => localStorage.getItem('tourbook-licence') === null && localStorage.getItem('tourbook-terms') === null));
 
     // Google Drive linked (a stand-in for js/sync.js's key): About's closed line names it.
-    await page.evaluate(() => localStorage.setItem('gdex-drive', '1'));
+    await page.evaluate(() => localStorage.setItem('tourbook-drive', '1'));
     await go(page, 'bookings'); await go(page, 'settings'); await sleep(300);
     ok('with Google Drive linked, About’s closed line names it', /your data stays on this device and your Google Drive$/.test(await page.textContent('#se-about .se-sub')), await page.textContent('#se-about .se-sub'));
-    await page.evaluate(() => localStorage.removeItem('gdex-drive'));
+    await page.evaluate(() => localStorage.removeItem('tourbook-drive'));
 
     // Erase keeps a licence record (as it is once licences are on somewhere: here a stand-in).
-    await page.evaluate(() => localStorage.setItem('gdex-licence', JSON.stringify({ first: 1, seen: 2 })));
+    await page.evaluate(() => localStorage.setItem('tourbook-licence', JSON.stringify({ first: 1, seen: 2 })));
     await page.evaluate(() => { const d = document.getElementById('se-erase'); d.open = true; });
     await page.fill('#se-erase-input', 'ERASE');
     await Promise.all([page.waitForEvent('load', { timeout: 15000 }), page.click('#se-erase-go')]);
     await page.waitForSelector('#deck .dk-next'); await sleep(300);
-    ok('Erase this device keeps the licence record', (await page.evaluate(() => localStorage.getItem('gdex-licence'))) === '{"first":1,"seen":2}');
+    ok('Erase this device keeps the licence record', (await page.evaluate(() => localStorage.getItem('tourbook-licence'))) === '{"first":1,"seen":2}');
     ok('…and, off, it is not read as one: everything is still open', same(await L(page), { mode: 'off', on: false, work: 'open', mark: null }));
     await ctx.close();
 
     // The live switch, but for another address (the real site): here it is off, and silent.
     {
-      const { ctx: c2, page: p2, asked: a2 } = await openWith(['gdex.crowmade.app']);
+      const { ctx: c2, page: p2, asked: a2 } = await openWith(['tourbook.crowmade.app']);
       await p2.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(200);
       for (const id of ['people', 'songs', 'settings', 'bookings']) { await go(p2, id); await sleep(200); }
       await p2.evaluate(() => import('./js/roles.js').then(r => r.setRole('audiophile'))); await sleep(300);
       const gone = await go(p2, 'money');
       await sleep(2500);
       const st = await L(p2);
-      ok('live only on gdex.crowmade.app: here it is off, every section opens, and nothing is asked of a server', st.mode === 'off' && gone === true && a2.length === 0, JSON.stringify({ st, gone, a2 }));
+      ok('live only on tourbook.crowmade.app: here it is off, every section opens, and nothing is asked of a server', st.mode === 'off' && gone === true && a2.length === 0, JSON.stringify({ st, gone, a2 }));
       await c2.close();
     }
   } catch (e) { ok('licence off crashed', false, e.message); }

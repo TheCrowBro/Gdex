@@ -50,7 +50,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   // artists, the others acts. Then back to Everything, on Acts, with no role kept, as the spec was.
   const countAs = async id => { await page.evaluate(r => import('./js/roles.js').then(m => m.setRole(r)), id); await sleep(400); await page.evaluate(() => window.logiGo('acts')); await sleep(500); return page.textContent('#deck .dk-meta'); };
   const words = {}; for (const id of ['band', 'audiophile', 'producer', 'manager', 'solo', 'scout', 'all']) words[id] = await countAs(id);
-  await page.evaluate(() => localStorage.removeItem('gdex-role'));
+  await page.evaluate(() => localStorage.removeItem('tourbook-role'));
   ok('the count says the role’s word for acts: 3 bands for a band and an audiophile, 3 artists for a producer, 3 acts for the others and Everything', /· 3 bands$/.test(words.band) && /· 3 bands$/.test(words.audiophile) && /· 3 artists$/.test(words.producer) && ['manager', 'solo', 'scout', 'all'].every(id => /· 3 acts$/.test(words[id])) && (await page$(page)) === 'acts', JSON.stringify(words));
 
   /* ---------------- the tape deck ---------------- */
@@ -59,7 +59,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.locator('.sheet .pref', { hasText: 'Section menu' }).locator('button', { hasText: 'Tape deck' }).click(); await sleep(300);
   ok('choosing Tape deck swaps the record for a cassette at once', (await page.locator('#deck .dk-cassette').count()) === 1 && (await page.locator('#deck .dk-record').count()) === 0);
   ok('…on the same section', (await page.textContent('#deck .dk-tape-name')) === 'Acts' && (await page.textContent('#deck .dk-tape-id')) === 'A2');
-  ok('the choice is kept on this device', await page.evaluate(() => JSON.parse(localStorage.getItem('gdex-prefs')).menu === 'tape'));
+  ok('the choice is kept on this device', await page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-prefs')).menu === 'tape'));
   await page.keyboard.press('Escape'); await sleep(300);
   const reel0 = await page.$eval('#deck .dk-reel', el => el.style.transform), packs0 = await page.$$eval('#deck .dk-pack', ps => ps.map(p => p.style.width));
   await page.click('#deck .dk-next'); await sleep(500);
@@ -70,7 +70,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.locator('.dk-jcard .dk-track', { hasText: 'Venues' }).click(); await sleep(500);
   ok('picking Venues goes to Side B', (await page$(page)) === 'venues' && (await page.textContent('#deck .dk-tape-side')) === 'SIDE B');
   await page.reload(); await page.waitForSelector('#deck .dk-next');
-  ok('after a reload the tape deck is still the menu, and Gdex opens on the calendar', (await page.locator('#deck .dk-cassette').count()) === 1 && (await page$(page)) === 'bookings');
+  ok('after a reload the tape deck is still the menu, and Tourbook opens on the calendar', (await page.locator('#deck .dk-cassette').count()) === 1 && (await page$(page)) === 'bookings');
 
   /* ---------------- motion ---------------- */
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload(); await page.waitForSelector('#deck .dk-next');
@@ -78,7 +78,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
 
   /* ---------------- from the review ---------------- */
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'record' })); }); await page.reload(); await page.waitForSelector('#deck .dk-record');
+  await page.evaluate(() => { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: 'record' })); }); await page.reload(); await page.waitForSelector('#deck .dk-record');
   await page.evaluate(() => window.logiGo('bookings')); await sleep(500);
   // A press released off the record, then a plain hover across it, changes nothing.
   let r = await page.locator('#deck .dk-record').boundingBox();
@@ -139,7 +139,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.focus('[data-pref="menu:digital"]'); await page.keyboard.press('Enter'); await sleep(300);
   ok('choosing Digital player swaps the menu at once: one player, no record, no cassette', (await page.locator('#deck .dk-player').count()) === 1 && (await page.locator('#deck .dk-record, #deck .dk-cassette').count()) === 0 && (await page.getAttribute('#deck .deck', 'data-style')) === 'digital');
   ok('…on the same section and page, with nothing announced', (await page.textContent('#deck .dk-name')) === 'Acts' && (await page$(page)) === 'acts' && (await live()) === said, await live());
-  ok('the choice is kept on this device', await page.evaluate(() => JSON.parse(localStorage.getItem('gdex-prefs')).menu === 'digital'));
+  ok('the choice is kept on this device', await page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-prefs')).menu === 'digital'));
   ok('…and keeps the focus', await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.pref === 'menu:digital' && a.getAttribute('aria-pressed') === 'true'; }));
   // The only thing that moves is the line, and it follows the animation setting.
   ok('the line slides with the default animation', (await slides()) !== '0s', await slides());
@@ -186,7 +186,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.locator('#deck .dk-now').click(); await page.waitForSelector('.sheet[aria-label="Track list"]');
   const queue = await page.$$eval('.dk-queue .dk-sides .dk-track', bs => bs.map(b => [b.querySelector('.dk-track-id').textContent, b.dataset.section, b.querySelector('.dk-track-name').textContent]));
   ok('a tap on the bar opens the track list: the twelve sections numbered 1 to 12 in one list', queue.length === 12 && queue.map(q => q[0]).join() === '1,2,3,4,5,6,7,8,9,10,11,12' && queue.map(q => q[1]).join() === ALL && (await page.$$eval('.dk-queue .dk-side-head', hs => hs.map(h => h.textContent).join())) === 'Tracks' && (await page.locator('.dk-queue .dk-sides .dk-side').count()) === 1, JSON.stringify(queue));
-  ok('…headed by the deck’s name and how many tracks', (await page.textContent('.dk-queue .dk-jcard-title')) === 'Gdex, the booking deck' && (await page.textContent('.dk-queue .muted')) === '12 tracks' && (await page.locator('.dk-queue .dk-bonus').count()) === 0, await page.textContent('.dk-queue .muted'));
+  ok('…headed by the deck’s name and how many tracks', (await page.textContent('.dk-queue .dk-jcard-title')) === 'Tourbook, the booking deck' && (await page.textContent('.dk-queue .muted')) === '12 tracks' && (await page.locator('.dk-queue .dk-bonus').count()) === 0, await page.textContent('.dk-queue .muted'));
   ok('…with each one’s count, and the current one marked and focused', (await page.textContent('.dk-queue .dk-track.on')) === '2Acts3' && (await page.getAttribute('.dk-queue .dk-track.on', 'aria-current')) === 'true' && (await page.locator('.dk-queue .dk-track.on').count()) === 1 && await page.waitForFunction(() => document.activeElement && document.activeElement.matches('.dk-queue .dk-track.on'), null, { timeout: 2000 }).then(() => true, () => false), await page.textContent('.dk-queue .dk-track.on'));
   await page.locator('.dk-queue .dk-track', { hasText: 'Songs' }).click(); await sleep(600);
   ok('picking a track goes there and closes the list', (await page$(page)) === 'songs' && (await page.locator('.sheet').count()) === 0 && /^Track 4 of 12 · /.test(await page.textContent('#deck .dk-meta')));
@@ -276,7 +276,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.evaluate(() => window.scrollTo(0, 0)); await page.setViewportSize({ width: 420, height: 900 });
   await page.evaluate(() => window.logiGo('venues')); await sleep(500);
   await page.reload(); await page.waitForSelector('#deck .dk-next');
-  ok('after a reload the digital player is still the menu, and Gdex opens on the calendar', (await page.locator('#deck .dk-player').count()) === 1 && (await page$(page)) === 'bookings' && (await page.textContent('#deck .dk-name')) === 'Bookings' && (await current()) === 'bookings:page:true' && Math.abs((await fill()) - 100 / 12) < 0.01);
+  ok('after a reload the digital player is still the menu, and Tourbook opens on the calendar', (await page.locator('#deck .dk-player').count()) === 1 && (await page$(page)) === 'bookings' && (await page.textContent('#deck .dk-name')) === 'Bookings' && (await current()) === 'bookings:page:true' && Math.abs((await fill()) - 100 / 12) < 0.01);
   await page.evaluate(() => window.logiGo('settings')); await sleep(500);
   await page.evaluate(() => { document.getElementById('se-display').open = true; });
   await page.click('#se-display [data-pref="menu:record"]'); await sleep(300);
@@ -295,10 +295,10 @@ const page$ = page => page.evaluate(() => window.logiPage());
   // Narrow phones with extra-large text and buttons: nothing runs off the screen, in any of the three menus.
   for (const menu of ['record', 'tape', 'digital']) {
     await page.setViewportSize({ width: 320, height: 700 });
-    await page.evaluate(m => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: m, text: 'xlarge', targets: 'large' })); }, menu); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
+    await page.evaluate(m => { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: m, text: 'xlarge', targets: 'large' })); }, menu); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
     const fit = await page.evaluate(() => { const d = document.querySelector('#deck .deck').getBoundingClientRect(); return { scroll: document.documentElement.scrollWidth <= innerWidth, next: document.querySelector('#deck .dk-next').getBoundingClientRect().right <= d.right + 1 }; });
     ok(`320px wide, extra-large text and buttons: the ${menu} menu fits and ⏭ stays inside it`, fit.scroll && fit.next, JSON.stringify(fit));
-    // The top bar never cuts GDEX short (“GDI”), with Install hidden or showing: the word is drawn whole inside the brand.
+    // The top bar never cuts TOURBOOK short (“GDI”), with Install hidden or showing: the word is drawn whole inside the brand.
     const brand = [];
     for (const install of [false, true]) {
       await page.evaluate(on => { document.getElementById('installBtn').hidden = !on; }, install); await sleep(100);
@@ -307,7 +307,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
         return { text: t.data.trim(), whole: b.scrollWidth <= b.clientWidth + 0.5 && w.left >= r.left - 0.5 && w.right <= r.right + 0.5 && r.left >= 0, clear: w.right <= first.left + 0.5 }; }));
     }
     await page.evaluate(() => { document.getElementById('installBtn').hidden = true; });
-    ok(`320px wide, extra-large text and buttons, the ${menu} menu: the top bar shows GDEX whole, clear of the buttons, with Install hidden or showing`, brand.every(x => x.text === 'GDEX' && x.whole && x.clear), JSON.stringify(brand));
+    ok(`320px wide, extra-large text and buttons, the ${menu} menu: the top bar shows TOURBOOK whole, clear of the buttons, with Install hidden or showing`, brand.every(x => x.text === 'TOURBOOK' && x.whole && x.clear), JSON.stringify(brand));
   }
   // …and on the digital player the longest name wraps inside the bar, the keys take a line of their own, and the row of tabs scrolls inside itself.
   await page.evaluate(() => window.logiGo('sessions')); await sleep(500);
@@ -332,20 +332,20 @@ const page$ = page => page.evaluate(() => window.logiPage());
   await page.keyboard.press('Escape'); await sleep(250);
   // A small phone at the standard sizes: the bar is still one slim line.
   await page.setViewportSize({ width: 360, height: 760 });
-  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
+  await page.evaluate(() => { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(400);
   await page.evaluate(() => window.logiGo('acts')); await sleep(500);
   const small = await page.evaluate(() => { const q = s => document.querySelector(s).getBoundingClientRect(); return { tall: q('#deck .dk-player').height, beside: q('#deck .dk-keys').top < q('#deck .dk-now').bottom, next: q('#deck .dk-next').right <= q('#deck .deck').right + 1, scroll: document.documentElement.scrollWidth <= innerWidth }; });
   ok('360px wide, standard sizes: the keys stay beside the name and the bar is at most 72 px tall', small.tall <= 72 && small.beside && small.next && small.scroll, JSON.stringify(small));
   await page.setViewportSize({ width: 420, height: 900 });
 
   // Mono keeps the digital player without colour, its icons too; high contrast gives the tabs the thicker edge.
-  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital', palette: 'mono', contrast: 'high' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+  await page.evaluate(() => { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: 'digital', palette: 'mono', contrast: 'high' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
   const plain = await page.evaluate(() => { const css = s => getComputedStyle(document.querySelector(s)); return { art: css('#deck .dk-art').filter, ico: css('#deck .dk-tab-ico').filter, edge: css('#deck .dk-tab').borderTopWidth, tall: document.querySelector('#deck .dk-player').getBoundingClientRect().height }; });
   ok('Mono: the cover art and the tabs’ icons are grey; high contrast: the tabs have a 2 px edge, and the bar is still slim', plain.art === 'grayscale(1)' && plain.ico === 'grayscale(1)' && plain.edge === '2px' && plain.tall <= 72, JSON.stringify(plain));
   // The two small lines of the bar read at 4.5:1 or better against the deck, in the light and the dark of the first theme.
   const smallText = {};
   for (const scheme of ['light', 'dark']) {
-    await page.evaluate(sc => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital', scheme: sc })); }, scheme); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+    await page.evaluate(sc => { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: 'digital', scheme: sc })); }, scheme); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
     smallText[scheme] = await page.evaluate(() => {
       const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
       const lum = colour => { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1, 1); ctx.fillStyle = colour; ctx.fillRect(0, 0, 1, 1); const [r, g, b] = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
@@ -359,7 +359,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   // The line: the theme's accent on the line colour. With high contrast the line colour is a strong grey that the accent
   // sinks into, so there the line is drawn in the text colour on a quiet track: 3:1 or better against it, light and dark.
   const lineOf = async prefs => {
-    await page.evaluate(p => { localStorage.setItem('gdex-prefs', JSON.stringify(p)); }, { menu: 'digital', palette: 'ocean', ...prefs }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+    await page.evaluate(p => { localStorage.setItem('tourbook-prefs', JSON.stringify(p)); }, { menu: 'digital', palette: 'ocean', ...prefs }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
     return page.evaluate(() => {
       const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
       const lum = colour => { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 1, 1); ctx.fillStyle = colour; ctx.fillRect(0, 0, 1, 1); const [r, g, b] = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
@@ -369,7 +369,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
   };
   const line = { plain: await lineOf({ scheme: 'light' }), light: await lineOf({ scheme: 'light', contrast: 'high' }), dark: await lineOf({ scheme: 'dark', contrast: 'high' }) };
   ok('the line is the accent; with high contrast it stands out from its track by 3:1 or better, light and dark', line.plain.accent && line.light.ratio >= 3 && line.dark.ratio >= 3, JSON.stringify(line));
-  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+  await page.evaluate(() => { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
 
   // The keyboard's focus ring stands out 3:1 or better from the page, the panels and the cards it is drawn on, in every
   // theme, light and dark, at standard and high contrast (WCAG 1.4.11): high contrast is for people who see less.
@@ -388,11 +388,11 @@ const page$ = page => page.evaluate(() => window.logiPage());
     return { n, low };
   }));
   ok('the focus ring stands out 3:1 or better from the page, the panels and the cards in all ten themes, light and dark, standard and high contrast', rings.n === 40 && rings.low.length === 0, rings.low.join(' | '));
-  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital', scheme: 'light', contrast: 'high' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+  await page.evaluate(() => { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: 'digital', scheme: 'light', contrast: 'high' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
   await page.keyboard.press('Tab'); await sleep(100);
   const drawn = await page.evaluate(() => { const a = document.activeElement, cs = getComputedStyle(a), probe = document.createElement('i'); probe.style.color = 'var(--focus)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return { tag: a.tagName, style: cs.outlineStyle, width: cs.outlineWidth, colour: cs.outlineColor, want }; });
   ok('…and that is the ring Tab draws: in light with high contrast, 3 px in that colour, not the yellow that suits the dark', drawn.tag !== 'BODY' && drawn.style === 'solid' && drawn.width === '3px' && drawn.colour === drawn.want && drawn.want !== 'rgb(255, 212, 0)', JSON.stringify(drawn));
-  await page.evaluate(() => { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
+  await page.evaluate(() => { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: 'digital' })); }); await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(300);
 
   // A menu of one track (no role has one, but a menu can be Settings alone): Track 1 of 1, the line full, one tab, and
   // ⏮ ⏭ go nowhere. Drawn beside the real menu, last in this spec because a deck listens to the whole page.
@@ -413,7 +413,7 @@ const page$ = page => page.evaluate(() => window.logiPage());
 
   // One act is one band, one artist: the count's word in the singular, for a role whose acts have a word of their own.
   {
-    const { browser, page, errors } = await open({ init: "localStorage.setItem('gdex-role','band')" });
+    const { browser, page, errors } = await open({ init: "localStorage.setItem('tourbook-role','band')" });
     await page.evaluate(() => import('./js/store.js').then(s => s.upsert('acts', { name: 'Lone Wolf' }))); await sleep(300);
     await page.evaluate(() => window.logiGo('acts')); await sleep(500);
     const band = await page.textContent('#deck .dk-meta');

@@ -44,7 +44,7 @@ const text = (page, sel) => page.locator(sel).first().innerText().catch(() => ''
 const focused = page => page.evaluate(() => { const a = document.activeElement; return !a || a === document.body ? 'body' : a.id || a.className; });
 const until = async (fn, ms = 6000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (await fn()) return true; } catch { /* not yet */ } await sleep(100); } return false; };
 const bigOpen = page => page.locator('.cd-big').count().then(n => n === 1);
-const wake = page => page.evaluate(() => window.gdexAudioState().wakeLock);
+const wake = page => page.evaluate(() => window.tourbookAudioState().wakeLock);
 async function toCard(page) { await go(page, 'card'); await page.waitForSelector('#page [data-page="card"]'); await sleep(150); }
 // Every card of the page's walkthrough (?), title by title.
 async function tourTitles(page) {
@@ -72,7 +72,7 @@ async function tourTitles(page) {
   /* ---------------- on every menu, just before Settings ---------------- */
   const menus = await page.evaluate(() => import('./js/roles.js').then(m => Object.fromEntries([...m.ROLES, m.EVERYTHING].map(r => [r.id, { menu: m.menuSections(r), off: m.offMenu(r) }]))));
   ok('every role has My card on its menu, just before Settings, and never as a bonus track (Audiophile and Everything too)', Object.keys(WHO).every(id => menus[id] && menus[id].menu.slice(-2).join() === 'card,settings' && !menus[id].off.includes('card')) && Object.keys(menus).length === 7, JSON.stringify(Object.fromEntries(Object.entries(menus).map(([k, v]) => [k, v.menu.slice(-3).join()]))));
-  const pages = await page.evaluate(() => window.gdexPages().map(p => `${p.id}:${p.label}:${p.icon}`));
+  const pages = await page.evaluate(() => window.tourbookPages().map(p => `${p.id}:${p.label}:${p.icon}`));
   ok('Everything: My card is the eleventh of twelve sections, with the card icon', pages.length === 12 && pages[10] === 'card:My card:🪪' && pages[11].startsWith('settings:'), pages.join(' | '));
 
   /* ---------------- no details yet: what to add, and Edit your details ---------------- */
@@ -149,12 +149,12 @@ async function tourTitles(page) {
   ok('Tab and Shift+Tab stay on ✕ Close', (await focused(page)) === 'cd-big-close');
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('/'); await sleep(300);
   ok('the arrow keys and / do nothing under it: still My card, no search', (await page.evaluate(() => window.logiPage())) === 'card' && await bigOpen(page) && (await focused(page)) === 'cd-big-close');
-  // Gdex sent out of sight and back: the browser let the lock go, and it is asked for again.
+  // Tourbook sent out of sight and back: the browser let the lock go, and it is asked for again.
   await page.evaluate(() => { window.__lastLock.release(); document.dispatchEvent(new Event('visibilitychange')); });
   ok('back in sight, the screen is kept awake again', await until(() => wake(page)) && (await page.evaluate(() => window.__locks)) === 2);
   await page.keyboard.press('Escape'); await sleep(300);
   ok('Escape closes it: the focus back on Show big, the app back, the screen free to sleep', !(await bigOpen(page)) && (await focused(page)) === 'cd-big' && await page.evaluate(() => document.getElementById('app').inert === false) && (await wake(page)) === false && (await page.evaluate(() => window.__lastLock.released)) === true);
-  ok('…and the entry it put in the browser’s history went with it', await until(() => page.evaluate(() => !(history.state && history.state.gdexBig))));
+  ok('…and the entry it put in the browser’s history went with it', await until(() => page.evaluate(() => !(history.state && history.state.tourbookBig))));
   await page.keyboard.press('Enter'); await page.waitForSelector('.cd-big'); await sleep(250);
   ok('Enter on Show big opens it again', (await focused(page)) === 'cd-big-close');
   await page.keyboard.press('Enter'); await sleep(300);
@@ -165,9 +165,9 @@ async function tourTitles(page) {
   await page.click('#cd-big'); await page.waitForSelector('.cd-big .cd-big-code svg'); await sleep(250);
   await page.click('.cd-big-code'); await sleep(300);
   ok('…a tap on the code too', !(await bigOpen(page)));
-  await until(() => page.evaluate(() => !(history.state && history.state.gdexBig)));
+  await until(() => page.evaluate(() => !(history.state && history.state.tourbookBig)));
   await page.click('#cd-big'); await page.waitForSelector('.cd-big'); await sleep(250);
-  ok('it adds an entry to the browser’s history…', await page.evaluate(() => !!(history.state && history.state.gdexBig)));
+  ok('it adds an entry to the browser’s history…', await page.evaluate(() => !!(history.state && history.state.tourbookBig)));
   await page.goBack({ timeout: 5000 }).catch(() => {}); await sleep(400);
   ok('…so Back closes it, staying on My card, with the focus on Show big and the screen free to sleep', !(await bigOpen(page)) && (await page.evaluate(() => window.logiPage())) === 'card' && (await focused(page)) === 'cd-big' && (await wake(page)) === false);
   // On a phone on its side the code takes the height instead.
@@ -179,8 +179,8 @@ async function tourTitles(page) {
   await page.click('#cd-big'); await page.waitForSelector('.cd-big'); await sleep(200);
   await go(page, 'venues');
   ok('leaving My card from code closes Show big and lets the screen sleep', !(await bigOpen(page)) && (await wake(page)) === false && await page.evaluate(() => document.getElementById('app').inert === false));
-  await until(() => page.evaluate(() => !(history.state && history.state.gdexBig)));
-  // A sheet that opens while it shows (the question when Gdex comes back after hours) is under it, and keeps the app
+  await until(() => page.evaluate(() => !(history.state && history.state.tourbookBig)));
+  // A sheet that opens while it shows (the question when Tourbook comes back after hours) is under it, and keeps the app
   // out of reach after it closes: one Escape closes Show big alone.
   await toCard(page); await page.click('#cd-big'); await page.waitForSelector('.cd-big'); await sleep(200);
   await page.evaluate(() => import('./js/util.js').then(u => u.sheet('A question', u.h('p', null, 'Did you see them?'))));
@@ -192,7 +192,7 @@ async function tourTitles(page) {
   ok('…with the focus back on Show big', (await focused(page)) === 'cd-big', await focused(page));
   // The sheet under it cannot take the focus (its own Yes, or the sheet itself a moment later): Enter, meant for
   // ✕ Close, must not press a button no one can see.
-  await until(() => page.evaluate(() => !(history.state && history.state.gdexBig)));
+  await until(() => page.evaluate(() => !(history.state && history.state.tourbookBig)));
   await page.keyboard.press('Enter'); await page.waitForSelector('.cd-big'); await sleep(200);
   await page.evaluate(() => import('./js/util.js').then(u => { const yes = u.h('button', { type: 'button', id: 'q-yes', onclick: () => { window.__yes = 1; } }, 'Yes'); u.sheet('A question', u.h('div', null, u.h('p', null, 'Did you see them?'), yes)); yes.focus(); }));
   await sleep(400);
@@ -201,13 +201,13 @@ async function tourTitles(page) {
   ok('…so Enter closes Show big and presses nothing under it', !(await bigOpen(page)) && !(await page.evaluate(() => window.__yes)) && (await page.locator('.sheet[aria-label="A question"]').count()) === 1);
   await page.keyboard.press('Escape'); await sleep(300);
   ok('…Escape then closes the sheet, the focus on Show big', (await page.locator('.sheet').count()) === 0 && (await focused(page)) === 'cd-big', await focused(page));
-  await until(() => page.evaluate(() => !(history.state && history.state.gdexBig)));
+  await until(() => page.evaluate(() => !(history.state && history.state.tourbookBig)));
 
   /* ---------------- the walkthrough ---------------- */
   await toCard(page); await page.waitForSelector('.cd-qr svg');
   const tour = await tourTitles(page);
   ok('?: a walkthrough of the page, the code, what it holds, Show big, Share, Save as a file and Edit your details', tour.join(' › ') === 'My card › The code › What it holds › Show big › Share › Save as a file › Edit your details', tour.join(' › '));
-  const steps = await page.evaluate(() => window.gdexPages().find(p => p.id === 'card').page.tutorial());
+  const steps = await page.evaluate(() => window.tourbookPages().find(p => p.id === 'card').page.tutorial());
   ok('…its first card in the role’s words, and Show big says the screen stays on and how it closes', steps[0].text === `Your contact card, ready to show ${'the artists, promoters, venues and crew you work with'}.` && /The screen stays on while it shows\. Tap anywhere, press Escape or go Back to close it\./.test(steps.find(s => s.title === 'Show big').text), steps[0].text);
 
   /* ---------------- Settings → Your details: a line and a button to My card ---------------- */
@@ -215,7 +215,7 @@ async function tourTitles(page) {
   await page.evaluate(() => { const d = document.getElementById('se-profile'); d.open = true; d.scrollIntoView(); });
   await sleep(300);
   ok('Settings → Your details has no QR code any more: a line and a button to My card, and the .vcf', (await page.locator('#se-profile svg, #se-profile .qr').count()) === 0 && (await text(page, '#se-profile .se-card-line')) === 'Your contact card is on My card, as a big QR code: someone scans it with their phone camera to save your number and email. Share it or show it big from there, or save it here as a file.' && (await text(page, '#se-card')) === '🪪 Open My card' && (await page.locator('#se-vcf:not([disabled])').count()) === 1, await text(page, '#se-profile .se-card-line'));
-  ok('Settings’ walkthrough says the way to My card is under your details', /Under them, the way to My card, your contact card as a big QR code to scan, and the card as a file to send\./.test(await page.evaluate(() => window.gdexPages().find(p => p.id === 'settings').page.tutorial().find(s => s.title === 'Your details').text)));
+  ok('Settings’ walkthrough says the way to My card is under your details', /Under them, the way to My card, your contact card as a big QR code to scan, and the card as a file to send\./.test(await page.evaluate(() => window.tourbookPages().find(p => p.id === 'settings').page.tutorial().find(s => s.title === 'Your details').text)));
   await page.focus('#se-card'); await page.keyboard.press('Enter'); await sleep(600);
   ok('the button opens My card at its top, with the focus on its heading', (await page.evaluate(() => window.logiPage())) === 'card' && (await focused(page)) === 'cd-title' && (await page.evaluate(() => window.scrollY)) === 0, await focused(page));
   await page.keyboard.press('Tab');
@@ -270,7 +270,7 @@ async function tourTitles(page) {
   await browser.close();
 
   /* ---------------- a name with accents, as the first code of a visit ---------------- */
-  // The code holds the card in UTF-8, so a phone reads "Zoë", not "ZoÃ«". The first code drawn after Gdex opens once
+  // The code holds the card in UTF-8, so a phone reads "Zoë", not "ZoÃ«". The first code drawn after Tourbook opens once
   // had its bytes encoded twice (the QR library is switched to UTF-8 only as that code is made), and the code kept for
   // the visit stayed wrong. The reference is made after, straight from js/qr.js, which reads the text as UTF-8.
   ({ browser, page, errors } = await open());
@@ -286,7 +286,7 @@ async function tourTitles(page) {
 
   /* ---------------- 320 px, extra-large text and large buttons, each section menu ---------------- */
   for (const menu of ['record', 'tape', 'digital']) {
-    ({ browser, page, errors } = await open({ viewport: { width: 320, height: 700 }, init: `${stubs.toString().replace(/^\(\) => /, '(() => ')})(); localStorage.setItem('gdex-prefs', JSON.stringify({ text: 'xlarge', targets: 'large', menu: '${menu}' }));` }));
+    ({ browser, page, errors } = await open({ viewport: { width: 320, height: 700 }, init: `${stubs.toString().replace(/^\(\) => /, '(() => ')})(); localStorage.setItem('tourbook-prefs', JSON.stringify({ text: 'xlarge', targets: 'large', menu: '${menu}' }));` }));
     await setProfile(page, PROFILE); await toCard(page); await page.waitForSelector('.cd-qr svg'); await sleep(200);
     const fit = await page.evaluate(() => {
       const W = innerWidth, inside = el => { const r = el.getBoundingClientRect(); return r.left >= 15.5 && r.right <= W - 15.5; };

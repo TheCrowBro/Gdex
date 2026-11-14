@@ -1,4 +1,4 @@
-// Shared bits for the browser specs: a static server serving a scratch copy of Gdex (specs may rewrite files), and
+// Shared bits for the browser specs: a static server serving a scratch copy of Tourbook (specs may rewrite files), and
 // the PASS / FAIL convention the runner counts. The scratch copy leaves out what is not the website: the tests, the
 // docs, the licence server (cloudflare/), the desktop app (desktop/), its builds (dist/) and every node_modules.
 import { createServer } from 'node:http';
@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.md': 'text/markdown', '.txt': 'text/plain' };
 export function scratchCopy(appRoot) {
-  const dir = mkdtempSync(join(tmpdir(), 'gdex-test-'));
+  const dir = mkdtempSync(join(tmpdir(), 'tourbook-test-'));
   for (const n of readdirSync(appRoot)) if (!['node_modules', 'tests', 'docs', '.git', '.github', '.claude', 'cloudflare', 'desktop', 'dist'].includes(n)) cpSync(join(appRoot, n), join(dir, n), { recursive: true, filter: src => !/(^|[\\/])node_modules$/.test(src) });
   return dir;
 }
@@ -20,8 +20,8 @@ export function serve(root, port = 0) {
   const server = createServer((req, res) => {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname); if (p.endsWith('/')) p += 'index.html';
     // The live site's Worker answers these (cloudflare/worker.mjs). Here licences are off, as until the owner switches
-    // them on; GDEX_LICENCE=on runs every spec with them live on this host, inside the free days (the build spec [S-34]).
-    const on = process.env.GDEX_LICENCE === 'on';
+    // them on; TOURBOOK_LICENCE=on runs every spec with them live on this host, inside the free days (the build spec [S-34]).
+    const on = process.env.TOURBOOK_LICENCE === 'on';
     if (on && p === '/js/licence-config.js') { res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' }); return res.end("export const LICENCE_SITES = ['localhost', '127.0.0.1'];\n"); }
     // No Date header on these: the licence takes a JSON answer's Date as the real time and puts a wrong device clock
     // right with it (the build spec [S-38]), and specs set the page's clock where they need it (43-ask's is years on).

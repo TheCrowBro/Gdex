@@ -1,5 +1,5 @@
-// The website's licence: what only the licence server can say (gdex.crowmade.app's Worker, cloudflare/worker.mjs, on
-// this page's own origin). Loaded only where the licence is live (js/licence-config.js), so a copy of Gdex anywhere else
+// The website's licence: what only the licence server can say (tourbook.crowmade.app's Worker, cloudflare/worker.mjs, on
+// this page's own origin). Loaded only where the licence is live (js/licence-config.js), so a copy of Tourbook anywhere else
 // sends nothing. The server's contract is the build spec §3.9.
 //   status      whether the owner has paused the licence (only a fresh JSON { on: false } pauses; no answer is "on"),
 //               asked at most every 6 hours and only while it matters: a working role in use, the free days started,
@@ -11,7 +11,7 @@
 import { changeLicence, serverTime, firstRunSettled, setLicenceState, licenceNow } from './licence-state.js';
 import { roleId, roleNeedsLicence } from './roles.js';
 
-const KEY = 'gdex-licence';
+const KEY = 'tourbook-licence';
 const DAY = 864e5;
 const STATUS_EVERY = 6 * 3600e3;   // the status, at most this often
 const CHECK_EVERY = DAY;           // a sign-in, confirmed about once a day
@@ -64,14 +64,14 @@ export async function buy() { window.open('/buy', '_blank', 'noopener'); return 
 
 // Step 1: the email address (or a licence code with an email address inside). The server answers the same either way.
 export async function start({ email, code } = {}) {
-  let r; try { r = await call('start', code ? { code } : { email }); } catch { return { error: 'Gdex could not reach the sign-in server. Check the internet connection and try again.' }; }
+  let r; try { r = await call('start', code ? { code } : { email }); } catch { return { error: 'Tourbook could not reach the sign-in server. Check the internet connection and try again.' }; }
   const b = r.body;
   if (r.status === 200 && b.ok) return { ok: true, email: b.email || '' };
-  return { error: { 'invalid-email': 'That email address does not look right.', 'invalid-code': 'That licence code is not valid, or has ended.', 'no-email': 'That licence code has no email address in it. Sign in with the email address your licence belongs to, or ask us to add one.', 'email-failed': 'The email could not be sent just now. Try again in a minute.', busy: 'Gdex has sent as many sign-in emails as it can today. Please try again tomorrow.', 'not-ready': 'Signing in is not available yet.' }[b.error] || 'Something went wrong. Try again.' };
+  return { error: { 'invalid-email': 'That email address does not look right.', 'invalid-code': 'That licence code is not valid, or has ended.', 'no-email': 'That licence code has no email address in it. Sign in with the email address your licence belongs to, or ask us to add one.', 'email-failed': 'The email could not be sent just now. Try again in a minute.', busy: 'Tourbook has sent as many sign-in emails as it can today. Please try again tomorrow.', 'not-ready': 'Signing in is not available yet.' }[b.error] || 'Something went wrong. Try again.' };
 }
 // Step 2: the 6-digit code. Answers the state, or { error }.
 export async function verify(email, code) {
-  let r; try { r = await call('verify', { email, code }); } catch { return { error: 'Gdex could not reach the sign-in server. Check the internet connection and try again.' }; }
+  let r; try { r = await call('verify', { email, code }); } catch { return { error: 'Tourbook could not reach the sign-in server. Check the internet connection and try again.' }; }
   const b = r.body;
   if (r.status !== 200 || !b.token || !b.licence) return { error: { 'wrong-code': 'That code is not right, or has run out (a code works for 15 minutes and 5 tries). Check it, or send a new one.', 'no-licence': 'No licence is linked to this email address. Use the one your licence belongs to, or buy a licence.', 'not-ready': 'Signing in is not available yet.' }[b.error] || 'Something went wrong. Try again.' };
   return changeLicence(x => { x.token = b.token; x.licence = b.licence; x.via = 'email'; x.checked = x.tried = now(); delete x.cancelled; delete x.expired; });
@@ -103,7 +103,7 @@ export async function release() {
 // out.
 export async function forget() {
   const s = read(); if (!s.token) return { error: 'Sign in first: the records are found through your sign-in.' };
-  let r; try { r = await call('forget', { token: s.token }); } catch { return { error: 'Gdex could not reach the licence server. Check the internet connection and try again.' }; }
+  let r; try { r = await call('forget', { token: s.token }); } catch { return { error: 'Tourbook could not reach the licence server. Check the internet connection and try again.' }; }
   if (!(r.status === 200 && r.body.ok) && !(r.answered && r.status === 401)) return { error: 'The records could not be deleted just now. Try again in a minute.' };
   return release();
 }

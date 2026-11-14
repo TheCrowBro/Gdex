@@ -1,4 +1,4 @@
-// "Who's using Gdex?": the first-run question (askRole) and Settings → Your role (rolePanel). Each choice shows the
+// "Who's using Tourbook?": the first-run question (askRole) and Settings → Your role (rolePanel). Each choice shows the
 // menu it gives; choosing changes the menu at once (js/roles.js, js/app.js) and nothing in the data.
 import { h, nodes, sheet, toast, announce } from './util.js';
 import { ROLES, EVERYTHING, roleId, roleChosen, roleOf, setRole, menuSections, offMenu, sectionName, roleNeedsLicence } from './roles.js';
@@ -39,16 +39,16 @@ async function mayPick(id) {
 // The first-run question's added sentence while licences are on (§9.2).
 const licenceIntro = () => (licenceOn() ? ' Audiophile is free. The other roles, Jack of Trades included, are free for 30 days on this device, then need a licence: 20 USD once plus any tax where you live, for up to 3 of your devices.' : '');
 
-const NUDGED = 'gdex-role-nudged';
+const NUDGED = 'tourbook-role-nudged';
 const nudged = () => { try { localStorage.setItem(NUDGED, '1'); } catch { /* private mode */ } };
 const settled = r => `Set up for ${r.label}: ${menuSections(r).length} sections on your menu`;
 // The section menu in its own words (Aa → Section menu, js/a11y.js menuWords): the record player's sleeve, or the
 // track list of the tape deck and the digital player.
 // With the licence on and no licence, the working sections among them come with the working roles (closedWords).
-const aboutText = () => { const shut = closedWords().bonus; return `Your role sets the section menu: which sections are tracks and in what order, and the boxes on a booking. Gdex always opens on the calendar. Nothing is removed: sections not on the menu are bonus tracks on ${menuWords().list} (${menuWords().tap})${shut ? `. ${shut}` : ', and links to them still open them.'}`; };
-const nudgeWords = () => [h('strong', null, 'New: a menu for the way you work. '), `Producer, manager, band, solo artist, scout or audiophile: Gdex puts the sections you use on the menu, and every other one stays on ${menuWords().list}.`];
+const aboutText = () => { const shut = closedWords().bonus; return `Your role sets the section menu: which sections are tracks and in what order, and the boxes on a booking. Tourbook always opens on the calendar. Nothing is removed: sections not on the menu are bonus tracks on ${menuWords().list} (${menuWords().tap})${shut ? `. ${shut}` : ', and links to them still open them.'}`; };
+const nudgeWords = () => [h('strong', null, 'New: a menu for the way you work. '), `Producer, manager, band, solo artist, scout or audiophile: Tourbook puts the sections you use on the menu, and every other one stays on ${menuWords().list}.`];
 // Switching the section menu (Aa) with the role card or Settings → Your role on screen changes their words at once.
-window.addEventListener('gdex-prefs', () => {
+window.addEventListener('tourbook-prefs', () => {
   document.querySelectorAll('.rp-about').forEach(p => { p.textContent = aboutText(); });
   document.querySelectorAll('.rp-nudge-text').forEach(p => p.replaceChildren(...nudgeWords()));
 });
@@ -56,10 +56,10 @@ window.addEventListener('gdex-prefs', () => {
 const focusPage = () => document.getElementById('page')?.focus({ preventScroll: true });
 
 // The first open: six roles, and Jack of Trades (every section) last. Picking one opens its start section (the calendar); then(…)
-// runs the welcome tour. Closing it without a pick is an answer too: Gdex stays Jack of Trades (no role is saved), and the role card
-// is never offered (gdex-role-nudged). While Jack of Trades cannot be picked (licences live, the free days over, no licence),
+// runs the welcome tour. Closing it without a pick is an answer too: Tourbook stays Jack of Trades (no role is saved), and the role card
+// is never offered (tourbook-role-nudged). While Jack of Trades cannot be picked (licences live, the free days over, no licence),
 // closing it leaves the Audiophile instead, as Carry on free does: only the Audiophile works then (the lead's decision 1).
-export function askRole({ then = () => {}, title = 'Who’s using Gdex?' } = {}) {
+export function askRole({ then = () => {}, title = 'Who’s using Tourbook?' } = {}) {
   let picked = false, close = () => {};
   const pick = async id => {
     if (!(await mayPick(id))) return;
@@ -69,7 +69,7 @@ export function askRole({ then = () => {}, title = 'Who’s using Gdex?' } = {})
     then();
   };
   const body = h('div', { class: 'stack rp-ask' },
-    h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Gdex puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.${licenceIntro()}`),
+    h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Tourbook puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.${licenceIntro()}`),
     h('div', { class: 'list rp-list', role: 'group', 'aria-label': 'Roles' }, [...ROLES, EVERYTHING].map(r => card(r, { onPick: pick }))));
   const unpicked = () => {
     nudged();
@@ -80,7 +80,7 @@ export function askRole({ then = () => {}, title = 'Who’s using Gdex?' } = {})
   setTimeout(() => document.querySelector('.rp-ask .rp-card')?.focus(), 60);
 }
 
-// For a device that used Gdex before roles came (its welcome tour done, no role): one card under the menu, once.
+// For a device that used Tourbook before roles came (its welcome tour done, no role): one card under the menu, once.
 // Choose asks the question; Not now leaves Jack of Trades as it is. Either way it is not shown again (Settings → Your role
 // is always there), and the focus goes to the page rather than nowhere.
 export function nudgeRole(anchor) {
@@ -89,18 +89,18 @@ export function nudgeRole(anchor) {
   // The question opened from here has no opener to go back to (the card is gone): its then() puts the focus on the page.
   const done = () => { nudged(); card.remove(); };
   const notNow = () => { const had = card.contains(document.activeElement); done(); if (had) focusPage(); };
-  const card = h('div', { class: 'card rp-nudge', role: 'region', 'aria-label': 'Set up Gdex for your role' },
+  const card = h('div', { class: 'card rp-nudge', role: 'region', 'aria-label': 'Set up Tourbook for your role' },
     h('p', { class: 'rp-nudge-text' }, ...nudgeWords()),
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn primary small', id: 'rp-nudge-go', onclick: () => { done(); askRole({ then: focusPage }); } }, 'Choose my role'),
       h('button', { type: 'button', class: 'btn ghost small', id: 'rp-nudge-no', onclick: notNow }, 'Not now')));
   anchor.after(card);
   // A role chosen anywhere else (Settings) answers it too.
-  window.addEventListener('gdex-role', () => { if (card.isConnected) done(); }, { once: true });
+  window.addEventListener('tourbook-role', () => { if (card.isConnected) done(); }, { once: true });
 }
 
 // Settings → Your role: the six roles and Jack of Trades as one choice; what is on the menu, and the bonus tracks. A choice
-// redraws the page (the app does, on gdex-role), and the redrawn card keeps the focus. Its words follow the section
+// redraws the page (the app does, on tourbook-role), and the redrawn card keeps the focus. Its words follow the section
 // menu (record player, tape deck or digital player).
 export function rolePanel() {
   const el = h('div', { class: 'stack rp-panel' });
@@ -118,7 +118,7 @@ export function rolePanel() {
       licenceOn() ? licenceSlot() : null,
       extra.length ? h('p', { class: 'small muted rp-bonus' }, 'Bonus tracks for this role: ' + extra.map(id => sectionName(id, NAMES[id])).join(', ') + '.') : null,
       r.money === false ? h('p', { class: 'small muted rp-money' }, 'Fees, deals and settlements are off for this role. Booking acts and settling shows yourself? Manager or Jack of Trades has them. Quotes & invoices come back with a role that uses money, or with Jack of Trades.') : null,
-      h('p', { class: 'small muted' }, 'Kept on this device, not in backups: on a new phone you pick it again when Gdex first opens.'),
+      h('p', { class: 'small muted' }, 'Kept on this device, not in backups: on a new phone you pick it again when Tourbook first opens.'),
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost', id: 'rp-tour', onclick: () => import('./tour.js').then(m => m.startTour()) }, '🧭 Show me around'))));
   };
   draw();

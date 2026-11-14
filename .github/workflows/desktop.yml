@@ -1,16 +1,16 @@
-# Builds the desktop installers: Gdex-Setup-<version>.exe (Windows), Gdex-<version>.dmg and .zip (Mac) and
-# Gdex-<version>.AppImage (Linux), plus the latest*.yml files installed apps read to update themselves. The version is
+# Builds the desktop installers: Tourbook-Setup-<version>.exe (Windows), Tourbook-<version>.dmg and .zip (Mac) and
+# Tourbook-<version>.AppImage (Linux), plus the latest*.yml files installed apps read to update themselves. The version is
 # the one in js/version.js.
 #
 # Only by hand ("Run workflow"), and it publishes nothing: the installers are kept as the run's Artifacts for 3 days.
-# Putting them at https://gdex-download.crowmade.app/ (the R2 bucket gdex-downloads, Gdex's alone) is done by the
+# Putting them at https://tourbook-download.crowmade.app/ (the R2 bucket tourbook-downloads, Tourbook's alone) is done by the
 # owner, by hand, in the order docs/desktop.md gives, only once the owner says publish.
 #
 # Signing is optional and switches itself on: with the Apple secrets the Mac app is signed and notarized (and can update
 # itself); with the Azure secrets and variables the Windows installer is signed through Azure Artifact Signing. Without
 # them the installers come out unsigned (the download page says how to open them). docs/desktop.md lists every secret.
 # The signing secrets can sign any app as the owner (Vdex's too), so they live only in the protected GitHub Environment
-# gdex-sign (required reviewer: the owner; main only), never in repository secrets, which a workflow on any pushed branch
+# tourbook-sign (required reviewer: the owner; main only), never in repository secrets, which a workflow on any pushed branch
 # could read: each run of the build job waits there for the owner's approval.
 name: Build desktop installers
 on:
@@ -31,7 +31,7 @@ jobs:
             args: --linux
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
-    environment: gdex-sign
+    environment: tourbook-sign
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -108,7 +108,7 @@ jobs:
           AZ_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: gdex-${{ matrix.os }}
+          name: tourbook-${{ matrix.os }}
           path: |
             dist/*.exe
             dist/*.dmg

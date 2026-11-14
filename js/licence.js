@@ -2,14 +2,14 @@
 // sheets (the offer, the free days over at opening, read-only after a refused change, the wrong clock, the desktop's
 // files in a browser, sign-in, licence code, devices full, sign out, forget), Settings → About & licence, the line under
 // Settings → Your role, and the bar. Its words are the build spec §9. The state is js/licence-state.js's; the actions go
-// to js/licence-web.js (the website) or window.gdexDesktop.licence (the desktop app), and each answer is handed back to
+// to js/licence-web.js (the website) or window.tourbookDesktop.licence (the desktop app), and each answer is handed back to
 // js/licence-state.js (setLicenceState), which tells the page.
 import { h, sheet, toast, announce } from './util.js';
 import { roleId, roleOf, setRole, roleNeedsLicence, sectionName, FREE_ROLE, EVERYTHING } from './roles.js';
 import { licenceNow, licenceOn, licenceReady, setLicenceState, onLicenceChange, startFreeDays, termsAgreed, termsDeclined, toastStarted, mayOpen, mayWork, mayPickRole, canWrite } from './licence-state.js';
 import { askTerms, termsChanged } from './terms.js';
 
-const desk = () => (window.gdexDesktop && window.gdexDesktop.licence) || null;
+const desk = () => (window.tourbookDesktop && window.tourbookDesktop.licence) || null;
 const web = () => !desk();
 const W = () => import('./licence-web.js');
 // The source's actions; every answer goes back to the state.
@@ -79,16 +79,16 @@ function describe(s) {
     case 'unstarted': return { line: ['Audiophile is free. The other roles have 30 free days on this device, counted from the first time you use one; then a licence: ', onceEl(), `, for up to ${seats} of your devices.`], buy: true, enter: true };
     case 'trial': return { line: `Free days: ${s.trialLeft} left${s.trialEnds ? ` (until ${day(s.trialEnds)})` : ''}. After that the working roles are read-only here ${until}. Audiophile stays free.`, buy: true, enter: true };
     case 'ended': return { line: 'Your free days are over: the working roles are read-only here. Audiophile is free.', tone: 'warn', buy: true, enter: true };
-    case 'clock': return { line: 'This device’s clock looks wrong, so Gdex can’t count your free days: the working roles are read-only here until its date and time are right. Audiophile is free.', tone: 'warn', buy: true, enter: true };
+    case 'clock': return { line: 'This device’s clock looks wrong, so Tourbook can’t count your free days: the working roles are read-only here until its date and time are right. Audiophile is free.', tone: 'warn', buy: true, enter: true };
     case 'licensed': return web()
       ? { line: `Signed in as ${l ? l.email : ''}${l && l.comp ? ' · a free licence' : ''} · a licence for up to ${plural(seats, 'device')}.`, tone: 'ok', release: true, forget: true }
       : { line: `Licensed to ${who(l)}${l && l.comp ? ' · a free licence' : ''} · up to ${plural(seats, 'device')}.`, tone: 'ok', copy: true, release: true };
-    case 'pending': return { line: `Licensed to ${who(l)}, but not activated on this computer yet: Gdex needs the internet once to do that${s.daysLeft > 0 ? ` (${plural(s.daysLeft, 'day')} left)` : ''}.`, tone: s.canEdit ? '' : 'warn', retry: true, remove: true };
+    case 'pending': return { line: `Licensed to ${who(l)}, but not activated on this computer yet: Tourbook needs the internet once to do that${s.daysLeft > 0 ? ` (${plural(s.daysLeft, 'day')} left)` : ''}.`, tone: s.canEdit ? '' : 'warn', retry: true, remove: true };
     case 'released': return { line: `This computer isn’t on your licence: it’s in use on ${plural(seats, 'other device')}, its limit. Activate it here again to choose which one to take off.`, tone: 'warn', again: true, remove: true };
     case 'cancelled': return { line: 'This licence has been cancelled, for example after a refund. If you think that’s a mistake, reply to the email your licence came in.', tone: 'warn', buy: true, enter: true, remove: !web() };
     case 'expired': return { line: `Your licence ended on ${day(l && l.expires)}.`, tone: 'warn', buy: true, enter: true, release: web(), remove: !web() };
-    case 'offline': return { line: `Gdex hasn’t been able to check your ${web() ? 'sign-in' : 'licence'} for 90 days. Connect to the internet and tap Try again.`, tone: 'warn', retry: true };
-    case 'away': return { line: 'This is the desktop app’s copy of Gdex, opened in a web browser: only Audiophile works here. Open Gdex from its desktop app for the other roles, or use gdex.crowmade.app.', tone: 'warn' };
+    case 'offline': return { line: `Tourbook hasn’t been able to check your ${web() ? 'sign-in' : 'licence'} for 90 days. Connect to the internet and tap Try again.`, tone: 'warn', retry: true };
+    case 'away': return { line: 'This is the desktop app’s copy of Tourbook, opened in a web browser: only Audiophile works here. Open Tourbook from its desktop app for the other roles, or use tourbook.crowmade.app.', tone: 'warn' };
     default: return null;
   }
 }
@@ -115,7 +115,7 @@ function actions(s, d, { sheetWords = false, carry = false, after = () => {} } =
   return b;
 }
 // Next to Buy: what is bought (a licence, not a copy; California's rule for digital goods), and the currency.
-const buyNote = d => (d && d.buy ? h('p', { class: 'small muted licence-buy-note' }, 'You are buying a licence to use Gdex, not ownership of a copy of it (see the ', h('a', { href: 'terms.html#paid', target: '_blank', rel: 'noopener' }, 'terms'), '). Prices are in US dollars; Stripe can show your own currency at its exchange rate, which costs 2 to 4% more.') : null);
+const buyNote = d => (d && d.buy ? h('p', { class: 'small muted licence-buy-note' }, 'You are buying a licence to use Tourbook, not ownership of a copy of it (see the ', h('a', { href: 'terms.html#paid', target: '_blank', rel: 'noopener' }, 'terms'), '). Prices are in US dollars; Stripe can show your own currency at its exchange rate, which costs 2 to 4% more.') : null);
 
 // Checks the licence online now. The toast says what the server answered.
 async function retry(btn, after = () => {}) {
@@ -154,11 +154,11 @@ function whyNot(s, what = 'working sections') {
   switch (s.mode) {
     case 'cancelled': return 'Your licence has been cancelled, for example after a refund. If you think that’s a mistake, reply to the email your licence came in.';
     case 'expired': return `Your licence ended on ${day(s.licence && s.licence.expires)}.`;
-    case 'clock': return 'Gdex can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Gdex again.';
-    case 'offline': return 'Gdex hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again.';
+    case 'clock': return 'Tourbook can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Tourbook again.';
+    case 'offline': return 'Tourbook hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again.';
     case 'released': return `This computer is no longer on your licence: it’s in use on ${plural(seatsOf(s), 'other device')}.`;
-    case 'pending': return 'Your licence isn’t activated on this computer yet: Gdex needs the internet once to do that.';
-    default: return `Your 30 free days of Gdex’s ${what} are over on this device.`;
+    case 'pending': return 'Your licence isn’t activated on this computer yet: Tourbook needs the internet once to do that.';
+    default: return `Your 30 free days of Tourbook’s ${what} are over on this device.`;
   }
 }
 // The buttons an offer and the free-days-over sheet show for a state: Buy and Sign in, or the state's own next step.
@@ -188,8 +188,8 @@ function offer(title, first, gone) {
 const KIND_WORDS = { session: 'Studio sessions', rehearsal: 'Rehearsals' };
 export function offerSection(id, kind = '') {
   const s = licenceNow();
-  if (id === 'work' && KIND_WORDS[kind]) return offer(`${KIND_WORDS[kind]} need a licence`, `${KIND_WORDS[kind]} come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
-  if (id === 'work') return offer('The working boxes need a licence', `The line-up, setlist, take log and the other working boxes, and People, Songs and Backline’s cards, come with Gdex’s working roles. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
+  if (id === 'work' && KIND_WORDS[kind]) return offer(`${KIND_WORDS[kind]} need a licence`, `${KIND_WORDS[kind]} come with Tourbook’s working roles: this one stays here for you to look at, and can be changed with a licence. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
+  if (id === 'work') return offer('The working boxes need a licence', `The line-up, setlist, take log and the other working boxes, and People, Songs and Backline’s cards, come with Tourbook’s working roles. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
   const name = sectionName(id, NAMES[id] || id);
   return offer(`${name} needs a licence`, whyNot(s), () => mayOpen(id) === 'open');
 }
@@ -212,16 +212,16 @@ export function overSheetIfDue() {
     if (s.mode === 'away') return awaySheet().done;
     overOpen = new Promise(resolve => {
       const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, with everything you already have.'];
-      const readOnly = `Gdex is read-only ${role} on this device until there is a licence: you can open, search, print and share everything, but not change it. Nothing has been deleted.`;
+      const readOnly = `Tourbook is read-only ${role} on this device until there is a licence: you can open, search, print and share everything, but not change it. Nothing has been deleted.`;
       const text = {
         ended: ['Your 30 free days are over', [readOnly, ' ', ...how]],
         cancelled: ['Your licence has been cancelled', ['This can happen after a refund. If you think that’s a mistake, reply to the email your licence came in. ', readOnly.replace('until there is a licence', 'until there is a licence again'), ' ', ...how]],
         expired: [`Your licence ended on ${day(s.licence && s.licence.expires)}`, [readOnly, ' ', ...how]],
-        offline: ['Gdex needs to check your licence', [`It hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
-        released: ['This computer is no longer on your licence', [`It’s in use on ${plural(seatsOf(s), 'other device')}. Activate it here again to choose which one to take off. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
-        pending: ['Gdex needs to activate your licence', [`It hasn’t been able to reach the licence server since the code was entered. Connect to the internet and tap Try again. Until then Gdex is read-only ${role}. Nothing has been deleted.`]],
-        clock: ['Your device’s clock looks wrong', [`Gdex can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Gdex again. Nothing has been deleted. Until then Gdex is read-only ${role}.`]],
-      }[s.mode] || ['Gdex is read-only here', [readOnly, ' ', ...how]];
+        offline: ['Tourbook needs to check your licence', [`It hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`]],
+        released: ['This computer is no longer on your licence', [`It’s in use on ${plural(seatsOf(s), 'other device')}. Activate it here again to choose which one to take off. Until then Tourbook is read-only ${role}. Nothing has been deleted.`]],
+        pending: ['Tourbook needs to activate your licence', [`It hasn’t been able to reach the licence server since the code was entered. Connect to the internet and tap Try again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`]],
+        clock: ['Your device’s clock looks wrong', [`Tourbook can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Tourbook again. Nothing has been deleted. Until then Tourbook is read-only ${role}.`]],
+      }[s.mode] || ['Tourbook is read-only here', [readOnly, ' ', ...how]];
       let sh = null;
       const close = () => sh && sh.close();
       sh = sheet(text[0], h('div', { class: 'stack lic-over' },
@@ -244,8 +244,8 @@ export function awaySheet() {
   if (document.querySelector('.sheet.licence-away')) { resolve(); return { done }; }
   let sh = null;
   const close = () => sh && sh.close();
-  sh = sheet('Open Gdex from its desktop app', h('div', { class: 'stack lic-away' },
-    h('p', null, 'This is the desktop app’s copy of Gdex, opened in a web browser. Its working roles and Google Drive only work in the desktop app; on the web, use gdex.crowmade.app. Audiophile works here.'),
+  sh = sheet('Open Tourbook from its desktop app', h('div', { class: 'stack lic-away' },
+    h('p', null, 'This is the desktop app’s copy of Tourbook, opened in a web browser. Its working roles and Google Drive only work in the desktop app; on the web, use tourbook.crowmade.app. Audiophile works here.'),
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn primary', id: 'lic-away-ok', onclick: close }, 'OK'),
       roleNeedsLicence(roleId()) && h('button', { type: 'button', class: 'btn ghost lic-carry', onclick: () => { close(); carryOnFree(); } }, 'Carry on as an Audiophile'))),
@@ -259,7 +259,7 @@ export function awaySheet() {
 export function carryOnFree() {
   setRole(FREE_ROLE, { start: true });
   toast('Audiophile: free for good. Nothing was deleted; the other roles come back with a licence.');
-  announce('Audiophile: Gdex is free for good.');
+  announce('Audiophile: Tourbook is free for good.');
 }
 
 /* ------------------------------ read-only, after a refused change ------------------------------ */
@@ -276,7 +276,7 @@ export function readOnlySheet({ form = false } = {}) {
     const has = ['licensed', 'pending'].includes(s.mode);
     sh = sheet('Read-only for now', h('div', { class: 'stack lic-ro' },
       termsChanged(true) ? h('p', null, 'Please read and agree to the updated terms to keep using the working roles. Your information is safe and stays where it is.')
-        : h('p', null, 'Gdex’s working roles and sections are free for 30 days on this device, then need a licence: ', onceEl(), ', for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Gdex’s terms.'),
+        : h('p', null, 'Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ', onceEl(), ', for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Tourbook’s terms.'),
       h('p', { class: 'small muted' }, `Nothing was changed${form ? ': what you typed is still in the form' : ''}.`),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'btn primary', id: 'lic-ro-terms', onclick: async () => { close(); if (await askTerms({ once: once() })) { termsAgreed(); if (await startFreeDays()) toastStarted(); } } }, 'Read and agree'),
@@ -286,7 +286,7 @@ export function readOnlySheet({ form = false } = {}) {
   } else {
     const first = {
       cancelled: 'Your licence has been cancelled', expired: 'Your licence has ended', clock: 'This device’s clock looks wrong',
-      offline: 'Gdex hasn’t been able to check your licence for 90 days', released: 'This computer is no longer on your licence', pending: 'Your licence isn’t activated on this computer yet',
+      offline: 'Tourbook hasn’t been able to check your licence for 90 days', released: 'This computer is no longer on your licence', pending: 'Your licence isn’t activated on this computer yet',
     }[s.mode] || 'Your free days are over';
     sh = sheet('Read-only until there is a licence', h('div', { class: 'stack lic-ro' },
       h('p', null, `${first}, so ${role} can’t change things on this device. Nothing was changed${form ? ' (what you typed is still in the form)' : ''}. You can still open, search, print and share everything.`),
@@ -310,7 +310,7 @@ export function roleLicenceLine() {
     el.hidden = false;
     const has = ['licensed', 'pending'].includes(s.mode) && s.canEdit;
     let words, d = {};
-    if (s.mode === 'away') words = ['Here, in a web browser, only Audiophile works: open Gdex from its desktop app for the other roles.'];
+    if (s.mode === 'away') words = ['Here, in a web browser, only Audiophile works: open Tourbook from its desktop app for the other roles.'];
     else if (has) words = ['Licensed: every role on this device.'];
     else if (s.canEdit && s.started) { words = [`Your free days: ${s.trialLeft} left${s.trialEnds ? `, until ${day(s.trialEnds, false)}` : ''}. Audiophile stays free after that.`]; d = { buy: true, enter: true }; }
     else if (s.canEdit) words = ['Audiophile is free for good. The other roles, Jack of Trades included, have 30 free days on this device, counted from the first time you use one; then a licence: ', onceEl(), ', for up to 3 of your devices.'];
@@ -345,7 +345,7 @@ function detailsSheet() {
 
 /* ------------------------------------ the bar ------------------------------------ */
 // At the foot of the screen while a paid role is in use: in the last 7 free days, and whenever it is read-only ([S-28]).
-// ✕ hides it until Gdex is next opened.
+// ✕ hides it until Tourbook is next opened.
 const B = { bar: null, hide: '' };
 function paintBar() {
   const s = licenceNow(), paid = roleNeedsLicence(roleId());
@@ -360,7 +360,7 @@ function paintBar() {
   const d = describe(s) || {};
   let text, buttons;
   if (urgent) {
-    text = { offline: 'Read-only until Gdex can check your licence online', clock: 'Read-only: this device’s clock looks wrong', released: 'Read-only: this computer isn’t on your licence', pending: 'Read-only until your licence is activated on this computer' }[s.mode] || `Read-only: ${role} needs a licence`;
+    text = { offline: 'Read-only until Tourbook can check your licence online', clock: 'Read-only: this device’s clock looks wrong', released: 'Read-only: this computer isn’t on your licence', pending: 'Read-only until your licence is activated on this computer' }[s.mode] || `Read-only: ${role} needs a licence`;
     buttons = d.retry ? [small('Try again', e => retry(e.currentTarget), true), small('Details', detailsSheet)]
       : d.again ? [small('Activate here again', async () => enterCode(await Promise.resolve(src.code()).catch(() => '')), true), small('Details', detailsSheet)]
         : [small('Buy', () => { askLocalPrice(); src.buy(); }, true), small(web() ? 'Sign in' : 'Enter code', () => (web() ? signIn() : enterCode()))];
@@ -374,7 +374,7 @@ function paintBar() {
   const bar = h('div', { class: 'update-bar licence-bar' + (urgent ? ' urgent' : ''), role: 'status' },
     h('span', null, text), ...buttons,
     // The bar goes with its ✕, so the focus goes to the page rather than nowhere.
-    h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Hide until Gdex is next opened', onclick: () => { B.hide = key; paintBar(); document.getElementById('page')?.focus({ preventScroll: true }); } }, '✕'));
+    h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Hide until Tourbook is next opened', onclick: () => { B.hide = key; paintBar(); document.getElementById('page')?.focus({ preventScroll: true }); } }, '✕'));
   if (!B.bar || B.bar.firstChild.textContent !== text) announce(text);
   if (B.bar) B.bar.replaceWith(bar);
   B.bar = bar;
@@ -387,7 +387,7 @@ export function initBar() {
   if (barOn) return;
   barOn = true;
   onLicenceChange(() => paintBar());
-  window.addEventListener('gdex-role', () => setTimeout(paintBar, 0));
+  window.addEventListener('tourbook-role', () => setTimeout(paintBar, 0));
   paintBar();
 }
 
@@ -409,12 +409,12 @@ function chooser(msg, r, pick) {
 // Pastes and activates a code. When all its devices are taken, offers to move it from one of them.
 export function enterCode(prefill = '') {
   if (!desk()) return;
-  const box = h('textarea', { rows: 4, class: 'licence-code', spellcheck: false, autocomplete: 'off', 'aria-label': 'Licence code', placeholder: 'GDEX-…' });
+  const box = h('textarea', { rows: 4, class: 'licence-code', spellcheck: false, autocomplete: 'off', 'aria-label': 'Licence code', placeholder: 'TOURBOOK-…' });
   box.value = prefill || '';
   const msg = h('p', { class: 'small', role: 'status' });
   const go = h('button', { type: 'button', class: 'btn primary', id: 'lic-activate', onclick: () => send() }, 'Activate');
   const body = h('div', { class: 'stack' },
-    h('p', { class: 'small muted' }, 'Paste the code from your email: all of it, starting with GDEX-. Gdex activates it online once, so it can count the devices it is used on (up to 3).'),
+    h('p', { class: 'small muted' }, 'Paste the code from your email: all of it, starting with TOURBOOK-. Tourbook activates it online once, so it can count the devices it is used on (up to 3).'),
     box, msg, h('div', { class: 'actions' }, go));
   const sh = sheet('Enter licence code', body);
   setTimeout(() => box.focus(), 50);
@@ -426,7 +426,7 @@ export function enterCode(prefill = '') {
     if (r && r.error === 'expired') { msg.textContent = `This code ended on ${day(r.expires) || r.expires}.`; msg.className = 'small licence-warn'; return; }
     if (!r || r.error) { msg.textContent = (r && typeof r.error === 'string' && r.error) || 'Something went wrong. Try again.'; msg.className = 'small licence-warn'; return; }
     told(r); sh.close();
-    toast(r.mode === 'licensed' ? 'Licensed: every role on this device.' : r.mode === 'pending' ? 'Code saved. Gdex activates it the next time it is online.' : 'Gdex could not reach the licence server. Try again when you are online.');
+    toast(r.mode === 'licensed' ? 'Licensed: every role on this device.' : r.mode === 'pending' ? 'Code saved. Tourbook activates it the next time it is online.' : 'Tourbook could not reach the licence server. Try again when you are online.');
   }
 }
 
@@ -436,11 +436,11 @@ export function signIn() {
   if (!web()) return enterCode();
   const msg = h('p', { class: 'small', role: 'status' });
   const email = h('input', { type: 'email', id: 'lic-email', autocomplete: 'email', inputMode: 'email', 'aria-label': 'Email address', placeholder: 'you@example.com' });
-  const codeBox = h('textarea', { rows: 3, class: 'licence-code', id: 'lic-code', spellcheck: false, autocomplete: 'off', 'aria-label': 'Licence code', placeholder: 'GDEX-…', hidden: true });
+  const codeBox = h('textarea', { rows: 3, class: 'licence-code', id: 'lic-code', spellcheck: false, autocomplete: 'off', 'aria-label': 'Licence code', placeholder: 'TOURBOOK-…', hidden: true });
   let useCode = false, to = '';
   const toggle = h('button', { type: 'button', class: 'btn ghost small', id: 'lic-use-code', onclick: () => { useCode = !useCode; codeBox.hidden = !useCode; email.hidden = useCode; toggle.textContent = useCode ? 'Use your email address instead' : 'Have a licence code? Use it instead'; (useCode ? codeBox : email).focus(); } }, 'Have a licence code? Use it instead');
   const send = h('button', { type: 'submit', class: 'btn primary', id: 'lic-send' }, 'Send me a code');
-  const agree = () => h('p', { class: 'small muted' }, 'By signing in you agree to Gdex’s ', h('a', { href: 'terms.html', target: '_blank', rel: 'noopener' }, 'terms'), '.');
+  const agree = () => h('p', { class: 'small muted' }, 'By signing in you agree to Tourbook’s ', h('a', { href: 'terms.html', target: '_blank', rel: 'noopener' }, 'terms'), '.');
   const step1 = h('form', { class: 'stack', novalidate: true, onsubmit: async e => {
     e.preventDefault(); msg.textContent = ''; msg.className = 'small';
     const addr = email.value.trim();
@@ -470,7 +470,7 @@ export function signIn() {
     await licenceReady();
     toast(licenceNow().mode === 'licensed' ? 'Licensed: every role on this device.' : 'Signed in.');
   } }, whereTo, digits, h('div', { class: 'actions' }, verify, again), agree());
-  const sh = sheet('Sign in to Gdex', h('div', { class: 'stack lic-signin' }, step1, step2, msg));
+  const sh = sheet('Sign in to Tourbook', h('div', { class: 'stack lic-signin' }, step1, step2, msg));
   setTimeout(() => email.focus(), 50);
 }
 
@@ -483,11 +483,11 @@ function forgetSheet() {
     go.disabled = true; go.textContent = 'Deleting…';
     const r = await Promise.resolve(src.forget()).catch(e => ({ error: e.message }));
     if (!r || r.error) { go.disabled = false; go.textContent = 'Delete my records'; msg.textContent = (r && r.error) || 'Something went wrong. Try again.'; return; }
-    told(r); sh.close(); toast('Your licence records have been deleted, and Gdex is signed out here.');
+    told(r); sh.close(); toast('Your licence records have been deleted, and Tourbook is signed out here.');
   } }, 'Delete my records');
   const sh = sheet('Delete my licence records', h('div', { class: 'stack' },
-    h('p', null, `This deletes what Gdex’s licence server keeps about your email address${lic.email ? ` (${lic.email})` : ''}: its link to your licence, and its sign-in codes. Gdex signs out here, and other browsers signed in with it are signed out at their next check.`),
-    h('p', { class: 'small muted' }, `Your licence itself is not cancelled: ${lic.comp ? 'to sign in again, use your licence code (Have a licence code? Use it instead)' : 'sign in again at any time'}, and the records are made afresh. So that sign-ins made before now stop working, the licence server keeps a scrambled form of your email address and when you deleted the records, for 400 days. Computers with the desktop app keep your licence, and stay on its list (a random number for each, nothing about you), with the dates of any moves between computers in the last 30 days: to take one off, use Release this computer on it. Stripe and Link keep their own records of a purchase. Your work in Gdex is not touched.`),
+    h('p', null, `This deletes what Tourbook’s licence server keeps about your email address${lic.email ? ` (${lic.email})` : ''}: its link to your licence, and its sign-in codes. Tourbook signs out here, and other browsers signed in with it are signed out at their next check.`),
+    h('p', { class: 'small muted' }, `Your licence itself is not cancelled: ${lic.comp ? 'to sign in again, use your licence code (Have a licence code? Use it instead)' : 'sign in again at any time'}, and the records are made afresh. So that sign-ins made before now stop working, the licence server keeps a scrambled form of your email address and when you deleted the records, for 400 days. Computers with the desktop app keep your licence, and stay on its list (a random number for each, nothing about you), with the dates of any moves between computers in the last 30 days: to take one off, use Release this computer on it. Stripe and Link keep their own records of a purchase. Your work in Tourbook is not touched.`),
     msg, h('div', { class: 'actions' }, go)));
 }
 
@@ -501,7 +501,7 @@ function releaseSheet(removeOnly = false) {
     told(r); sh.close(); toast(removeOnly ? 'Licence code removed.' : w ? 'Signed out on this device.' : 'This computer has been released.');
   } }, label);
   const sh = sheet(w ? 'Sign out' : removeOnly ? 'Remove the licence code' : 'Release this computer', h('div', { class: 'stack' },
-    h('p', null, w ? 'This signs Gdex out on this browser.' : removeOnly ? 'This takes the licence code off this computer.' : 'This takes your licence off this computer, so you can use the code on another one.'),
+    h('p', null, w ? 'This signs Tourbook out on this browser.' : removeOnly ? 'This takes the licence code off this computer.' : 'This takes your licence off this computer, so you can use the code on another one.'),
     h('p', { class: 'small muted' }, `Your bookings and everything else stay here. Without a licence, the working roles here go back to the free days, or are read-only if those are over; Audiophile stays free. You can ${w ? 'sign in' : 'enter the code'} again at any time.`),
     msg, h('div', { class: 'actions' }, go)));
 }

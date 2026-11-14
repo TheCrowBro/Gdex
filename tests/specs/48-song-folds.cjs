@@ -304,7 +304,7 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
 
   /* ---------------- 320 px, extra-large text and large buttons ---------------- */
   {
-    const prefs = `try { localStorage.setItem('gdex-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large' }))}); } catch (e) { /* ignore */ }`;
+    const prefs = `try { localStorage.setItem('tourbook-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large' }))}); } catch (e) { /* ignore */ }`;
     const { browser: b2, page: p2, errors: e2 } = await open({ viewport: { width: 320, height: 700 }, init: prefs });
     await seed(p2);
     await p2.evaluate(() => import('./js/store.js').then(s => { s.upsert('acts', { id: 't-long', name: 'The Sunday Morning Gospel Singers of the Valley', members: [] }); s.upsert('songs', { id: 'x-long', title: 'A Very Long Song Title Indeed For A Small Screen', actId: 't-long', album: 'Live at the Grand Old Opera House, Volume Two (Remastered Deluxe Edition)' }); }));

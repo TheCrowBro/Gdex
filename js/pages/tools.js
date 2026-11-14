@@ -15,7 +15,7 @@ import { meter, METER_STEPS } from '../tools-meter.js';
 import { setTimer, TIMER_STEPS } from '../tools-timer.js';
 import { sectionName, pageOpt } from '../roles.js';
 
-// called: the tool in a sentence ("Gdex opens tap tempo…"). tab: the name on its tab, where it differs from the label: a
+// called: the tool in a sentence ("Tourbook opens tap tempo…"). tab: the name on its tab, where it differs from the label: a
 // soft hyphen lets "Metronome" break onto two lines on a narrow tab ("Metro-" / "nome") instead of being cut off.
 const TOOLS = [
   { id: 'tuner', label: 'Tuner', called: 'the tuner', icon: '🎸', make: tuner, steps: TUNER_STEPS },
@@ -24,9 +24,9 @@ const TOOLS = [
   { id: 'meter', label: 'Meter', called: 'the sound level meter', icon: '🔊', make: meter, steps: METER_STEPS },
   { id: 'timer', label: 'Set timer', called: 'the set timer', icon: '⏱️', make: setTimer, steps: TIMER_STEPS },
 ];
-// Picks are kept under gdex-tool-pick. The build before roles wrote gdex-tool each time Tools was drawn, so that key
+// Picks are kept under tourbook-tool-pick. The build before roles wrote tourbook-tool each time Tools was drawn, so that key
 // says only what was on screen, not what was picked: it is never read, so the role's first tool still applies there.
-const TOOL_KEY = 'gdex-tool-pick';
+const TOOL_KEY = 'tourbook-tool-pick';
 const known = id => TOOLS.some(x => x.id === id);
 // tool: the one on screen (the walkthrough follows it). picked: the one the person last picked in this visit, which
 // also lasts the visit where storage is blocked.
@@ -132,11 +132,11 @@ export const tools = {
     };
   },
   // The walkthrough for whichever tool is open.
-  // Until a tool is picked, it says which one Gdex opens on (the role's first tool).
+  // Until a tool is picked, it says which one Tourbook opens on (the role's first tool).
   tutorial: () => {
     const first = TOOLS.find(t => t.id === firstTool()) || TOOLS[0];
     return [
-      { target: ['.tl-seg'], title: 'Five tools', text: 'A tuner, a metronome, tap tempo with delay times, a sound level meter and a set timer. ' + (remembered() ? 'Gdex opens the one you used last.' : `Gdex opens ${first.called} until you pick one, then the one you used last.`) },
+      { target: ['.tl-seg'], title: 'Five tools', text: 'A tuner, a metronome, tap tempo with delay times, a sound level meter and a set timer. ' + (remembered() ? 'Tourbook opens the one you used last.' : `Tourbook opens ${first.called} until you pick one, then the one you used last.`) },
       ...((TOOLS.find(t => t.id === (S.tool || first.id)) || TOOLS[0]).steps),
     ];
   },

@@ -112,7 +112,7 @@ async function tourTitles(page) {
 
 const all = []; // every console error of every browser below
 (async () => {
-  /* ======================= an empty Gdex: the form, the owner's example, the levels ======================= */
+  /* ======================= an empty Tourbook: the form, the owner's example, the levels ======================= */
   {
     const { browser, page, errors } = await open({ tab: 'venues' });
     const warns = []; page.on('console', m => { if (m.type() === 'warning' && /house rules/i.test(m.text())) warns.push(m.text()); });
@@ -369,7 +369,7 @@ const all = []; // every console error of every browser below
     ok('a venue with some junk shows what is known', (await shows(page, 'bags')) === 'no' && (await shows(page, 'phones')) === '' && (await shows(page, 'age')) === '' && (await page.inputValue(FORM.edit + ' [data-key=rulesTone]')) === '');
     await saveForm(page);
     ok('…and Save replaces the rules this build knows with what the form shows, and keeps a rule it does not know as it was stored', JSON.stringify((await rec(page, 'venues', 'j-part')).rules) === '{"nope":"yes","bags":"no"}' && (await rec(page, 'venues', 'j-part')).rulesTone === '', JSON.stringify((await rec(page, 'venues', 'j-part')).rules));
-    // A venue from a newer Gdex (or a backup edited by hand), with rules this build has never heard of.
+    // A venue from a newer Tourbook (or a backup edited by hand), with rules this build has never heard of.
     await page.evaluate(() => window.__s.update(d => { d.venues.push({ id: 'j-new', kind: 'venue', name: 'Newer Rules', rules: { drones: 'no', proCameras: 'no', lasers: { level: 2 } }, rulesNote: '', rulesTone: '' }); }));
     await sleep(250);
     await openEdit(page, 'j-new');
@@ -625,7 +625,7 @@ const all = []; // every console error of every browser below
 
   /* ======================= 320px, extra-large text and buttons, light and dark ======================= */
   for (const [scheme, menu] of [['light', 'record'], ['dark', 'tape']]) {
-    const prefs = `try { localStorage.setItem('gdex-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large', scheme, menu }))}); } catch (e) { /* ignore */ }`;
+    const prefs = `try { localStorage.setItem('tourbook-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large', scheme, menu }))}); } catch (e) { /* ignore */ }`;
     const { browser, page, errors } = await open({ sample: true, viewport: { width: 320, height: 700 }, init: prefs });
     await page.waitForSelector('.bk-agenda .bk-card');
     await hook(page);

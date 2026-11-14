@@ -7,11 +7,11 @@
 const { chromium } = require('playwright');
 const { webcrypto } = require('crypto');
 const fs = require('fs'), path = require('path');
-const BASE = process.env.GDEX_URL || 'http://localhost:8124/';
+const BASE = process.env.TOURBOOK_URL || 'http://localhost:8124/';
 const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const DAY = 864e5, HOUR = 3600e3;
-const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(fs.readFileSync(path.join(process.env.GDEX_ROOT || path.join(__dirname, '..', '..'), 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
+const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(fs.readFileSync(path.join(process.env.TOURBOOK_ROOT || path.join(__dirname, '..', '..'), 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
 const LICENCE = { email: 'jo@example.com', name: 'Jo Web', ref: '2:4242', seats: 3, comp: false, expires: '' };
 
 // A throw-away signing key, as the licence server's shop key (key 2) would be.
@@ -20,7 +20,7 @@ async function shopKey() {
   const pub = Buffer.from(await webcrypto.subtle.exportKey('raw', pair.publicKey)).toString('base64url');
   const sign = async value => {
     const data = JSON.stringify(value);
-    const sig = Buffer.from(await webcrypto.subtle.sign({ name: 'Ed25519' }, pair.privateKey, Buffer.concat([Buffer.from('GDEX-WEB\0'), Buffer.from(data)]))).toString('base64url');
+    const sig = Buffer.from(await webcrypto.subtle.sign({ name: 'Ed25519' }, pair.privateKey, Buffer.concat([Buffer.from('TOURBOOK-WEB\0'), Buffer.from(data)]))).toString('base64url');
     return { kid: 2, data, sig };
   };
   return { pub, sign };
@@ -70,8 +70,8 @@ async function openLive(browser, errors, srv, { seed = {}, ask = 'off', clockAt 
       if (clockAt && !sessionStorage.getItem('t-clock')) window.__clock(clockAt);
       const kept = sessionStorage.getItem('t-clock'); if (kept) window.__clock(Number(kept));
       if (!localStorage.getItem('t-seeded')) { localStorage.setItem('t-seeded', '1'); for (const [k, v] of Object.entries(seed)) { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } }
-      localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1');
-      if (ask) localStorage.setItem('gdex-ask-seen', ask);
+      localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1');
+      if (ask) localStorage.setItem('tourbook-ask-seen', ask);
     } catch (e) { /* ignore */ }
     window.__toasts = [];
     new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document, { childList: true, subtree: true });
@@ -86,7 +86,7 @@ async function openLive(browser, errors, srv, { seed = {}, ask = 'off', clockAt 
   return { ctx, page };
 }
 const state = page => page.evaluate(() => import('./js/licence-state.js').then(m => m.licenceReady().then(() => m.licenceNow())));
-const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('gdex-licence') || '{}'));
+const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-licence') || '{}'));
 const toasts = page => page.evaluate(() => window.__toasts.slice());
 const sheets = page => page.$$eval('.sheet', els => els.map(x => x.getAttribute('aria-label')));
 const go = (page, id) => page.evaluate(t => window.logiGo(t), id);
@@ -111,7 +111,7 @@ async function signIn(page) {
     /* =========== a working role in its free days: Buy, the price, signing in =========== */
     {
       const srv = server(key);
-      const { ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - 31 * DAY, { seen: Date.now() - HOUR }) } });
+      const { ctx, page } = await openLive(browser, errors, srv, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - 31 * DAY, { seen: Date.now() - HOUR }) } });
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 });
       await sleep(600);
       ok('the Buy button shows the price with the tax where the buyer is (Germany: 23.80 USD with VAT)', /Buy a licence · 23\.80 USD with VAT/.test(await page.textContent('.sheet.licence-over')) && /A licence is 23\.80 USD once in Germany, including 19% VAT, for up to 3 of your devices\./.test(await page.textContent('.sheet.licence-over')), await page.textContent('.sheet.licence-over'));
@@ -124,7 +124,7 @@ async function signIn(page) {
       ok('About & licence: the free days are over, read-only, Buy and Sign in', /^Your free days are over: the working roles are read-only here\. Audiophile is free\.$/.test(await page.textContent('.licence-panel .licence-line')) && (await page.locator('.licence-panel .lic-buy').count()) === 1 && (await page.locator('.licence-panel .lic-enter').count()) === 1);
       // Step 1, a mistake, step 2, a wrong code, a new code, the right one.
       await page.click('.licence-panel .lic-enter'); await page.waitForSelector('#lic-email');
-      ok('Sign in to Gdex: step 1 asks the email address the licence was bought with, and the terms are named', (await sheets(page)).join() === 'Sign in to Gdex' && /The email address you bought your licence with\./.test(await page.textContent('.lic-signin')) && /By signing in you agree to Gdex’s terms\./.test(await page.textContent('.lic-signin')));
+      ok('Sign in to Tourbook: step 1 asks the email address the licence was bought with, and the terms are named', (await sheets(page)).join() === 'Sign in to Tourbook' && /The email address you bought your licence with\./.test(await page.textContent('.lic-signin')) && /By signing in you agree to Tourbook’s terms\./.test(await page.textContent('.lic-signin')));
       await page.fill('#lic-email', 'not an address'); await page.click('#lic-send'); await sleep(200);
       ok('…an address that is not one is said so, and nothing is sent', /Type the email address your licence belongs to\./.test(await page.textContent('.lic-signin')) && !srv.asked.includes('/licence/web/start'));
       await page.fill('#lic-email', LICENCE.email); await page.click('#lic-send');
@@ -161,13 +161,13 @@ async function signIn(page) {
       await about(page); await signIn(page);
       ok('signed in again after a cancellation (a new purchase)', (await state(page)).mode === 'licensed');
       await page.click('.licence-panel .lic-release'); await page.waitForSelector('#lic-release-go');
-      ok('Sign out says what it does', /This signs Gdex out on this browser\./.test(await page.textContent('.sheet[aria-label="Sign out"]')));
+      ok('Sign out says what it does', /This signs Tourbook out on this browser\./.test(await page.textContent('.sheet[aria-label="Sign out"]')));
       await page.click('#lic-release-go'); await sleep(500);
       ok('…signed out: back to read-only, with its toast', (await state(page)).mode === 'ended' && (await toasts(page)).includes('Signed out on this device.'));
       await about(page); await signIn(page);
       await page.click('.licence-panel .lic-forget'); await page.waitForSelector('#lic-forget-go');
       const forgetWords = await page.textContent('.sheet[aria-label="Delete my licence records"]');
-      ok('Delete my licence records says what goes and what stays: the email address\'s link and sign-in codes go; computers with the desktop app keep the licence until each is released', /This deletes what Gdex’s licence server keeps about your email address \(jo@example\.com\): its link to your licence, and its sign-in codes\. Gdex signs out here, and other browsers signed in with it are signed out at their next check\./.test(forgetWords) && /Computers with the desktop app keep your licence, and stay on its list \(a random number for each, nothing about you\), with the dates of any moves between computers in the last 30 days: to take one off, use Release this computer on it\./.test(forgetWords) && !/list of devices/.test(forgetWords), forgetWords);
+      ok('Delete my licence records says what goes and what stays: the email address\'s link and sign-in codes go; computers with the desktop app keep the licence until each is released', /This deletes what Tourbook’s licence server keeps about your email address \(jo@example\.com\): its link to your licence, and its sign-in codes\. Tourbook signs out here, and other browsers signed in with it are signed out at their next check\./.test(forgetWords) && /Computers with the desktop app keep your licence, and stay on its list \(a random number for each, nothing about you\), with the dates of any moves between computers in the last 30 days: to take one off, use Release this computer on it\./.test(forgetWords) && !/list of devices/.test(forgetWords), forgetWords);
       ok('…a bought licence: sign in again at any time (the server finds the order again by its email)', /Your licence itself is not cancelled: sign in again at any time, and the records are made afresh\./.test(forgetWords) && !/licence code/.test(forgetWords));
       // What the server keeps after the deletion (cloudflare/worker.mjs: the z: mark, 400 days; the list's recent moves).
       ok('…and what the server keeps after it: a scrambled form of the email address and when, for 400 days, so earlier sign-ins stop working; the dates of recent moves between computers', /So that sign-ins made before now stop working, the licence server keeps a scrambled form of your email address and when you deleted the records, for 400 days\./.test(forgetWords) && /stay on its list \(a random number for each, nothing about you\), with the dates of any moves between computers in the last 30 days/.test(forgetWords), forgetWords);
@@ -191,31 +191,31 @@ async function signIn(page) {
       const good = await key.sign({ email: LICENCE.email, ref: LICENCE.ref, iat: Date.now() });
       const signedIn = token => trialFrom(Date.now() - 40 * DAY, { token, licence: LICENCE, via: 'email', checked: Date.now(), tried: Date.now() });
       // Broken signature.
-      let { ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': signedIn({ ...good, sig: good.sig.slice(0, -4) + 'AAAA' }) } });
+      let { ctx, page } = await openLive(browser, errors, srv, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': signedIn({ ...good, sig: good.sig.slice(0, -4) + 'AAAA' }) } });
       let st = await state(page);
       ok('a hand-written sign-in with a broken signature is not believed, and its token is removed', st.mode === 'ended' && !(await stored(page)).token && !(await stored(page)).licence, JSON.stringify(st));
       await ctx.close();
       // No signature at all, or a token that is not one: checked like any other (nothing counts as already checked).
       const forged = {};
       for (const [name, token] of [['no signature', { kid: 2, data: good.data }], ['a word', 'licensed'], ['an empty object', {}]]) {
-        ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': signedIn(token) } }));
+        ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': signedIn(token) } }));
         await page.evaluate(() => import('./js/licence-state.js').then(m => m.licenceReady()));
         forged[name] = [(await state(page)).mode, !!(await stored(page)).token];
         await ctx.close();
       }
       ok('…nor is one with no signature at all, a word, or an empty object: each removed', Object.values(forged).every(([m, t]) => m === 'ended' && !t), JSON.stringify(forged));
       // Genuine, but for another licence.
-      ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': { ...signedIn(good), licence: { ...LICENCE, ref: '2:9999' } } } }));
+      ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': { ...signedIn(good), licence: { ...LICENCE, ref: '2:9999' } } } }));
       st = await state(page);
       ok('a genuine token whose licence number differs from the one beside it is not believed', st.mode === 'ended' && !(await stored(page)).token, JSON.stringify(st));
       await ctx.close();
       // Genuine.
-      ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': signedIn(good) } }));
+      ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': signedIn(good) } }));
       st = await state(page);
       ok('a genuine one is licensed', st.mode === 'licensed' && !!(await stored(page)).token, JSON.stringify(st));
       await ctx.close();
       // A browser without Ed25519: believed, as Vdex does, and left to the daily check.
-      ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': signedIn(good) }, init: () => {
+      ({ ctx, page } = await openLive(browser, errors, srv, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': signedIn(good) }, init: () => {
         const real = crypto.subtle.importKey.bind(crypto.subtle);
         crypto.subtle.importKey = (format, data, alg, ...rest) => { if (alg && alg.name === 'Ed25519') { window.__noEd = (window.__noEd || 0) + 1; return Promise.reject(new DOMException('Ed25519 is not supported here', 'NotSupportedError')); } return real(format, data, alg, ...rest); };
       } }));
@@ -229,7 +229,7 @@ async function signIn(page) {
       const srv = server(key);
       const real = Date.now();
       srv.offline = true;
-      const { ctx, page } = await openLive(browser, errors, srv, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': { on: true, statusAt: real + 5 * DAY, first: real + 5 * DAY, seen: real + 5 * DAY + HOUR } }, clockAt: real + 5 * DAY + 2 * HOUR });
+      const { ctx, page } = await openLive(browser, errors, srv, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': { on: true, statusAt: real + 5 * DAY, first: real + 5 * DAY, seen: real + 5 * DAY + HOUR } }, clockAt: real + 5 * DAY + 2 * HOUR });
       let st = await state(page);
       ok('a device whose clock is five days on started its free days there: it counts them from there', st.mode === 'trial' && st.first === real + 5 * DAY, JSON.stringify(st));
       srv.offline = false;

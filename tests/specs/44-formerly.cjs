@@ -167,7 +167,7 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     await form.locator('button[type=submit]').click();
     await page.waitForSelector(PROMPT);
     await sleep(200);
-    ok('saving a changed name asks in a sheet of Gdex’s own, over the form', same(await sheets(page), ['Edit act', 'New name?']));
+    ok('saving a changed name asks in a sheet of Tourbook’s own, over the form', same(await sheets(page), ['Edit act', 'New name?']));
     ok('nothing is saved while it asks', (await actOf(page, 'f-act')).name === 'The Owls');
     ok('it shows the old and the new name', (await page.locator(PROMPT + ' .ac-rename-old').innerText()) === 'The Owls' && (await page.locator(PROMPT + ' .ac-rename-now').innerText()) === 'The Night Owls');
     const since = await page.evaluate(() => import('./js/util.js').then(u => { const i = document.getElementById('ac-rename-since'); return { value: i.value, max: i.max, min: i.min, today: u.todayISO(), type: i.type, label: document.querySelector('label[for=ac-rename-since]').textContent }; }));
@@ -248,7 +248,7 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     await noSheet(page);
     await sleep(250);
     a = await actOf(page, 'f-act');
-    ok('Gdex remembers every name with its day', a.name === 'Owl Parlament' && same(a.formerNames, [{ name: 'The Owls', until: D[-100] }, { name: 'The Night Owls', until: D[-10] }]), JSON.stringify(a.formerNames));
+    ok('Tourbook remembers every name with its day', a.name === 'Owl Parlament' && same(a.formerNames, [{ name: 'The Owls', until: D[-100] }, { name: 'The Night Owls', until: D[-10] }]), JSON.stringify(a.formerNames));
 
     /* "Just fixing the spelling" leaves no trace */
     form = await editForm(page);
@@ -596,7 +596,7 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     ok('…the one Settings saves too', same((JSON.parse(file.text).acts.find(x => x.id === 'f-act') || {}).formerNames, inFile.formerNames), file.name);
     await store(page, s => s.eraseAll());
     await sleep(300);
-    ok('Erase removes them with everything else', (await store(page, s => s.db.acts.length)) === 0 && !/Night Owls|formerNames/.test(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('gdex-')).map(k => localStorage.getItem(k)).join('\n'))));
+    ok('Erase removes them with everything else', (await store(page, s => s.db.acts.length)) === 0 && !/Night Owls|formerNames/.test(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('tourbook-')).map(k => localStorage.getItem(k)).join('\n'))));
     await store(page, (s, text) => s.replaceAll(JSON.parse(text)), backup);
     await sleep(300);
     a = await actOf(page, 'f-act');
@@ -739,7 +739,7 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
 
   /* ======================= 6. a narrow phone, extra-large text and large buttons ======================= */
   {
-    const prefs = `try { localStorage.setItem('gdex-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large' }))}); } catch (e) { /* ignore */ }`;
+    const prefs = `try { localStorage.setItem('tourbook-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large' }))}); } catch (e) { /* ignore */ }`;
     const { browser, page, errors } = await open({ viewport: { width: 320, height: 700 }, init: prefs, ask: true });
     const D = await daysOf(page);
     await store(page, (s, D) => {

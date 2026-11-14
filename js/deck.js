@@ -51,7 +51,7 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
   function buildRecord() {
     const gaps = []; for (let k = 0; k < n - 1; k++) gaps.push(svg('circle', { cx: 70, cy: 70, r: ((radius(k) + radius(k + 1)) / 2).toFixed(1), class: 'dk-gap' }));
     const band = svg('circle', { cx: 70, cy: 70, r: radius(0), class: 'dk-band' });
-    const rim = svg('text', { class: 'dk-rim' }, svg('textPath', { href: '#dk-rim-path', textLength: '146', lengthAdjust: 'spacing' }, 'GDEX · THE BOOKING DECK · 33⅓ RPM ·')); // fills the circle exactly
+    const rim = svg('text', { class: 'dk-rim' }, svg('textPath', { href: '#dk-rim-path', textLength: '146', lengthAdjust: 'spacing' }, 'TOURBOOK · THE BOOKING DECK · 33⅓ RPM ·')); // fills the circle exactly
     const disc = h('span', { class: 'dk-disc', 'aria-hidden': 'true' },
       svg('svg', { width: 140, height: 140, viewBox: '0 0 140 140' },
         svg('defs', {}, svg('path', { id: 'dk-rim-path', d: 'M70,70 m-23.5,0 a23.5,23.5 0 1,1 47,0 a23.5,23.5 0 1,1 -47,0' })),
@@ -213,9 +213,9 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
           h('span', { class: 'dk-track-id', 'aria-hidden': 'true' }, '★'), h('span', { class: 'dk-track-name' }, x.label, x.mark && h('span', { class: 'dk-track-lock', 'aria-hidden': 'true' }, x.mark.text)), h('span', { class: 'dk-track-n' }, c && Number.isFinite(c.n) ? String(c.n) : '')); })));
     const tape = style === 'tape', digital = style === 'digital';
     const howMany = (tracks === 1 ? '1 track' : `${tracks} tracks`) + (more.length ? ` · ${more.length} bonus` : '');
-    const head = tape ? h('p', { class: 'dk-jcard-title' }, 'Gdex, the booking deck')
-      : digital ? h('div', null, h('p', { class: 'dk-jcard-title' }, 'Gdex, the booking deck'), h('div', { class: 'muted small' }, howMany))
-        : h('div', { class: 'dk-sleeve-head' }, h('span', { class: 'dk-cover', 'aria-hidden': 'true' }, 'GDEX'), h('div', null, h('strong', null, 'Gdex'), h('div', { class: 'muted small' }, `The booking deck · ${tracks} tracks` + (more.length ? ` · ${more.length} bonus` : ''))));
+    const head = tape ? h('p', { class: 'dk-jcard-title' }, 'Tourbook, the booking deck')
+      : digital ? h('div', null, h('p', { class: 'dk-jcard-title' }, 'Tourbook, the booking deck'), h('div', { class: 'muted small' }, howMany))
+        : h('div', { class: 'dk-sleeve-head' }, h('span', { class: 'dk-cover', 'aria-hidden': 'true' }, h('span', null, 'TOUR'), h('span', null, 'BOOK')), h('div', null, h('strong', null, 'Tourbook'), h('div', { class: 'muted small' }, `The booking deck · ${tracks} tracks` + (more.length ? ` · ${more.length} bonus` : ''))));
     // Two sides on the sleeve and the cassette's card; the digital player has one list, numbered from 1.
     const sides = digital ? col(0, tracks, 'Tracks', k => String(k + 1)) : [col(0, sideA, 'Side A'), col(sideA, tracks, 'Side B')];
     const s = sheet(tape || digital ? 'Track list' : 'The sleeve', h('div', { class: 'dk-sheet ' + (tape ? 'dk-jcard' : digital ? 'dk-queue' : 'dk-sleeve') }, head, h('div', { class: 'dk-sides' }, sides), bonus),
@@ -281,7 +281,7 @@ export function createDeck(root, tabs, { onSelect, start = 0, extras = () => [],
   // Choosing another menu (Aa → Section menu) redraws in place. Any other display choice (a text size, say) can move
   // the digital player's tabs, so the current one is brought back into view, and then the one the keyboard is on, if any.
   const settle = () => { reveal(); const a = document.activeElement; if (onTab() && a.matches(':focus-visible')) reveal(a); };
-  window.addEventListener('gdex-prefs', () => { if (want() !== style) draw(); else settle(); });
+  window.addEventListener('tourbook-prefs', () => { if (want() !== style) draw(); else settle(); });
   // …and so can a narrower window (a phone turned upright). Not a change of height: a phone's address bar comes and goes.
   let wide = window.innerWidth;
   window.addEventListener('resize', () => { if (window.innerWidth === wide) return; wide = window.innerWidth; settle(); });

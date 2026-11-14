@@ -1,5 +1,5 @@
-// Desktop updates from Gdex's own download address, https://gdex-download.crowmade.app/ (a public Cloudflare R2 bucket,
-// gdex-downloads, of Gdex's alone: docs/desktop.md). Windows, Linux and a signed + notarized Mac: electron-updater
+// Desktop updates from Tourbook's own download address, https://tourbook-download.crowmade.app/ (a public Cloudflare R2 bucket,
+// tourbook-downloads, of Tourbook's alone: docs/desktop.md). Windows, Linux and a signed + notarized Mac: electron-updater
 // downloads a new version in the background and installs it on restart (or when the app is next closed). An unsigned
 // Mac cannot replace itself, so it is only told and sent to the download page.
 'use strict';
@@ -7,8 +7,8 @@ const { app, dialog, ipcMain, net } = require('electron');
 const { execFile } = require('child_process');
 const path = require('path');
 
-const FEED = 'https://gdex-download.crowmade.app/'; // must equal build.publish[0].url in package.json (spec 86 checks)
-const PAGE = 'https://gdex.crowmade.app/download.html'; // the download page
+const FEED = 'https://tourbook-download.crowmade.app/'; // must equal build.publish[0].url in package.json (spec 86 checks)
+const PAGE = 'https://tourbook.crowmade.app/download.html'; // the download page
 let state = { status: 'idle', version: app.getVersion(), available: null, progress: 0, url: PAGE, error: '' };
 let send = () => {};
 let updater = null, offered = false;
@@ -19,7 +19,7 @@ const newer = (a, b) => { const x = num(a), y = num(b); for (let i = 0; i < 3; i
 async function checkFeed() { // version check only, used by an unsigned Mac
   set({ status: 'checking', error: '' });
   try {
-    const r = await net.fetch(FEED + 'latest-mac.yml', { cache: 'no-store', headers: { 'User-Agent': 'Gdex/' + app.getVersion() }, signal: AbortSignal.timeout(20e3) });
+    const r = await net.fetch(FEED + 'latest-mac.yml', { cache: 'no-store', headers: { 'User-Agent': 'Tourbook/' + app.getVersion() }, signal: AbortSignal.timeout(20e3) });
     if (!r.ok) throw new Error('The update server answered ' + r.status);
     const m = /^version:\s*['"]?(\d+\.\d+\.\d+)/m.exec(await r.text());
     if (m && newer(m[1], app.getVersion())) set({ status: 'available', available: m[1], url: PAGE });
@@ -32,14 +32,14 @@ async function checkFeed() { // version check only, used by an unsigned Mac
 // Apple (a Developer ID build) uses electron-updater; any other Mac just checks the version.
 function macAppleSigned() {
   return new Promise(resolve => {
-    const bundle = path.resolve(process.execPath, '..', '..', '..'); // …/Gdex.app/Contents/MacOS/Gdex → …/Gdex.app
+    const bundle = path.resolve(process.execPath, '..', '..', '..'); // …/Tourbook.app/Contents/MacOS/Tourbook → …/Tourbook.app
     execFile('/usr/bin/codesign', ['--verify', '-R=anchor apple generic', bundle], err => resolve(!err));
   });
 }
 function startFeedChecks() { updater = null; setTimeout(checkFeed, 8000); setInterval(checkFeed, 4 * 3600e3); }
 function offerRestart(win, version) {
   if (offered || !win || win.isDestroyed()) return; offered = true;
-  dialog.showMessageBox(win, { type: 'info', title: 'Gdex', message: `Gdex ${version} is ready to install.`, detail: 'Restart now to update, or it installs by itself the next time Gdex is closed.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
+  dialog.showMessageBox(win, { type: 'info', title: 'Tourbook', message: `Tourbook ${version} is ready to install.`, detail: 'Restart now to update, or it installs by itself the next time Tourbook is closed.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
     .then(r => { if (r.response === 0) updater.quitAndInstall(); }).catch(() => {});
 }
 async function check() {
@@ -48,14 +48,14 @@ async function check() {
   try { await updater.checkForUpdates(); } catch (e) { set({ status: 'error', error: e.message || String(e) }); }
   return state;
 }
-// `fromApp` lets only Gdex's own page ask; `open` opens the download page in the web browser (main.cjs's, which a test
+// `fromApp` lets only Tourbook's own page ask; `open` opens the download page in the web browser (main.cjs's, which a test
 // run records instead).
 function initUpdater(getWindow, { fromApp = () => true, open } = {}) {
   send = s => { const w = getWindow(); if (w && !w.isDestroyed()) w.webContents.send('updates:status', s); };
   ipcMain.handle('updates:check', e => (fromApp(e) ? check() : false));
   ipcMain.handle('updates:state', e => (fromApp(e) ? state : false));
   ipcMain.handle('updates:install', e => { if (fromApp(e) && updater && state.status === 'ready') { setImmediate(() => updater.quitAndInstall()); return true; } return false; });
-  ipcMain.handle('updates:open', e => { if (!fromApp(e)) return false; open(PAGE); return true; }); // only ever Gdex's own download page
+  ipcMain.handle('updates:open', e => { if (!fromApp(e)) return false; open(PAGE); return true; }); // only ever Tourbook's own download page
   if (!app.isPackaged) { set({ status: 'dev' }); return; }
   if (process.platform === 'darwin') { macAppleSigned().then(ok => (ok ? startUpdater(getWindow) : startFeedChecks())); return; }
   startUpdater(getWindow);

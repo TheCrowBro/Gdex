@@ -1,4 +1,4 @@
-// Backups. Gdex keeps everything in this browser unless the person connects Google Drive, so this is the safety net:
+// Backups. Tourbook keeps everything in this browser unless the person connects Google Drive, so this is the safety net:
 // Google Drive (free for everyone: js/sync.js keeps every connected device the same and saves a dated copy each day;
 // its card is at the top of the panel); a backup file saved and brought back (merged into this device or replacing
 // it), optionally locked with a passphrase; a copy kept in a file in a synced folder (Chrome or Edge on a computer),
@@ -18,7 +18,7 @@ const ls = {
   get: k => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, String(v)); } catch { /* private mode */ } },
 };
-const KEY = { saved: 'gdex-backup-at', file: 'gdex-file-at', nudge: 'gdex-backup-nudge' };
+const KEY = { saved: 'tourbook-backup-at', file: 'tourbook-file-at', nudge: 'tourbook-backup-nudge' };
 const DAY = 864e5, STALE_DAYS = 14;
 const arr = Array.isArray;
 
@@ -40,11 +40,11 @@ const totalOf = counts => Object.values(counts).reduce((a, b) => a + b, 0);
 export const countText = counts => store.COLLECTIONS.filter(c => counts[c]).map(c => `${counts[c]} ${(NAMES[c] || [c, c])[counts[c] === 1 ? 0 : 1]}`).join(' · ') || 'nothing yet';
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
-// A Vdex file (the videographer app) has crew and no acts or songs. It is refused rather than read as an empty Gdex.
-export const isVdex = d => !!d && typeof d === 'object' && d.app !== 'gdex' && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
+// A Vdex file (the videographer app) has crew and no acts or songs. It is refused rather than read as an empty Tourbook.
+export const isVdex = d => !!d && typeof d === 'object' && d.app !== 'tourbook' && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
   || (arr(d.logs) && arr(d.shifts) && !arr(d.acts)) || (!d.app && (arr(d.bookings) || arr(d.gear)) && !arr(d.songs) && !arr(d.acts)));
-export const isGdex = d => !!d && typeof d === 'object' && !arr(d) && (d.app === 'gdex' || (arr(d.songs) && arr(d.bookings)));
-const isLocked = d => !!d && typeof d === 'object' && d.gdex === 'encrypted-backup';
+export const isTourbook = d => !!d && typeof d === 'object' && !arr(d) && (d.app === 'tourbook' || (arr(d.songs) && arr(d.bookings)));
+const isLocked = d => !!d && typeof d === 'object' && d.tourbook === 'encrypted-backup';
 
 /* ------------------------------- how recent ------------------------------- */
 // Whole calendar days between then and today (0 = today).
@@ -108,12 +108,12 @@ async function save(text, name) {
   changed();
   return true;
 }
-// Everything in one file: gdex-backup-YYYY-MM-DD.json.
-export const exportBackup = () => save(store.exportJSON(), `gdex-backup-${fileDate()}.json`);
+// Everything in one file: tourbook-backup-YYYY-MM-DD.json.
+export const exportBackup = () => save(store.exportJSON(), `tourbook-backup-${fileDate()}.json`);
 
 // The same, locked with a passphrase (AES-GCM, the key made from the passphrase with PBKDF2).
 const canLock = () => !!(window.crypto && crypto.subtle && window.isSecureContext !== false);
-const NO_LOCK = 'Locked backups need a secure connection (an https address). Save a plain backup instead, or open Gdex at its https address.';
+const NO_LOCK = 'Locked backups need a secure connection (an https address). Save a plain backup instead, or open Tourbook at its https address.';
 export async function exportLocked() {
   if (!canLock()) { toast(NO_LOCK); return false; }
   const pass = await askPassphrase({
@@ -125,8 +125,8 @@ export async function exportLocked() {
   const salt = C.bytes(16), iter = C.PBKDF2_ITERATIONS;
   let box;
   try { box = await C.encrypt(await C.pbkdf2Key(pass, salt, iter), store.exportJSON()); } catch (e) { toast('The backup could not be locked: ' + (e.message || e)); return false; }
-  const text = JSON.stringify({ gdex: 'encrypted-backup', v: 1, exported: new Date().toISOString(), kdf: { salt: C.toB64(salt), iter }, iv: box.iv, ct: box.ct });
-  return save(text, `gdex-backup-${fileDate()}.locked.json`);
+  const text = JSON.stringify({ tourbook: 'encrypted-backup', v: 1, exported: new Date().toISOString(), kdf: { salt: C.toB64(salt), iter }, iv: box.iv, ct: box.ct });
+  return save(text, `tourbook-backup-${fileDate()}.locked.json`);
 }
 
 // A sheet asking for a passphrase. check(pass) returns true, or a message to show (the sheet stays open). Resolves to
@@ -185,15 +185,15 @@ async function unlock(box) {
   return pass ? out : null;
 }
 
-// Read a backup file someone picked, check it is Gdex's, and ask: merge it into this device, or replace this
+// Read a backup file someone picked, check it is Tourbook's, and ask: merge it into this device, or replace this
 // device's data with it. Resolves to 'merge', 'replace', or null (refused or cancelled).
 export async function importBackup(file) {
   if (!file) return null;
   let data;
-  try { data = JSON.parse(await file.text()); } catch { return refuse('That file couldn’t be read as a backup. Pick a file Gdex saved: its name starts with gdex-backup and ends in .json.'); }
+  try { data = JSON.parse(await file.text()); } catch { return refuse('That file couldn’t be read as a backup. Pick a file Tourbook saved: its name starts with tourbook-backup and ends in .json.'); }
   if (isLocked(data)) { data = await unlock(data); if (!data) return null; }
-  if (isVdex(data)) return refuse('This is a Vdex backup, not a Gdex one. Vdex and Gdex keep separate data: open this file in Vdex instead.');
-  if (!isGdex(data)) return refuse('That file is not a Gdex backup. Pick a file Gdex saved: its name starts with gdex-backup and ends in .json.');
+  if (isVdex(data)) return refuse('This is a Vdex backup, not a Tourbook one. Vdex and Tourbook keep separate data: open this file in Vdex instead.');
+  if (!isTourbook(data)) return refuse('That file is not a Tourbook backup. Pick a file Tourbook saved: its name starts with tourbook-backup and ends in .json.');
   return chooseHow(data, file.name || 'backup', { drive: drive.driveState().linked });
 }
 
@@ -247,7 +247,7 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
         finally { reading = false; if (btn) btn.textContent = label; }
         if (done) return;
         if (st && st.linked && st.status !== 'synced') {
-          err.textContent = `Nothing was replaced yet: Gdex reads your Google Drive first, so that every device ends up like this ${what}. ${st.status === 'needs-permission' ? DRIVE_WORDS.again : st.error || 'Google Drive didn’t answer.'} Then tap Replace again.`;
+          err.textContent = `Nothing was replaced yet: Tourbook reads your Google Drive first, so that every device ends up like this ${what}. ${st.status === 'needs-permission' ? DRIVE_WORDS.again : st.error || 'Google Drive didn’t answer.'} Then tap Replace again.`;
           err.hidden = false;
           return;
         }
@@ -291,7 +291,7 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
 /* ------------------------------- a copy kept in a file ------------------------------- */
 // Chrome and Edge on a computer can keep writing to a file the person picked (the File System Access API). Picked
 // inside a folder that Dropbox, Google Drive, OneDrive or iCloud Drive syncs, that file is an always-current backup in
-// their cloud. The file's handle is kept in IndexedDB ('gdex', store 'kv') so it is linked again on the next visit;
+// their cloud. The file's handle is kept in IndexedDB ('tourbook', store 'kv') so it is linked again on the next visit;
 // the browser then asks for permission again on a tap.
 export const fileSupported = () => typeof window.showSaveFilePicker === 'function';
 const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) || matchMedia('(pointer: coarse)').matches;
@@ -347,19 +347,19 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && FIL
 export async function linkFile() {
   if (!fileSupported()) { toast(isPhone() ? 'Phones can’t keep writing to a file. Save a backup now and then instead.' : 'This needs Chrome or Edge on a computer.'); return false; }
   let handle;
-  try { handle = await window.showSaveFilePicker({ suggestedName: 'gdex-db.json', types: [{ description: 'Gdex database', accept: { 'application/json': ['.json'] } }] }); }
+  try { handle = await window.showSaveFilePicker({ suggestedName: 'tourbook-db.json', types: [{ description: 'Tourbook database', accept: { 'application/json': ['.json'] } }] }); }
   catch (e) { if (e && e.name !== 'AbortError') toast('No file was chosen: ' + (e.message || e.name)); return false; }
   clearTimeout(timer);
   FILE.handle = handle; FILE.fails = 0; FILE.error = '';
   try { await kv('readwrite', s => s.put(handle, 'fileHandle')); FILE.remembered = true; } catch { FILE.remembered = false; }
   const ok = await writeNow();
-  if (ok) toast(`Gdex keeps a copy in ${handle.name}`);
+  if (ok) toast(`Tourbook keeps a copy in ${handle.name}`);
   return ok;
 }
 // The browser asks again for permission to write (after a restart): only from a tap.
 export async function allowFile() {
   if (!FILE.handle) return false;
-  if (!(await permitted(FILE.handle, true))) { setStatus('needs-permission'); toast('Gdex can’t keep the copy up to date without your OK.'); return false; }
+  if (!(await permitted(FILE.handle, true))) { setStatus('needs-permission'); toast('Tourbook can’t keep the copy up to date without your OK.'); return false; }
   return writeNow();
 }
 export const saveFileNow = () => writeNow();
@@ -470,8 +470,8 @@ function openConnectSheet(panel = null) {
     catch (e) { if (e.name !== 'AbortError') { err.textContent = e.message; err.hidden = false; } go.disabled = false; }
   };
   const body = h('div', { class: 'stack se-bk-connect' },
-    h('p', null, 'Gdex keeps one copy of everything in a hidden folder of your Google Drive that only Gdex can open, and a dated copy each day you use it (the last 7 days and the last 12 months). Every phone or computer you connect with the same Google account shares the same Gdex. Google asks you to sign in again about once an hour while you use Gdex: one tap. Nothing goes to a Gdex server.'),
-    desktop && h('p', null, 'Google’s sign-in opens in your web browser; come back to Gdex when it says so.'),
+    h('p', null, 'Tourbook keeps one copy of everything in a hidden folder of your Google Drive that only Tourbook can open, and a dated copy each day you use it (the last 7 days and the last 12 months). Every phone or computer you connect with the same Google account shares the same Tourbook. Google asks you to sign in again about once an hour while you use Tourbook: one tap. Nothing goes to a Tourbook server.'),
+    desktop && h('p', null, 'Google’s sign-in opens in your web browser; come back to Tourbook when it says so.'),
     note, err,
     h('div', { class: 'actions se-bk-connect-actions' }, go, retry, h('button', { type: 'button', class: 'btn ghost', onclick: () => s.close() }, 'Not now')));
   const s = sheet('Connect Google Drive', body, { onClose: backToCard(panel, '.se-bk-drive-connect') });
@@ -501,21 +501,21 @@ async function openDailyCopies(panel = null) {
   box.replaceChildren(...nodes(
     copies.length
       ? h('div', { class: 'list se-bk-copy-list' }, ...copies.map(c => { const b = h('button', { type: 'button', class: 'card tap se-bk-copy', onclick: () => pick(c, b) }, h('strong', null, c.label), h('span', { class: 'small muted' }, ` · ${savedWhen(c.at)}`)); return b; }))
-      : h('p', { class: 'small muted' }, 'No daily copies yet. Gdex saves one the first time it syncs each day.'),
-    h('p', { class: 'small muted' }, 'Gdex keeps a copy for each day of the last week and one for each of the last 12 months, so a mistake can be undone for about a week, or a month.'),
+      : h('p', { class: 'small muted' }, 'No daily copies yet. Tourbook saves one the first time it syncs each day.'),
+    h('p', { class: 'small muted' }, 'Tourbook keeps a copy for each day of the last week and one for each of the last 12 months, so a mistake can be undone for about a week, or a month.'),
     done));
 }
 
 // The shared copy in Drive can't be read: this device's copy goes in its place. The unreadable one is kept in Drive as
 // it is, and the daily copies stay (js/sync.js replaceUnreadable).
 function putOursInPlace() {
-  if (!confirm('The copy in your Google Drive can’t be read. Put this device’s copy in its place? The one Gdex can’t read is kept in your Drive, as it is, beside it, and every daily copy stays. Your other devices add what they have the next time they sync.')) return;
+  if (!confirm('The copy in your Google Drive can’t be read. Put this device’s copy in its place? The one Tourbook can’t read is kept in your Drive, as it is, beside it, and every daily copy stays. Your other devices add what they have the next time they sync.')) return;
   driveRun(() => drive.replaceUnreadable(), 'This device’s copy is in your Google Drive now. Up to date.');
 }
 
 async function deleteDriveCopy() {
-  if (!confirm('Delete Gdex’s copy and every daily copy from your Google Drive? This device keeps its own data. Other devices still connected will put their copy back the next time they sync: disconnect them first.')) return;
-  try { await drive.deleteDriveCopy(); toast('Gdex’s copy was deleted from your Google Drive, and Drive is disconnected here. Everything is still on this device.'); }
+  if (!confirm('Delete Tourbook’s copy and every daily copy from your Google Drive? This device keeps its own data. Other devices still connected will put their copy back the next time they sync: disconnect them first.')) return;
+  try { await drive.deleteDriveCopy(); toast('Tourbook’s copy was deleted from your Google Drive, and Drive is disconnected here. Everything is still on this device.'); }
   catch (e) { if (e.name !== 'AbortError') toast(e.message); }
 }
 
@@ -528,19 +528,19 @@ function clockWords(ms) {
   if (a <= CLOCK_OFF) return '';
   const m = a / 60000, amount = m < 120 ? `${Math.round(m)} minutes` : m < 48 * 60 ? `${Math.round(m / 60)} hours` : `${Math.round(m / 1440)} days`;
   return ms < 0
-    ? `⚠ This device’s clock is about ${amount} behind Google’s. Gdex keeps the newest change of each record when it syncs, so with a slow clock what you change or delete here can be undone. Set this device’s date and time to set themselves automatically.`
-    : `⚠ This device’s clock is about ${amount} ahead of Google’s. Gdex keeps the newest change of each record when it syncs, so with a fast clock what you change on your other devices can be undone. Set this device’s date and time to set themselves automatically.`;
+    ? `⚠ This device’s clock is about ${amount} behind Google’s. Tourbook keeps the newest change of each record when it syncs, so with a slow clock what you change or delete here can be undone. Set this device’s date and time to set themselves automatically.`
+    : `⚠ This device’s clock is about ${amount} ahead of Google’s. Tourbook keeps the newest change of each record when it syncs, so with a fast clock what you change on your other devices can be undone. Set this device’s date and time to set themselves automatically.`;
 }
 
 function driveCard() {
   const d = drive.driveState();
   const card = (state, ...kids) => h('div', { class: 'card stack se-bk-drive', 'data-state': state }, ...kids);
   const title = h('strong', null, '☁ Google Drive');
-  if (!d.linked && !d.configured) return card('unset', title, h('p', { class: 'small muted' }, 'Not set up yet: Google Drive will work here once Gdex’s Google sign-in is switched on.'));
+  if (!d.linked && !d.configured) return card('unset', title, h('p', { class: 'small muted' }, 'Not set up yet: Google Drive will work here once Tourbook’s Google sign-in is switched on.'));
   if (!d.linked && d.away) return card('away', title, h('p', { class: 'small muted' }, DRIVE_WORDS.away));
   if (!d.linked) {
     return card('off', title,
-      h('p', { class: 'small muted' }, 'Keep Gdex the same on your phone and computer, with a dated copy each day, in a private Gdex folder of your own Google Drive. Free. Only Gdex can open that folder.'),
+      h('p', { class: 'small muted' }, 'Keep Tourbook the same on your phone and computer, with a dated copy each day, in a private Tourbook folder of your own Google Drive. Free. Only Tourbook can open that folder.'),
       h('button', { type: 'button', class: 'btn primary se-bk-drive-connect', onclick: e => openConnectSheet(e.currentTarget.closest('.se-bk')) }, 'Connect Google Drive…'));
   }
   const needs = d.status === 'needs-permission';
@@ -564,8 +564,8 @@ function driveCard() {
       h('button', { type: 'button', class: `btn ${needs || d.unreadable ? 'ghost' : 'primary'} se-bk-drive-sync`, onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Google Drive is up to date.') }, 'Sync now'),
       h('button', { type: 'button', class: 'btn ghost se-bk-drive-restore', onclick: e => openDailyCopies(e.currentTarget.closest('.se-bk')) }, 'Bring back a daily copy…'),
       h('button', { type: 'button', class: 'btn ghost se-bk-drive-off', onclick: async () => { if (await drive.disconnectDrive()) toast('Google Drive is disconnected on this device. Both copies stay.'); } }, 'Disconnect')),
-    h('p', { class: 'small muted' }, 'Disconnect stops syncing on this device. Both copies stay: this device’s and the one in your Drive. To take Gdex’s access away completely, remove Gdex in your Google Account under third-party connections.'),
-    h('button', { type: 'button', class: 'btn ghost small se-bk-drive-delete', onclick: () => deleteDriveCopy() }, 'Delete Gdex’s copy from Google Drive…'));
+    h('p', { class: 'small muted' }, 'Disconnect stops syncing on this device. Both copies stay: this device’s and the one in your Drive. To take Tourbook’s access away completely, remove Tourbook in your Google Account under third-party connections.'),
+    h('button', { type: 'button', class: 'btn ghost small se-bk-drive-delete', onclick: () => deleteDriveCopy() }, 'Delete Tourbook’s copy from Google Drive…'));
 }
 
 /* ------------------------------- the panel ------------------------------- */
@@ -608,14 +608,14 @@ function fileCard() {
   }
   if (!f.linked) {
     return h('div', { class: 'card stack se-bk-file', 'data-state': 'off' }, title,
-      h('p', { class: 'small muted' }, 'Pick a file inside a folder that Dropbox, Google Drive, OneDrive or iCloud Drive already syncs. Gdex writes everything to it a moment after each change, and your sync app keeps it safe in your cloud.'),
+      h('p', { class: 'small muted' }, 'Pick a file inside a folder that Dropbox, Google Drive, OneDrive or iCloud Drive already syncs. Tourbook writes everything to it a moment after each change, and your sync app keeps it safe in your cloud.'),
       h('button', { type: 'button', class: 'btn ghost se-bk-link', onclick: () => linkFile() }, 'Choose a file…'),
       h('p', { class: 'small muted' }, 'It is a copy, not a sync: to use it on another computer, bring it in there with Bring back a backup.'));
   }
   const lines = {
     saved: `✅ Copy kept in ${f.name}, saved ${f.at ? ago(f.at) : 'just now'}.`,
     saving: `Saving the copy in ${f.name}…`,
-    'needs-permission': `⚠ Gdex needs your OK to keep writing to ${f.name}. Browsers ask again after a restart.`,
+    'needs-permission': `⚠ Tourbook needs your OK to keep writing to ${f.name}. Browsers ask again after a restart.`,
     error: `⚠ The copy in ${f.name} wasn’t saved: ${f.error || 'the file could not be written.'}`,
   };
   return h('div', { class: 'card stack se-bk-file', 'data-state': f.status }, title,
@@ -637,7 +637,7 @@ export function backupPanel() {
   const draw = () => redraw(body, [
     statusLine(),
     driveCard(),
-    h('p', { class: 'small muted' }, 'Gdex keeps everything on this device unless you connect Google Drive. A backup file holds all of it: bookings, acts, people, songs, setlists, backline, venues, your details and money settings. Keep it in your cloud drive or email it to yourself; it also moves Gdex to a new phone or computer.'),
+    h('p', { class: 'small muted' }, 'Tourbook keeps everything on this device unless you connect Google Drive. A backup file holds all of it: bookings, acts, people, songs, setlists, backline, venues, your details and money settings. Keep it in your cloud drive or email it to yourself; it also moves Tourbook to a new phone or computer.'),
     h('div', { class: 'se-bk-actions' },
       h('button', { type: 'button', class: 'btn primary se-bk-save', onclick: () => exportBackup() }, '⤓ Save a backup'),
       h('button', { type: 'button', class: 'btn ghost se-bk-open', onclick: () => input.click() }, '📂 Bring back a backup…'),
@@ -660,26 +660,26 @@ export function openBackupSheet() { sheet('Backups', backupPanel()); }
 
 /* ------------------------------- walkthroughs ------------------------------- */
 const STEPS = [
-  { title: 'How safe your data is', text: 'When the last backup was made. Gdex keeps everything on this device unless you connect Google Drive, so a backup is your safety net if the phone is lost or the browser is cleared.', target: ['.se-bk-status'] },
-  { title: 'Google Drive', text: 'Free for everyone: connect your own Google Drive and Gdex keeps your phone and computer the same, with a dated copy each day, in a private folder only Gdex can open.', target: ['.se-bk-drive'] },
+  { title: 'How safe your data is', text: 'When the last backup was made. Tourbook keeps everything on this device unless you connect Google Drive, so a backup is your safety net if the phone is lost or the browser is cleared.', target: ['.se-bk-status'] },
+  { title: 'Google Drive', text: 'Free for everyone: connect your own Google Drive and Tourbook keeps your phone and computer the same, with a dated copy each day, in a private folder only Tourbook can open.', target: ['.se-bk-drive'] },
   { title: 'Save a backup', text: 'One file with everything in it. Keep it in your cloud drive or email it to yourself. On a phone the share sheet lets you pick where it goes.', target: ['.se-bk-save'] },
-  { title: 'Bring back a backup', text: 'Pick a backup file, then merge it into this device (nothing here is lost) or replace what is here. This is also how Gdex moves to a new phone or computer.', target: ['.se-bk-open'] },
+  { title: 'Bring back a backup', text: 'Pick a backup file, then merge it into this device (nothing here is lost) or replace what is here. This is also how Tourbook moves to a new phone or computer.', target: ['.se-bk-open'] },
   { title: 'With a passphrase', text: 'The same backup, locked: it opens only with the passphrase you choose. Good for a file you keep online.', target: ['.se-bk-lock'] },
-  { title: 'Keep a copy in a file', text: 'On a computer with Chrome or Edge: pick a file in a folder that Dropbox, Google Drive, OneDrive or iCloud Drive syncs, and Gdex writes to it after every change.', target: ['.se-bk-file'] },
+  { title: 'Keep a copy in a file', text: 'On a computer with Chrome or Edge: pick a file in a folder that Dropbox, Google Drive, OneDrive or iCloud Drive syncs, and Tourbook writes to it after every change.', target: ['.se-bk-file'] },
 ];
 export const backupSteps = STEPS;
 sheetTutorial('Backups', STEPS);
 sheetTutorial('Bring back a backup', [
   { title: 'What is in the file', text: 'How many bookings, songs, people and so on the backup holds, next to what is on this device now.', target: ['.se-imp-file'] },
   { title: 'Merge', text: 'Keeps everything here and adds what the backup has that this device lacks. Where the same record is in both, the one changed last wins. Records deleted here since the backup stay deleted, unless you tick Also bring back (ticked for a daily copy).', target: ['.se-imp-merge'] },
-  { title: 'Replace', text: 'Makes this device exactly like the file. Anything added here since the backup is lost, so Gdex asks first.', target: ['.se-imp-replace'] },
+  { title: 'Replace', text: 'Makes this device exactly like the file. Anything added here since the backup is lost, so Tourbook asks first.', target: ['.se-imp-replace'] },
 ]);
 sheetTutorial('Save with a passphrase', [
-  { title: 'Your passphrase', text: 'At least 8 characters, typed twice. Gdex never keeps it: without it, nobody can open the file, not even you.', target: ['#se-pass-1'] },
+  { title: 'Your passphrase', text: 'At least 8 characters, typed twice. Tourbook never keeps it: without it, nobody can open the file, not even you.', target: ['#se-pass-1'] },
 ]);
 sheetTutorial('Connect Google Drive', [
-  { title: 'What Drive does', text: 'One copy of everything in a hidden folder of your own Google Drive, shared by every phone or computer you connect, and a dated copy each day. Only Gdex can open that folder.', target: ['.se-bk-connect > p'] },
-  { title: 'Continue with Google', text: 'Google asks you to sign in and allow Gdex its own folder. Nothing else in your Drive is touched.', target: ['.se-bk-drive-go'] },
+  { title: 'What Drive does', text: 'One copy of everything in a hidden folder of your own Google Drive, shared by every phone or computer you connect, and a dated copy each day. Only Tourbook can open that folder.', target: ['.se-bk-connect > p'] },
+  { title: 'Continue with Google', text: 'Google asks you to sign in and allow Tourbook its own folder. Nothing else in your Drive is touched.', target: ['.se-bk-drive-go'] },
 ]);
 sheetTutorial('Bring back a daily copy', [
   { title: 'The daily copies', text: 'One for each day of the last week and one for each of the last 12 months. Pick one to merge it into this device, or to make every connected device exactly like it.', target: ['.se-bk-copy', '.se-bk-copies > p'] },

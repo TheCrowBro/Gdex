@@ -29,7 +29,7 @@ const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const S = { erase: '', behind: null, busy: false }; // what is typed in the erase box (and what Drive lacks) survives the redraw after every change
 
 /* ------------------------------- open sections ------------------------------- */
-const OPEN_KEY = 'gdex-settings-open';
+const OPEN_KEY = 'tourbook-settings-open';
 const OPEN = (() => { try { const a = JSON.parse(localStorage.getItem(OPEN_KEY)); return new Set(Array.isArray(a) ? a : []); } catch { return new Set(); } })();
 const saveOpen = () => { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...OPEN])); } catch { /* private mode */ } };
 
@@ -281,8 +281,8 @@ function install() {
   const b = document.getElementById('installBtn');
   if (b && !b.hidden) b.click(); else openInstallHelp();
 }
-// Google Drive is linked on this device (js/sync.js keeps gdex-drive; read here directly, as that module loads later).
-const driveLinked = () => { try { return localStorage.getItem('gdex-drive') === '1'; } catch { return false; } };
+// Google Drive is linked on this device (js/sync.js keeps tourbook-drive; read here directly, as that module loads later).
+const driveLinked = () => { try { return localStorage.getItem('tourbook-drive') === '1'; } catch { return false; } };
 // About's closed line: where the data is, and while licences are on, the licence in a few words (§9.6, §9.10).
 function aboutLine() {
   let line = `Version ${VERSION}${BUILD !== 'dev' ? ' · ' + BUILD : ''} · your data stays on this device${driveLinked() ? ' and your Google Drive' : ''}`;
@@ -295,11 +295,11 @@ function aboutLine() {
   }
   return line;
 }
-// Where the data is kept, in words true where Gdex runs (§9.10): in a web browser, or in the desktop app, which keeps it
+// Where the data is kept, in words true where Tourbook runs (§9.10): in a web browser, or in the desktop app, which keeps it
 // in its own window on this computer and looks for new versions at its download address (desktop/updater.cjs).
 function whereWords() {
-  const desk = !!window.gdexDesktop;
-  return `Everything you enter stays ${desk ? 'in this app, on this computer' : 'in this browser, on this device'}. Your bookings, contacts and fees are never sent to a Gdex server. If you connect Google Drive, Gdex also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Gdex’s licence server at gdex.crowmade.app only ever hears about your licence, and only once you use a working role.' : ''}${desk ? ' The desktop app also looks for new versions at gdex-download.crowmade.app.' : ''} A backup file keeps it all safe and moves it to another device.`;
+  const desk = !!window.tourbookDesktop;
+  return `Everything you enter stays ${desk ? 'in this app, on this computer' : 'in this browser, on this device'}. Your bookings, contacts and fees are never sent to a Tourbook server. If you connect Google Drive, Tourbook also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Tourbook’s licence server at tourbook.crowmade.app only ever hears about your licence, and only once you use a working role.' : ''}${desk ? ' The desktop app also looks for new versions at tourbook-download.crowmade.app.' : ''} A backup file keeps it all safe and moves it to another device.`;
 }
 function aboutBody(up, done) {
   let size = 0; try { size = new Blob([store.serialize()]).size; } catch { /* ignore */ }
@@ -308,18 +308,18 @@ function aboutBody(up, done) {
   if (slot) import('../licence.js').then(m => { const p = m.licencePanel(); slot.replaceChildren(p.el); done.push(() => p.destroy && p.destroy()); }).catch(e => console.error(e));
   return [
     slot,
-    h('p', null, h('strong', null, `Gdex ${VERSION}`), BUILD !== 'dev' ? ` · build ${BUILD}${BUILT ? ` (${BUILT})` : ''}` : '', h('br'),
+    h('p', null, h('strong', null, `Tourbook ${VERSION}`), BUILD !== 'dev' ? ` · build ${BUILD}${BUILT ? ` (${BUILT})` : ''}` : '', h('br'),
       h('span', { class: 'small muted' }, 'The booking deck for music producers and their bands.')),
     h('div', { class: 'card se-where' },
       h('strong', null, 'Where your data is kept'),
       h('p', { class: 'small muted' }, whereWords()),
       h('p', { class: 'small muted' }, `It takes about ${sizeText(size)} here.`),
-      isApple() && !installState().standalone && h('p', { class: 'small muted' }, 'On iPhone and iPad, Safari can clear a website’s data when it hasn’t been opened for a week or so. Add Gdex to the Home Screen to keep it, and save a backup now and then.')),
+      isApple() && !installState().standalone && h('p', { class: 'small muted' }, 'On iPhone and iPad, Safari can clear a website’s data when it hasn’t been opened for a week or so. Add Tourbook to the Home Screen to keep it, and save a backup now and then.')),
     up.el,
     h('div', { class: 'actions' },
       h('a', { class: 'btn ghost', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy'),
       licenceOn() && h('a', { class: 'btn ghost', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms'),
-      !installState().standalone && h('button', { type: 'button', class: 'btn ghost', id: 'se-install', onclick: install }, '⤓ Install Gdex')),
+      !installState().standalone && h('button', { type: 'button', class: 'btn ghost', id: 'se-install', onclick: install }, '⤓ Install Tourbook')),
   ];
 }
 
@@ -367,7 +367,7 @@ function eraseBody() {
     onkeydown: e => { if (e.key === 'Enter' && eraseArmed()) { e.preventDefault(); eraseDevice(); } } });
   input.spellcheck = false;
   return [
-    h('p', { class: 'warn small', id: 'se-erase-warn' }, `This removes everything Gdex keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings, and your role (Gdex asks again when it next opens).${driveLinked() ? ' Google Drive gets this device’s last changes first (Gdex tells you if it can’t), then is disconnected here; the copy in your Drive stays.' : ''} Backup files, and a copy kept in a file, stay as they are.${licenceOn() ? ' Your licence sign-in and free-day count stay on this device.' : ''} There is no undo.`),
+    h('p', { class: 'warn small', id: 'se-erase-warn' }, `This removes everything Tourbook keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings, and your role (Tourbook asks again when it next opens).${driveLinked() ? ' Google Drive gets this device’s last changes first (Tourbook tells you if it can’t), then is disconnected here; the copy in your Drive stays.' : ''} Backup files, and a copy kept in a file, stay as they are.${licenceOn() ? ' Your licence sign-in and free-day count stay on this device.' : ''} There is no undo.`),
     h('div', { class: 'field' }, h('label', { for: 'se-erase-input' }, 'Type ERASE to confirm'), input),
     S.behind && h('div', { class: 'stack se-erase-behind', role: 'alert' },
       h('p', { class: 'warn small' }, S.behind.text),
@@ -384,12 +384,12 @@ const SECTIONS = [
   ['role', 'Your role', 'Producer, manager, band, solo artist, scout, audiophile or Jack of Trades: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
   ['profile', 'Your details', () => (moneyShown() ? `Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.` : `Your name and contact details: they go on day sheets. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.`)],
   ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
-  ['backups', 'Backups', 'Save a backup file, bring one back, keep a copy in a file in a synced folder, or connect Google Drive to share Gdex between your devices with a dated copy each day.'],
+  ['backups', 'Backups', 'Save a backup file, bring one back, keep a copy in a file in a synced folder, or connect Google Drive to share Tourbook between your devices with a dated copy each day.'],
   ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
   ['help', 'Help', 'A walkthrough for any page, and the welcome tour.'],
   ['sample', 'Sample data', 'Load a sample band and a few weeks of bookings to try things out, and remove it again in one go.'],
   ['about', () => (licenceOn() ? 'About & licence' : 'About'), () => (licenceOn() ? 'The version and updates, your licence, privacy and terms, and where your data is kept.' : 'The version and updates, privacy, and where your data is kept.')],
-  ['erase', 'Erase this device', 'Wipes everything Gdex keeps on this device. You type ERASE first, so it can’t happen by accident.'],
+  ['erase', 'Erase this device', 'Wipes everything Tourbook keeps on this device. You type ERASE first, so it can’t happen by accident.'],
 ];
 
 export const settings = {
@@ -415,13 +415,13 @@ export const settings = {
       ]),
       sample: section('sample', '🧪', 'Sample data', sampleCount() ? `${plural(sampleCount(), 'sample record')} loaded` : 'Not loaded', sampleBody()),
       about: section('about', 'ℹ️', licenceOn() ? 'About & licence' : 'About', aboutLine(), aboutBody(up, done)),
-      erase: section('erase', '🗑️', 'Erase this device', 'Remove everything Gdex keeps here', eraseBody()),
+      erase: section('erase', '🗑️', 'Erase this device', 'Remove everything Tourbook keeps here', eraseBody()),
     };
     // A backup saved or the file copy written is not a change to the data, so the page is not redrawn: its line is.
     done.push(onBackupChange(() => { sec.backups.sub.textContent = backupLine(); }));
     // The display choices are kept on the device, not in the data: their line follows every change, made in the panel or in Aa.
     const onPrefs = () => { sec.display.sub.textContent = cap(prefsSummary()); };
-    window.addEventListener('gdex-prefs', onPrefs); done.push(() => window.removeEventListener('gdex-prefs', onPrefs));
+    window.addEventListener('tourbook-prefs', onPrefs); done.push(() => window.removeEventListener('tourbook-prefs', onPrefs));
 
     root.append(
       h('div', { class: 'page-head' }, h('h1', null, 'Settings')),

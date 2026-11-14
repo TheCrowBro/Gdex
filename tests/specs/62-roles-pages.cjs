@@ -1,5 +1,5 @@
 // Roles on the pages (js/roles.js pageOpt): the tool Tools opens on (tap tempo for a producer, the meter for an
-// audiophile) until one is picked (gdex-tool from the build before roles is not a pick), the view Songs opens on
+// audiophile) until one is picked (tourbook-tool from the build before roles is not a pick), the view Songs opens on
 // (Setlists for a band that has setlists; the metronome's Go to Songs always lands on the songs), the group People's
 // + Add starts in (Band members with an act's people on show) and the hint under Group about Ask if they're free, the
 // Money page's word for the year's income (a manager's acts), Bookings and Acts by the role's own names (set timer,
@@ -8,14 +8,14 @@
 // keeps the defaults it always had.
 const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
 
-const state = page => page.evaluate(() => (window.gdexAudioState ? window.gdexAudioState() : null));
+const state = page => page.evaluate(() => (window.tourbookAudioState ? window.tourbookAudioState() : null));
 const until = async (fn, ms = 6000, step = 100) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (await fn()) return true; } catch { /* not ready */ } await sleep(step); } return false; };
 const stored = (page, key) => page.evaluate(k => localStorage.getItem(k), key);
-const roleInit = id => `try { localStorage.setItem('gdex-role', '${id}'); } catch (e) { /* ignore */ }`;
+const roleInit = id => `try { localStorage.setItem('tourbook-role', '${id}'); } catch (e) { /* ignore */ }`;
 const setRole = (page, id) => page.evaluate(r => import('./js/roles.js').then(m => m.setRole(r)), id);
 // A role (or none) kept on this device and nothing remembered on the pages, as a fresh visit.
 async function asRole(page, id) {
-  await page.evaluate(r => { if (r) localStorage.setItem('gdex-role', r); else localStorage.removeItem('gdex-role'); localStorage.removeItem('gdex-tool-pick'); }, id);
+  await page.evaluate(r => { if (r) localStorage.setItem('tourbook-role', r); else localStorage.removeItem('tourbook-role'); localStorage.removeItem('tourbook-tool-pick'); }, id);
   await page.reload(); await page.waitForSelector('#deck .dk-next');
 }
 const tools = async page => { await go(page, 'tools'); await page.waitForSelector('#tl-panel[data-tool]'); return page.getAttribute('#tl-panel', 'data-tool'); };
@@ -80,7 +80,7 @@ const splitWords = (page, sel) => page.evaluate(s => {
     const { browser, page, errors } = await open({ sample: true, init: rid ? roleInit(rid) : null, permissions: ['microphone'] });
     const first = await tools(page);
     ok(`${who}: Tools opens on ${want}`, first === want && await selected(page, want), first);
-    ok(`${who}: looking at Tools remembers no tool`, (await stored(page, 'gdex-tool-pick')) === null);
+    ok(`${who}: looking at Tools remembers no tool`, (await stored(page, 'tourbook-tool-pick')) === null);
     if (want === 'tuner') {
       // As before: with the microphone allowed, the tuner listens as soon as it opens.
       ok(`${who}: the tuner listens on its own once the microphone is allowed`, await until(async () => { const s = await state(page); return s.tuner.listening && s.liveTracks >= 1; }));
@@ -90,32 +90,32 @@ const splitWords = (page, sel) => page.evaluate(s => {
     if (rid === 'producer') {
       ok('producer: tap tempo opens without the microphone', (await state(page)).liveTracks === 0);
       await page.click('#helpBtn');
-      says('the walkthrough says which tool opens until one is picked', /Gdex opens tap tempo until you pick one/, await cardSays(page, /Gdex opens tap tempo/));
+      says('the walkthrough says which tool opens until one is picked', /Tourbook opens tap tempo until you pick one/, await cardSays(page, /Tourbook opens tap tempo/));
       await closeTour(page);
       await page.click('#tl-tab-tuner');
       ok('picking the tuner starts it listening, as before', await until(async () => { const s = await state(page); return s.tuner.listening && s.liveTracks >= 1; }));
-      ok('a pick is remembered', (await stored(page, 'gdex-tool-pick')) === 'tuner');
+      ok('a pick is remembered', (await stored(page, 'tourbook-tool-pick')) === 'tuner');
       await page.click('#tl-tab-meter');
       ok('switching to the meter lets the tuner’s microphone go', await until(async () => { const s = await state(page); return !s.tuner.listening && s.liveTracks === 0; }, 3000));
-      ok('…and remembers the meter', (await stored(page, 'gdex-tool-pick')) === 'meter');
+      ok('…and remembers the meter', (await stored(page, 'tourbook-tool-pick')) === 'meter');
       await page.click('#helpBtn');
-      says('once a tool is picked, the walkthrough says the last one opens', /Gdex opens the one you used last/, await cardSays(page, /Gdex opens the one you used last/));
+      says('once a tool is picked, the walkthrough says the last one opens', /Tourbook opens the one you used last/, await cardSays(page, /Tourbook opens the one you used last/));
       await closeTour(page);
       await go(page, 'songs');
       ok('the picked tool wins over the role’s, back on Tools', (await tools(page)) === 'meter');
       await page.reload(); await page.waitForSelector('#deck .dk-next');
       ok('…and after a reload', (await tools(page)) === 'meter');
       await page.focus('#tl-tab-meter'); await page.keyboard.press('ArrowRight'); await sleep(200);
-      ok('the arrow keys on the tools pick a tool too', (await stored(page, 'gdex-tool-pick')) === 'timer' && await selected(page, 'timer'));
-      await page.evaluate(() => localStorage.removeItem('gdex-tool-pick'));
+      ok('the arrow keys on the tools pick a tool too', (await stored(page, 'tourbook-tool-pick')) === 'timer' && await selected(page, 'timer'));
+      await page.evaluate(() => localStorage.removeItem('tourbook-tool-pick'));
       await page.reload(); await page.waitForSelector('#deck .dk-next');
-      ok('with nothing remembered again, the role’s tool is back', (await tools(page)) === 'tempo' && (await stored(page, 'gdex-tool-pick')) === null);
+      ok('with nothing remembered again, the role’s tool is back', (await tools(page)) === 'tempo' && (await stored(page, 'tourbook-tool-pick')) === null);
     }
     if (rid === 'audiophile') {
       ok('audiophile: the meter waits for Start, as before', (await state(page)).liveTracks === 0 && !(await state(page)).meter.listening);
       await page.click('#tl-meter-start');
       ok('Start meter listens', await until(async () => { const s = await state(page); return s.meter.listening && s.liveTracks >= 1; }));
-      ok('starting the meter is not a pick', (await stored(page, 'gdex-tool-pick')) === null);
+      ok('starting the meter is not a pick', (await stored(page, 'tourbook-tool-pick')) === null);
       await go(page, 'venues');
       ok('leaving Tools stops the meter and the microphone', await until(async () => { const s = await state(page); return !s.meter.listening && s.liveTracks === 0; }, 3000));
     }
@@ -124,20 +124,20 @@ const splitWords = (page, sel) => page.evaluate(s => {
   }
 
   /* ------------------------------- Tools on a device that opened it before roles came ------------------------------- */
-  // The build before roles wrote gdex-tool every time Tools was drawn, so it says what was on screen, not what was
+  // The build before roles wrote tourbook-tool every time Tools was drawn, so it says what was on screen, not what was
   // picked. It is never read: such a device opens on the role's tool, as a fresh one does, until a tool is picked.
   for (const [rid, want] of [['producer', 'tempo'], ['audiophile', 'meter'], [null, 'tuner']]) {
     const who = rid || 'everything';
-    const old = `try { localStorage.setItem('gdex-tool', 'tuner'); } catch (e) { /* ignore */ }`;
+    const old = `try { localStorage.setItem('tourbook-tool', 'tuner'); } catch (e) { /* ignore */ }`;
     const { browser, page, errors } = await open({ sample: true, init: (rid ? roleInit(rid) : '') + old });
     const first = await tools(page);
-    ok(`${who}: with the old build’s gdex-tool on the device, Tools opens on ${want}`, first === want && await selected(page, want), first);
+    ok(`${who}: with the old build’s tourbook-tool on the device, Tools opens on ${want}`, first === want && await selected(page, want), first);
     if (rid === 'producer') {
       await page.click('#helpBtn');
-      says('…and the walkthrough says tap tempo opens until a tool is picked', /Gdex opens tap tempo until you pick one/, await cardSays(page, /Gdex opens/));
+      says('…and the walkthrough says tap tempo opens until a tool is picked', /Tourbook opens tap tempo until you pick one/, await cardSays(page, /Tourbook opens/));
       await closeTour(page);
       await page.click('#tl-tab-metronome'); await sleep(150);
-      ok('a pick is kept under gdex-tool-pick, the old key left as it was', (await stored(page, 'gdex-tool-pick')) === 'metronome' && (await stored(page, 'gdex-tool')) === 'tuner');
+      ok('a pick is kept under tourbook-tool-pick, the old key left as it was', (await stored(page, 'tourbook-tool-pick')) === 'metronome' && (await stored(page, 'tourbook-tool')) === 'tuner');
       await page.reload(); await page.waitForSelector('#deck .dk-next');
       ok('…and the pick opens next time', (await tools(page)) === 'metronome');
     }
@@ -220,7 +220,7 @@ const splitWords = (page, sel) => page.evaluate(s => {
 
   /* ------------------------------- 320px with extra-large text: words and amounts stay whole ------------------------------- */
   {
-    const prefs = `try { localStorage.setItem('gdex-prefs', JSON.stringify({ text: 'xlarge', targets: 'large' })); } catch (e) { /* ignore */ }`;
+    const prefs = `try { localStorage.setItem('tourbook-prefs', JSON.stringify({ text: 'xlarge', targets: 'large' })); } catch (e) { /* ignore */ }`;
     const { browser, page, errors } = await open({ sample: true, viewport: { width: 320, height: 700 }, init: roleInit('manager') + prefs });
     const wide = () => page.evaluate(() => document.documentElement.scrollWidth);
     await go(page, 'insurance'); await page.waitForSelector('.ins-card');
@@ -273,7 +273,7 @@ const splitWords = (page, sel) => page.evaluate(s => {
   ok('a producer chosen in the same visit gets tap tempo', (await tools(page)) === 'tempo');
   await go(page, 'acts');
   await setRole(page, 'audiophile');
-  ok('then an audiophile, the meter', (await tools(page)) === 'meter' && (await stored(page, 'gdex-tool-pick')) === null);
+  ok('then an audiophile, the meter', (await tools(page)) === 'meter' && (await stored(page, 'tourbook-tool-pick')) === null);
   await page.click('#tl-tab-metronome');
   await go(page, 'acts');
   await setRole(page, 'producer');

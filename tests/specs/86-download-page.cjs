@@ -1,13 +1,13 @@
 // The desktop app's download page and its package, and the web app's side of the desktop app.
 //  1. Node: download.html's price list is js/tax.js's (every total, each place once); while the desktop app is not out
 //     it links no installer and says the app is coming; the updater's feed (desktop/updater.cjs) and
-//     electron-builder's publish address (package.json) are Gdex's own download address, never Vdex's; the page runs
+//     electron-builder's publish address (package.json) are Tourbook's own download address, never Vdex's; the page runs
 //     no script, links /buy and names the Audiophile as free; the
-//     package holds every website file (tools/site-files.mjs) and the seven desktop files, and is Gdex's, not Vdex's
+//     package holds every website file (tools/site-files.mjs) and the seven desktop files, and is Tourbook's, not Vdex's
 //     (app id, name, port, no camera); the build workflow publishes nothing.
 //  2. Chromium: the page at 420 and 320 wide, light and dark, without sideways scrolling; then the web app with a
 //     stand-in desktop bridge: updates follow the bridge (no service worker), Install is hidden, and share links and a
-//     day sheet's calendar entry point at gdex.crowmade.app instead of the computer's own address.
+//     day sheet's calendar entry point at tourbook.crowmade.app instead of the computer's own address.
 // Reads package.json, desktop/ and .github/ from the repository (the build spec [S-26]): the scratch copy leaves them out.
 const fs = require('fs');
 const path = require('path');
@@ -33,24 +33,24 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   const FEED = (/const FEED = '([^']+)'/.exec(updater) || [])[1];
   const publish = pkg.build && pkg.build.publish && pkg.build.publish[0];
   const links = [...html.matchAll(/<a class="dl" href="([^"]+)"/g)].map(m => m[1]);
-  ok('the updater’s feed is Gdex’s own download address, and electron-builder publishes to the same one', FEED === 'https://gdex-download.crowmade.app/' && publish && publish.url === FEED && publish.provider === 'generic' && publish.channel === 'latest', JSON.stringify({ FEED, publish }));
+  ok('the updater’s feed is Tourbook’s own download address, and electron-builder publishes to the same one', FEED === 'https://tourbook-download.crowmade.app/' && publish && publish.url === FEED && publish.provider === 'generic' && publish.channel === 'latest', JSON.stringify({ FEED, publish }));
   // The desktop app is not released yet (decisions §18: no installers, no bucket): the page links no file that does not
   // exist, and says the app is coming. docs/desktop.md's first public release puts the three links back and changes this.
   const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
-  const installers = hrefs.filter(u => u.includes('gdex-download.crowmade.app') || /\.(exe|dmg|AppImage|zip|yml)$/i.test(u));
+  const installers = hrefs.filter(u => u.includes('tourbook-download.crowmade.app') || /\.(exe|dmg|AppImage|zip|yml)$/i.test(u));
   const soon = (/<p class="soon" id="soon">([\s\S]*?)<\/p>/.exec(html) || [])[1] || '';
   const later = [...html.matchAll(/<div class="dl later"><b>([^<]+)<\/b><span>([^<]+)<\/span><\/div>/g)].map(m => m[1] + ': ' + m[2]);
-  ok('while the desktop app is not out, the page links no installer (nothing at the download address, no .exe, .dmg or .AppImage) and says it is coming', links.length === 0 && installers.length === 0 && /<b>Coming soon\.<\/b> The desktop app isn’t ready to download yet, so there’s nothing to install for now\./.test(soon) && /<a href="\.\/">open Gdex<\/a>/.test(soon) && JSON.stringify(later) === JSON.stringify(['Windows: Windows 10 or 11 · coming soon', 'Mac: macOS 12 or later, Apple or Intel · coming soon', 'Linux: 64-bit · coming soon']), JSON.stringify({ links, installers, later }));
-  ok('…and what speaks of an installer reads as for later: entering a code once the app is out, installing once it’s out, Google Drive once its sign-in is switched on', /<li>Once the desktop app is out, download it from this page and open it\.<\/li>/.test(html) && !/Download Gdex above/.test(html) && /<h2>Installing, once it’s out<\/h2>/.test(html) && /once Gdex’s Google sign-in is switched on \(until then Gdex says Google Drive isn’t set up yet\)/.test(html));
+  ok('while the desktop app is not out, the page links no installer (nothing at the download address, no .exe, .dmg or .AppImage) and says it is coming', links.length === 0 && installers.length === 0 && /<b>Coming soon\.<\/b> The desktop app isn’t ready to download yet, so there’s nothing to install for now\./.test(soon) && /<a href="\.\/">open Tourbook<\/a>/.test(soon) && JSON.stringify(later) === JSON.stringify(['Windows: Windows 10 or 11 · coming soon', 'Mac: macOS 12 or later, Apple or Intel · coming soon', 'Linux: 64-bit · coming soon']), JSON.stringify({ links, installers, later }));
+  ok('…and what speaks of an installer reads as for later: entering a code once the app is out, installing once it’s out, Google Drive once its sign-in is switched on', /<li>Once the desktop app is out, download it from this page and open it\.<\/li>/.test(html) && !/Download Tourbook above/.test(html) && /<h2>Installing, once it’s out<\/h2>/.test(html) && /once Tourbook’s Google sign-in is switched on \(until then Tourbook says Google Drive isn’t set up yet\)/.test(html));
   const notVdex = u => { const x = new URL(u); return x.hostname !== 'download.crowmade.app' && !/vdex/i.test(x.hostname + x.pathname); };
   ok('neither the feed nor the publish address (nor a download link, once there are some) is Vdex’s download address or has /vdex in it', [FEED, publish.url, ...links].every(notVdex) && !/vdex/i.test(updater.replace(/\/\/.*$/gm, '')));
-  ok('the update page is Gdex’s download page', /const PAGE = 'https:\/\/gdex\.crowmade\.app\/download\.html'/.test(updater) && /'User-Agent': 'Gdex\/'/.test(updater));
+  ok('the update page is Tourbook’s download page', /const PAGE = 'https:\/\/tourbook\.crowmade\.app\/download\.html'/.test(updater) && /'User-Agent': 'Tourbook\/'/.test(updater));
   const csp = (/http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html) || [])[1] || '';
   ok('the page runs no script: none in it, and its CSP allows none', !/<script/i.test(html) && /default-src 'none'/.test(csp) && !/script-src/.test(csp), csp);
   ok('Buy goes to /buy (the licence server’s shop), and the terms and privacy pages are linked', /<a class="buy" href="\/buy">Buy a licence<\/a>/.test(html) && /href="terms\.html#paid"/.test(html) && /href="privacy\.html"/.test(html));
   ok('the page says the Audiophile is free, and which roles need a licence after 30 free days', /Audiophile[^.]*free for good/.test(html) && /<b>Audiophile: free<\/b>/.test(html) && /Producer, Manager, Band, Solo artist, Scout and Jack of Trades: a licence/.test(html) && /free for 30 days on each/.test(html));
-  ok('it tells how to enter a code (Settings → About &amp; licence → Enter licence code, a GDEX- code) and how to bring work over (Google Drive, or a backup file)', /Settings → About &amp; licence → Enter licence code/.test(html) && /<code>GDEX-<\/code>/.test(html) && /connect the same Google Drive in both/.test(html) && /backup file/.test(html));
-  ok('…with the installing notes for each system (SmartScreen, Open Anyway, chmod +x and libfuse2)', /Run anyway/.test(html) && /Open Anyway/.test(html) && /chmod \+x Gdex\.AppImage/.test(html) && /libfuse2/.test(html));
+  ok('it tells how to enter a code (Settings → About &amp; licence → Enter licence code, a TOURBOOK- code) and how to bring work over (Google Drive, or a backup file)', /Settings → About &amp; licence → Enter licence code/.test(html) && /<code>TOURBOOK-<\/code>/.test(html) && /connect the same Google Drive in both/.test(html) && /backup file/.test(html));
+  ok('…with the installing notes for each system (SmartScreen, Open Anyway, chmod +x and libfuse2)', /Run anyway/.test(html) && /Open Anyway/.test(html) && /chmod \+x Tourbook\.AppImage/.test(html) && /libfuse2/.test(html));
   const words = html.slice(html.indexOf('<body>')).replace(/<[^>]*>/g, ' ');
   ok('…in the app’s typography: curly apostrophes and quotes, no straight ones in what is read', !/['"]/.test(words), (words.match(/.{0,30}['"].{0,30}/g) || []).join(' | '));
 
@@ -60,15 +60,15 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   const want = [...PAGES, ...ROOT_FILES, ...DIRS.map(d => d + '/**'), 'sw.js', ...DESKTOP];
   ok('the desktop package holds every website file in tools/site-files.mjs, sw.js and the seven desktop files (the licence switch included)', want.every(f => files.includes(f)), 'missing: ' + (want.filter(f => !files.includes(f)).join(', ') || 'none'));
   ok('…and every file it names is there', files.filter(f => !f.endsWith('/**')).every(f => fs.existsSync(path.join(REPO, f))) && files.filter(f => f.endsWith('/**')).every(f => fs.statSync(path.join(REPO, f.slice(0, -3))).isDirectory()));
-  ok('the package is Gdex’s: main desktop/main.cjs, app id app.gdex.desktop (the same in main.cjs), product Gdex, its version js/version.js’s', pkg.main === 'desktop/main.cjs' && pkg.build.appId === 'app.gdex.desktop' && pkg.build.productName === 'Gdex' && pkg.productName === 'Gdex' && /setAppUserModelId\('app\.gdex\.desktop'\)/.test(main) && pkg.version === /VERSION = '([^']+)'/.exec(read('js/version.js'))[1]);
-  ok('its port is 47861 with fallbacks to 47880, clear of Vdex’s 47831-47850; the bridge is window.gdexDesktop', /const DEFAULT_PORT = 47861, LAST_PORT = 47880;/.test(main) && /exposeInMainWorld\('gdexDesktop'/.test(read('desktop/preload.cjs')));
+  ok('the package is Tourbook’s: main desktop/main.cjs, app id app.tourbook.desktop (the same in main.cjs), product Tourbook, its version js/version.js’s', pkg.main === 'desktop/main.cjs' && pkg.build.appId === 'app.tourbook.desktop' && pkg.build.productName === 'Tourbook' && pkg.productName === 'Tourbook' && /setAppUserModelId\('app\.tourbook\.desktop'\)/.test(main) && pkg.version === /VERSION = '([^']+)'/.exec(read('js/version.js'))[1]);
+  ok('its port is 47861 with fallbacks to 47880, clear of Vdex’s 47831-47850; the bridge is window.tourbookDesktop', /const DEFAULT_PORT = 47861, LAST_PORT = 47880;/.test(main) && /exposeInMainWorld\('tourbookDesktop'/.test(read('desktop/preload.cjs')));
   const vdexLines = ['desktop/main.cjs', 'desktop/preload.cjs', 'desktop/licence.cjs', 'desktop/updater.cjs'].flatMap(f => read(f).split('\n').map((l, i) => ({ f, i: i + 1, l }))).filter(x => /vdex/i.test(x.l) && !/^\s*\/\//.test(x.l) && !/MESSAGES|looksVdex|VDEX-\[0-9A-Z\]|This is a Vdex licence code/.test(x.l));
   ok('nothing in the desktop app is Vdex’s but the message for a pasted Vdex code', vdexLines.length === 0, vdexLines.map(x => `${x.f}:${x.i}`).join(', '));
   const mac = pkg.build.mac || {};
-  ok('the Mac app asks only for the microphone and location, in Gdex’s words, and has no camera entitlement',
+  ok('the Mac app asks only for the microphone and location, in Tourbook’s words, and has no camera entitlement',
     Object.keys(mac.extendInfo || {}).sort().join() === 'NSLocationWhenInUseUsageDescription,NSMicrophoneUsageDescription'
-    && mac.extendInfo.NSMicrophoneUsageDescription === 'Gdex uses the microphone for the tuner and the sound level meter, only while one is open. Nothing is recorded or sent.'
-    && mac.extendInfo.NSLocationWhenInUseUsageDescription === 'Gdex uses your location only when you ask it to fill in where a venue is.'
+    && mac.extendInfo.NSMicrophoneUsageDescription === 'Tourbook uses the microphone for the tuner and the sound level meter, only while one is open. Nothing is recorded or sent.'
+    && mac.extendInfo.NSLocationWhenInUseUsageDescription === 'Tourbook uses your location only when you ask it to fill in where a venue is.'
     && !/camera/i.test(read('desktop/build/entitlements.mac.plist')) && /audio-input/.test(read('desktop/build/entitlements.mac.plist')) && mac.category === 'public.app-category.music');
   const png = fs.readFileSync(path.join(REPO, 'desktop/build/icon.png'));
   ok('the installers’ icon is a 1024×1024 PNG (drawn from icons/icon.svg by desktop/build/make-icon.mjs)', png.readUInt32BE(16) === 1024 && png.readUInt32BE(20) === 1024 && png.slice(1, 4).toString() === 'PNG');
@@ -79,10 +79,10 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   // The signing secrets can sign anything as the owner (Vdex's apps too): they live in a protected Environment, which only
   // an approved run of this job can read, never in repository secrets, which any pushed branch's workflow can read.
   const desk = read('docs/desktop.md'), signing = (desk.split('## Signing')[1] || '').split('\n## ')[0], live = read('docs/go-live.md'), step7 = (live.split('## 7.')[1] || '').split('## 8.')[0], table = (read('docs/licence-server.md').split('## What each key can reach')[1] || '').split('\n## ')[0];
-  ok('…its build job takes the signing secrets from the protected Environment gdex-sign, and the guides say so and what each signing secret can reach', /^    environment: gdex-sign$/m.test(wf) && /Environment `gdex-sign`/.test(signing) && !/Repository secrets/.test(signing) && /`gdex-sign`/.test(step7) && /Vdex['’]s\s+included/.test(step7) && ['MAC_CERT_P12', 'APPLE_APP_PASSWORD', 'AZURE_CLIENT_SECRET'].every(k => table.includes('`' + k + '`')), JSON.stringify({ env: /environment: gdex-sign/.test(wf), step7: step7.trim().slice(0, 200) }));
+  ok('…its build job takes the signing secrets from the protected Environment tourbook-sign, and the guides say so and what each signing secret can reach', /^    environment: tourbook-sign$/m.test(wf) && /Environment `tourbook-sign`/.test(signing) && !/Repository secrets/.test(signing) && /`tourbook-sign`/.test(step7) && /Vdex['’]s\s+included/.test(step7) && ['MAC_CERT_P12', 'APPLE_APP_PASSWORD', 'AZURE_CLIENT_SECRET'].every(k => table.includes('`' + k + '`')), JSON.stringify({ env: /environment: tourbook-sign/.test(wf), step7: step7.trim().slice(0, 200) }));
   // The lead's decision 4: while licences are off, the download page says so where it speaks of the licence; docs/go-live.md
   // 9(e) takes the sentence out when the desktop app's licence goes on.
-  const OFF_DL = 'Until licences are switched on at gdex.crowmade.app, every role is free and the licence described on this page does not apply yet.';
+  const OFF_DL = 'Until licences are switched on at tourbook.crowmade.app, every role is free and the licence described on this page does not apply yet.';
   const whichRoles = ((html.split('<h2>Which roles need a licence</h2>')[1] || '').split('<h2')[0]).replace(/\s+/g, ' '), stepE = (live.split('**(e)')[1] || '').split('## Questions')[0];
   ok('while licences are off, the download page says so once, where it says which roles need a licence', whichRoles.includes(OFF_DL) && html.replace(/\s+/g, ' ').split(OFF_DL).length === 2, whichRoles.slice(-300));
   ok('…and docs/go-live.md 9(e) takes it out when the desktop app’s licence goes on', stepE.replace(/\s+/g, ' ').includes(OFF_DL) && /download\.html/.test(stepE), stepE.slice(0, 200));
@@ -117,9 +117,9 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   // The web app inside the desktop app: a stand-in for the bridge's update members (desktop/preload.cjs), set before the
   // app's own scripts, and a count of service worker registrations.
   const bridge = () => {
-    window.__upd = { status: 'ready', version: '0.1.0', available: '0.2.0', progress: 100, url: 'https://gdex.crowmade.app/download.html', error: '' };
+    window.__upd = { status: 'ready', version: '0.1.0', available: '0.2.0', progress: 100, url: 'https://tourbook.crowmade.app/download.html', error: '' };
     window.__calls = [];
-    window.gdexDesktop = { platform: 'linux',
+    window.tourbookDesktop = { platform: 'linux',
       updateState: async () => window.__upd,
       checkForUpdates: async () => { window.__calls.push('check'); return window.__upd; },
       installUpdate: async () => { window.__calls.push('install'); return true; },
@@ -127,7 +127,7 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
       onStatus: cb => { window.__push = s => { window.__upd = s; cb(s); }; return () => {}; } };
   };
   const swCount = () => { try { const sw = navigator.serviceWorker, reg = sw.register.bind(sw); window.__sw = 0; sw.register = (...a) => { window.__sw++; return reg(...a); }; } catch (e) { /* no service workers here */ } };
-  const prefs = p => `try { localStorage.setItem('gdex-prefs', ${JSON.stringify(JSON.stringify(p))}); } catch (e) { /* ignore */ }`;
+  const prefs = p => `try { localStorage.setItem('tourbook-prefs', ${JSON.stringify(JSON.stringify(p))}); } catch (e) { /* ignore */ }`;
 
   // For contrast, the website itself: Install offered, the worker registered, links to its own address.
   {
@@ -150,7 +150,7 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
       });
       ok('inside the desktop app, Install is hidden and no offline worker is registered (the app comes in its installer)', app.install === true && app.sw === 0 && app.workers === 0, JSON.stringify({ install: app.install, sw: app.sw }));
       ok('the update state comes from the bridge', app.state && app.state.status === 'ready' && app.state.available === '0.2.0');
-      ok('share links (a day sheet’s, an invoice’s) point at gdex.crowmade.app, not at the computer’s own address', app.base === 'https://gdex.crowmade.app/' && app.link.startsWith('https://gdex.crowmade.app/daysheet.html#') && app.href === 'https://gdex.crowmade.app/', JSON.stringify({ base: app.base, href: app.href, link: app.link.slice(0, 50) }));
+      ok('share links (a day sheet’s, an invoice’s) point at tourbook.crowmade.app, not at the computer’s own address', app.base === 'https://tourbook.crowmade.app/' && app.link.startsWith('https://tourbook.crowmade.app/daysheet.html#') && app.href === 'https://tourbook.crowmade.app/', JSON.stringify({ base: app.base, href: app.href, link: app.link.slice(0, 50) }));
       // The day sheet page, opened inside the app (the stand-in bridge again): its calendar entry names the website's address.
       const hash = app.link.slice(app.link.indexOf('#'));
       await page.goto(BASE + 'daysheet.html' + hash);
@@ -158,7 +158,7 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
       const dl = page.waitForEvent('download');
       await page.locator('.ds-btn', { hasText: 'Add to calendar' }).click();
       const ics = fs.readFileSync(await (await dl).path(), 'utf8').replace(/\r\n[ \t]/g, '');
-      ok('the day sheet’s calendar entry, made inside the app, links the day sheet at gdex.crowmade.app', ics.includes('Day sheet: https://gdex.crowmade.app/daysheet.html#') && !ics.includes(BASE), (/Day sheet: \S{0,60}/.exec(ics) || [''])[0]);
+      ok('the day sheet’s calendar entry, made inside the app, links the day sheet at tourbook.crowmade.app', ics.includes('Day sheet: https://tourbook.crowmade.app/daysheet.html#') && !ics.includes(BASE), (/Day sheet: \S{0,60}/.exec(ics) || [''])[0]);
       await page.goto(BASE); await page.waitForSelector('#deck .dk-next');
     }
     await go(page, 'settings');
@@ -166,11 +166,11 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
     const about = page.locator('#se-about');
     if (label === '420-dark') {
       const txt = await about.innerText();
-      ok('Settings → About follows the desktop updater: “Gdex 0.2.0 is ready to install.” with Restart to update, and no Install button', /Gdex 0\.2\.0 is ready to install\./.test(txt) && /Restart to update/.test(txt) && !(await page.locator('#se-install').count()), txt.split('\n').filter(l => /Gdex 0|update/i.test(l)).join(' / '));
+      ok('Settings → About follows the desktop updater: “Tourbook 0.2.0 is ready to install.” with Restart to update, and no Install button', /Tourbook 0\.2\.0 is ready to install\./.test(txt) && /Restart to update/.test(txt) && !(await page.locator('#se-install').count()), txt.split('\n').filter(l => /Tourbook 0|update/i.test(l)).join(' / '));
       await page.locator('#se-about button', { hasText: 'Restart to update' }).click(); await sleep(100);
       ok('…Restart to update asks the desktop app to install it', (await page.evaluate(() => window.__calls)).includes('install'));
       await page.evaluate(() => window.__push({ status: 'available', version: '0.1.0', available: '0.2.0', progress: 0, url: '', error: '' })); await sleep(100);
-      ok('…an unsigned Mac’s “available” offers the download page, through the bridge', /Gdex 0\.2\.0 is ready to download\./.test(await about.innerText()) && (await page.locator('#se-about button', { hasText: 'Download the new version' }).count()) === 1);
+      ok('…an unsigned Mac’s “available” offers the download page, through the bridge', /Tourbook 0\.2\.0 is ready to download\./.test(await about.innerText()) && (await page.locator('#se-about button', { hasText: 'Download the new version' }).count()) === 1);
       await page.locator('#se-about button', { hasText: 'Download the new version' }).click(); await sleep(100);
       await page.locator('#se-about button', { hasText: 'Check for updates' }).click(); await sleep(150);
       ok('…and Check for updates asks the bridge too', JSON.stringify(await page.evaluate(() => window.__calls)) === JSON.stringify(['install', 'open', 'check']));

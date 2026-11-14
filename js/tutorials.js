@@ -7,10 +7,10 @@ import { h, sheet, toast } from './util.js';
 import { runTour, startTour, sheetSteps } from './tour.js';
 import { sectionMark } from './licence-state.js'; // a working section's licence mark (null while licences are off)
 
-const pages = () => (window.gdexPages ? window.gdexPages() : []); // [{ id, label, icon, page? }] from app.js
+const pages = () => (window.tourbookPages ? window.tourbookPages() : []); // [{ id, label, icon, page? }] from app.js
 const topSheet = () => { const all = document.querySelectorAll('.sheet[aria-label]'); return all[all.length - 1] || null; };
 const resolve = steps => (typeof steps === 'function' ? steps() : steps) || [];
-window.addEventListener('gdex-tour-empty', () => toast('Nothing to point at on this page yet. Add something first, then tap ? again.'));
+window.addEventListener('tourbook-tour-empty', () => toast('Nothing to point at on this page yet. Add something first, then tap ? again.'));
 // A walkthrough for a panel that has none of its own: what it is, its boxes, and how to save or close it.
 function genericSheet(top, title) {
   const form = top.querySelector('form');

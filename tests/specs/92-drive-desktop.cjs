@@ -1,5 +1,5 @@
 // Google Drive in the desktop app (the page's side; the desktop app's own sign-in page is tests/desktop.mjs): a stand-in
-// window.gdexDesktop.googleSignIn at the desktop app's address (localhost:47861, served by the test, no server): the
+// window.tourbookDesktop.googleSignIn at the desktop app's address (localhost:47861, served by the test, no server): the
 // toast, the client, scope and hint passed, the answer handled as Google's window's; the hour running out; a sign-in
 // replaced by a newer one is silent; on a stand-in port the "another program" sentence and no call; the desktop app's
 // files opened in a web browser connect nothing and never load Google's script; and index.html's CSP lets Google's
@@ -11,10 +11,10 @@ const { CLIENT, SCOPE, ROOT, fakeDrive, device, openBackups, closeSheets, state,
 
 const DESKTOP = () => {
   window.__dcalls = [];
-  window.gdexDesktop = { platform: 'linux', googleSignIn: async o => { window.__dcalls.push(o); await new Promise(r => setTimeout(r, 20)); return window.__danswer || { access_token: 'dtok' + Math.random().toString(36).slice(2), expires_in: 3600, scope: o.scope, token_type: 'Bearer' }; } };
+  window.tourbookDesktop = { platform: 'linux', googleSignIn: async o => { window.__dcalls.push(o); await new Promise(r => setTimeout(r, 20)); return window.__danswer || { access_token: 'dtok' + Math.random().toString(36).slice(2), expires_in: 3600, scope: o.scope, token_type: 'Bearer' }; } };
 };
-const TAKEN = 'Gdex can’t open Google’s sign-in because another program on this computer is using the connection Gdex needs. Restart the computer, open Gdex first, and try again.';
-const AWAY = 'Open Gdex from its desktop app to connect Google Drive.';
+const TAKEN = 'Tourbook can’t open Google’s sign-in because another program on this computer is using the connection Tourbook needs. Restart the computer, open Tourbook first, and try again.';
+const AWAY = 'Open Tourbook from its desktop app to connect Google Drive.';
 
 async function tapConnect(page) {
   await openBackups(page);
@@ -40,13 +40,13 @@ const errLine = page => page.evaluate(() => { const e = document.querySelector('
   await pa.click(`${sheetOf('Backups')} .se-bk-drive-connect`);
   await pa.waitForSelector(sheetOf('Connect Google Drive'));
   const sheetText = await pa.locator(sheetOf('Connect Google Drive')).innerText();
-  ok('the desktop app’s connect sheet says the sign-in opens in the web browser', /Google’s sign-in opens in your web browser; come back to Gdex when it says so\./.test(sheetText));
+  ok('the desktop app’s connect sheet says the sign-in opens in the web browser', /Google’s sign-in opens in your web browser; come back to Tourbook when it says so\./.test(sheetText));
   ok('…Continue is ready at once and Google’s script is never loaded in the app', !(await pa.locator(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`).isDisabled()) && !/Loading Google/.test(sheetText) && A.hosts.length === 0, A.hosts.join(' '));
   await pa.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
   await pa.waitForSelector(sheetOf('Connect Google Drive'), { state: 'detached', timeout: 15000 });
   const call = await pa.evaluate(() => window.__dcalls[0]);
-  ok('the app’s bridge is asked with Gdex’s client, drive.appdata only, and no hint the first time', call && call.client === CLIENT && call.scope === SCOPE && call.hint === '', JSON.stringify(call));
-  ok('…with the toast that says to carry on in the web browser', /Carry on in your web browser: sign in to Google there, then come back to Gdex\./.test(await toasts(pa)));
+  ok('the app’s bridge is asked with Tourbook’s client, drive.appdata only, and no hint the first time', call && call.client === CLIENT && call.scope === SCOPE && call.hint === '', JSON.stringify(call));
+  ok('…with the toast that says to carry on in the web browser', /Carry on in your web browser: sign in to Google there, then come back to Tourbook\./.test(await toasts(pa)));
   ok('the answer is taken as Google’s window’s: linked and synced, the copy written', await waitCloud(pa, 'synced') && D.json() && D.json().bookings.some(b => b.id === 's-show1') && (await state(pa)).who === 'Gee Test · gee@example.com');
   ok('…and Google’s sign-in host was never contacted from the app', !A.hosts.some(h => /accounts\.google\.com/.test(h)), A.hosts.join(' '));
   await pa.evaluate(() => Promise.all([import('./js/drive.js'), import('./js/sync.js')]).then(([d, s]) => { d.forgetGoogleToken(); return s.sync({ quiet: true }); }));
@@ -99,7 +99,7 @@ const errLine = page => page.evaluate(() => { const e = document.querySelector('
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const csp = Object.fromEntries((/http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html) || [, ''])[1].split(';').map(d => d.trim().split(/\s+/)).filter(d => d[0]).map(d => [d[0], d.slice(1)]));
   ok('index.html’s CSP lets Google’s sign-in script, its style and its frame in', ['script-src', 'style-src', 'frame-src'].every(d => (csp[d] || []).includes('https://accounts.google.com')), JSON.stringify(csp));
-  ok('…and Gdex reach Google Drive’s API', (csp['connect-src'] || []).some(s => s === 'https:' || s === 'https://www.googleapis.com'), JSON.stringify(csp['connect-src']));
+  ok('…and Tourbook reach Google Drive’s API', (csp['connect-src'] || []).some(s => s === 'https:' || s === 'https://www.googleapis.com'), JSON.stringify(csp['connect-src']));
 
   const errs = all.flatMap(d => d.errors.map(e => `${d.who}: ${e}`));
   ok('no errors in the console', errs.length === 0, errs.slice(0, 5).join(' | '));

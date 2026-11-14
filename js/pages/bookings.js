@@ -1,4 +1,4 @@
-// Bookings: the heart of Gdex. Two views kept in module state (S): the calendar (js/bookings-cal.js: the month with
+// Bookings: the heart of Tourbook. Two views kept in module state (S): the calendar (js/bookings-cal.js: the month with
 // "Coming up" under it, or one day) and a booking's own page (its header, then one fold-down box per block from
 // js/blocks/index.js, and the boxes the role keeps out of the way in one "More boxes" fold below them), with the forms
 // and sheets that make, copy and delete a booking.
@@ -102,7 +102,7 @@ function go(p, { top = true } = {}) {
   draw(top && was !== viewKey());
   if (top) window.scrollTo({ top: 0 });
 }
-// The day the page last knew as today. js/app.js asks dayTurned() at midnight and whenever Gdex comes back into sight
+// The day the page last knew as today. js/app.js asks dayTurned() at midnight and whenever Tourbook comes back into sight
 // (an installed app is seldom loaded afresh): when today has moved on, a calendar that was on today moves on with it (a
 // calendar moved to another day, or a booking's page with its day for Back, stays where it is), and app.js draws the
 // page again.
@@ -464,7 +464,7 @@ function exportCalendar() {
   const list = upcoming().filter(passes);
   if (!list.length) return toast(filtersOn() ? 'Nothing coming up with these filters.' : 'Nothing coming up to export yet.');
   const act = S.act && byId('acts', S.act);
-  const name = ['Gdex', act && act.name, S.kind && KIND_CHIP[S.kind]].filter(Boolean).join(' – ');
+  const name = ['Tourbook', act && act.name, S.kind && KIND_CHIP[S.kind]].filter(Boolean).join(' – ');
   saveFile(allIcs(list, name), fileName(name, 'ics'), 'text/calendar')
     .then(done => { if (done) toast(`${plural(list.length, 'booking')} saved to a calendar file`); })
     .catch(() => toast('The calendar file could not be saved here.'));
@@ -524,7 +524,7 @@ function workNote(b) {
   if (!workLocked(b)) return null;
   const start = mayWork() === 'start';
   return h('div', { class: 'card lic-work-note' },
-    h('p', { class: 'small' }, `${b.kind === 'session' ? 'Studio sessions' : 'Rehearsals'} come with Gdex’s working roles: this one stays here for you to look at, and can be changed ${start ? 'during your 30 free days' : 'with a licence'}.`),
+    h('p', { class: 'small' }, `${b.kind === 'session' ? 'Studio sessions' : 'Rehearsals'} come with Tourbook’s working roles: this one stays here for you to look at, and can be changed ${start ? 'during your 30 free days' : 'with a licence'}.`),
     h('button', { type: 'button', class: 'btn ghost small', id: 'bk-work-open', onclick: () => gateWork(() => draw(), b.kind) }, start ? 'Start my 30 free days' : 'Get a licence…'));
 }
 
@@ -704,7 +704,7 @@ function blockBox(b, blk, ctx) {
 // A box of a booking a free Audiophile cannot change now: its notes as text, or what the box is for.
 function lockedBody(b, blk) {
   if (blk.id === 'notes') return h('p', { class: 'prewrap bk-notes-ro' }, String(b.notes || '').trim() || 'No notes.');
-  return h('p', { class: 'muted small' }, 'This box comes with Gdex’s working roles.');
+  return h('p', { class: 'muted small' }, 'This box comes with Tourbook’s working roles.');
 }
 
 /* ------------------------------- walkthroughs ------------------------------- */
@@ -717,13 +717,13 @@ function bookingSteps(b) {
     { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records but leaves clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records but leaves clashes.', target: ['.bk-status'] },
     { title: 'Times', text: 'Off stage is worked out from the set time and length. A time marked +1 is after midnight.', target: ['.bk-times'] },
     { title: 'House rules', text: 'What this venue allows and what it does not. The rules belong to the venue and apply to every show there; change them by editing the venue.', target: ['.bk-hero .vn-rules'] },
-    said != null && said !== 'no' && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.' + (said === '' && model.showOver(b) ? ' If you missed it, Didn’t go says so and Gdex stops asking.' : ''), target: ['.bk-score'] },
+    said != null && said !== 'no' && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.' + (said === '' && model.showOver(b) ? ' If you missed it, Didn’t go says so and Tourbook stops asking.' : ''), target: ['.bk-score'] },
     said === 'no' && { title: 'Didn’t go', text: 'You said you missed this show, so it is not counted as seen. Change takes that answer back.', target: ['.bk-score'] },
     scoreable(b) && !actOf(b) && scoresShows() && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },
     { title: 'The boxes', text: 'Everything else about the booking, one box each: tap a box to open it. Boxes you open stay open.', target: ['.bk-blocks'] },
-    foldedFor(b.kind).length > 0 && { title: 'More boxes', text: 'The boxes your role uses less, folded away under the others. Open it to reach any of them; they work as the ones above. Settings → Your role changes which boxes are here.' + (workMark() ? ' The working boxes (line-up, setlist, take log and the rest) come with Gdex’s working roles.' : ''), target: ['.bk-more'] },
+    foldedFor(b.kind).length > 0 && { title: 'More boxes', text: 'The boxes your role uses less, folded away under the others. Open it to reach any of them; they work as the ones above. Settings → Your role changes which boxes are here.' + (workMark() ? ' The working boxes (line-up, setlist, take log and the rest) come with Tourbook’s working roles.' : ''), target: ['.bk-more'] },
   ].filter(Boolean);
   const set = openSet(b.id);
   const steps = x => { try { return (typeof x.tutorial === 'function' ? x.tutorial(b) : x.tutorial) || []; } catch { return []; } };

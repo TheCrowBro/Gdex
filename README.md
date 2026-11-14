@@ -1,6 +1,6 @@
-# Gdex
+# Tourbook
 
-**Gdex is an app for music producers and the bands they play in, manage or produce.**
+**Tourbook is an app for music producers and the bands they play in, manage or produce.**
 
 It keeps your shows, studio sessions and rehearsals in one calendar, with your acts, the people you work with, your
 backline, the venues and studios you play, and your songs and setlists. On the day it gives the band a day sheet, tunes
@@ -8,18 +8,18 @@ your guitar, counts you in and times your set. Afterwards it settles the night, 
 
 It works on a phone and on a computer, in the browser or installed like an app, and keeps working with no signal. There
 is no account: your information stays on your own phone or computer unless you choose to save a backup or send a link.
-If you connect your own Google Drive (free, for everyone), Gdex keeps your phone and computer the same through a private
-Gdex folder there, with a dated copy each day. The **Audiophile** role is free for good; the working roles (producer,
+If you connect your own Google Drive (free, for everyone), Tourbook keeps your phone and computer the same through a private
+Tourbook folder there, with a dated copy each day. The **Audiophile** role is free for good; the working roles (producer,
 manager, band, solo artist, scout, and Jack of Trades) are free for 30 days on each device, then need a licence: 20 US
 dollars once, for up to 3 of your devices. The licence is built but switched off: until it is switched on, every role is
 free and nothing is asked. A desktop app for Windows, Mac and Linux is built too (`docs/desktop.md`); neither it nor the
 licence is published yet.
 
-Gdex is a sibling of Vdex, the app for videographers, and shares its look and the way it works.
+Tourbook is a sibling of Vdex, the app for videographers, and shares its look and the way it works.
 
 ## Start here
 
-1. **Open Gdex** in your phone's or computer's browser. (It is not published at a public address yet; until it is,
+1. **Open Tourbook** in your phone's or computer's browser. (It is not published at a public address yet; until it is,
    the person who looks after the tech can run it: see *For the person who looks after the tech* below.)
 2. **Put it on your home screen** so it opens like a normal app, even with no signal:
    - **iPhone:** open it in Safari, tap **Share** (the square with an arrow), then **Add to Home Screen**.
@@ -28,8 +28,8 @@ Gdex is a sibling of Vdex, the app for videographers, and shares its look and th
 
 ## Set up for the way you work
 
-The first time Gdex opens it asks who's using it: **producer, manager, band, solo artist, scout or audiophile**, or
-**Jack of Trades** (Master of None: a bit of all of it). Each gets its own menu and pages. Whoever you are, Gdex opens
+The first time Tourbook opens it asks who's using it: **producer, manager, band, solo artist, scout or audiophile**, or
+**Jack of Trades** (Master of None: a bit of all of it). Each gets its own menu and pages. Whoever you are, Tourbook opens
 on the calendar every time, and the calendar is the first track on every menu:
 
 | Role | Menu (Side A, then Side B) | What changes |
@@ -38,9 +38,9 @@ on the calendar every time, and the calendar is the first track on every menu:
 | 💼 Manager | Bookings · Roster · Backline · Money · People · Venues · Insurance | A show opens with the deal and the advance checklist; new people start as industry contacts. |
 | 🥁 Band | Bookings · Songs · Backline · Tools · Bands · Money · People · Venues | A show opens with the running order and setlist; Songs opens on your setlists. |
 | 🎤 Solo artist | Bookings · Songs · Money · My act · Venues · People · Tools | A show opens with the deal and setlist; private gigs (weddings, parties) are shows too. |
-| 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Gdex asks if you saw them and takes your score; no fees or settlements. |
-| 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Gdex asks if you saw them and takes your score; Tools opens on the sound meter; no fees. |
-| 🧰 Jack of Trades (Master of None) | Bookings · Acts · People · Songs · Studio log · Backline · Venues · Money · Tools · Insurance | Every section on the menu and every box on a booking's page, as Gdex has always been. Close the question without picking and this is what you get. |
+| 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Tourbook asks if you saw them and takes your score; no fees or settlements. |
+| 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Tourbook asks if you saw them and takes your score; Tools opens on the sound meter; no fees. |
+| 🧰 Jack of Trades (Master of None) | Bookings · Acts · People · Songs · Studio log · Backline · Venues · Money · Tools · Insurance | Every section on the menu and every box on a booking's page, as Tourbook has always been. Close the question without picking and this is what you get. |
 
 Every menu ends with **My card** and **Settings**, whoever you are. Nothing is ever deleted or out of reach: the
 sections a role doesn't use are **bonus tracks** on the sleeve (tap the record), and the booking boxes it doesn't use
@@ -67,16 +67,16 @@ slim digital player with every section one tap away in a row under it? Tap **Aa*
 | 🪪 **My card** | Your contact card as a big QR code, with your name and details under it: someone scans it with their phone camera to save your number and email. **Show big** puts the code alone on a white screen, as big as it fits, and keeps the screen on; **Share** sends the card with your phone's share sheet; **Save as a file** gives you a .vcf; **Edit your details** changes them. |
 | ⚙️ **Settings** | Your details (and the way to My card), quotes and invoices, backups, display, and the tour again. |
 
-**A band that changes its name keeps the old one.** Change an act's name and Gdex asks whether it is a new name or a
+**A band that changes its name keeps the old one.** Change an act's name and Tourbook asks whether it is a new name or a
 spelling fix, and since when. A new name leaves the old one in small type under it, "formerly The Night Owls", on the
 act's card and page, and shows and scores from before the change say the name the band had that night; search finds
 the band by any of its names. Press kits, riders, day sheets, invoices and calendar files carry the current name only.
 
 **Bands grouped by their main genre.** Once your acts span two or more main genres, the list folds them under one
 heading each, with a count: Blues, Classical, Country, Electronic, Folk, Gospel & Christian, Hip hop & rap, Jazz, Latin,
-Metal, Pop, Punk, R&B & soul, Reggae & ska, Rock and World, A to Z, then **Unique** for a genre Gdex doesn't know and
+Metal, Pop, Punk, R&B & soul, Reggae & ska, Rock and World, A to Z, then **Unique** for a genre Tourbook doesn't know and
 **No genre yet**. Tap a heading to drop its bands down (in the list's own order); the ones you open stay open while
-Gdex is open. You still type the genre as you like ("Indie rock", "Doom folk"): Gdex works out the main genre from it
+Tourbook is open. You still type the genre as you like ("Indie rock", "Doom folk"): Tourbook works out the main genre from it
 (indie rock and folk rock are Rock, doom folk is Folk, the first of two genres decides), and an act's form has **Main
 genre: Automatic (Rock)** to set it by hand. The list's search opens the groups with a match, and both searches find a
 band by its main genre. The press kit keeps the genre as you typed it.
@@ -94,7 +94,7 @@ typed for the same band. With songs of two or more bands (or some with no band),
 band, A to Z, with **No act** (in your role's word: No artist, No band) last, and inside a band under each album, A to
 Z, with **Singles & unreleased** last for the songs with none (in every band, once any song has an album; until then a
 band's fold lists its songs straight under its name). With songs of one band, only its album folds, once a song has an
-album. Folded at first; the ones you open stay open while Gdex is open. The list's search opens the folds with a match,
+album. Folded at first; the ones you open stay open while Tourbook is open. The list's search opens the folds with a match,
 and both searches find a song by its album. The setlists keep their band chips; the press kit and the printed setlists
 are unchanged.
 
@@ -102,7 +102,7 @@ are unchanged.
 by** you, the band or a person (Paid by left empty is "not known"). For a producer, a manager and Jack of Trades,
 Backline then folds the gear by act, A to Z, with **Not for an act** last: each heading says how many items, their total
 value (each item's value times how many) and **your investment**, the value of what you paid for yourself. Tap a heading
-to drop its gear down; the ones you open stay open while Gdex is open, and the page's search and the owner chips open
+to drop its gear down; the ones you open stay open while Tourbook is open, and the page's search and the owner chips open
 the folds with a match. Producers and managers have Backline on their menu, right after their acts. Every role's item
 form has the two boxes, and the item's sheet says what they hold; the figures show only in a role that deals with money.
 Money in and out stays on the Money page, and the inventory, stage packs and everything printed are as they were. Search
@@ -113,7 +113,7 @@ finds an item by its band's name too.
 - **Five views:** Month, 2 weeks, Week, 3 days and Day, from the row of buttons above the calendar. Month, 2 weeks
   and Week are day squares (a 2-week square shows each booking's time and the start of its name; on the narrowest
   phones, the time alone); Week is one row of the same squares, taller, so each day shows twice as many bookings;
-  3 days and Day put each booking on an hour grid. Tap a day to open it. Gdex opens
+  3 days and Day put each booking on an hour grid. Tap a day to open it. Tourbook opens
   on the view you picked last, on today. **Coming up** is under every view; in the small hours, last night's show
   that has not played yet stays at its top, marked **Tonight**.
 - **In the order the bands play:** bookings on the same day run by the time on stage (doors, soundcheck or load-in
@@ -122,7 +122,7 @@ finds an item by its band's name too.
   shows whose sets overlap say so: "Overlaps with Sable, 21:30"; a show over several days says it on the day of the
   clash in the words a Week square gives a screen reader, and with that day on its Coming up card ("Overlaps with
   Sable, Sat 21:30").
-- **"Did you see them?"** After a show is over, Gdex asks when it next opens, or when you come back to it after three
+- **"Did you see them?"** After a show is over, Tourbook asks when it next opens, or when you come back to it after three
   hours or more away (it stays on the page you left). One list holds every show that is waiting. **Yes** takes your
   score out of 100 for the act's card; **No** marks the show "Didn't go" and never asks again. Change your answer any
   time on the show's own page. It asks producers, managers, scouts and audiophiles (and Jack of Trades); turn it on or
@@ -155,20 +155,20 @@ found somewhere, in any order; capitals and accents don't matter.
   only what was there.
 - **Tap a result** to open it where it lives (the band's card, the venue, the person, the song, the setlist, the piece of
   gear, the take log, the invoice on its booking). The box keeps your words: tap it to get the results back, on the same
-  tab. Nothing you type is kept once Gdex is closed.
+  tab. Nothing you type is kept once Tourbook is closed.
 
 ## Your first show
 
 1. **Bookings → + New → Show.** Pick the act and the venue, the date, and the times: load-in, soundcheck, doors, on
    stage and the curfew.
-2. **Deal & fee:** a guarantee, a door split, or a guarantee versus a percentage. Gdex shows what it pays at a quarter,
+2. **Deal & fee:** a guarantee, a door split, or a guarantee versus a percentage. Tourbook shows what it pays at a quarter,
    half, three quarters and a full house.
 3. **Advance checklist:** tick it off as you advance the show, or tap **Email the promoter** for an advance email that
    asks about everything still blank.
 4. **Line-up & gear, setlist, guest list:** who's playing, what's going in the van, the set that fits your slot, and who's
    on the door list.
 5. **Day sheet:** print it, or send the band a link with the times, address, line-up and setlist. It never shows money.
-6. **On the night: Settlement.** Tickets, comps, merch counts and costs; Gdex works out what the band made and each
+6. **On the night: Settlement.** Tickets, comps, merch counts and costs; Tourbook works out what the band made and each
    person's share.
 7. **Quote & invoice:** made from the booking, with Pay buttons in the link you send.
 
@@ -189,27 +189,27 @@ found somewhere, in any order; capitals and accents don't matter.
   on, a working role's licence checks. The [privacy page](privacy.html) says in plain words what leaves your device and
   when.
 - **Google Drive** (☁ → Backups → Connect Google Drive…) keeps every phone and computer you connect the same, with a
-  dated copy each day for the last week and the last 12 months, in a hidden Gdex folder of your own Drive that only Gdex
-  can open. It is free, whatever your role. Nothing goes to a Gdex server.
-- **The licence**, once it is switched on, is all that Gdex's own server (gdex.crowmade.app) ever hears about, and
+  dated copy each day for the last week and the last 12 months, in a hidden Tourbook folder of your own Drive that only Tourbook
+  can open. It is free, whatever your role. Nothing goes to a Tourbook server.
+- **The licence**, once it is switched on, is all that Tourbook's own server (tourbook.crowmade.app) ever hears about, and
   only once you use a working role: an Audiophile who never does sends it nothing.
 - **Save a backup now and then:** tap ☁ at the top → **Save a backup**. Keep the file somewhere safe. To move to a new
-  phone or computer, open Gdex there and import the file. On a computer with Chrome or Edge you can also have Gdex
+  phone or computer, open Tourbook there and import the file. On a computer with Chrome or Edge you can also have Tourbook
   keep a copy in a file inside your Dropbox, Google Drive, OneDrive or iCloud Drive folder.
 - **Links you send** (a day sheet, an invoice) carry the document inside the link itself, so no server sees them. Send
   them only to the people they are for.
 
 ## For the person who looks after the tech
 
-- Gdex is a plain web app with no build step: serve this repository's files from any static web host.
+- Tourbook is a plain web app with no build step: serve this repository's files from any static web host.
   `npm run serve` (or `node -e "import('./tests/lib.mjs').then(m => m.serve('.', 8124))"`) runs it on
   http://localhost:8124/.
 - Before publishing a new version, run `node tools/stamp-build.mjs` so installed copies notice the update.
 - The browser tests: `node tests/run.mjs` (needs Playwright and Chromium).
 - [How it is built](docs/developers.md): the data, the sections, the booking boxes and who owns which file.
-- Gdex does not share anything with Vdex: its own storage (`gdex-…` keys), its own offline cache, its own files, its
+- Tourbook does not share anything with Vdex: its own storage (`tourbook-…` keys), its own offline cache, its own files, its
   own licence server, keys, Stripe link, Google project, desktop app id, port and download bucket.
 - The licence server (`cloudflare/`), the desktop app (`desktop/`) and Google Drive are built and tested, switched off.
   [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing is published until the
-  owner says so. `GDEX_LICENCE=on node tests/run.mjs` runs the tests with the licence live; `npm ci --prefix cloudflare`
+  owner says so. `TOURBOOK_LICENCE=on node tests/run.mjs` runs the tests with the licence live; `npm ci --prefix cloudflare`
   first lets the licence server's tests run.

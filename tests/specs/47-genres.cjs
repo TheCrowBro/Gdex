@@ -65,7 +65,7 @@ const SEED = [
       ['Latin', 'latin'], ['Salsa', 'latin'], ['Reggaetón', 'latin'], ['Bossa nova', 'latin'], ['Latin pop', 'latin'], ['Música mexicana', 'latin'], ['Norteño', 'latin'], ['Cumbia', 'latin'], ['Flamenco', 'latin'],
       ['World', 'world'], ['Afrobeats', 'world'], ['Fado', 'world'], ['Klezmer', 'world'], ['World fusion', 'world'], ['Desert blues', 'world'],
       ['Gospel', 'gospel'], ['Gospel choir', 'gospel'], ['Christian rock', 'gospel'], ['Christian', 'gospel'], ['Worship', 'gospel'],
-      // several genres: the first written that Gdex can place
+      // several genres: the first written that Tourbook can place
       ['Indie rock, electronic', 'rock'], ['Electronic, indie rock', 'electronic'], ['Folk / jazz', 'folk'], ['Folk and country', 'folk'], ['Jazz & hip hop', 'jazz'], ['Soul; funk', 'rnb'],
       ['Folk with jazz influences', 'folk'], ['Rock band influenced by jazz', 'rock'], ['Jazz-influenced folk', 'folk'], ['Witchy, doom folk', 'folk'], ['Covers band, pop/rock', 'pop'], ['Drum and bass, techno', 'electronic'],
       // capitals, accents, hyphens, spaces
@@ -192,7 +192,7 @@ const SEED = [
   /* ---------------- the list in groups, by touch ---------------- */
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, hasTouch: true, isMobile: true, serviceWorkers: 'block' }); await licenceLeg(ctx); // the licence leg: its own context starts inside the free days too
-  await ctx.addInitScript(() => { try { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); localStorage.setItem('gdex-ask-seen', 'off'); } catch (e) { /* ignore */ } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1'); localStorage.setItem('tourbook-ask-seen', 'off'); } catch (e) { /* ignore */ } });
   await ctx.route(/tile\.openstreetmap\.org|nominatim\.openstreetmap\.org|open-meteo\.com/, r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   const page = await ctx.newPage();
   const errors = [];
@@ -413,7 +413,7 @@ const SEED = [
 
   /* ---------------- 320 px, extra-large text and large buttons ---------------- */
   {
-    const prefs = `try { localStorage.setItem('gdex-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large' }))}); } catch (e) { /* ignore */ }`;
+    const prefs = `try { localStorage.setItem('tourbook-prefs', ${JSON.stringify(JSON.stringify({ text: 'xlarge', targets: 'large' }))}); } catch (e) { /* ignore */ }`;
     const { browser: b2, page: p2, errors: e2 } = await open({ sample: true, viewport: { width: 320, height: 700 }, init: prefs });
     await go(p2, 'acts');
     await put(p2, [...SEED, { id: 't-gos', name: 'The Sunday Morning Gospel Singers of the Valley', genre: 'Gospel', members: [] }, { id: 't-hip', name: 'MC Longname', genre: 'Hip-hop', members: [] }]);

@@ -1,5 +1,5 @@
 // The website's sign-in note, checked in the browser (the build spec [S-40]): the licence server signs it with the shop's
-// key (key 2) as `GDEX-WEB\0` + the note's text, Ed25519, the same format as desktop/licence-codes.cjs's readNote('web').
+// key (key 2) as `TOURBOOK-WEB\0` + the note's text, Ed25519, the same format as desktop/licence-codes.cjs's readNote('web').
 // The public keys are js/licence-keys.js (written from desktop/licence-keys.json). Answers the note's value
 // ({ email, ref, iat }) when it checks out, else null. A browser without Ed25519 in WebCrypto throws NotSupportedError,
 // which is passed on, so the caller can tell "cannot check here" from "forged".
@@ -24,7 +24,7 @@ export async function readWebNote(note) {
   if (!keys.has(pub)) keys.set(pub, crypto.subtle.importKey('raw', raw, { name: 'Ed25519' }, false, ['verify']));
   let key;
   try { key = await keys.get(pub); } catch (e) { keys.delete(pub); if (e && e.name === 'NotSupportedError') throw e; return null; }
-  const text = new TextEncoder().encode(note.data), prefix = new TextEncoder().encode('GDEX-WEB\0');
+  const text = new TextEncoder().encode(note.data), prefix = new TextEncoder().encode('TOURBOOK-WEB\0');
   const msg = new Uint8Array(prefix.length + text.length); msg.set(prefix); msg.set(text, prefix.length);
   let good = false;
   try { good = await crypto.subtle.verify({ name: 'Ed25519' }, key, sig, msg); } catch (e) { if (e && e.name === 'NotSupportedError') throw e; return null; }

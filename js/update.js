@@ -2,13 +2,13 @@
 // to the site stamps one), the new worker installs in the background and a bar offers to reload. Checks happen on
 // start, when the app comes back to the front, when the network returns, and every hour. The desktop app has no
 // service worker: its files come inside the installer, and its own updater (desktop/updater.cjs) is reached through
-// window.gdexDesktop, whose state { status, version, available, progress, url, error } the About panel follows.
+// window.tourbookDesktop, whose state { status, version, available, progress, url, error } the About panel follows.
 import { h, announce } from './util.js';
 import { VERSION, BUILD, BUILT } from './version.js';
 
 const S = { reg: null, ready: false, last: 0, bar: null, desktop: null, listeners: new Set() };
-// The desktop app's update bridge, when Gdex runs there.
-export const desktop = () => (window.gdexDesktop && typeof window.gdexDesktop.onStatus === 'function' ? window.gdexDesktop : null);
+// The desktop app's update bridge, when Tourbook runs there.
+export const desktop = () => (window.tourbookDesktop && typeof window.tourbookDesktop.onStatus === 'function' ? window.tourbookDesktop : null);
 export const onChange = fn => { S.listeners.add(fn); return () => S.listeners.delete(fn); };
 const emit = () => S.listeners.forEach(f => { try { f(); } catch { /* ignore */ } });
 export const updateState = () => ({ version: VERSION, build: BUILD, built: BUILT, ready: S.ready, supported: !!S.reg, lastCheck: S.last, desktop: S.desktop });
@@ -20,11 +20,11 @@ export function reloadNow() {
 function showBar() {
   if (S.bar) return;
   S.bar = h('div', { class: 'update-bar', role: 'status' },
-    h('span', null, 'Gdex has been updated.'),
+    h('span', null, 'Tourbook has been updated.'),
     h('button', { class: 'btn primary small', onclick: reloadNow }, 'Reload for the new version'),
     h('button', { class: 'icon-btn', 'aria-label': 'Not now', onclick: () => { S.bar.remove(); S.bar = null; document.body.classList.remove('has-update-bar'); } }, '✕'));
   document.body.append(S.bar); document.body.classList.add('has-update-bar'); // room to scroll the page above the bar
-  announce('A new version of Gdex is ready. Reload to use it.');
+  announce('A new version of Tourbook is ready. Reload to use it.');
 }
 
 // Asks the browser to look for a new service worker now. Resolves once an update, if any, has taken over.
@@ -76,7 +76,7 @@ export function updatePanel() {
     const actions = [];
     let line, canCheck;
     if (d) { // the desktop app: its updater's state
-      const ds = st.desktop || { status: 'idle' }, s = ds.status, v = ds.available ? 'Gdex ' + ds.available : 'The new version of Gdex';
+      const ds = st.desktop || { status: 'idle' }, s = ds.status, v = ds.available ? 'Tourbook ' + ds.available : 'The new version of Tourbook';
       line = s === 'dev' ? 'A development copy: updates are only looked for in the installed app.'
         : s === 'checking' ? 'Looking for a new version…'
         : s === 'downloading' ? `Downloading ${v}… ${Math.round(Number(ds.progress) || 0)}%`
@@ -84,7 +84,7 @@ export function updatePanel() {
         : s === 'available' ? `${v} is ready to download.`
         : s === 'current' ? `Up to date${when ? ' · checked ' + when : ''}.`
         : s === 'error' ? 'Couldn’t look for a new version just now. Check the internet connection, then tap Check for updates, or get the latest from the download page.'
-        : 'Gdex looks for a new version when it starts and every few hours, and installs it when you restart.';
+        : 'Tourbook looks for a new version when it starts and every few hours, and installs it when you restart.';
       if (s === 'ready') actions.push(h('button', { class: 'btn primary', onclick: () => d.installUpdate() }, '↻ Restart to update'));
       // The download page in the web browser: the new version (a Mac that cannot update itself), or the latest after a failed check.
       if (s === 'available' || s === 'error') actions.push(h('button', { class: 'btn ghost', onclick: () => d.openDownload() }, s === 'available' ? '⤓ Download the new version' : '⤓ Open the download page'));
@@ -92,7 +92,7 @@ export function updatePanel() {
     } else {
       line = st.ready ? 'A new version has been downloaded. Reload to use it.'
         : !st.supported ? 'Updates arrive when the site is reloaded (this browser keeps no offline copy).'
-        : `Up to date${when ? ' · checked ' + when : ''}. New versions are fetched in the background whenever you open Gdex.`;
+        : `Up to date${when ? ' · checked ' + when : ''}. New versions are fetched in the background whenever you open Tourbook.`;
       if (st.ready) actions.push(h('button', { class: 'btn primary', onclick: reloadNow }, '↻ Reload now'));
       canCheck = st.supported && !st.ready;
     }

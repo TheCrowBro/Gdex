@@ -11,7 +11,7 @@ import { bookingTitle, actName, venueOf, statusLabel, kindLabel, addMinutes, nig
 import { parseISO, ymd, pad } from './util.js';
 
 const CRLF = '\r\n';
-const PRODID = '-//Gdex//Gdex//EN';
+const PRODID = '-//Tourbook//Tourbook//EN';
 
 // TEXT values: backslash, semicolon and comma are escaped with a backslash, line breaks become \n (RFC 5545 3.3.11).
 export const icsEscape = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n');
@@ -93,7 +93,7 @@ function descriptionOf(b) {
     v.name ? '\nVenue: ' + v.name : '',
     (c.name || c.phone) ? 'Contact: ' + [c.name, c.role && `(${c.role})`, c.phone].filter(Boolean).join(' ') : '',
     people.length ? '\nPeople: ' + people.join(', ') : '',
-    '\nFrom Gdex',
+    '\nFrom Tourbook',
   ].filter(Boolean).join('\n');
 }
 
@@ -104,7 +104,7 @@ function eventLines(b, stamp) {
   const where = [v.name, (v.address || '').replace(/\s*\n\s*/g, ', ')].filter(Boolean).join(', ');
   return [
     'BEGIN:VEVENT',
-    `UID:${b.id}@gdex.crowmade.app`,
+    `UID:${b.id}@tourbook.crowmade.app`,
     'DTSTAMP:' + stamp,
     w.allDay ? 'DTSTART;VALUE=DATE:' + dateVal(w.start) : 'DTSTART:' + w.start,
     w.allDay ? 'DTEND;VALUE=DATE:' + dateVal(w.end) : 'DTEND:' + w.end,
@@ -124,6 +124,6 @@ function calendar(list, name) {
 }
 
 // One booking as a calendar file.
-export const bookingIcs = b => calendar([b], b ? bookingTitle(b) : 'Gdex');
+export const bookingIcs = b => calendar([b], b ? bookingTitle(b) : 'Tourbook');
 // Many bookings (Export calendar: the upcoming ones) as one file.
-export const allIcs = (bookings = db.bookings, name = 'Gdex bookings') => calendar((bookings || []).filter(Boolean), name);
+export const allIcs = (bookings = db.bookings, name = 'Tourbook bookings') => calendar((bookings || []).filter(Boolean), name);

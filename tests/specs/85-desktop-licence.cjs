@@ -4,7 +4,7 @@
 // page asks (no "early user" free for good); the days counted, ended, the clock wound back or forward; an earlier start
 // adopted from Google Drive; the mirror in desktop-state.json; codes (a Vdex one gets its own message), activation on up
 // to 3 computers, moving, the weekly check, 90 days offline, cancelled, expired, forged files, pending, release. Last,
-// the IPC wiring (wireLicence) with a stand-in ipcMain: only Gdex's own page is answered, and nothing is asked of the
+// the IPC wiring (wireLicence) with a stand-in ipcMain: only Tourbook's own page is answered, and nothing is asked of the
 // licence server while licences are off, not even the price. Reads desktop/ from the repository (the build spec [S-26]).
 const fs = require('fs');
 const os = require('os');
@@ -17,14 +17,14 @@ const DAY = 86400e3;
 const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 'started', 'first', 'trialLeft', 'trialEnds', 'licence'];
 
 (async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gdex-lic-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tourbook-lic-'));
   try {
     const owner = await codes.newKeyPair(), shop = await codes.newKeyPair(), spare = await codes.newKeyPair();
     const ownerKey = await codes.importPrivate(codes.b64u.enc(owner.pkcs8)), shopKey = await codes.importPrivate(codes.b64u.enc(shop.pkcs8));
     const KEYS = { 1: owner.publicKey, 2: shop.publicKey, 9: spare.publicKey };
     const fields = { name: 'Jane Smith', email: 'Jane@Example.com', serial: 4242, issued: '2026-11-02' };
     const paid = await codes.signCode(shopKey, 2, fields);
-    const pasted = `Hi Jane,\nYour code: ${paid.toLowerCase().replace(/-(?=.*-)/g, (m, i) => (i < 6 ? m : ' -\n  '))}\nThanks!`;
+    const pasted = `Hi Jane,\nYour code: ${paid.toLowerCase().replace(/-(?=.*-)/g, (m, i) => (i < 9 ? m : ' -\n  '))}\nThanks!`;
 
     let n = 0; const dirOf = () => path.join(tmp, String(++n));
     const T0 = Date.parse('2026-11-02T10:00:00Z');
@@ -117,7 +117,7 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     wf.c.t = R + 3 * DAY; s = await wf.lic.state();
     ok('a clock wound forward, the free days started, then wound back: "clock", read-only', s.mode === 'clock' && s.canEdit === false, JSON.stringify({ mode: s.mode, first: s.first }));
     server.date = R + 3 * DAY + 3600e3; // the licence server's time: the real one
-    const pc0 = await wf.lic.enter('GDEX-NOT-A-CODE'); // a bad code never reaches the server
+    const pc0 = await wf.lic.enter('TOURBOOK-NOT-A-CODE'); // a bad code never reaches the server
     ok('…(a mistyped code changes nothing)', !!pc0.error);
     await wf.lic.enter(await codes.signCode(ownerKey, 1, { name: 'Clock Test', serial: 999, comp: true, issued: '2026-11-02' }));
     await wf.lic.release(); // back to no code: the free days alone
@@ -148,11 +148,11 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
 
     /* --------------------------------- codes --------------------------------- */
     const lc = make({ t: T0 }); await lc.lic.start(); lc.c.t = T0 + 31 * DAY;
-    const bad = await lc.lic.enter('GDEX-NOT-A-CODE');
+    const bad = await lc.lic.enter('TOURBOOK-NOT-A-CODE');
     ok('a mistyped code is refused with a message, and nothing is saved', !!bad.error && !(await lc.lic.code()));
     const vdexCode = 'Your Vdex licence: VDEX-0A1B2-C3D4E-F5G6H-J7K8M';
     server.calls = [];
-    ok('a Vdex code gets its own message, and nothing is asked of the server', (await lc.lic.enter(vdexCode)).error === MESSAGES.vdex && /This is a Vdex licence code\. Gdex has its own licence: buy one at gdex\.crowmade\.app\./.test(MESSAGES.vdex) && server.calls.length === 0);
+    ok('a Vdex code gets its own message, and nothing is asked of the server', (await lc.lic.enter(vdexCode)).error === MESSAGES.vdex && /This is a Vdex licence code\. Tourbook has its own licence: buy one at tourbook\.crowmade\.app\./.test(MESSAGES.vdex) && server.calls.length === 0);
     s = await lc.lic.enter(pasted);
     const sent = server.calls[0];
     ok('a good code pasted from an email is activated online with only the code, this install’s random ID and "Mac/Windows/Linux"', s.mode === 'licensed' && s.canEdit && sent && sent.url === 'http://licence.test/licence/activate' && /^[A-Za-z0-9_-]{22}$/.test(sent.body.install) && Object.keys(sent.body).sort().join() === 'code,install,os' && sent.body.code === paid && ['Mac', 'Windows', 'Linux', 'Computer'].includes(sent.body.os), JSON.stringify(sent && sent.body));
@@ -177,7 +177,7 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     ok('opened after a long break, it is not read-only while it is still checking', s.mode === 'licensed' && s.canEdit);
     s = await lc.lic.recheck();
     ok('after 90 days without reaching the server (and a check that fails) it is read-only until it can check', s.mode === 'offline' && s.canEdit === false);
-    // The clock wound back gains nothing: the 90 days count with the latest time Gdex has seen, as the free days do.
+    // The clock wound back gains nothing: the 90 days count with the latest time Tourbook has seen, as the free days do.
     const lastSeen = lc.c.t, triedAt = fileOf(lc.lic).act.tried; lc.c.t -= 90 * DAY; s = await lc.lic.state();
     ok('…winding the clock back 90 days does not make it licensed again', s.mode === 'offline' && s.canEdit === false, s.mode);
     s = await lc.lic.recheck();
@@ -211,7 +211,7 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     ok('it activates by itself once the server answers', s.mode === 'licensed' && s.licence.comp);
 
     // The 14 days come once: a code that never reached the licence server does not get them again by Remove the code
-    // and Enter licence code (nor does another code, nor deleting licence.json), so blocking gdex.crowmade.app buys 14
+    // and Enter licence code (nor does another code, nor deleting licence.json), so blocking tourbook.crowmade.app buys 14
     // days at most and the 3 computers and a refund still count. Only the server's yes for this computer lets a code
     // entered later with no internet have its own 14 days.
     server.mode = 'down';
@@ -253,7 +253,7 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     pc7.c.t = Date.parse('2026-11-20T10:00:00Z'); calls = server.calls.length;
     for (let h = 0; h < 48; h++) { pc7.c.t += 3600e3; await pc7.lic.recheck(); }
     s = await pc7.lic.state();
-    ok('once it has ended it is "expired", and Gdex stops contacting the server for it', s.mode === 'expired' && server.calls.length === calls, `${server.calls.length - calls} calls`);
+    ok('once it has ended it is "expired", and Tourbook stops contacting the server for it', s.mode === 'expired' && server.calls.length === calls, `${server.calls.length - calls} calls`);
     const ended = await make({ t: Date.parse('2026-11-20T10:00:00Z') }).lic.enter(short);
     ok('…an expired code entered again is refused with its end date, for the page to write as it writes dates', ended.error === 'expired' && ended.expires === '2026-11-10', JSON.stringify(ended));
 
@@ -282,7 +282,7 @@ const SHAPE = ['kind', 'enabled', 'buyUrl', 'os', 'seats', 'mode', 'canEdit', 's
     const channels = [...offW.handlers.keys()].sort().join();
     ok('wireLicence answers exactly the licence channels the bridge uses (start and adopt included)', channels === ['licence:adopt', 'licence:buy', 'licence:code', 'licence:enter', 'licence:price', 'licence:recheck', 'licence:release', 'licence:start', 'licence:state'].join(), channels);
     const refused = await Promise.all([...offW.handlers.keys()].map(ch => offW.call(ch, offW.other)));
-    ok('…and refuses every one of them to a page that is not Gdex’s own', refused.every(r => r && r.error === 'refused'));
+    ok('…and refuses every one of them to a page that is not Tourbook’s own', refused.every(r => r && r.error === 'refused'));
     server.calls = [];
     ok('while off, the price is null and nothing is asked of the licence server', (await offW.call('licence:price')) === null && offW.prices.length === 0 && server.calls.length === 0);
     ok('…start keeps it off', (await offW.call('licence:start')).mode === 'off');

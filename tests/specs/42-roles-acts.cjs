@@ -40,7 +40,7 @@ async function logFromCard(page, id, score) {
 (async () => {
   /* ---------------- the scout: latest score first ---------------- */
   {
-    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','scout')" });
+    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('tourbook-role','scout')" });
     await oneGenre(page);
     await page.waitForSelector('.ac-card');
     await put(page, 'acts', { id: 't-zed', name: 'Zed Unseen', members: [] });
@@ -113,7 +113,7 @@ async function logFromCard(page, id, score) {
 
   /* ---------------- the audiophile: last seen first ---------------- */
   {
-    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','audiophile')" });
+    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('tourbook-role','audiophile')" });
     await oneGenre(page);
     await page.waitForSelector('.ac-card');
     await put(page, 'acts', { id: 't-new', name: 'A New Band', members: [] });
@@ -139,7 +139,7 @@ async function logFromCard(page, id, score) {
 
   /* ---------------- a band: the times seen only once logged ---------------- */
   {
-    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','band')" });
+    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('tourbook-role','band')" });
     await oneGenre(page);
     await page.waitForSelector('.ac-card');
     await put(page, 'acts', { id: 't-band', name: 'The Loud Room', genre: 'Garage', members: [] });
@@ -219,7 +219,7 @@ async function logFromCard(page, id, score) {
 
   /* ---------------- the empty list's words ---------------- */
   {
-    const { browser, page, errors } = await open({ tab: 'acts', init: "localStorage.setItem('gdex-role','scout')" });
+    const { browser, page, errors } = await open({ tab: 'acts', init: "localStorage.setItem('tourbook-role','scout')" });
     await page.waitForSelector('.ac-page .empty');
     ok('scout: the empty list has the scout’s own words', (await page.textContent('.ac-page .empty p')) === await opt(page, 'empty') && /watching/.test(await page.textContent('.ac-page .empty p')));
     await role(page, 'audiophile');
@@ -241,7 +241,7 @@ async function logFromCard(page, id, score) {
 
   /* ---------------- scoring the same night ---------------- */
   {
-    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','scout')" });
+    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('tourbook-role','scout')" });
     await oneGenre(page);
     await page.waitForSelector('.ac-card');
     // The scout's show tonight is on hold (a role without money doesn't confirm); a cancelled one the same day doesn't count.
@@ -350,7 +350,7 @@ async function logFromCard(page, id, score) {
 
   /* ---------------- a time seen follows its date; one score a night; the latest is the last saved ---------------- */
   {
-    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('gdex-role','scout')" });
+    const { browser, page, errors } = await open({ sample: true, tab: 'acts', init: "localStorage.setItem('tourbook-role','scout')" });
     await oneGenre(page);
     await page.waitForSelector('.ac-card');
     const card = page.locator('.ac-card[data-id="s-owls"]');
@@ -459,7 +459,7 @@ async function logFromCard(page, id, score) {
   /* ---------------- Coming up rows on a narrow phone with extra-large text ---------------- */
   {
     const { browser, page, errors } = await open({ sample: true, tab: 'acts', viewport: { width: 320, height: 700 },
-      init: "localStorage.setItem('gdex-role','scout'); if (!localStorage.getItem('gdex-prefs')) localStorage.setItem('gdex-prefs', JSON.stringify({ text: 'xlarge', targets: 'large' }))" });
+      init: "localStorage.setItem('tourbook-role','scout'); if (!localStorage.getItem('tourbook-prefs')) localStorage.setItem('tourbook-prefs', JSON.stringify({ text: 'xlarge', targets: 'large' }))" });
     await page.waitForSelector('.ac-page');
     await put(page, 'acts', { id: 't-fest', name: 'Festival Act', members: [] });
     await put(page, 'bookings', { id: 't-g', kind: 'show', status: 'confirmed', actId: 't-fest', date: dayIso(0), venueId: 's-greenfield' });
@@ -479,7 +479,7 @@ async function logFromCard(page, id, score) {
     const over = await page.evaluate(() => [...document.querySelectorAll('#ac-coming .ac-bk')].filter(r => r.scrollWidth > r.clientWidth + 1 || r.querySelector('.ac-bk-main').scrollWidth > r.querySelector('.ac-bk-main').clientWidth + 1).length);
     ok('…a word longer than the row breaks inside the row', (await page.locator('#ac-coming .ac-bk').count()) === 2 && over === 0 && !(await measure()).wide, String(over));
     await page.screenshot({ path: (process.env.S || '.') + '/42-coming-up-320-xlarge.png' });
-    await page.evaluate(() => localStorage.setItem('gdex-prefs', '{}'));
+    await page.evaluate(() => localStorage.setItem('tourbook-prefs', '{}'));
     await page.setViewportSize({ width: 420, height: 900 });
     await page.reload();
     await page.waitForSelector('#deck .dk-next');

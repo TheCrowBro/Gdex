@@ -3,7 +3,7 @@
 // walkthroughs of the Backups sheet, the connect sheet and the daily copies; the first device writes the copy, a second
 // joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
 // page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
-// and Replace reaching every device; a record deleted by mistake brought back by Merge (Also bring back); Disconnect, Delete Gdex's copy and Erase (the changes Drive lacks copied first, or
+// and Replace reaching every device; a record deleted by mistake brought back by Merge (Also bring back); Disconnect, Delete Tourbook's copy and Erase (the changes Drive lacks copied first, or
 // said, with Erase anyway); two tabs, Erase in one not undone by the other; Google's token removed once its hour is over; where the focus goes when the Drive card
 // is redrawn; and the earliest free day carried in the Drive copy (freeDaysFrom, [S-39]). Google is faked: its sign-in
 // script is served by the test, and one Google Drive held here in Node answers every device (each browser context is
@@ -13,9 +13,9 @@ const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const { ok, sleep, BASE } = require('../helpers.cjs');
 
-const CLIENT = '123-gdex-test.apps.googleusercontent.com';
+const CLIENT = '123-tourbook-test.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
-const ROOT = process.env.GDEX_ROOT || path.resolve(__dirname, '..', '..');
+const ROOT = process.env.TOURBOOK_ROOT || path.resolve(__dirname, '..', '..');
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
 const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(fs.readFileSync(path.join(ROOT, 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
 const sheetOf = title => `.sheet[aria-label="${title}"]`;
@@ -43,7 +43,7 @@ function fakeDrive() {
       files.push(f); return f;
     },
     named: name => files.filter(f => f.name === name).sort((a, b) => a.seq - b.seq),
-    json(name = 'gdex-db.json') { const f = D.named(name)[0]; return f ? JSON.parse(f.body) : null; },
+    json(name = 'tourbook-db.json') { const f = D.named(name)[0]; return f ? JSON.parse(f.body) : null; },
     drop(id) { const i = files.findIndex(f => f.id === id); if (i >= 0) files.splice(i, 1); return i >= 0; },
     writes: who => D.log.filter(l => (!who || l.who === who) && (l.method === 'PATCH' || l.method === 'POST')).length,
     route: who => route => handle(route, who),
@@ -100,7 +100,7 @@ function fakeDrive() {
 }
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
-// Serves Gdex's files from the test's copy at any address (the desktop app's own, localhost:4786x), with no server.
+// Serves Tourbook's files from the test's copy at any address (the desktop app's own, localhost:4786x), with no server.
 const serveFiles = async route => {
   let p = decodeURIComponent(new URL(route.request().url()).pathname); if (p.endsWith('/')) p += 'index.html';
   const file = path.resolve(ROOT, '.' + p);
@@ -108,25 +108,25 @@ const serveFiles = async route => {
   return route.fulfill({ status: 200, contentType: MIME[path.extname(file)] || 'application/octet-stream', body: fs.readFileSync(file) });
 };
 
-// One device: a browser context with Gdex open, the welcome tour, the role card and the question out of the way (as
+// One device: a browser context with Tourbook open, the welcome tour, the role card and the question out of the way (as
 // tests/helpers.cjs does, the licence leg included), the Google client set (client: '' for none), Google's sign-in
 // script and the fake Drive routed, toasts recorded, and every request to a Google host listed in hosts.
 // seed: localStorage values set before the first page when absent. standIn: a module served as js/licence-state.js
-// (with licences live in js/licence-config.js). serve: Gdex's files served by the test at url (no test server).
+// (with licences live in js/licence-config.js). serve: Tourbook's files served by the test at url (no test server).
 async function device(browser, D, { who = 'A', client = CLIENT, sample = false, init = null, seed = null, standIn = null, url = BASE, serve = false, viewport = { width: 420, height: 900 }, prefs = null, gis = true } = {}) {
   const ctx = await browser.newContext({ viewport, serviceWorkers: 'block' });
   const hosts = [];
   ctx.on('request', r => { try { const u = new URL(r.url()); if (/google/.test(u.hostname)) hosts.push(u.hostname + u.pathname); } catch { /* not a URL */ } });
   await ctx.addInitScript(([pf, sd]) => {
     try {
-      localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); localStorage.setItem('gdex-ask-seen', 'off');
-      if (pf) localStorage.setItem('gdex-prefs', pf);
-      if (sd && !sessionStorage.getItem('gdex-test-seeded')) { sessionStorage.setItem('gdex-test-seeded', '1'); for (const [k, v] of Object.entries(sd)) localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); }
+      localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1'); localStorage.setItem('tourbook-ask-seen', 'off');
+      if (pf) localStorage.setItem('tourbook-prefs', pf);
+      if (sd && !sessionStorage.getItem('tourbook-test-seeded')) { sessionStorage.setItem('tourbook-test-seeded', '1'); for (const [k, v] of Object.entries(sd)) localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); }
     } catch (e) { /* ignore */ }
     window.__toasts = [];
     addEventListener('DOMContentLoaded', () => new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document.body, { childList: true, subtree: true }));
   }, [prefs, seed]);
-  if (process.env.GDEX_LICENCE === 'on') await ctx.addInitScript(v => { try { const t = Date.now(); if (!localStorage.getItem('gdex-licence')) localStorage.setItem('gdex-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); if (!localStorage.getItem('gdex-terms')) localStorage.setItem('gdex-terms', JSON.stringify({ v, at: t })); } catch (e) { /* ignore */ } }, TERMS_V);
+  if (process.env.TOURBOOK_LICENCE === 'on') await ctx.addInitScript(v => { try { const t = Date.now(); if (!localStorage.getItem('tourbook-licence')) localStorage.setItem('tourbook-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); if (!localStorage.getItem('tourbook-terms')) localStorage.setItem('tourbook-terms', JSON.stringify({ v, at: t })); } catch (e) { /* ignore */ } }, TERMS_V);
   if (init) await ctx.addInitScript(init);
   if (serve) await ctx.route(u => u.href.startsWith(url), serveFiles); // first, so the routes below override it
   const tile = { status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') };
@@ -179,22 +179,22 @@ async function connect(page) {
   await sleep(100);
 }
 // A month's monthly copy name, n months from this one (in the device's time zone).
-const monthName = n => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + n); return `gdex-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}.json`; };
-const weekdayName = () => `gdex-backup-${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]}.json`;
+const monthName = n => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + n); return `tourbook-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}.json`; };
+const weekdayName = () => `tourbook-backup-${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]}.json`;
 
 module.exports = { CLIENT, SCOPE, ROOT, GIS, fakeDrive, device, serveFiles, state, syncOn, data, cloudState, waitCloud, toasts, focused, openBackups, closeSheets, connect, until, sheetOf, monthName, weekdayName };
 
 // A stand-in for js/licence-state.js (Part A builds the real one): every export of the build spec §3.5, free days kept
-// in gdex-licence { first }, adoptFreeDaysFrom as §3.5 has it, and the store's gate shut for a paid role once 30 days
+// in tourbook-licence { first }, adoptFreeDaysFrom as §3.5 has it, and the store's gate shut for a paid role once 30 days
 // have passed since first. Enough to see what Google Drive does with the earliest free day.
 const STAND_IN = `import { setGate } from './store.js';
-const DAY = 864e5, KEY = 'gdex-licence';
+const DAY = 864e5, KEY = 'tourbook-licence';
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
 const now = () => { const s = read(), first = Number(s.first) || 0, left = first ? Math.max(0, 30 - Math.floor((Date.now() - first) / DAY)) : 30;
   return { kind: 'web', mode: !first ? 'unstarted' : left > 0 ? 'trial' : 'ended', canEdit: !first || left > 0, started: !!first, first, trialLeft: left, trialEnds: '', licence: null, seats: 3 }; };
-const paid = () => (localStorage.getItem('gdex-role') || 'all') !== 'audiophile';
+const paid = () => (localStorage.getItem('tourbook-role') || 'all') !== 'audiophile';
 const fns = new Set();
-export const LICENCE_EVENT = 'gdex-licence';
+export const LICENCE_EVENT = 'tourbook-licence';
 export const FREE_KEEPS_WORK = false;
 export const licenceNow = now;
 export const licenceOn = () => true;
@@ -241,7 +241,7 @@ if (require.main === module) (async () => {
     const { page } = dv;
     await openBackups(page);
     const card = page.locator(`${sheetOf('Backups')} .se-bk-drive`);
-    ok('not set up: the Drive card is grey and says so, with no Connect', (await card.getAttribute('data-state')) === 'unset' && /Google Drive · Not set up yet: Google Drive will work here once Gdex’s Google sign-in is switched on\./.test((await card.innerText()).replace(/\s*\n\s*/g, ' · ')) && (await card.locator('button').count()) === 0, (await card.innerText()).replace(/\s+/g, ' '));
+    ok('not set up: the Drive card is grey and says so, with no Connect', (await card.getAttribute('data-state')) === 'unset' && /Google Drive · Not set up yet: Google Drive will work here once Tourbook’s Google sign-in is switched on\./.test((await card.innerText()).replace(/\s*\n\s*/g, ' · ')) && (await card.locator('button').count()) === 0, (await card.innerText()).replace(/\s+/g, ' '));
     ok('…and it links to no developer documents', (await card.locator('a').count()) === 0);
     ok('…the Drive card comes before the backup file’s buttons, under the status line', await page.evaluate(() => { const p = document.querySelector('.sheet .se-bk > .stack'); const kids = [...p.children]; return kids.indexOf(p.querySelector('.se-bk-status')) === 0 && kids.indexOf(p.querySelector('.se-bk-drive')) === 1; }));
     const [st, label] = await cloudState(page);
@@ -257,42 +257,42 @@ if (require.main === module) (async () => {
   const pa = A.page;
   await openBackups(pa);
   let card = pa.locator(`${sheetOf('Backups')} .se-bk-drive`);
-  ok('off: the card offers Google Drive in plain words, free', (await card.getAttribute('data-state')) === 'off' && /Keep Gdex the same on your phone and computer, with a dated copy each day, in a private Gdex folder of your own Google Drive\. Free\. Only Gdex can open that folder\./.test(await card.innerText()) && (await card.locator('.se-bk-drive-connect').innerText()) === 'Connect Google Drive…');
+  ok('off: the card offers Google Drive in plain words, free', (await card.getAttribute('data-state')) === 'off' && /Keep Tourbook the same on your phone and computer, with a dated copy each day, in a private Tourbook folder of your own Google Drive\. Free\. Only Tourbook can open that folder\./.test(await card.innerText()) && (await card.locator('.se-bk-drive-connect').innerText()) === 'Connect Google Drive…');
   ok('nobody who has not asked for Drive contacts Google', A.hosts.length === 0, A.hosts.join(' '));
   await pa.click(`${sheetOf('Backups')} .se-bk-drive-connect`);
   await pa.waitForSelector(`${sheetOf('Connect Google Drive')} .se-bk-drive-go:not([disabled])`, { timeout: 10000 });
   const connectText = await pa.locator(sheetOf('Connect Google Drive')).innerText();
-  ok('Connect opens a sheet that says what Drive does, before anything else', /hidden folder of your Google Drive that only Gdex can open/.test(connectText) && /the last 7 days and the last 12 months/.test(connectText) && /about once an hour/.test(connectText) && /Nothing goes to a Gdex server\./.test(connectText) && /Continue with Google/.test(connectText) && /Not now/.test(connectText) && !/web browser/.test(connectText));
+  ok('Connect opens a sheet that says what Drive does, before anything else', /hidden folder of your Google Drive that only Tourbook can open/.test(connectText) && /the last 7 days and the last 12 months/.test(connectText) && /about once an hour/.test(connectText) && /Nothing goes to a Tourbook server\./.test(connectText) && /Continue with Google/.test(connectText) && /Not now/.test(connectText) && !/web browser/.test(connectText));
   ok('Google’s sign-in script loads only once that sheet is open, and Drive is not contacted yet', A.hosts.includes('accounts.google.com/gsi/client') && !A.hosts.some(x => /googleapis/.test(x)), A.hosts.join(' '));
   await pa.evaluate(() => { window.__gfail = true; });
   await pa.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
   await pa.waitForSelector(`${sheetOf('Connect Google Drive')} .se-bk-drive-err:not([hidden])`, { timeout: 10000 });
   ok('a cancelled sign-in says so in the sheet', (await pa.locator(`${sheetOf('Connect Google Drive')} .se-bk-drive-err`).innerText()) === 'Google sign-in was cancelled.');
-  ok('…and leaves nothing linked and nothing in Drive', !(await pa.evaluate(() => localStorage.getItem('gdex-drive'))) && !(await state(pa)).linked && D.files.length === 0 && !A.hosts.some(x => /googleapis/.test(x)));
+  ok('…and leaves nothing linked and nothing in Drive', !(await pa.evaluate(() => localStorage.getItem('tourbook-drive'))) && !(await state(pa)).linked && D.files.length === 0 && !A.hosts.some(x => /googleapis/.test(x)));
   await pa.evaluate(() => { window.__gfail = false; });
   await pa.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
   await pa.waitForSelector(sheetOf('Connect Google Drive'), { state: 'detached', timeout: 15000 });
   const gcfg = await pa.evaluate(() => ({ id: window.__gcfg.client_id, scope: window.__gcfg.scope, req: window.__greq }));
-  ok('Google is asked with Gdex’s client for drive.appdata only', gcfg.id === CLIENT && gcfg.scope === SCOPE && gcfg.req.prompt === '', JSON.stringify(gcfg));
+  ok('Google is asked with Tourbook’s client for drive.appdata only', gcfg.id === CLIENT && gcfg.scope === SCOPE && gcfg.req.prompt === '', JSON.stringify(gcfg));
   ok('connected: the ☁ button says Synced', await waitCloud(pa, 'synced') && (await cloudState(pa))[1] === 'Synced');
   ok('…and the focus goes back to the redrawn Drive card, on Sync now', /se-bk-drive-sync/.test(await focused(pa)), await focused(pa));
   ok('…with a toast that says so', /Connected to Google Drive\. Up to date\./.test(await toasts(pa)));
   let dbA = D.json();
-  ok('the first device writes gdex-db.json into the app folder, with its records', D.named('gdex-db.json').length === 1 && dbA.app === 'gdex' && dbA.bookings.some(b => b.id === 's-show1') && dbA.acts.some(a => a.id === 's-owls'));
-  ok('…as JSON with two-space indent', /^\{\n {2}"app": "gdex"/.test(D.named('gdex-db.json')[0].body));
+  ok('the first device writes tourbook-db.json into the app folder, with its records', D.named('tourbook-db.json').length === 1 && dbA.app === 'tourbook' && dbA.bookings.some(b => b.id === 's-show1') && dbA.acts.some(a => a.id === 's-owls'));
+  ok('…as JSON with two-space indent', /^\{\n {2}"app": "tourbook"/.test(D.named('tourbook-db.json')[0].body));
   const lic = await pa.evaluate(() => import('./js/licence-state.js').then(L => ({ on: L.licenceOn(), from: L.freeDaysFrom() })));
   ok('the Drive copy carries freeDaysFrom only when this device has started its free days (none while licences are off)', lic.on ? dbA.freeDaysFrom === lic.from : !('freeDaysFrom' in dbA), JSON.stringify({ lic, field: dbA.freeDaysFrom }));
-  ok('…and the field never enters this device’s database', !(await pa.evaluate(() => 'freeDaysFrom' in JSON.parse(localStorage.getItem('gdex-db-v1')))));
+  ok('…and the field never enters this device’s database', !(await pa.evaluate(() => 'freeDaysFrom' in JSON.parse(localStorage.getItem('tourbook-db-v1')))));
   await until(() => D.named(weekdayName()).length && D.named(monthName(0)).length);
   ok('the first good sync of the day saves today’s copy and this month’s', D.named(weekdayName()).length === 1 && D.named(monthName(0)).length === 1 && JSON.parse(D.named(weekdayName())[0].body).bookings.some(b => b.id === 's-show1'));
   await sleep(200);
   card = pa.locator(`${sheetOf('Backups')} .se-bk-drive`);
   const linkedText = await card.innerText();
   ok('the card names the account and says it is up to date', /Connected to Google Drive/.test(linkedText) && /Signed in as Gee Test · gee@example\.com/.test(linkedText) && /Up to date \(just now\)/.test(linkedText), linkedText.replace(/\s+/g, ' '));
-  ok('…with today’s copy and the buttons', /Today’s copy: saved at/.test(linkedText) && ['Sync now', 'Bring back a daily copy…', 'Disconnect', 'Delete Gdex’s copy from Google Drive…'].every(t => linkedText.includes(t)) && !linkedText.includes('Sign in again'));
-  ok('…and says what Disconnect does and how to take Gdex’s access away', /Disconnect stops syncing on this device\. Both copies stay: this device’s and the one in your Drive\. To take Gdex’s access away completely, remove Gdex in your Google Account under third-party connections\./.test(linkedText));
+  ok('…with today’s copy and the buttons', /Today’s copy: saved at/.test(linkedText) && ['Sync now', 'Bring back a daily copy…', 'Disconnect', 'Delete Tourbook’s copy from Google Drive…'].every(t => linkedText.includes(t)) && !linkedText.includes('Sign in again'));
+  ok('…and says what Disconnect does and how to take Tourbook’s access away', /Disconnect stops syncing on this device\. Both copies stay: this device’s and the one in your Drive\. To take Tourbook’s access away completely, remove Tourbook in your Google Account under third-party connections\./.test(linkedText));
   ok('the backups status counts Google Drive as a backup', /Last backup just now \(Google Drive\)/.test(await pa.locator(`${sheetOf('Backups')} .se-bk-status`).innerText()));
-  ok('the account is kept as the next sign-in’s hint, the token for its hour', await pa.evaluate(() => localStorage.getItem('gdex-google-email') === 'gee@example.com' && JSON.parse(localStorage.getItem('gdex-google-tokens')).exp > Date.now() + 50 * 60000));
+  ok('the account is kept as the next sign-in’s hint, the token for its hour', await pa.evaluate(() => localStorage.getItem('tourbook-google-email') === 'gee@example.com' && JSON.parse(localStorage.getItem('tourbook-google-tokens')).exp > Date.now() + 50 * 60000));
   // the Backups sheet's walkthrough shows the Drive card, second
   await pa.click(`${sheetOf('Backups')} .sheet-help`);
   await pa.waitForSelector('.tour-card h2', { timeout: 10000 });
@@ -313,7 +313,7 @@ if (require.main === module) (async () => {
   ok('a second device connects to the same Drive', await waitCloud(pb, 'synced'));
   let dbB = await data(pb);
   ok('…and takes in the first device’s records while keeping its own', dbB.bookings.some(b => b.id === 's-show1') && dbB.acts.some(a => a.id === 'b-act'));
-  ok('…and Drive now holds both', D.json().acts.some(a => a.id === 'b-act') && D.json().bookings.some(b => b.id === 's-show1') && D.named('gdex-db.json').length === 1);
+  ok('…and Drive now holds both', D.json().acts.some(a => a.id === 'b-act') && D.json().bookings.some(b => b.id === 's-show1') && D.named('tourbook-db.json').length === 1);
   await syncOn(pa);
   ok('…and the first device has the second’s at its next sync', (await data(pa)).acts.some(a => a.id === 'b-act'));
 
@@ -345,7 +345,7 @@ if (require.main === module) (async () => {
   A.allow.push(/status of 401/);
   D.fail = { status: 401, match: r => r.who === 'A' };
   await syncOn(pa);
-  ok('Drive refusing the token asks for a sign-in, and the token is forgotten', (await state(pa)).status === 'needs-permission' && !(await pa.evaluate(() => localStorage.getItem('gdex-google-tokens'))));
+  ok('Drive refusing the token asks for a sign-in, and the token is forgotten', (await state(pa)).status === 'needs-permission' && !(await pa.evaluate(() => localStorage.getItem('tourbook-google-tokens'))));
   A.allow.pop();
   await pa.click(`${sheetOf('Backups')} .se-bk-drive-again`);
   await waitCloud(pa, 'synced');
@@ -382,22 +382,22 @@ if (require.main === module) (async () => {
   await until(() => D.json().songs.some(s => s.id === 'a-song2'));
   await sleep(300);
   ok('the daily copy is written once a day, not at every sync', wk().writes === wkWrites, `${wk().writes} vs ${wkWrites}`);
-  await pa.evaluate(() => localStorage.removeItem('gdex-backup-cloud'));
+  await pa.evaluate(() => localStorage.removeItem('tourbook-backup-cloud'));
   await syncOn(pa);
   ok('…the next day (the record cleared) it is written again, and the month’s copy is not', wk().writes === wkWrites + 1 && D.named(monthName(0))[0].writes === 1 && JSON.parse(wk().body).songs.some(s => s.id === 'a-song2'));
-  const day = await pa.evaluate(() => JSON.parse(localStorage.getItem('gdex-backup-cloud')));
+  const day = await pa.evaluate(() => JSON.parse(localStorage.getItem('tourbook-backup-cloud')));
   ok('…and remembered for the day', day.day === await pa.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }) && day.name === weekdayName() && day.at > Date.now() - 60000, JSON.stringify(day));
   // a new month: twelve older monthly copies in Drive already
   D.drop(D.named(monthName(0))[0].id);
-  for (let n = -12; n <= -1; n++) D.put(monthName(n), JSON.stringify({ app: 'gdex', bookings: [], songs: [] }));
-  await pa.evaluate(() => localStorage.removeItem('gdex-backup-cloud'));
+  for (let n = -12; n <= -1; n++) D.put(monthName(n), JSON.stringify({ app: 'tourbook', bookings: [], songs: [] }));
+  await pa.evaluate(() => localStorage.removeItem('tourbook-backup-cloud'));
   await syncOn(pa);
-  const months = D.files.filter(f => /^gdex-backup-\d{4}-\d{2}\.json$/.test(f.name)).map(f => f.name).sort();
+  const months = D.files.filter(f => /^tourbook-backup-\d{4}-\d{2}\.json$/.test(f.name)).map(f => f.name).sort();
   ok('a new month gets its own copy, and only the last 12 months are kept', months.length === 12 && months.includes(monthName(0)) && !months.includes(monthName(-12)) && months.includes(monthName(-11)), months.join(' '));
   // a sync that fails says why, keeps the changes, and recovers
   await openBackups(pa);
   A.allow.push(/status of 500/);
-  D.fail = { status: 500, match: r => r.who === 'A' && r.method === 'GET' && r.name === 'gdex-db.json' };
+  D.fail = { status: 500, match: r => r.who === 'A' && r.method === 'GET' && r.name === 'tourbook-db.json' };
   await syncOn(pa);
   A.allow.pop();
   let cardText = await pa.locator(`${sheetOf('Backups')} .se-bk-drive`).innerText();
@@ -407,8 +407,8 @@ if (require.main === module) (async () => {
   ok('Sync now recovers', await waitCloud(pa, 'synced') && !!(await until(async () => /Google Drive is up to date\./.test(await toasts(pa)))));
   // a daily copy that cannot be saved is shown, and counted
   A.allow.push(/status of 403/);
-  D.fail = { status: 403, reason: 'storageQuotaExceeded', keep: true, match: r => r.who === 'A' && /^gdex-backup-/.test(r.name) && (r.method === 'PATCH' || r.method === 'POST') };
-  await pa.evaluate(() => localStorage.removeItem('gdex-backup-cloud'));
+  D.fail = { status: 403, reason: 'storageQuotaExceeded', keep: true, match: r => r.who === 'A' && /^tourbook-backup-/.test(r.name) && (r.method === 'PATCH' || r.method === 'POST') };
+  await pa.evaluate(() => localStorage.removeItem('tourbook-backup-cloud'));
   await syncOn(pa);
   const failedCopy = await state(pa);
   cardText = await pa.locator(`${sheetOf('Backups')} .se-bk-drive`).innerText();
@@ -475,7 +475,7 @@ if (require.main === module) (async () => {
     ok('(the booking is deleted here and in Drive; the other device’s later venue is here)', !(await data(pk)).bookings.some(b => b.id === 'keep-me') && !D5.json().bookings.some(b => b.id === 'keep-me') && (await data(pk)).venues.some(v => v.id === 'v-later'));
     // a backup file holding it: its deletions stay unless asked
     await openBackups(pk);
-    await pk.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'gdex-backup-today.json', mimeType: 'application/json', buffer: Buffer.from(dayCopy) });
+    await pk.setInputFiles(`${sheetOf('Backups')} .se-bk-input`, { name: 'tourbook-backup-today.json', mimeType: 'application/json', buffer: Buffer.from(dayCopy) });
     await pk.waitForSelector(`${sheetOf('Bring back a backup')} .se-imp-merge`, { timeout: 10000 });
     const fileChooser = (await pk.locator(sheetOf('Bring back a backup')).innerText()).replace(/\s+/g, ' ');
     const fileBox = pk.locator(`${sheetOf('Bring back a backup')} .se-imp-revive input`);
@@ -507,7 +507,7 @@ if (require.main === module) (async () => {
   await pa.click(`${sheetOf('Backups')} .se-bk-drive-off`);
   await pa.waitForSelector(`${sheetOf('Backups')} .se-bk-drive[data-state=off]`, { timeout: 10000 });
   ok('…the focus moves to Connect Google Drive…, not to the page’s start', /se-bk-drive-connect/.test(await focused(pa)), await focused(pa));
-  ok('Disconnect stops syncing here and keeps both copies', D.files.length === nFiles && (await data(pa)).bookings.length === beforeA && !(await pa.evaluate(() => localStorage.getItem('gdex-drive') || localStorage.getItem('gdex-google-tokens') || localStorage.getItem('gdex-drive-file'))) && (await cloudState(pa))[0] === '');
+  ok('Disconnect stops syncing here and keeps both copies', D.files.length === nFiles && (await data(pa)).bookings.length === beforeA && !(await pa.evaluate(() => localStorage.getItem('tourbook-drive') || localStorage.getItem('tourbook-google-tokens') || localStorage.getItem('tourbook-drive-file'))) && (await cloudState(pa))[0] === '');
   const writesAfter = D.writes('A');
   await pa.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 'a-off', title: 'Not Copied' })));
   await sleep(1500);
@@ -518,7 +518,7 @@ if (require.main === module) (async () => {
   await openBackups(pb);
   await pb.click(`${sheetOf('Backups')} .se-bk-drive-delete`); // the confirm is accepted
   await pb.waitForSelector(`${sheetOf('Backups')} .se-bk-drive[data-state=off]`, { timeout: 10000 });
-  ok('Delete Gdex’s copy removes every file from Drive and disconnects', D.files.length === 0 && !(await state(pb)).linked);
+  ok('Delete Tourbook’s copy removes every file from Drive and disconnects', D.files.length === 0 && !(await state(pb)).linked);
   ok('…and the focus moves to Connect Google Drive…', /se-bk-drive-connect/.test(await focused(pb)), await focused(pb));
   ok('…and this device keeps everything', (await data(pb)).bookings.length === beforeB && beforeB > 0);
   await closeSheets(pb);
@@ -527,18 +527,18 @@ if (require.main === module) (async () => {
   await waitCloud(pa, 'synced');
   await closeSheets(pa);
   ok('connecting again puts this device’s copy back', D.json() && D.json().songs.some(s => s.id === 'a-off'));
-  const copyBefore = D.named('gdex-db.json')[0].body, writesBefore = D.writes();
+  const copyBefore = D.named('tourbook-db.json')[0].body, writesBefore = D.writes();
   await pa.evaluate(() => window.logiGo('settings')); await sleep(400);
   await pa.evaluate(() => { const d = document.getElementById('se-erase'); if (d && !d.open) d.open = true; });
   await pa.fill('#se-erase-input', 'ERASE');
-  await Promise.all([pa.waitForNavigation({ timeout: 15000 }), pa.click('#se-erase-go')]); // Erase reloads Gdex
+  await Promise.all([pa.waitForNavigation({ timeout: 15000 }), pa.click('#se-erase-go')]); // Erase reloads Tourbook
   await pa.waitForSelector('#deck .dk-next');
   await sleep(1500);
-  ok('Erase disconnects Google Drive first', !(await state(pa)).linked && !(await pa.evaluate(() => localStorage.getItem('gdex-drive'))));
-  ok('…and the copy in Drive is left exactly as it was', D.named('gdex-db.json')[0].body === copyBefore && D.writes() === writesBefore && (await data(pa)).bookings.length === 0);
+  ok('Erase disconnects Google Drive first', !(await state(pa)).linked && !(await pa.evaluate(() => localStorage.getItem('tourbook-drive'))));
+  ok('…and the copy in Drive is left exactly as it was', D.named('tourbook-db.json')[0].body === copyBefore && D.writes() === writesBefore && (await data(pa)).bookings.length === 0);
 
   /* ------------------------------ Erase with changes Google Drive lacks ------------------------------ */
-  // Before it erases, Gdex copies this device's last changes to Drive (signing in again from the tap when Google's hour
+  // Before it erases, Tourbook copies this device's last changes to Drive (signing in again from the tap when Google's hour
   // is up). When it can't, nothing is erased yet: the warning says what Drive lacks, with a way to send it and Save a
   // backup, and only a second tap (Erase anyway) erases.
   {
@@ -558,10 +558,10 @@ if (require.main === module) (async () => {
     ok('the erase warning says this device’s last changes go to Google Drive first', /Google Drive gets this device’s last changes first/.test(warnG) && !/Google Drive is disconnected on this device first/.test(warnG), warnG);
     const logG = D4.log.length;
     await pg.fill('#se-erase-input', 'ERASE');
-    await Promise.all([pg.waitForNavigation({ timeout: 15000 }), pg.click('#se-erase-go')]); // Erase reloads Gdex
+    await Promise.all([pg.waitForNavigation({ timeout: 15000 }), pg.click('#se-erase-go')]); // Erase reloads Tourbook
     await pg.waitForSelector('#deck .dk-next');
     await sleep(500);
-    ok('Erase signs in again from the tap and copies the changes Drive lacked before it erases', ['g-old', 'g-new1', 'g-new2', 'g-new3'].every(id => has(D4.json(), id)) && D4.log.slice(logG).some(l => l.who === 'G' && l.method === 'PATCH' && l.name === 'gdex-db.json'), (D4.json().bookings || []).map(b => b.id).join());
+    ok('Erase signs in again from the tap and copies the changes Drive lacked before it erases', ['g-old', 'g-new1', 'g-new2', 'g-new3'].every(id => has(D4.json(), id)) && D4.log.slice(logG).some(l => l.who === 'G' && l.method === 'PATCH' && l.name === 'tourbook-db.json'), (D4.json().bookings || []).map(b => b.id).join());
     ok('…then disconnects Drive and erases this device', !(await state(pg)).linked && (await data(pg)).bookings.length === 0);
 
     const H2 = await device(browser, D4, { who: 'H' }); all.push(H2);
@@ -618,7 +618,7 @@ if (require.main === module) (async () => {
     await t1.waitForSelector('#deck .dk-next');
     await t2.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 't2-song', title: 'After the erase' })));
     await sleep(1200);
-    const saved = await t1.evaluate(() => JSON.parse(localStorage.getItem('gdex-db-v1')));
+    const saved = await t1.evaluate(() => JSON.parse(localStorage.getItem('tourbook-db-v1')));
     ok('Erase in one tab stays erased after a change in another open tab', saved.venues.length === 0 && saved.songs.some(x => x.id === 't2-song') && (await data(t2)).venues.length === 0, `venues kept: ${saved.venues.length}`);
     ok('…and the other tab shows Google Drive disconnected, and sends nothing to Drive', !(await state(t2)).linked && (await cloudState(t2))[0] === '' && !D7.json().songs.some(x => x.id === 't2-song'), JSON.stringify(await state(t2)));
     await T.ctx.close();
@@ -629,9 +629,9 @@ if (require.main === module) (async () => {
     const V = await device(browser, fakeDrive(), { who: 'V' }); all.push(V);
     const pv = V.page;
     await connect(pv); await waitCloud(pv, 'synced'); await closeSheets(pv);
-    await pv.evaluate(() => { const t = JSON.parse(localStorage.getItem('gdex-google-tokens')); localStorage.setItem('gdex-google-tokens', JSON.stringify({ ...t, exp: Date.now() - 5 * 864e5 })); }); // five days on
+    await pv.evaluate(() => { const t = JSON.parse(localStorage.getItem('tourbook-google-tokens')); localStorage.setItem('tourbook-google-tokens', JSON.stringify({ ...t, exp: Date.now() - 5 * 864e5 })); }); // five days on
     await syncOn(pv);
-    ok('a token whose hour is over is removed from the device at the next look, not kept until the next sign-in', (await state(pv)).status === 'needs-permission' && (await pv.evaluate(() => localStorage.getItem('gdex-google-tokens'))) === null && (await pv.evaluate(() => localStorage.getItem('gdex-google-email'))) === 'gee@example.com');
+    ok('a token whose hour is over is removed from the device at the next look, not kept until the next sign-in', (await state(pv)).status === 'needs-permission' && (await pv.evaluate(() => localStorage.getItem('tourbook-google-tokens'))) === null && (await pv.evaluate(() => localStorage.getItem('tourbook-google-email'))) === 'gee@example.com');
     await V.ctx.close();
   }
 
@@ -672,7 +672,7 @@ if (require.main === module) (async () => {
     F.allow.push(/status of 500/);
     D3.fail = { status: 500, match: r => r.method === 'GET' && r.path === '/drive/v3/files' };
     await connect(pf);
-    ok('a first sync that fails says why in the connect sheet and leaves nothing linked', /an error from Google \(500\)/.test(await pf.locator(`${cs} .se-bk-drive-err`).innerText()) && !(await state(pf)).linked && !(await pf.evaluate(() => localStorage.getItem('gdex-drive') || localStorage.getItem('gdex-google-tokens'))));
+    ok('a first sync that fails says why in the connect sheet and leaves nothing linked', /an error from Google \(500\)/.test(await pf.locator(`${cs} .se-bk-drive-err`).innerText()) && !(await state(pf)).linked && !(await pf.evaluate(() => localStorage.getItem('tourbook-drive') || localStorage.getItem('tourbook-google-tokens'))));
     await pf.click(`${cs} .btn.ghost:has-text("Not now")`);
     await pf.waitForSelector(cs, { state: 'detached', timeout: 10000 });
     ok('…and Not now gives the focus back to Connect Google Drive…, though the card was redrawn meanwhile', /se-bk-drive-connect/.test(await focused(pf)), await focused(pf));
@@ -685,26 +685,26 @@ if (require.main === module) (async () => {
     const D2 = fakeDrive();
     const DAY = 864e5, t0 = Date.now();
     const fromA = t0 - 40 * DAY;
-    const A2 = await device(browser, D2, { who: 'A2', standIn: STAND_IN, seed: { 'gdex-licence': { first: fromA, seen: t0 }, 'gdex-role': 'band', 'gdex-terms': { v: TERMS_V, at: t0 } } }); all.push(A2);
+    const A2 = await device(browser, D2, { who: 'A2', standIn: STAND_IN, seed: { 'tourbook-licence': { first: fromA, seen: t0 }, 'tourbook-role': 'band', 'tourbook-terms': { v: TERMS_V, at: t0 } } }); all.push(A2);
     await connect(A2.page);
     await waitCloud(A2.page, 'synced');
     ok('the Drive copy holds the start of this device’s free days', D2.json().freeDaysFrom === fromA, String(D2.json().freeDaysFrom));
     ok('…as the last field, after the database’s own', Object.keys(D2.json()).pop() === 'freeDaysFrom');
-    const B2 = await device(browser, D2, { who: 'B2', standIn: STAND_IN, seed: { 'gdex-licence': { first: t0, seen: t0 }, 'gdex-role': 'band', 'gdex-terms': { v: TERMS_V, at: t0 } } }); all.push(B2);
+    const B2 = await device(browser, D2, { who: 'B2', standIn: STAND_IN, seed: { 'tourbook-licence': { first: t0, seen: t0 }, 'tourbook-role': 'band', 'tourbook-terms': { v: TERMS_V, at: t0 } } }); all.push(B2);
     const before = await B2.page.evaluate(() => import('./js/store.js').then(s => s.update(() => {})));
     await connect(B2.page);
     await waitCloud(B2.page, 'synced');
-    const b2 = await B2.page.evaluate(() => import('./js/store.js').then(s => ({ first: JSON.parse(localStorage.getItem('gdex-licence')).first, write: s.update(() => {}), field: 'freeDaysFrom' in JSON.parse(localStorage.getItem('gdex-db-v1')) })));
+    const b2 = await B2.page.evaluate(() => import('./js/store.js').then(s => ({ first: JSON.parse(localStorage.getItem('tourbook-licence')).first, write: s.update(() => {}), field: 'freeDaysFrom' in JSON.parse(localStorage.getItem('tourbook-db-v1')) })));
     ok('a fresh device that links the same Drive counts from the earliest start: its paid role is read-only', before === true && b2.first === fromA && b2.write === false, JSON.stringify(b2));
     ok('…and its own database never holds the field', b2.field === false);
-    const C2 = await device(browser, D2, { who: 'C2', standIn: STAND_IN, seed: { 'gdex-role': 'audiophile' } }); all.push(C2);
+    const C2 = await device(browser, D2, { who: 'C2', standIn: STAND_IN, seed: { 'tourbook-role': 'audiophile' } }); all.push(C2);
     await connect(C2.page);
     await waitCloud(C2.page, 'synced');
-    ok('a device that had not started its free days takes the start too', (await C2.page.evaluate(() => JSON.parse(localStorage.getItem('gdex-licence') || '{}').first)) === fromA);
+    ok('a device that had not started its free days takes the start too', (await C2.page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-licence') || '{}').first)) === fromA);
     // a later start written into Drive by hand is not taken, and the earlier one is written back
-    const doc = D2.json(); doc.freeDaysFrom = t0 - DAY; D2.named('gdex-db.json')[0].body = JSON.stringify(doc, null, 2);
+    const doc = D2.json(); doc.freeDaysFrom = t0 - DAY; D2.named('tourbook-db.json')[0].body = JSON.stringify(doc, null, 2);
     await syncOn(B2.page);
-    ok('a later start in Drive is not taken, and Drive gets the earlier one back', (await B2.page.evaluate(() => JSON.parse(localStorage.getItem('gdex-licence')).first)) === fromA && D2.json().freeDaysFrom === fromA);
+    ok('a later start in Drive is not taken, and Drive gets the earlier one back', (await B2.page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-licence')).first)) === fromA && D2.json().freeDaysFrom === fromA);
     const w = D2.writes();
     await syncOn(B2.page); await syncOn(A2.page); await syncOn(C2.page); await syncOn(B2.page);
     ok('…and once all agree, syncing writes nothing more', D2.writes() === w, `${D2.writes()} vs ${w}`);
@@ -727,7 +727,7 @@ if (require.main === module) (async () => {
     D3.ahead = 7 * 60e3; // Google 7 minutes ahead: this device's clock is slow
     await change('t-clock1', 'Clock Hall');
     const slow = await clockLine();
-    ok('a clock 7 minutes slow: the card says so in plain words, what it can lose, and to let the clock set itself', slow === '⚠ This device’s clock is about 7 minutes behind Google’s. Gdex keeps the newest change of each record when it syncs, so with a slow clock what you change or delete here can be undone. Set this device’s date and time to set themselves automatically.', slow);
+    ok('a clock 7 minutes slow: the card says so in plain words, what it can lose, and to let the clock set itself', slow === '⚠ This device’s clock is about 7 minutes behind Google’s. Tourbook keeps the newest change of each record when it syncs, so with a slow clock what you change or delete here can be undone. Set this device’s date and time to set themselves automatically.', slow);
     ok('…in the warning colour, under the line that says how the sync went, and read out as it appears', await pc.evaluate(() => {
       const p = document.querySelector('.sheet .se-bk-drive .se-bk-drive-clock'), t = document.createElement('span'); t.style.color = 'var(--danger)'; document.body.append(t);
       const want = getComputedStyle(t).color; t.remove();
@@ -736,7 +736,7 @@ if (require.main === module) (async () => {
     D3.ahead = -3 * 3600e3; // Google 3 hours behind: this device's clock is fast
     await change('t-clock2', 'Clock Tower');
     const fast = await clockLine();
-    ok('a clock 3 hours fast: it says ahead, and what the other devices can lose', fast === '⚠ This device’s clock is about 3 hours ahead of Google’s. Gdex keeps the newest change of each record when it syncs, so with a fast clock what you change on your other devices can be undone. Set this device’s date and time to set themselves automatically.', fast);
+    ok('a clock 3 hours fast: it says ahead, and what the other devices can lose', fast === '⚠ This device’s clock is about 3 hours ahead of Google’s. Tourbook keeps the newest change of each record when it syncs, so with a fast clock what you change on your other devices can be undone. Set this device’s date and time to set themselves automatically.', fast);
     D3.ahead = 45e3; // within two minutes: nothing to say
     await change('t-clock3', 'Clock Inn');
     ok('within two minutes of Google’s time the line goes', (await clockLine()) === '');

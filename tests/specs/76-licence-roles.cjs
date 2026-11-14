@@ -8,11 +8,11 @@
 // IndexedDB, a wrong clock and the server's time, the pause).
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
-const BASE = process.env.GDEX_URL || 'http://localhost:8124/';
+const BASE = process.env.TOURBOOK_URL || 'http://localhost:8124/';
 const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const DAY = 864e5, HOUR = 3600e3;
-const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(fs.readFileSync(path.join(process.env.GDEX_ROOT || path.join(__dirname, '..', '..'), 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
+const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(fs.readFileSync(path.join(process.env.TOURBOOK_ROOT || path.join(__dirname, '..', '..'), 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
 const isoIn = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 /* ------------------------------ the kit (the same in 76-78) ------------------------------ */
@@ -34,7 +34,7 @@ async function route(ctx, srv) {
     return json(404, { error: 'not-found' });
   });
 }
-// A page of Gdex with the licence live. seed: localStorage written once, before the first page (kept through reloads
+// A page of Tourbook with the licence live. seed: localStorage written once, before the first page (kept through reloads
 // and other tabs: the spec's own changes survive). Every load: the welcome tour seen and the role card dismissed unless
 // firstRun, the question as asked. The page's clock: window.__clock(ms) (sessionStorage t-clock keeps it through reloads).
 async function openLive(browser, errors, { seed = {}, firstRun = false, ask = 'off', clockAt = null, keys = null, init = null } = {}) {
@@ -55,8 +55,8 @@ async function openLive(browser, errors, { seed = {}, firstRun = false, ask = 'o
       if (clockAt && !sessionStorage.getItem('t-clock')) window.__clock(clockAt);
       const kept = sessionStorage.getItem('t-clock'); if (kept) window.__clock(Number(kept));
       if (!localStorage.getItem('t-seeded')) { localStorage.setItem('t-seeded', '1'); for (const [k, v] of Object.entries(seed)) { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } }
-      if (!firstRun) { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); }
-      if (ask) localStorage.setItem('gdex-ask-seen', ask);
+      if (!firstRun) { localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1'); }
+      if (ask) localStorage.setItem('tourbook-ask-seen', ask);
     } catch (e) { /* ignore */ }
     window.__toasts = [];
     new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document, { childList: true, subtree: true });
@@ -72,13 +72,13 @@ async function openLive(browser, errors, { seed = {}, firstRun = false, ask = 'o
   return { ctx, page, srv };
 }
 const state = page => page.evaluate(() => import('./js/licence-state.js').then(m => m.licenceNow()));
-const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('gdex-licence') || '{}'));
+const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-licence') || '{}'));
 const second = page => page.evaluate(() => import('./js/kv.js').then(k => k.kvGet('licence-days')).catch(() => null));
 const toasts = page => page.evaluate(() => window.__toasts.slice());
 const sheets = page => page.$$eval('.sheet', els => els.map(x => x.getAttribute('aria-label')));
 const go = (page, id) => page.evaluate(t => window.logiGo(t), id);
 const reload = async page => { await page.reload(); await page.waitForSelector('#deck .dk-next'); };
-const setLicence = (page, v) => page.evaluate(v => localStorage.setItem('gdex-licence', JSON.stringify(v)), v);
+const setLicence = (page, v) => page.evaluate(v => localStorage.setItem('tourbook-licence', JSON.stringify(v)), v);
 const closeTop = async page => { await page.evaluate(() => { const all = document.querySelectorAll('.sheet'); const s = all[all.length - 1]; s && s.querySelector('.sheet-head [aria-label="Close"]').click(); }); await sleep(250); };
 const sleeve = async page => {
   await page.click('#deck .dk-list'); await page.waitForSelector('.dk-sheet');
@@ -97,7 +97,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     /* =========== before any paid use: the first run, the picker, the terms sheet =========== */
     {
       const { ctx, page, srv } = await openLive(browser, errors, { firstRun: true });
-      await page.waitForSelector('.sheet[aria-label="Who’s using Gdex?"]', { timeout: 8000 });
+      await page.waitForSelector('.sheet[aria-label="Who’s using Tourbook?"]', { timeout: 8000 });
       let st = await state(page);
       ok('before any paid use the state is unstarted, and nothing is counted', st.mode === 'unstarted' && st.started === false && st.trialLeft === 30 && !(await stored(page)).first, JSON.stringify(st));
       const badges = await page.$$eval('.rp-ask [data-role]', bs => Object.fromEntries(bs.map(b => [b.dataset.role, (b.querySelector('.rp-licence') || {}).textContent || ''])));
@@ -112,7 +112,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('.tour-actions .btn.ghost'); // Skip
       await sleep(2600); // the idle work and the status's 1.5 s
       st = await state(page);
-      ok('picking the Audiophile starts nothing and sends nothing to the licence server', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile' && st.mode === 'unstarted' && srv.asked.length === 0 && !(await second(page)), JSON.stringify({ st, asked: srv.asked }));
+      ok('picking the Audiophile starts nothing and sends nothing to the licence server', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'audiophile' && st.mode === 'unstarted' && srv.asked.length === 0 && !(await second(page)), JSON.stringify({ st, asked: srv.asked }));
       // Settings → Your role: Producer asks the terms first; Not now changes nothing.
       await go(page, 'settings'); await sleep(300);
       await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
@@ -121,15 +121,15 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       ok('picking Producer shows the terms sheet first, with its tick box and Agree off until ticked', await page.$eval('#lic-terms-agree', b => b.disabled) && /I am 18 or over, and I have read and agree to the terms of service\./.test(await page.textContent('.lic-terms-check')) && (await page.locator('.lic-terms a[href="terms.html"]').count()) > 0 && (await page.locator('.lic-terms a[href="privacy.html"]').count()) > 0);
       await page.click('#lic-terms-later'); await sleep(400);
       st = await state(page);
-      ok('…Not now keeps the role as it was and starts nothing', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile' && st.mode === 'unstarted' && !(await stored(page)).first && !(await page.evaluate(() => localStorage.getItem('gdex-terms'))), JSON.stringify(st));
+      ok('…Not now keeps the role as it was and starts nothing', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'audiophile' && st.mode === 'unstarted' && !(await stored(page)).first && !(await page.evaluate(() => localStorage.getItem('tourbook-terms'))), JSON.stringify(st));
       await page.click('#se-role .rp-card[data-role="producer"]');
       await page.waitForSelector('#lic-terms-ok');
       await page.check('#lic-terms-ok');
       await page.click('#lic-terms-agree'); await sleep(900);
       st = await state(page);
       const rec = await stored(page), kv = await second(page), tl = await toasts(page);
-      ok('…Agree starts the free days: the role, the toast, the start in gdex-licence and in IndexedDB', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'producer' && st.mode === 'trial' && st.trialLeft === 30 && rec.first > 0 && kv && kv.first === rec.first && tl.some(t => /^Your 30 free days of Gdex’s working roles have started on this device: until .+\.$/.test(t)), JSON.stringify({ st, rec, kv, tl }));
-      ok('…the terms are kept as agreed, with their version', (await page.evaluate(() => JSON.parse(localStorage.getItem('gdex-terms')).v)) === TERMS_V);
+      ok('…Agree starts the free days: the role, the toast, the start in tourbook-licence and in IndexedDB', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'producer' && st.mode === 'trial' && st.trialLeft === 30 && rec.first > 0 && kv && kv.first === rec.first && tl.some(t => /^Your 30 free days of Tourbook’s working roles have started on this device: until .+\.$/.test(t)), JSON.stringify({ st, rec, kv, tl }));
+      ok('…the terms are kept as agreed, with their version', (await page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-terms')).v)) === TERMS_V);
       ok('…the first requests to the licence server came with that paid use: the status, and the price for the Buy button now drawn', srv.asked.includes('/licence/web/status') && srv.asked.every(p => p === '/licence/web/status' || p === '/licence/price'), srv.asked.join(' '));
       const after = await page.$$eval('#se-role [data-role]', bs => Object.fromEntries(bs.map(b => [b.dataset.role, (b.querySelector('.rp-licence') || {}).textContent || ''])));
       ok('the badges read the free days left', after.audiophile === 'Free' && after.band === 'Free days: 30 left' && after.all === 'Free days: 30 left', JSON.stringify(after));
@@ -138,19 +138,19 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
 
-    /* =========== closing "Who's using Gdex?" with no pick (the lead's decision 1 on the review's design calls) =========== */
+    /* =========== closing "Who's using Tourbook?" with no pick (the lead's decision 1 on the review's design calls) =========== */
     {
       // Jack of Trades ('all') cannot be picked (licences live, the free days over, no licence: after Erase this device,
       // say): closing the question unpicked leaves the device on the Audiophile, not on a read-only Jack of Trades, since
       // "only Audiophile works".
-      const { ctx, page } = await openLive(browser, errors, { firstRun: true, seed: { 'gdex-terms': agreed(), 'gdex-licence': ended() } });
-      await page.waitForSelector('.sheet[aria-label="Who’s using Gdex?"]', { timeout: 8000 });
+      const { ctx, page } = await openLive(browser, errors, { firstRun: true, seed: { 'tourbook-terms': agreed(), 'tourbook-licence': ended() } });
+      await page.waitForSelector('.sheet[aria-label="Who’s using Tourbook?"]', { timeout: 8000 });
       const may = await page.evaluate(() => import('./js/licence-state.js').then(m => m.mayPickRole('all')));
       await closeTop(page); await sleep(900);
-      const r = await page.evaluate(() => import('./js/roles.js').then(m => ({ id: m.roleId(), chosen: m.roleChosen(), kept: localStorage.getItem('gdex-role') })));
+      const r = await page.evaluate(() => import('./js/roles.js').then(m => ({ id: m.roleId(), chosen: m.roleChosen(), kept: localStorage.getItem('tourbook-role') })));
       const write = await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()));
       const sh = await sheets(page), tl = await toasts(page);
-      ok('free days over, no licence: closing "Who’s using Gdex?" unpicked leaves the Audiophile (kept as the role), its own things change, no read-only sheet, and a toast says so',
+      ok('free days over, no licence: closing "Who’s using Tourbook?" unpicked leaves the Audiophile (kept as the role), its own things change, no read-only sheet, and a toast says so',
         may === 'locked' && r.id === 'audiophile' && r.chosen === true && r.kept === 'audiophile' && write === true && !sh.some(t => /licen|free days/i.test(t || '')) && tl.some(t => /^Audiophile: free for good\./.test(t)),
         JSON.stringify({ may, r, write, sh, tl }));
       ok('…and nothing in the menu is Jack of Trades’: the Audiophile’s six tracks', JSON.stringify(await page.evaluate(() => import('./js/roles.js').then(m => m.menuSections()))) === JSON.stringify(['bookings', 'acts', 'venues', 'tools', 'card', 'settings']));
@@ -159,18 +159,18 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // While Jack of Trades can be picked (the free days not started: picking it starts them), closing the question unpicked
       // leaves Jack of Trades, with no role saved, as with the licence off.
-      const { ctx, page } = await openLive(browser, errors, { firstRun: true, seed: { 'gdex-terms': agreed() } });
-      await page.waitForSelector('.sheet[aria-label="Who’s using Gdex?"]', { timeout: 8000 });
+      const { ctx, page } = await openLive(browser, errors, { firstRun: true, seed: { 'tourbook-terms': agreed() } });
+      await page.waitForSelector('.sheet[aria-label="Who’s using Tourbook?"]', { timeout: 8000 });
       const may = await page.evaluate(() => import('./js/licence-state.js').then(m => m.mayPickRole('all')));
       await closeTop(page); await sleep(900);
-      const r = await page.evaluate(() => import('./js/roles.js').then(m => ({ id: m.roleId(), chosen: m.roleChosen(), kept: localStorage.getItem('gdex-role') })));
+      const r = await page.evaluate(() => import('./js/roles.js').then(m => ({ id: m.roleId(), chosen: m.roleChosen(), kept: localStorage.getItem('tourbook-role') })));
       ok('free days not started: closing it unpicked leaves Jack of Trades, no role saved', may === 'start' && r.id === 'all' && r.chosen === false && r.kept === null, JSON.stringify({ may, r }));
       await ctx.close();
     }
 
     /* =========== the Audiophile before the free days: the marks, a bonus track starts them at once =========== */
     {
-      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() } });
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed() } });
       await sampleIn(page);
       const bonus = await sleeve(page);
       ok('the Audiophile’s bonus tracks carry “30 days free”, said with the name', bonus.length === 6 && bonus.every(b => b.mark === '30 days free' && / opens your 30 free days$/.test(b.label)) && bonus.find(b => b.id === 'sessions').label === 'Studio log, opens your 30 free days', JSON.stringify(bonus));
@@ -182,7 +182,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       ok('…and nothing has been asked of the licence server yet', srv.asked.length === 0, srv.asked.join(' '));
       const shown = await go(page, 'people'); await sleep(400);
       const st = await state(page), tl = await toasts(page);
-      ok('opening a bonus track starts the days at once: it opens, logiGo resolves true, a toast says so (no question first)', shown === true && (await page.evaluate(() => window.logiPage())) === 'people' && st.mode === 'trial' && st.started && tl.some(t => /^Your 30 free days of Gdex’s working roles have started/.test(t)) && !(await sheets(page)).length, JSON.stringify({ shown, st, tl }));
+      ok('opening a bonus track starts the days at once: it opens, logiGo resolves true, a toast says so (no question first)', shown === true && (await page.evaluate(() => window.logiPage())) === 'people' && st.mode === 'trial' && st.started && tl.some(t => /^Your 30 free days of Tourbook’s working roles have started/.test(t)) && !(await sheets(page)).length, JSON.stringify({ shown, st, tl }));
       const after = await sleeve(page);
       ok('…and the marks are gone', after.every(b => !b.mark), JSON.stringify(after));
       await page.keyboard.press('Escape');
@@ -190,7 +190,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     }
     {
       // The More boxes fold, not started: opening it starts the days and shows the boxes.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed() } });
       await sampleIn(page);
       await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1'))); await sleep(500);
       const fold = await page.evaluate(() => { const f = document.getElementById('bk-more'); return { mark: (f.querySelector('.dk-track-lock') || {}).textContent, label: f.querySelector('summary').getAttribute('aria-label'), boxes: f.querySelectorAll('.blk').length }; });
@@ -203,7 +203,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
 
     /* =========== the Audiophile after the free days: locked, offered, only shows =========== */
     {
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - DAY) } });
       await sampleIn(page);
       await setLicence(page, ended()); await reload(page); await sleep(400);
       const st = await state(page);
@@ -213,7 +213,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('.dk-sheet .dk-bonus .dk-track[data-section="songs"]'); await sleep(500);
       ok('…tapping one offers the licence and stays where it was', (await sheets(page)).includes('Songs needs a licence') && (await page.evaluate(() => window.logiPage())) === 'bookings', (await sheets(page)).join(' | '));
       const offer = await page.evaluate(() => document.querySelector('.sheet.licence-needed').textContent);
-      ok('…the offer says the free days are over, what a licence opens, the price, and that its own sections and My card stay free', /Your 30 free days of Gdex’s working sections are over on this device\./.test(offer) && /A licence opens People, Songs, Studio log, Backline, Money and Insurance, and every role: 20 USD once plus any tax where you live, for up to 3 of your devices\. Your gigs, bands, venues and tools stay free, and so does My card\./.test(offer) && /Buy a licence · 20 USD/.test(offer) && /Sign in \(I have one\)/.test(offer) && /Not now/.test(offer), offer);
+      ok('…the offer says the free days are over, what a licence opens, the price, and that its own sections and My card stay free', /Your 30 free days of Tourbook’s working sections are over on this device\./.test(offer) && /A licence opens People, Songs, Studio log, Backline, Money and Insurance, and every role: 20 USD once plus any tax where you live, for up to 3 of your devices\. Your gigs, bands, venues and tools stay free, and so does My card\./.test(offer) && /Buy a licence · 20 USD/.test(offer) && /Sign in \(I have one\)/.test(offer) && /Not now/.test(offer), offer);
       ok('…and the sheet holds the focus, not Buy', await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('licence-needed')));
       await page.click('.sheet.licence-needed .lic-later'); await sleep(250);
       ok('logiGo to a working section resolves false', (await go(page, 'money')) === false);
@@ -235,7 +235,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('#bk-more > summary'); await sleep(400);
       const after = await page.evaluate(() => { const f = document.getElementById('bk-more'); return { open: f.open, boxes: f.querySelectorAll('.blk').length }; });
       ok('…opening it offers the licence and draws no box', (await sheets(page)).includes('The working boxes need a licence') && !after.open && after.boxes === 0, JSON.stringify(after));
-      ok('…its words say what the working boxes are', /The line-up, setlist, take log and the other working boxes, and People, Songs and Backline’s cards, come with Gdex’s working roles\./.test(await page.textContent('.sheet.licence-needed')));
+      ok('…its words say what the working boxes are', /The line-up, setlist, take log and the other working boxes, and People, Songs and Backline’s cards, come with Tourbook’s working roles\./.test(await page.textContent('.sheet.licence-needed')));
       await closeTop(page);
       const opened = await page.evaluate(() => import('./js/blocks/../pages/bookings.js').then(() => { const f = document.getElementById('blk-lineup'); return !!f; }));
       ok('…so a box asked for by id is not there to open', opened === false);
@@ -268,7 +268,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       // A studio session already here: shown, not changed, with the licence offered.
       await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-sess1'))); await sleep(500);
       const note = await page.evaluate(() => ({ note: (document.querySelector('.lic-work-note') || {}).textContent || '', area: document.querySelectorAll('#bk-notes-text').length, ro: document.querySelectorAll('.bk-notes-ro').length }));
-      ok('a studio session already here is shown read-only: what it is kept for, its notes as text', /^Studio sessions come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence\.Get a licence…$/.test(note.note) && note.area === 0, JSON.stringify(note));
+      ok('a studio session already here is shown read-only: what it is kept for, its notes as text', /^Studio sessions come with Tourbook’s working roles: this one stays here for you to look at, and can be changed with a licence\.Get a licence…$/.test(note.note) && note.area === 0, JSON.stringify(note));
       await page.click('.bk-edit'); await sleep(400);
       const e1 = await sheets(page); await closeTop(page);
       await page.click('#bk-status'); await sleep(400);
@@ -283,7 +283,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
       const line = await page.textContent('.rp-licence-line p');
       await page.click('#se-role .rp-card[data-role="producer"]'); await sleep(400);
-      ok('the picker refuses Producer: the licence is offered, the role stays the Audiophile', (await sheets(page)).join() === 'Producer needs a licence' && (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile', (await sheets(page)).join());
+      ok('the picker refuses Producer: the licence is offered, the role stays the Audiophile', (await sheets(page)).join() === 'Producer needs a licence' && (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'audiophile', (await sheets(page)).join());
       ok('…and Your role says the free days are over and the Audiophile is free', line === 'Your free days are over. Audiophile is free; the other roles need a licence.' && /· free$/.test(await page.textContent('#se-role .se-sub')), line);
       ok('…and About’s line does not call the Audiophile read-only', /· the working roles need a licence$/.test(await page.textContent('#se-about .se-sub')), await page.textContent('#se-about .se-sub'));
       await closeTop(page);
@@ -302,7 +302,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // A free Audiophile whose free days are over: Duplicate makes only shows, and a show's copy carries nothing of the
       // working boxes or the money; a diary entry's form has no Fee (the owner's answer 1).
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - DAY) } });
       await sampleIn(page);
       await page.evaluate(d => import('./js/store.js').then(s => s.upsert('bookings', { id: 't-other', kind: 'other', title: 'Radio session', status: 'confirmed', date: d, fee: 250, people: [], gear: [], checks: {} })), isoIn(3));
       await setLicence(page, ended()); await reload(page); await sleep(300);
@@ -332,8 +332,8 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       // The words about the bonus tracks match what a tap does: for a free Audiophile without the working roles the
       // working sections come with them (a licence, or the 30 free days), never "open any of them" (the welcome tour's
       // Settings stop, Settings → Your role).
-      for (const [when, seed, says] of [['free days over', ended(), /They come with Gdex’s working roles and need a licence\./], ['free days not started', null, /They come with Gdex’s working roles: opening one starts your 30 free days\./]]) {
-        const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), ...(seed ? { 'gdex-licence': seed } : {}) } });
+      for (const [when, seed, says] of [['free days over', ended(), /They come with Tourbook’s working roles and need a licence\./], ['free days not started', null, /They come with Tourbook’s working roles: opening one starts your 30 free days\./]]) {
+        const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), ...(seed ? { 'tourbook-licence': seed } : {}) } });
         await sleep(600);
         const tour = await page.evaluate(() => import('./js/tour.js').then(m => m.welcomeSteps().map(x => x.text).find(x => /Not on your menu/.test(x)) || ''));
         await go(page, 'settings'); await sleep(300);
@@ -347,7 +347,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
 
     /* =========== a working role after the free days: the sheet at opening, read-only =========== */
     {
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) }, ask: 'on' });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - DAY) }, ask: 'on' });
       await sampleIn(page);
       // A show three days ago, not answered: "Did you see them?" would ask about it.
       await page.evaluate(d => import('./js/store.js').then(s => s.upsert('bookings', { id: 't-wait', kind: 'show', status: 'confirmed', actId: 's-owls', date: d, setTime: '21:00', setLength: 45 })), isoIn(-3));
@@ -357,12 +357,12 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       let sh = await sheets(page);
       ok('at opening a working role with its free days over gets the free-days-over sheet, and no question', sh.join() === 'Your 30 free days are over', sh.join(' | '));
       const words = await page.textContent('.sheet.licence-over');
-      ok('…its words: read-only as Producer, nothing deleted, the price, and the way out', /Gdex is read-only as Producer on this device until there is a licence: you can open, search, print and share everything, but not change it\. Nothing has been deleted\. A licence is 20 USD once plus any tax where you live, for up to 3 of your devices\. Or carry on free as an Audiophile, with everything you already have\./.test(words) && /Buy a licence · 20 USD/.test(words) && /Sign in \(I have one\)/.test(words) && /Carry on free as an Audiophile/.test(words), words);
+      ok('…its words: read-only as Producer, nothing deleted, the price, and the way out', /Tourbook is read-only as Producer on this device until there is a licence: you can open, search, print and share everything, but not change it\. Nothing has been deleted\. A licence is 20 USD once plus any tax where you live, for up to 3 of your devices\. Or carry on free as an Audiophile, with everything you already have\./.test(words) && /Buy a licence · 20 USD/.test(words) && /Sign in \(I have one\)/.test(words) && /Carry on free as an Audiophile/.test(words), words);
       await closeTop(page); await sleep(1500);
       sh = await sheets(page);
-      // It opened as Gdex opened, with nothing focused: once it is gone the page has the focus (it was left nowhere).
+      // It opened as Tourbook opened, with nothing focused: once it is gone the page has the focus (it was left nowhere).
       ok('…and the focus is on the page, not left nowhere', await page.evaluate(() => document.activeElement && document.activeElement.id === 'page'), await page.evaluate(() => (document.activeElement || {}).id || (document.activeElement || {}).tagName));
-      ok('…✕ keeps the role, read-only, and the question is not asked while it is', sh.length === 0 && (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'producer' && !(await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()))), sh.join(' | '));
+      ok('…✕ keeps the role, read-only, and the question is not asked while it is', sh.length === 0 && (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'producer' && !(await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()))), sh.join(' | '));
       ok('…the bar says read-only, with Buy and Sign in', /^Read-only: Producer needs a licence/.test(await page.textContent('.licence-bar span')) && (await page.locator('.licence-bar .btn').count()) === 2);
       // A form keeps what was typed.
       await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1'))); await sleep(500);
@@ -395,7 +395,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('.sheet.licence-over .lic-carry');
       await page.waitForSelector('.sheet[aria-label="Did you see them?"]', { timeout: 6000 }).catch(() => {});
       sh = await sheets(page);
-      ok('Carry on free as an Audiophile: the role changes, the calendar opens, and then the question is asked', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile' && (await page.evaluate(() => window.logiPage())) === 'bookings' && sh.join() === 'Did you see them?' && (await toasts(page)).includes('Audiophile: free for good. Nothing was deleted; the other roles come back with a licence.'), JSON.stringify({ sh, t: await toasts(page) }));
+      ok('Carry on free as an Audiophile: the role changes, the calendar opens, and then the question is asked', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'audiophile' && (await page.evaluate(() => window.logiPage())) === 'bookings' && sh.join() === 'Did you see them?' && (await toasts(page)).includes('Audiophile: free for good. Nothing was deleted; the other roles come back with a licence.'), JSON.stringify({ sh, t: await toasts(page) }));
       await closeTop(page);
       ok('…and its writes work', await page.evaluate(() => import('./js/store.js').then(s => s.update(d => { d.profile = { ...d.profile, name: 'Free me' }; }))));
       ok('…and no bar for the Audiophile', (await page.locator('.licence-bar').count()) === 0);
@@ -403,7 +403,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     }
     {
       // A Band's booking → + New setlist: the read-only sheet, nothing made, no error.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'band', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'band', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - DAY) } });
       await sampleIn(page);
       await setLicence(page, ended()); await reload(page);
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);
@@ -418,7 +418,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // Carry on free from the read-only sheet over a working form (a song's, as Producer): the form goes with the role,
       // so nothing of it can be saved as an Audiophile without a licence (the store gate asks only the section on screen).
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - DAY) } });
       await sampleIn(page);
       await setLicence(page, ended()); await reload(page);
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);
@@ -430,7 +430,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       const left = await sheets(page);
       if (await page.locator('.sheet form.form').count()) { await page.click('.sheet .form-actions .btn.primary'); await sleep(500); }
       const title = await page.evaluate(() => import('./js/store.js').then(s => s.byId('songs', 's-song1').title));
-      ok('Carry on free from the read-only sheet over a song’s form: the Audiophile, on the calendar, the form gone with the role, the song unchanged', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'audiophile' && (await page.evaluate(() => window.logiPage())) === 'bookings' && left.length === 0 && title === title0, JSON.stringify({ left, title }));
+      ok('Carry on free from the read-only sheet over a song’s form: the Audiophile, on the calendar, the form gone with the role, the song unchanged', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'audiophile' && (await page.evaluate(() => window.logiPage())) === 'bookings' && left.length === 0 && title === title0, JSON.stringify({ left, title }));
       await ctx.close();
     }
     {
@@ -439,9 +439,9 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       // licence merge put before the line that opens the item's fold: a stand-in for the store's gate lets the form through
       // and refuses the write itself, so the save gets nothing back from the store, and it must neither open a fold for the
       // record it has not got nor read it. The folds are read after the page is drawn afresh, as they are kept for the visit.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - DAY) } });
       await sampleIn(page);
-      // The sample's gear is for no band: three items become the first act's while Gdex can still change things.
+      // The sample's gear is for no band: three items become the first act's while Tourbook can still change things.
       await page.evaluate(() => import('./js/store.js').then(s => { const a = s.db.acts[0]; s.db.gear.slice(0, 3).forEach(g => s.upsert('gear', { ...g, actId: a.id })); }));
       await setLicence(page, ended()); await reload(page);
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);
@@ -471,7 +471,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // A Manager read-only: the invoice editor keeps what was typed when Save is refused (as a form does), and Delete,
       // refused, does not close it as if the invoice were gone.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'manager', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'manager', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - DAY) } });
       await sampleIn(page);
       await page.evaluate(() => import('./js/money.js').then(m => m.createDoc('s-show1', 'invoice')));
       await setLicence(page, ended()); await reload(page);
@@ -491,7 +491,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     }
     {
       // Coming back after 3 hours brings the sheet back.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': ended() } });
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);
       const t = Date.now();
       await page.evaluate(ms => window.__clock(ms), t);
@@ -507,7 +507,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       // at opening. Not now: nothing starts, the role is read-only for this visit and "Did you see them?" waits; the next
       // opening asks again; a refused change asks for the terms (Read and agree, not Buy), and agreeing there starts the
       // free days, after which the form that stayed open saves.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' }, ask: 'on' });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer' }, ask: 'on' });
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
       // Written while the sheet is up (nothing refused yet): a band's show three days ago, not answered.
       await page.evaluate(d => import('./js/store.js').then(s => { s.upsert('acts', { id: 't-band', name: 'The Waiting Room' }); s.upsert('bookings', { id: 't-wait', kind: 'show', status: 'confirmed', actId: 't-band', title: '', venueName: 'The Crown', date: d, setTime: '21:00', setLength: 45 }); }), isoIn(-3));
@@ -524,11 +524,11 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.fill('[data-key="title"]', 'Typed, then saved');
       await page.click('.sheet .form-actions .btn.primary'); await sleep(600);
       const ro = await page.textContent('.sheet.licence-readonly').catch(() => '');
-      ok('…a refused change asks for the terms instead of a licence: Read and agree in Buy’s place, Sign in kept, the form kept', (await sheets(page)).join() === 'Edit show,Read-only for now' && /To use them, please read and agree to Gdex’s terms\./.test(ro) && /what you typed is still in the form/.test(ro) && (await page.locator('.sheet.licence-readonly #lic-ro-terms').count()) === 1 && (await page.locator('.sheet.licence-readonly .lic-buy').count()) === 0 && (await page.locator('.sheet.licence-readonly .lic-enter').textContent().catch(() => '')) === 'Sign in (I have one)' && (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 't-wait').title || ''))) === '', JSON.stringify({ sh: await sheets(page), ro }));
+      ok('…a refused change asks for the terms instead of a licence: Read and agree in Buy’s place, Sign in kept, the form kept', (await sheets(page)).join() === 'Edit show,Read-only for now' && /To use them, please read and agree to Tourbook’s terms\./.test(ro) && /what you typed is still in the form/.test(ro) && (await page.locator('.sheet.licence-readonly #lic-ro-terms').count()) === 1 && (await page.locator('.sheet.licence-readonly .lic-buy').count()) === 0 && (await page.locator('.sheet.licence-readonly .lic-enter').textContent().catch(() => '')) === 'Sign in (I have one)' && (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 't-wait').title || ''))) === '', JSON.stringify({ sh: await sheets(page), ro }));
       await page.click('#lic-ro-terms');
       await page.waitForSelector('#lic-terms-ok'); await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); await sleep(900);
       st = await state(page);
-      ok('…agreed there: the free days start, with their toast, and the form is still open', st.mode === 'trial' && st.started && (await sheets(page)).join() === 'Edit show' && (await toasts(page)).some(t => /^Your 30 free days of Gdex’s working roles have started on this device/.test(t)) && (await page.inputValue('[data-key="title"]')) === 'Typed, then saved', JSON.stringify({ st, sh: await sheets(page) }));
+      ok('…agreed there: the free days start, with their toast, and the form is still open', st.mode === 'trial' && st.started && (await sheets(page)).join() === 'Edit show' && (await toasts(page)).some(t => /^Your 30 free days of Tourbook’s working roles have started on this device/.test(t)) && (await page.inputValue('[data-key="title"]')) === 'Typed, then saved', JSON.stringify({ st, sh: await sheets(page) }));
       await page.click('.sheet .form-actions .btn.primary'); await sleep(500);
       ok('…and now it saves', (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 't-wait').title || ''))) === 'Typed, then saved');
       await reload(page);
@@ -539,7 +539,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // The terms not agreed (Not now), a song's form refused ("Read-only for now"), Carry on free: the form goes, nothing
       // is written, the free days do not start and the terms stay unagreed.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer' } });
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
       await page.evaluate(() => import('./js/store.js').then(s => s.upsert('songs', { id: 't-song', title: 'Written before' })));
       await page.click('#lic-terms-later'); await sleep(600);
@@ -550,13 +550,13 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       const left = await sheets(page);
       if (await page.locator('.sheet form.form').count()) { await page.click('.sheet .form-actions .btn.primary'); await sleep(500); }
       const st = await state(page), title = await page.evaluate(() => import('./js/store.js').then(s => s.byId('songs', 't-song').title));
-      ok('the terms not agreed, a song’s form refused, Carry on free: the form goes, the song is unchanged, the free days not started and the terms not agreed', left.length === 0 && title === 'Written before' && st.mode === 'unstarted' && !st.started && !(await page.evaluate(() => localStorage.getItem('gdex-terms'))), JSON.stringify({ left, title, st }));
+      ok('the terms not agreed, a song’s form refused, Carry on free: the form goes, the song is unchanged, the free days not started and the terms not agreed', left.length === 0 && title === 'Written before' && st.mode === 'unstarted' && !st.started && !(await page.evaluate(() => localStorage.getItem('tourbook-terms'))), JSON.stringify({ left, title, st }));
       await ctx.close();
     }
     {
       // The free days running out while open move an Audiophile off a working section; Erase keeps the count.
       const t = Date.now();
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(t - 29.5 * DAY, { seen: t }) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(t - 29.5 * DAY, { seen: t }) } });
       ok('half a day before the end: 1 free day left', (await state(page)).trialLeft === 1);
       await go(page, 'people'); await sleep(300);
       await page.evaluate(ms => window.__clock(ms), t + DAY);
@@ -576,7 +576,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       // The free days end while an Audiophile has a band member's People card and its form open (reached through gateWork
       // while they ran): both go, and nothing typed there is saved.
       const t = Date.now(), first = t - 29 * DAY - 23 * HOUR;
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(first, { seen: t }) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(first, { seen: t }) } });
       await sampleIn(page);
       const name0 = await page.evaluate(() => import('./js/store.js').then(s => s.byId('people', 's-maya').name));
       await page.evaluate(() => import('./js/pages/acts.js').then(m => m.openAct('s-owls'))); await sleep(500);
@@ -596,7 +596,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     /* =========== the search ([S-33]): a free Audiophile finds no working kind, All included =========== */
     {
       const PAID = ['people', 'songs', 'setlists', 'gear', 'logs', 'money'];
-      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile' } });
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile' } });
       await sampleIn(page);
       await page.evaluate(() => import('./js/search.js').then(m => m.searchReady()));
       const found = () => page.evaluate(() => import('./js/search.js').then(m => { const r = m.searchAll('e'); return Object.keys(r).filter(k => r[k].length); }));
@@ -629,38 +629,38 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
 
     /* ======================================= the guards ======================================= */
     {
-      // The second copy: gdex-licence deleted by hand.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - 10 * DAY) } });
+      // The second copy: tourbook-licence deleted by hand.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - 10 * DAY) } });
       await sleep(500);
       const left = (await state(page)).trialLeft;
-      await page.evaluate(() => localStorage.removeItem('gdex-licence'));
+      await page.evaluate(() => localStorage.removeItem('tourbook-licence'));
       await reload(page); await sleep(600);
       const again = await state(page);
-      ok('gdex-licence deleted by hand: the same free days left after a reload (the IndexedDB copy)', left === 20 && again.trialLeft === left && again.mode === 'trial', JSON.stringify({ left, again }));
+      ok('tourbook-licence deleted by hand: the same free days left after a reload (the IndexedDB copy)', left === 20 && again.trialLeft === left && again.mode === 'trial', JSON.stringify({ left, again }));
       await ctx.close();
     }
     {
-      // The one key gdex-licence changed by hand with Gdex open ([S-27]): emptied, or its start moved to now. Nothing starts
+      // The one key tourbook-licence changed by hand with Tourbook open ([S-27]): emptied, or its start moved to now. Nothing starts
       // again: the visit never takes a later start than one it has known, and the IndexedDB copy is joined, not overwritten,
-      // so coming back (Gdex looks again) and a reload keep the free days over.
+      // so coming back (Tourbook looks again) and a reload keep the free days over.
       for (const how of ['emptied', 'given a later start']) {
-        const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+        const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': ended() } });
         await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page); await sleep(1500);
         const kv0 = await second(page);
-        await page.evaluate(empty => { const s = JSON.parse(localStorage.getItem('gdex-licence')); localStorage.setItem('gdex-licence', empty ? '{}' : JSON.stringify({ ...s, first: Date.now(), seen: Date.now() - 120e3 })); }, how === 'emptied');
+        await page.evaluate(empty => { const s = JSON.parse(localStorage.getItem('tourbook-licence')); localStorage.setItem('tourbook-licence', empty ? '{}' : JSON.stringify({ ...s, first: Date.now(), seen: Date.now() - 120e3 })); }, how === 'emptied');
         const now = await state(page);
         await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await sleep(1500);
         const back = await state(page), kv1 = await second(page), rec = await stored(page);
         await reload(page); await sleep(1000);
         const after = await state(page);
-        ok(`gdex-licence ${how} by hand with Gdex open: the free days are still over at once, on coming back and after a reload, and both copies keep the start`, !!kv0 && now.mode === 'ended' && back.mode === 'ended' && after.mode === 'ended' && kv1 && kv1.first === kv0.first && rec.first === kv0.first, JSON.stringify({ kv0, now: [now.mode, now.trialLeft], back: [back.mode, back.trialLeft], kv1, rec, after: [after.mode, after.trialLeft] }));
+        ok(`tourbook-licence ${how} by hand with Tourbook open: the free days are still over at once, on coming back and after a reload, and both copies keep the start`, !!kv0 && now.mode === 'ended' && back.mode === 'ended' && after.mode === 'ended' && kv1 && kv1.first === kv0.first && rec.first === kv0.first, JSON.stringify({ kv0, now: [now.mode, now.trialLeft], back: [back.mode, back.trialLeft], kv1, rec, after: [after.mode, after.trialLeft] }));
         await ctx.close();
       }
     }
     {
       // The clock wound 400 days on, Producer picked there, then back: a wrong clock, read-only, its sheet; the server's time corrects it.
       const real = Date.now();
-      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() }, clockAt: real + 400 * DAY });
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed() }, clockAt: real + 400 * DAY });
       srv.offline = true; // no answer from the server meanwhile (any answer's time would put the clock right at once)
       await go(page, 'settings'); await sleep(300);
       await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
@@ -671,7 +671,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await reload(page);
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 });
       const st = await state(page);
-      ok('…the clock set back: mode clock, read-only, and its own sheet', st.mode === 'clock' && st.canEdit === false && (await sheets(page)).join() === 'Your device’s clock looks wrong' && /Gdex can’t count your free days while this device’s date and time are off by more than a day\./.test(await page.textContent('.sheet.licence-over')), JSON.stringify(st));
+      ok('…the clock set back: mode clock, read-only, and its own sheet', st.mode === 'clock' && st.canEdit === false && (await sheets(page)).join() === 'Your device’s clock looks wrong' && /Tourbook can’t count your free days while this device’s date and time are off by more than a day\./.test(await page.textContent('.sheet.licence-over')), JSON.stringify(st));
       srv.offline = false; srv.date = () => new Date(real + 3 * HOUR + 10 * 60e3);
       await page.evaluate(() => import('./js/licence-web.js').then(m => m.status(true)));
       await sleep(700);
@@ -681,7 +681,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     }
     {
       const t = Date.now();
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': { on: true, statusAt: t, first: t + 2 * DAY, seen: t + 2 * DAY } } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), 'tourbook-licence': { on: true, statusAt: t, first: t + 2 * DAY, seen: t + 2 * DAY } } });
       const st = await state(page);
       ok('a start two days in the future: a wrong clock', st.mode === 'clock' && st.canEdit === false, JSON.stringify(st));
       ok('…the Audiophile’s working sections are locked meanwhile', (await page.evaluate(() => import('./js/licence-state.js').then(m => m.mayOpen('people')))) === 'locked');
@@ -690,7 +690,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // The pause: a fresh { on: false } opens everything; 13 hours old it does not; a blocked status or an HTML page leaves it on.
       const t = Date.now(), first = t - 31 * DAY;
-      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': { on: false, statusAt: t, first, seen: t - HOUR } } });
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), 'tourbook-licence': { on: false, statusAt: t, first, seen: t - HOUR } } });
       let st = await state(page);
       ok('a fresh pause opens everything: mode off, a working section opens, a working role can be picked', st.mode === 'off' && (await go(page, 'people')) === true && (await page.evaluate(() => import('./js/licence-state.js').then(m => m.mayPickRole('producer')))) === 'open', JSON.stringify(st));
       srv.status = 'abort';
@@ -712,12 +712,12 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
 
     /* =========== one toast per start; a pause found as a section is opened; the terms agreed later; the price =========== */
     {
-      const started = async page => (await toasts(page)).filter(t => /free days of Gdex’s working roles have started/.test(t)).length;
-      let { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'band', 'gdex-terms': agreed() } });
+      const started = async page => (await toasts(page)).filter(t => /free days of Tourbook’s working roles have started/.test(t)).length;
+      let { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'band', 'tourbook-terms': agreed() } });
       await sleep(1800);
       ok('opened in a working role, terms agreed: the free days start with one toast, not two', (await state(page)).mode === 'trial' && (await started(page)) === 1, JSON.stringify(await toasts(page)));
       await ctx.close();
-      ({ ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() } }));
+      ({ ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed() } }));
       await go(page, 'settings'); await sleep(300);
       await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
       await page.click('#se-role .rp-card[data-role="manager"]'); await sleep(1200);
@@ -726,7 +726,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     }
     {
       // The status last asked 7 hours ago; the server now says paused, as the Audiophile taps People.
-      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': { on: true, statusAt: Date.now() - 7 * HOUR } } });
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), 'tourbook-licence': { on: true, statusAt: Date.now() - 7 * HOUR } } });
       srv.on = false;
       const shown = await go(page, 'people'); await sleep(400);
       ok('a pause found as an Audiophile opens People: it opens (paused, everything is open), nothing started', shown === true && (await page.evaluate(() => window.logiPage())) === 'people' && (await state(page)).mode === 'off' && !(await stored(page)).first, JSON.stringify({ shown, st: await state(page) }));
@@ -734,7 +734,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     }
     {
       // Not now at opening; then another working role picked, its terms agreed there.
-      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' } });
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer' } });
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
       await page.click('#lic-terms-later'); await sleep(400);
       await go(page, 'settings'); await sleep(300);
@@ -743,13 +743,13 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.waitForSelector('#lic-terms-ok', { timeout: 8000 });
       await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); await sleep(1200);
       const st = await state(page);
-      ok('Not now at opening, then Band picked and the terms agreed there: Band, the free days started, changes allowed', (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'band' && st.mode === 'trial' && await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite())), JSON.stringify(st));
+      ok('Not now at opening, then Band picked and the terms agreed there: Band, the free days started, changes allowed', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'band' && st.mode === 'trial' && await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite())), JSON.stringify(st));
       await ctx.close();
     }
     {
-      // The Jack of Trades profile ('all', also what closing "Who's using Gdex?" leaves while it may be used) in a sentence is
+      // The Jack of Trades profile ('all', also what closing "Who's using Tourbook?" leaves while it may be used) in a sentence is
       // "the Jack of Trades role", so the words never read "Jack of Trades needs a licence" as if it were a person.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'all', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'all', 'tourbook-terms': agreed(), 'tourbook-licence': ended() } });
       const E = await page.evaluate(() => import('./js/roles.js').then(r => r.EVERYTHING.label));
       await page.waitForSelector('.sheet.licence-over', { timeout: 8000 });
       const over = await page.textContent('.sheet.licence-over');
@@ -761,14 +761,14 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.evaluate(() => import('./js/licence.js').then(m => m.offerRole('all'))); await sleep(400);
       const offerTitle = (await sheets(page)).join(), offerWords = await page.textContent('.sheet.licence-needed').catch(() => '');
       ok(`the ${E} role in a sentence: read-only in the ${E} role at opening, on the bar and after a refused change, and the offer is titled "The ${E} role needs a licence"`,
-        over.includes(`Gdex is read-only in the ${E} role on this device until there is a licence`) && !over.includes(`as ${E}`)
+        over.includes(`Tourbook is read-only in the ${E} role on this device until there is a licence`) && !over.includes(`as ${E}`)
         && bar.startsWith(`Read-only: the ${E} role needs a licence`)
         && ro.startsWith(`Your free days are over, so the ${E} role can’t change things on this device.`)
         && offerTitle === `The ${E} role needs a licence` && offerWords.includes(`The ${E} role comes with a licence.`),
         JSON.stringify({ over: over.slice(0, 120), bar, ro: ro.slice(0, 90), offerTitle }));
-      // The bar's ✕ hides it until Gdex is next opened, and the focus goes to the page, not nowhere.
+      // The bar's ✕ hides it until Tourbook is next opened, and the focus goes to the page, not nowhere.
       await closeTop(page);
-      await page.focus('.licence-bar [aria-label="Hide until Gdex is next opened"]'); await page.keyboard.press('Enter'); await sleep(300);
+      await page.focus('.licence-bar [aria-label="Hide until Tourbook is next opened"]'); await page.keyboard.press('Enter'); await sleep(300);
       const hid = await page.evaluate(() => ({ bar: document.querySelectorAll('.licence-bar').length, focus: (document.activeElement || {}).id || (document.activeElement || {}).tagName }));
       ok('the read-only bar’s ✕ hides it, with the focus on the page', hid.bar === 0 && hid.focus === 'page', JSON.stringify(hid));
       await ctx.close();
@@ -776,12 +776,12 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // A refused change with no form (Load the sample, Bring back a backup's Merge): "Nothing was changed.", never "what
       // you typed is still in the form".
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': ended() } });
       await page.waitForSelector('.sheet.licence-over', { timeout: 8000 }); await closeTop(page);
       await go(page, 'settings'); await sleep(300); await page.evaluate(() => { for (let d = document.getElementById('se-sample-load').closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true; }); await page.click('#se-sample-load'); await sleep(600);
       const sample = await page.textContent('.sheet.licence-readonly .lic-ro p').catch(() => '');
       await closeTop(page);
-      await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/backup.js')]).then(([s, b]) => { b.importBackup(new File([s.serialize()], 'gdex-backup-test.json', { type: 'application/json' })); }));
+      await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/backup.js')]).then(([s, b]) => { b.importBackup(new File([s.serialize()], 'tourbook-backup-test.json', { type: 'application/json' })); }));
       await page.waitForSelector('.sheet[aria-label="Bring back a backup"]');
       await page.click('.sheet[aria-label="Bring back a backup"] .se-imp-merge'); await sleep(600);
       const backup = await page.textContent('.sheet.licence-readonly .lic-ro p').catch(() => '');
@@ -791,7 +791,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // A free Audiophile's studio session or rehearsal, its free days over: every button on it offers the licence in the
       // words of what was tapped (the page's own note), not the working boxes'.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - 5 * DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - 5 * DAY) } });
       await sampleIn(page); await setLicence(page, ended()); await reload(page); await sleep(1000);
       const ids = await page.evaluate(() => import('./js/store.js').then(s => ['session', 'rehearsal'].map(k => (s.db.bookings.find(b => b.kind === k) || {}).id)));
       const seen = {};
@@ -803,7 +803,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
         seen[`${kind} ${label}`] = [(await sheets(page)).join(), (await page.textContent('.sheet.licence-needed .lic-offer p').catch(() => '')).slice(0, 200)];
         for (let i = 0; i < 3; i++) { await page.keyboard.press('Escape'); await sleep(150); }
       }
-      const want = { session: ['Studio sessions need a licence', 'Studio sessions come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence.'], rehearsal: ['Rehearsals need a licence', 'Rehearsals come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence.'] };
+      const want = { session: ['Studio sessions need a licence', 'Studio sessions come with Tourbook’s working roles: this one stays here for you to look at, and can be changed with a licence.'], rehearsal: ['Rehearsals need a licence', 'Rehearsals come with Tourbook’s working roles: this one stays here for you to look at, and can be changed with a licence.'] };
       const wrong = Object.entries(seen).filter(([k, v]) => { const w = want[k.split(' ')[0]]; return v === 'no button' ? !/Confirmed/.test(k) : !(v[0] === w[0] && v[1].startsWith(w[1])); });
       ok('a free Audiophile\'s studio session or rehearsal, free days over: Edit, Delete, Duplicate, the status and the page note\'s own Get a licence… offer "Studio sessions need a licence" or "Rehearsals need a licence", in the page note\'s words', ids.every(Boolean) && wrong.length === 0, JSON.stringify(wrong.length ? wrong : seen).slice(0, 400));
       await ctx.close();
@@ -812,14 +812,14 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       // The terms changed since they were agreed ([S-37], §9.4), the free days under way: the terms sheet comes again at
       // opening ("The terms have changed"). Not now: read-only for this visit, a refused change asks for the updated terms;
       // agreed there, the form that stayed open saves.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': { v: '2026-01-01', at: Date.now() - 30 * DAY }, 'gdex-licence': trialFrom(Date.now() - 3 * DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': { v: '2026-01-01', at: Date.now() - 30 * DAY }, 'tourbook-licence': trialFrom(Date.now() - 3 * DAY) } });
       const asked = await page.waitForSelector('.sheet[aria-label="The terms have changed"]', { timeout: 8000 }).then(() => true).catch(() => false);
       ok('the terms changed, the free days under way: the terms sheet comes again at opening, in its changed words', asked && /^Please read and agree to the updated terms to keep using the working roles\. Your information is safe and stays where it is\./.test(await page.textContent('.lic-terms p').catch(() => '')), (await sheets(page)).join(' | '));
       if (asked) {
         await sampleIn(page); // written while the sheet is up (nothing refused yet)
         await page.click('#lic-terms-later'); await sleep(800);
         const st = await state(page);
-        ok('…Not now: Producer kept, its free days running, but read-only for this visit', st.mode === 'trial' && (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'producer' && !(await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()))) && (await sheets(page)).length === 0, JSON.stringify({ st, sh: await sheets(page) }));
+        ok('…Not now: Producer kept, its free days running, but read-only for this visit', st.mode === 'trial' && (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'producer' && !(await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()))) && (await sheets(page)).length === 0, JSON.stringify({ st, sh: await sheets(page) }));
         await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-show1'))); await sleep(500);
         await page.click('.bk-edit'); await page.waitForSelector('.sheet form.form');
         await page.fill('[data-key="title"]', 'Saved once the terms are agreed');
@@ -829,13 +829,13 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
         await page.click('#lic-ro-terms');
         await page.waitForSelector('#lic-terms-ok'); await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); await sleep(800);
         await page.click('.sheet .form-actions .btn.primary'); await sleep(500);
-        ok('…agreed there: the terms kept in their new version, and the form saves', (await page.evaluate(() => JSON.parse(localStorage.getItem('gdex-terms')).v)) === TERMS_V && (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 's-show1').title || ''))) === 'Saved once the terms are agreed');
+        ok('…agreed there: the terms kept in their new version, and the form saves', (await page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-terms')).v)) === TERMS_V && (await page.evaluate(() => import('./js/store.js').then(s => s.byId('bookings', 's-show1').title || ''))) === 'Saved once the terms are agreed');
       }
       await ctx.close();
     }
     {
       // The same for an Audiophile whose free days are under way: picking a working role asks the updated terms first.
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile', 'gdex-terms': { v: '2026-01-01', at: Date.now() - 30 * DAY }, 'gdex-licence': trialFrom(Date.now() - 3 * DAY) } });
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': { v: '2026-01-01', at: Date.now() - 30 * DAY }, 'tourbook-licence': trialFrom(Date.now() - 3 * DAY) } });
       await sleep(1200);
       const atOpening = await sheets(page);
       await go(page, 'settings'); await sleep(300);
@@ -843,12 +843,12 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('#se-role .rp-card[data-role="band"]');
       const asked = await page.waitForSelector('.sheet[aria-label="The terms have changed"]', { timeout: 5000 }).then(() => true).catch(() => false);
       if (asked) await page.click('#lic-terms-later'); await sleep(400);
-      const kept = await page.evaluate(() => localStorage.getItem('gdex-role'));
+      const kept = await page.evaluate(() => localStorage.getItem('tourbook-role'));
       ok('an Audiophile in its free days, the terms changed: nothing at opening; picking Band asks the updated terms first, and Not now keeps the Audiophile', atOpening.length === 0 && asked && kept === 'audiophile', JSON.stringify({ atOpening, asked, kept }));
       await ctx.close();
     }
     {
-      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer' } });
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer' } });
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
       await page.click('#lic-terms-later'); await sleep(400);
       srv.on = false;
@@ -859,17 +859,17 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
     {
       // An IndexedDB that never answers (some Safari versions' first open): nothing waits on it for ever.
       const hang = () => { indexedDB.open = () => ({}); };
-      let { ctx, page } = await openLive(browser, errors, { init: hang, seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': ended() } });
+      let { ctx, page } = await openLive(browser, errors, { init: hang, seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': ended() } });
       await page.waitForSelector('.sheet.licence-over', { timeout: 8000 }).catch(() => {});
       ok('an IndexedDB that never answers: the free-days-over sheet still comes at opening', (await sheets(page)).join() === 'Your 30 free days are over', (await sheets(page)).join());
       await ctx.close();
-      ({ ctx, page } = await openLive(browser, errors, { init: hang, seed: { 'gdex-role': 'audiophile', 'gdex-terms': agreed() } }));
+      ({ ctx, page } = await openLive(browser, errors, { init: hang, seed: { 'tourbook-role': 'audiophile', 'tourbook-terms': agreed() } }));
       const shown = await Promise.race([go(page, 'songs').catch(() => 'closed'), sleep(9000).then(() => 'waiting')]);
       ok('…and an Audiophile’s working section still opens, starting the free days', shown === true && (await state(page)).mode === 'trial', JSON.stringify({ shown, st: await state(page) }));
       await ctx.close();
     }
     {
-      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'gdex-role': 'audiophile' } });
+      const { ctx, page, srv } = await openLive(browser, errors, { seed: { 'tourbook-role': 'audiophile' } });
       await go(page, 'settings'); await sleep(300);
       await page.evaluate(() => { document.getElementById('se-about').open = true; document.getElementById('se-role').open = true; }); await sleep(1500);
       ok('an Audiophile who never used a working role opens About & licence (Buy drawn): nothing is asked of the licence server, the price reads 20 USD', srv.asked.length === 0 && /Buy a licence · 20 USD/.test(await page.textContent('#se-about')), srv.asked.join(' '));

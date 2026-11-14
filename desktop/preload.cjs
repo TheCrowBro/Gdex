@@ -1,9 +1,9 @@
-// A tiny, explicit bridge for the page (window.gdexDesktop): the desktop app's version and update controls, Google's
+// A tiny, explicit bridge for the page (window.tourbookDesktop): the desktop app's version and update controls, Google's
 // sign-in in the web browser, and the licence. Nothing else from Node. The page tests for each member it uses.
 'use strict';
 const { contextBridge, ipcRenderer } = require('electron');
 const on = (channel, cb) => { const fn = (_e, s) => cb(s); ipcRenderer.on(channel, fn); return () => ipcRenderer.removeListener(channel, fn); };
-contextBridge.exposeInMainWorld('gdexDesktop', {
+contextBridge.exposeInMainWorld('tourbookDesktop', {
   platform: process.platform,
   // Updates (desktop/updater.cjs): { status, version, available, progress, url, error }
   checkForUpdates: () => ipcRenderer.invoke('updates:check'),

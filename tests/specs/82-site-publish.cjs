@@ -1,9 +1,9 @@
-// What gets published to gdex.crowmade.app (the build spec §6.3): tools/stage-site.mjs, run in a throw-away copy of the
+// What gets published to tourbook.crowmade.app (the build spec §6.3): tools/stage-site.mjs, run in a throw-away copy of the
 // repository (with a planted key file and ledger), copies every page and every file of the offline list and nothing
 // else (no desktop app, licence server, tools, docs, tests, key file or package file); the release stamp changes only
 // the build (the repository keeps the dev stamp, and --dev puts it back exactly); the Cloudflare copy's headers
 // carry each page's own policy; the addresses the Worker answers agree everywhere; and the publish workflow runs only by
-// hand, in the owner's protected Environment, after its guard, which refuses any Worker but Gdex's (tried here on
+// hand, in the owner's protected Environment, after its guard, which refuses any Worker but Tourbook's (tried here on
 // tampered copies). Node only: nothing is published and nothing reaches the network.
 const fs = require('fs');
 const os = require('os');
@@ -16,14 +16,14 @@ const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => (e
 const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1];
 
 (async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gdex-publish-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tourbook-publish-'));
   try {
     // A copy of the whole repository (desktop/, cloudflare/, docs/, tests/ and tools/ included, never .git or any
     // node_modules), with a key file and a ledger left lying at its top, as an owner's could be by mistake.
     const root = path.join(tmp, 'repo');
     fs.cpSync(REPO, root, { recursive: true, filter: src => !/(^|[\\/])(\.git|node_modules|output|site|dist)$/.test(path.relative(REPO, src)) || src === REPO });
-    fs.writeFileSync(path.join(root, 'gdex-licence-key-1.json'), '{"type":"gdex-licence-signing-key"}');
-    fs.writeFileSync(path.join(root, 'gdex-ledger.csv'), 'issued,ref,type,name,email,expires,seats,note,code\n');
+    fs.writeFileSync(path.join(root, 'tourbook-licence-key-1.json'), '{"type":"tourbook-licence-signing-key"}');
+    fs.writeFileSync(path.join(root, 'tourbook-ledger.csv'), 'issued,ref,type,name,email,expires,seats,note,code\n');
     const stage = (dest, ...args) => execFileSync(process.execPath, [path.join(root, 'tools/stage-site.mjs'), dest, ...args], { cwd: root, stdio: 'pipe' }).toString();
     const refusal = (...args) => { try { stage(...args); return ''; } catch (e) { return String(e.stderr); } };
     const { PAGES, WORKER_ROUTES } = await import(pathToFileURL(path.join(root, 'tools/site-files.mjs')).href);
@@ -53,7 +53,7 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
       const stamp = (...args) => execFileSync(process.execPath, [path.join(root, 'tools/stamp-build.mjs'), ...args], { cwd: root, stdio: 'pipe', env: { ...process.env, BUILD_SHA: 'abcdef0123456789abcdef0123456789abcdef01' } }).toString();
       const shellOf = t => t.match(/const SHELL = \[([\s\S]*?)\];/)[1];
       const changed = (a, b) => a.split('\n').filter((l, i) => l !== b.split('\n')[i]);
-      ok('the repository holds the dev stamp: BUILD \'dev\', no BUILT, cache gdex-dev', /export const BUILD = 'dev';/.test(before.v) && /export const BUILT = '';/.test(before.v) && /^const BUILD = 'dev';/m.test(before.sw) && /const CACHE = 'gdex-' \+ BUILD;/.test(before.sw));
+      ok('the repository holds the dev stamp: BUILD \'dev\', no BUILT, cache tourbook-dev', /export const BUILD = 'dev';/.test(before.v) && /export const BUILT = '';/.test(before.v) && /^const BUILD = 'dev';/m.test(before.sw) && /const CACHE = 'tourbook-' \+ BUILD;/.test(before.sw));
       const dayBefore = new Date().toISOString().slice(0, 10);
       stamp();
       const rel = { v: read('js/version.js'), sw: read('sw.js') }, days = [dayBefore, new Date().toISOString().slice(0, 10)]; // either, at midnight
@@ -107,11 +107,11 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
     const flows = fs.readdirSync(path.join(REPO, '.github/workflows')).filter(f => /\.ya?ml$/.test(f));
     const yml = fs.readFileSync(path.join(REPO, '.github/workflows/publish.yml'), 'utf8');
     const onBlock = (yml.match(/^on:\n((?:[ #].*\n)+)/m) || [])[1] || '';
-    ok('it runs only by hand: workflow_dispatch with a required "confirm", never on a push or a schedule', /^  workflow_dispatch:\n/m.test(onBlock) && !/^  (push|pull_request|schedule|workflow_run|release)/m.test(onBlock) && /confirm:\n\s+description: 'Type exactly: publish gdex'\n\s+required: true/.test(yml));
+    ok('it runs only by hand: workflow_dispatch with a required "confirm", never on a push or a schedule', /^  workflow_dispatch:\n/m.test(onBlock) && !/^  (push|pull_request|schedule|workflow_run|release)/m.test(onBlock) && /confirm:\n\s+description: 'Type exactly: publish tourbook'\n\s+required: true/.test(yml));
     const job = (yml.split('\n  publish:\n')[1] || '');
-    ok('the publishing job runs only on main, only with "publish gdex", in the owner\'s protected Environment gdex-live', /^    if: github\.ref == 'refs\/heads\/main' && inputs\.confirm == 'publish gdex'$/m.test(job) && /^    environment: gdex-live$/m.test(job) && /^permissions:\n  contents: read$/m.test(yml));
-    ok('its secrets come from that Environment, and only the deploy step sees them', (yml.match(/secrets\./g) || []).length === 2 && /Deploy the Worker gdex[^\n]*\n\s+working-directory: cloudflare\n\s+run: npx wrangler deploy --config wrangler\.jsonc\n\s+env:\n\s+CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}\n\s+CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/.test(yml));
-    const order = ['npm ci --prefix cloudflare', 'npm test', 'GDEX_LICENCE=on npm test', 'node tools/stamp-build.mjs', 'node -e "$GUARD"', 'node tools/stage-site.mjs cloudflare/site --cloudflare', 'npx wrangler deploy --config wrangler.jsonc', '/licence/activate'];
+    ok('the publishing job runs only on main, only with "publish tourbook", in the owner\'s protected Environment tourbook-live', /^    if: github\.ref == 'refs\/heads\/main' && inputs\.confirm == 'publish tourbook'$/m.test(job) && /^    environment: tourbook-live$/m.test(job) && /^permissions:\n  contents: read$/m.test(yml));
+    ok('its secrets come from that Environment, and only the deploy step sees them', (yml.match(/secrets\./g) || []).length === 2 && /Deploy the Worker tourbook[^\n]*\n\s+working-directory: cloudflare\n\s+run: npx wrangler deploy --config wrangler\.jsonc\n\s+env:\n\s+CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}\n\s+CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/.test(yml));
+    const order = ['npm ci --prefix cloudflare', 'npm test', 'TOURBOOK_LICENCE=on npm test', 'node tools/stamp-build.mjs', 'node -e "$GUARD"', 'node tools/stage-site.mjs cloudflare/site --cloudflare', 'npx wrangler deploy --config wrangler.jsonc', '/licence/activate'];
     const at = order.map(s => job.indexOf(s));
     ok('the steps: Wrangler, both test legs, the stamp, the guard, the staged site, the deploy, then live checks', at.every((n, i) => n > 0 && (i === 0 || n > at[i - 1])), order.filter((s, i) => !(at[i] > 0 && (i === 0 || at[i] > at[i - 1]))).join(', '));
     const actionsPinned = [...yml.matchAll(/uses: ([^\s]+)/g)].every(m => /@[0-9a-f]{40}$/.test(m[1]));
@@ -119,10 +119,10 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
     const wranglerUses = flows.flatMap(f => [...fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8').matchAll(/wrangler(?:-action)?\b[^\n]*/g)].map(m => `${f}: ${m[0]}`)).filter(l => !/^[^:]+: wrangler\.jsonc/.test(l) && !/cloudflare\/wrangler\.jsonc/.test(l));
     const commands = wranglerUses.filter(l => /wrangler (?!deploy\b)[a-z]/.test(l) || /wrangler-action/.test(l));
     ok('`wrangler deploy` is the only Wrangler command in any workflow (no delete, kv, r2 or secret)', commands.length === 0 && flows.every(f => !/wrangler\s+(delete|kv|r2|secret)/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8'))) && (yml.match(/npx wrangler deploy/g) || []).length === 1, commands.join(' | '));
-    const others = flows.filter(f => f !== 'publish.yml' && /CLOUDFLARE_API_TOKEN|environment: gdex-live/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8')));
+    const others = flows.filter(f => f !== 'publish.yml' && /CLOUDFLARE_API_TOKEN|environment: tourbook-live/.test(fs.readFileSync(path.join(REPO, '.github/workflows', f), 'utf8')));
     ok('no other workflow can publish (none uses the Cloudflare token or the Environment)', others.length === 0, others.join(', '));
     // What each key can reach, with the owner's open questions 1 and 2 on their defaults (one Stripe account, one Resend
-    // account and maybe one domain for Gdex and Vdex): the Stripe key reads every order in the account, Vdex's buyers'
+    // account and maybe one domain for Tourbook and Vdex): the Stripe key reads every order in the account, Vdex's buyers'
     // too, and a Resend key for a domain Vdex sends from can send as Vdex.
     const guide = fs.readFileSync(path.join(REPO, 'docs/licence-server.md'), 'utf8'), keyTable = (guide.split('## What each key can reach')[1] || '').split('\n## ')[0];
     const part5 = (guide.split('## Part 5.')[1] || '').split('\n## ')[0], questions = (fs.readFileSync(path.join(REPO, 'docs/go-live.md'), 'utf8').split('## Questions for you')[1] || '');
@@ -131,14 +131,14 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
     // default branch: the owner's list puts the work there first, and CLAUDE.md says publishing runs from main.
     const live = fs.readFileSync(path.join(REPO, 'docs/go-live.md'), 'utf8'), before9a = (live.split('## 9.')[1] || '').split('**(a)')[0];
     const claude = (fs.readFileSync(path.join(REPO, 'CLAUDE.md'), 'utf8').split('## Publishing')[1] || '');
-    ok('docs/go-live.md, before 9(a): the developer merges the finished work into main and pushes it, with the owner\'s go-ahead, so Actions shows Publish Gdex; CLAUDE.md says publishing runs from main', /\*\*\(0\) The work on `main`\.\*\* The developer merges the finished work into `main` and pushes it, with your go-ahead\./.test(before9a) && /only once its file \(`\.github\/workflows\/publish\.yml`\) is on the repository’s default branch, which must be\s+`main`/.test(before9a) && /Publishing runs from `main` only/.test(claude), before9a.trim().slice(0, 300));
+    ok('docs/go-live.md, before 9(a): the developer merges the finished work into main and pushes it, with the owner\'s go-ahead, so Actions shows Publish Tourbook; CLAUDE.md says publishing runs from main', /\*\*\(0\) The work on `main`\.\*\* The developer merges the finished work into `main` and pushes it, with your go-ahead\./.test(before9a) && /only once its file \(`\.github\/workflows\/publish\.yml`\) is on the repository’s default branch, which must be\s+`main`/.test(before9a) && /Publishing runs from `main` only/.test(claude), before9a.trim().slice(0, 300));
     // This launch (decisions §18: the licence off, no Google Drive, no desktop app) opens docs/go-live.md: the names the
-    // first publish makes are Gdex's own and the same as the configuration's (the KV store is named by Wrangler after the
+    // first publish makes are Tourbook's own and the same as the configuration's (the KV store is named by Wrangler after the
     // Worker and its binding, as it does when the configuration gives no id), the address is checked free first, and the
     // steps say how to undo it.
     const launch = (live.split('## Put the website live')[1] || '').split('\n## ')[0], wrc = JSON.parse(read('cloudflare/wrangler.jsonc').replace(/^\s*\/\/.*$/gm, ''));
     const kvName = `${wrc.name}-${wrc.kv_namespaces[0].binding.toLowerCase().replace(/_/g, '-')}`;
-    ok('docs/go-live.md opens with putting the website live: the Worker gdex at gdex.crowmade.app, its KV store gdex-licences and SignInCodes (the configuration\'s own names), the address checked free first, Rollback and Remove to undo it', live.indexOf('## Put the website live') < live.indexOf('## 1.') && kvName === 'gdex-licences' && launch.includes('**`' + kvName + '`**') && launch.includes('**`' + wrc.name + '`**') && launch.includes('**gdex.crowmade.app**') && launch.includes('**`' + wrc.durable_objects.bindings[0].class_name + '`**') && /no record named `gdex`/.test(launch) && /Rollback/.test(launch) && /Domains & Routes/.test(launch) && /npx wrangler deploy --config wrangler\.jsonc/.test(launch), kvName);
+    ok('docs/go-live.md opens with putting the website live: the Worker tourbook at tourbook.crowmade.app, its KV store tourbook-licences and SignInCodes (the configuration\'s own names), the address checked free first, Rollback and Remove to undo it', live.indexOf('## Put the website live') < live.indexOf('## 1.') && kvName === 'tourbook-licences' && launch.includes('**`' + kvName + '`**') && launch.includes('**`' + wrc.name + '`**') && launch.includes('**tourbook.crowmade.app**') && launch.includes('**`' + wrc.durable_objects.bindings[0].class_name + '`**') && /no record named `tourbook`/.test(launch) && /Rollback/.test(launch) && /Domains & Routes/.test(launch) && /npx wrangler deploy --config wrangler\.jsonc/.test(launch), kvName);
 
     /* ------------------------------ the guard ------------------------------ */
     const lines = yml.split('\n'), g = lines.findIndex(l => /^\s+GUARD: \|$/.test(l)), indent = (lines[g + 1] || '').match(/^\s*/)[0];
@@ -152,11 +152,11 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
       fs.writeFileSync(path.join(root, 'js/licence-keys.js'), change.web || files0.web);
       try { return { ok: true, out: execFileSync(process.execPath, [guardFile], { cwd: root, stdio: 'pipe' }).toString() }; } catch (e) { return { ok: false, out: String(e.stderr) }; }
     };
-    ok('the guard passes Gdex\'s own configuration as it is in the repository', g > 0 && tryGuard().ok, tryGuard().out.trim());
+    ok('the guard passes Tourbook\'s own configuration as it is in the repository', g > 0 && tryGuard().ok, tryGuard().out.trim());
     const tampered = [
-      ['a Worker named vdex', /not "gdex"/, { wr: t => t.replace('"name": "gdex"', '"name": "vdex"') }],
-      ['Vdex\'s address as the route', /only route/, { wr: t => t.replace('"pattern": "gdex.crowmade.app"', '"pattern": "vdex.crowmade.app"') }],
-      ['a second route', /only route/, { wr: t => t.replace('"routes": [{ "pattern": "gdex.crowmade.app", "custom_domain": true }]', '"routes": [{ "pattern": "gdex.crowmade.app", "custom_domain": true }, { "pattern": "crowmade.app/*", "zone_name": "crowmade.app" }]') }],
+      ['a Worker named vdex', /not "tourbook"/, { wr: t => t.replace('"name": "tourbook"', '"name": "vdex"') }],
+      ['Vdex\'s address as the route', /only route/, { wr: t => t.replace('"pattern": "tourbook.crowmade.app"', '"pattern": "vdex.crowmade.app"') }],
+      ['a second route', /only route/, { wr: t => t.replace('"routes": [{ "pattern": "tourbook.crowmade.app", "custom_domain": true }]', '"routes": [{ "pattern": "tourbook.crowmade.app", "custom_domain": true }, { "pattern": "crowmade.app/*", "zone_name": "crowmade.app" }]') }],
       ['a workers.dev address', /workers_dev/, { wr: t => t.replace('"workers_dev": false', '"workers_dev": true') }],
       ['an "env" of its own', /"env" of its own/, { wr: t => t.replace('"main": "worker.mjs",', '"main": "worker.mjs", "env": { "x": { "name": "vdex" } },') }],
       ['someone else\'s storage by id', /only storage is LICENCES/, { wr: t => t.replace('[{ "binding": "LICENCES" }]', '[{ "binding": "LICENCES", "id": "0123456789abcdef" }]') }],
@@ -166,8 +166,8 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
       ['a migration that deletes the sign-in codes', /only Durable Object/, { wr: t => t.replace('"new_sqlite_classes": ["SignInCodes"] }]', '"new_sqlite_classes": ["SignInCodes"] }, { "tag": "v2", "deleted_classes": ["SignInCodes"] }]') }],
       ['the whole repository as the website\'s files', /staged website/, { wr: t => t.replace('"directory": "./site"', '"directory": ".."') }],
       ['a script of its own', /cloudflare\/worker\.mjs/, { wr: t => t.replace('"main": "worker.mjs"', '"main": "other.mjs"') }],
-      ['licences live with no keys built in', /no shop key/, { cfg: "export const LICENCE_SITES = ['gdex.crowmade.app'];\n" }],
-      ['licences live with the web copy of the keys out of date', /differs from desktop\/licence-keys\.json/, { cfg: "export const LICENCE_SITES = ['gdex.crowmade.app'];\n", keys: '{"1":"a","2":"b","9":"c"}', web: '// x\nexport const LICENCE_KEYS = {};\n' }],
+      ['licences live with no keys built in', /no shop key/, { cfg: "export const LICENCE_SITES = ['tourbook.crowmade.app'];\n" }],
+      ['licences live with the web copy of the keys out of date', /differs from desktop\/licence-keys\.json/, { cfg: "export const LICENCE_SITES = ['tourbook.crowmade.app'];\n", keys: '{"1":"a","2":"b","9":"c"}', web: '// x\nexport const LICENCE_KEYS = {};\n' }],
     ];
     // Wrangler takes wrangler.json before wrangler.jsonc, from its folder or any folder above it, and follows a
     // .wrangler/deploy/config.json: a planted one would be deployed instead of the file the guard reads.
@@ -182,8 +182,8 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
       if (planted) fs.rmSync(planted);
       return r.ok || !why.test(r.out) || !/Nothing was published/.test(r.out);
     }).map(([what]) => what);
-    ok('the guard refuses, each for its own reason, every configuration that is not Gdex\'s own, and live licences without the keys', missed.length === 0, missed.join(', '));
-    ok('…and passes live licences once the keys are in both places', tryGuard({ cfg: "export const LICENCE_SITES = ['gdex.crowmade.app'];\n", keys: '{"1":"a","2":"b","9":"c"}', web: '// Generated\nexport const LICENCE_KEYS = {"1":"a","2":"b","9":"c"};\n' }).ok);
+    ok('the guard refuses, each for its own reason, every configuration that is not Tourbook\'s own, and live licences without the keys', missed.length === 0, missed.join(', '));
+    ok('…and passes live licences once the keys are in both places', tryGuard({ cfg: "export const LICENCE_SITES = ['tourbook.crowmade.app'];\n", keys: '{"1":"a","2":"b","9":"c"}', web: '// Generated\nexport const LICENCE_KEYS = {"1":"a","2":"b","9":"c"};\n' }).ok);
     tryGuard();
   } catch (e) {
     console.log('FAIL spec crashed — ' + (e && (e.stderr ? String(e.stderr) : e.stack) || e));

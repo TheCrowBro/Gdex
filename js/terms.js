@@ -1,14 +1,14 @@
 // Agreeing to the terms, once, at the first paid use (the build spec [S-37]; owner question 8, answered: a one-time
 // sheet). The free Audiophile never sees it: it is asked only while licences are on, the first time the free days would
 // start (a working role picked or used, a working section, box or record opened), and again when TERMS_VERSION changes
-// (bump it with terms.html's date). Agreed: gdex-terms { v, at } on this device (Erase keeps it). Not now: nothing starts.
-// TERMS_SHEET = false removes the sheet (using Gdex then means agreeing, as terms.html §1 says, and Stripe's checkout
+// (bump it with terms.html's date). Agreed: tourbook-terms { v, at } on this device (Erase keeps it). Not now: nothing starts.
+// TERMS_SHEET = false removes the sheet (using Tourbook then means agreeing, as terms.html §1 says, and Stripe's checkout
 // asks for the tick). It imports nothing of the licence: js/licence-state.js passes whether licences are on.
 import { h, sheet } from './util.js';
 
 export const TERMS_SHEET = true;
 export const TERMS_VERSION = '2026-11-13'; // the terms' date, plus a count for a second change on the same day
-const KEY = 'gdex-terms';
+const KEY = 'tourbook-terms';
 const read = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return v && typeof v === 'object' ? v : null; } catch { return null; } };
 let agreedNow = false; // agreed this visit where storage could not keep it
 
@@ -17,7 +17,7 @@ export const termsDue = on => !!(TERMS_SHEET && on && !agreedNow && (read() || {
 export const termsChanged = on => termsDue(on) && !!read();
 
 let asking = null;
-// The sheet of §9.4. Resolves true once agreed (after writing gdex-terms), false when closed without agreeing.
+// The sheet of §9.4. Resolves true once agreed (after writing tourbook-terms), false when closed without agreeing.
 export function askTerms({ once = '20 USD once plus any tax where you live' } = {}) {
   if (asking) return asking;
   asking = new Promise(resolve => {
@@ -35,11 +35,11 @@ export function askTerms({ once = '20 USD once plus any tax where you live' } = 
       close();
     } },
       h('p', null, changed ? 'Please read and agree to the updated terms to keep using the working roles. Your information is safe and stays where it is.'
-        : `Gdex’s working roles and sections are free for 30 days on this device, then need a licence: ${once}, for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Gdex’s terms.`),
+        : `Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ${once}, for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Tourbook’s terms.`),
       h('ul', { class: 'lic-terms-points' },
-        h('li', null, 'Gdex comes as it is. It can have mistakes or lose information, so keep your own backups.'),
+        h('li', null, 'Tourbook comes as it is. It can have mistakes or lose information, so keep your own backups.'),
         h('li', null, 'You stay responsible for your shows, sessions, day sheets, quotes and invoices, your taxes, people’s safety and the information you keep about others.'),
-        h('li', null, 'The developer’s responsibility is limited (', link('terms.html#liability', 'sections 13 to 16'), '). If you use Gdex for your business, many kinds of loss are excluded and the rest is capped at 50 US dollars. If you use it as a consumer, you keep your legal rights.'),
+        h('li', null, 'The developer’s responsibility is limited (', link('terms.html#liability', 'sections 13 to 16'), '). If you use Tourbook for your business, many kinds of loss are excluded and the rest is capped at 50 US dollars. If you use it as a consumer, you keep your legal rights.'),
         h('li', null, 'Your work stays on your device, and in a Google Drive you connect. The developer never receives it.')),
       h('p', { class: 'lic-terms-links' }, link('terms.html', 'Read the terms of service'), link('privacy.html', 'Read the privacy policy')),
       h('label', { class: 'lic-terms-check', for: 'lic-terms-ok' }, box, h('span', null, 'I am 18 or over, and I have read and agree to the ', link('terms.html', 'terms of service'), '.')),

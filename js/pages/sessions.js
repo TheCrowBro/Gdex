@@ -20,7 +20,7 @@ import { sectionName } from '../roles.js';
 import { gateWork } from '../licence-state.js'; // the working boxes and paid records a free role reaches (the build spec [S-3])
 
 const H = 36e5;
-const KEY = 'gdex-studio-log'; // the open log, so a reload comes back to it
+const KEY = 'tourbook-studio-log'; // the open log, so a reload comes back to it
 // The page's own state, kept between redraws: the open log, the keepers filter, the search, and the note being typed
 // (its text, the moment typing started, and the take it belongs to).
 const S = { id: null, keepers: false, q: '', draft: '', stampAt: null, stampTake: null, lastAdded: null };

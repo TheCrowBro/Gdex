@@ -1,6 +1,6 @@
-# Gdex: how it is built
+# Tourbook: how it is built
 
-Gdex is the booking deck for **music producers and their bands**: shows, studio sessions and rehearsals; acts, people,
+Tourbook is the booking deck for **music producers and their bands**: shows, studio sessions and rehearsals; acts, people,
 backline and venues; songs, setlists and split sheets; day sheets, settlements, quotes and invoices; and the tools a
 musician needs on the night (tuner, metronome, delay times, sound level meter, set timer).
 
@@ -13,17 +13,17 @@ keeps its own storage, cache and files.
 It is a plain web app: ES modules, no framework, no build step, no external libraries or CDNs in the app (only
 `vendor/qrcode.js`; Google's sign-in script is loaded from Google only once someone taps Connect Google Drive…). It works
 offline once opened, installs to a home screen, and keeps all data in the browser's `localStorage` under keys that
-start with `gdex-` (and one IndexedDB database, `gdex`). A desktop app for Windows, Mac and Linux (`desktop/`,
+start with `tourbook-` (and one IndexedDB database, `tourbook`). A desktop app for Windows, Mac and Linux (`desktop/`,
 Electron) wraps the same files.
 
 **What leaves the device.** Nothing of the person's goes to a server except:
 
 * **Google Drive**, only when the person connects it (free for everyone): Google's sign-in script, loaded from Google
   only once they tap Connect Google Drive… (as its sheet opens, so Google's window can open straight from the tap on
-  Continue with Google: Google sees the address even after Not now); the whole Gdex database and daily dated copies, in
-  a hidden Gdex folder of their own Drive, with the day their free days first started (`freeDaysFrom`). Nobody who never
+  Continue with Google: Google sees the address even after Not now); the whole Tourbook database and daily dated copies, in
+  a hidden Tourbook folder of their own Drive, with the day their free days first started (`freeDaysFrom`). Nobody who never
   taps Connect Google Drive… contacts Google.
-* **Gdex's licence server** at gdex.crowmade.app (`cloudflare/worker.mjs`), only once licences are live
+* **Tourbook's licence server** at tourbook.crowmade.app (`cloudflare/worker.mjs`), only once licences are live
   (`LICENCE_SITES` in `js/licence-config.js`, `[]` until the owner publishes; `desktop/licence-on.json` for the
   desktop app) and only for the licence: a status question with nothing in it (at most every 6 hours, and only from a
   browser that uses a working role, has started its free days or is signed in), the price for the country (when a Buy
@@ -32,8 +32,8 @@ Electron) wraps the same files.
   are off nothing at all goes to it.
 
 The only other network calls are OpenStreetMap's map tiles and address search, and the desktop app's update checks at
-the download address in `desktop/updater.cjs` (`https://gdex-download.crowmade.app/`). A day sheet never carries money.
-Gdex never shares a storage key, a licence key or prefix, a port, an app id, a download bucket or an update channel
+the download address in `desktop/updater.cjs` (`https://tourbook-download.crowmade.app/`). A day sheet never carries money.
+Tourbook never shares a storage key, a licence key or prefix, a port, an app id, a download bucket or an update channel
 with Vdex.
 
 ## Running it
@@ -44,7 +44,7 @@ node tests/run.mjs 30- songs    # only specs whose file name contains "30-" or "
 node tools/stamp-build.mjs --dev  # after adding or removing a file: refreshes the offline file list in sw.js
 node tools/stamp-build.mjs        # the release stamp: only a publish runs it (docs/go-live.md); never commit it, CI needs 'dev'
 npm run serve                   # http://localhost:8124/
-GDEX_LICENCE=on node tests/run.mjs  # every spec with licences live on the test host (CI's second leg)
+TOURBOOK_LICENCE=on node tests/run.mjs  # every spec with licences live on the test host (CI's second leg)
 npm ci --prefix cloudflare      # once: Wrangler and Miniflare, so the licence server's specs (79, 81) run
 npm start                       # the desktop app (after npm install; Electron is downloaded the first time)
 xvfb-run -a npm run test:desktop  # the desktop app's smoke test (tests/desktop.mjs)
@@ -59,7 +59,7 @@ Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` before `npm ci` unless you need the deskto
 | `index.html` | The app. Links `styles.css` and every `css/*.css`. |
 | `invoice.html`, `daysheet.html` | Share pages: open a document packed into the link (no server). |
 | `privacy.html`, `terms.html` | The privacy policy and the terms of service: no script, their own policy (Part B of item 9; the owner reads them before anything is published). |
-| `download.html` | Gdex for computers: the desktop app's download page (not linked from the app until the owner publishes). Until the first public desktop release it links no installer and says the app is coming (`docs/desktop.md`, Releasing, step 0). |
+| `download.html` | Tourbook for computers: the desktop app's download page (not linked from the app until the owner publishes). Until the first public desktop release it links no installer and says the app is coming (`docs/desktop.md`, Releasing, step 0). |
 | `styles.css` | Core styles and themes (copied from Vdex, re-skinned). |
 | `css/<feature>.css` | One stylesheet per feature, owned by that feature. |
 | `js/app.js` | Boot, the section menu, sections, redraw on change. |
@@ -72,20 +72,20 @@ Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` before `npm ci` unless you need the deskto
 | `js/search.js`, `js/search-dates.js` | The search: the box at the top of every page (in the section menu's bar), the `/` key and the results it opens over the page; the dates it reads. |
 | `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `js/licence-config.js`, `js/licence-keys.js`, `js/tax.js`, `css/licence.css` | The licence (below): the state every module asks, its sheets, panel and bar, the website's talk with the licence server, the sign-in's signature check, the one-time terms sheet, the owner's switch, the public keys (generated), the price with tax. |
 | `js/drive.js`, `js/sync.js`, `js/cloud-config.js`, `js/kv.js` | Google Drive (below): Google's sign-in and the Drive files, keeping this device and Drive the same, the owner's Google client id; the IndexedDB store both the backup file and the licence use. |
-| `cloudflare/` | The licence server: `worker.mjs` (the Worker at gdex.crowmade.app that also serves the site), `wrangler.jsonc`, its own `package.json` for Wrangler and Miniflare. `docs/licence-server.md`. |
+| `cloudflare/` | The licence server: `worker.mjs` (the Worker at tourbook.crowmade.app that also serves the site), `wrangler.jsonc`, its own `package.json` for Wrangler and Miniflare. `docs/licence-server.md`. |
 | `desktop/` | The desktop app (Electron, CommonJS `.cjs`): `main.cjs`, `preload.cjs` (the bridge), `licence.cjs`, `licence-codes.cjs` (the code format, shared with the Worker and the generator), `licence-keys.json`, `licence-on.json` (the desktop's switch), `updater.cjs`. `docs/desktop.md`. |
 | `docs/` | This file; `go-live.md` (the owner's list, in order), `licence-server.md`, `desktop.md`, `drive.md`. |
 | `js/blocks/*.js` | Boxes on a booking's page (deal, setlist, guest list…), listed in `js/blocks/index.js`. |
 | `js/*.js` | Shared modules (see below). |
 | `tests/` | `run.mjs`, `lib.mjs`, `helpers.cjs`, `specs/NN-name.cjs`. |
 | `tools/` | `stamp-build.mjs`, `site-files.mjs`, `prune-css.mjs` (reports the rules of `styles.css` nothing uses), `stage-site.mjs` (copies the site's files into `cloudflare/site/` for a publish; it refuses to empty a folder that is not new, empty or an earlier stage), `licence-keys.mjs` (writes `js/licence-keys.js` from `desktop/licence-keys.json`), `build-generator.mjs` and `licence-generator*.html` (the owner's key and code generator, opened from a file). |
-| `.github/workflows/` | `tests.yml` (both legs, and the desktop smoke test), `publish.yml` (by hand only, in the protected Environment `gdex-live`, behind a config guard), `desktop.yml` (builds installers by hand; uploads nothing). |
+| `.github/workflows/` | `tests.yml` (both legs, and the desktop smoke test), `publish.yml` (by hand only, in the protected Environment `tourbook-live`, behind a config guard), `desktop.yml` (builds installers by hand; uploads nothing). |
 
 ## The sections (tracks on the section menu)
 
 | id | Label | Module | What it is |
 |---|---|---|---|
-| `bookings` | Bookings | `pages/bookings.js` | The calendar (month, two weeks, week, three days, day: `js/bookings-cal.js`) with Coming up under it; the booking page with its blocks. Gdex opens here every time. |
+| `bookings` | Bookings | `pages/bookings.js` | The calendar (month, two weeks, week, three days, day: `js/bookings-cal.js`) with Coming up under it; the booking page with its blocks. Tourbook opens here every time. |
 | `acts` | Acts | `pages/acts.js` | Bands and artists as drop-down cards, folded under their main genre (Rock, Pop…) once there are two or more: times seen live with scores out of 100 and dates coming up; the log of each time seen; members, links, press kit (EPK) with QR, tech rider (input list, stage plot), hospitality rider; for a producer, a manager and Jack of Trades, a QR code of the act's sample work on its open card. |
 | `people` | People | `pages/people.js` | Band members, session players, crew, industry contacts (promoters, agents…). |
 | `songs` | Songs | `pages/songs.js` | Song library (key, BPM, length, status, album, split sheet), folded by act and album, and setlists. |
@@ -104,23 +104,23 @@ off the menu as the bonus track.
 
 ## Roles (`js/roles.js`, `js/role-pick.js`)
 
-The first open asks who is using Gdex: producer, manager, band, solo artist, scout or audiophile, or Jack of Trades
+The first open asks who is using Tourbook: producer, manager, band, solo artist, scout or audiophile, or Jack of Trades
 (Master of None: every section), the seventh card, listed last (`askRole` in `js/role-pick.js`, then the welcome tour
 for that role, `startTour(0, { first: true })`, which ends on the calendar however it ends, so "Did you see them?" is
 asked there; taken again later, from ?, Aa or Settings, the
 tour ends on the section it was started from: `runTour(steps, { onEnd })`). Settings → Your role swaps it (`rolePanel`). A
 device whose welcome tour was done before roles came gets one card under the menu instead (`nudgeRole`, shown once:
-`gdex-role-nudged`; closing the first-run question without a pick sets it too, so that person never sees the card).
+`tourbook-role-nudged`; closing the first-run question without a pick sets it too, so that person never sees the card).
 The question and the tour wait while a sheet (the sleeve, tapped in the first moment) is open. Their words, like the
 sleeve's, follow the section menu (`menuWords()` in `js/a11y.js` gives `{ list, tap, Tap }`): "the sleeve" / "tap the
 record", "the track list" / "tap Tracks" on the tape deck, "the track list" / "tap ☰" on the digital player. Never
 compare `menuStyle()` to build such a sentence. (`js/tour.js` cannot import `a11y.js`, which imports it: its
 `menuKind()` reads `data-menu` on the `html` element, which `applyPrefs()` sets to the menu in use, so it is right even
-when storage could not keep the choice; storage is only the fall-back.) The role is a device preference in `localStorage` `gdex-role`, never in the database, so a swap
-writes nothing to `gdex-db` and backups do not carry it; Erase this device clears it. With none saved the role is
-`EVERYTHING`, called Jack of Trades on screen (id `all`, the value `gdex-role` keeps when it is picked; the constant
+when storage could not keep the choice; storage is only the fall-back.) The role is a device preference in `localStorage` `tourbook-role`, never in the database, so a swap
+writes nothing to `tourbook-db` and backups do not carry it; Erase this device clears it. With none saved the role is
+`EVERYTHING`, called Jack of Trades on screen (id `all`, the value `tourbook-role` keeps when it is picked; the constant
 and the id kept their old names, so nothing stored changed): every section on the menu, every box, no page defaults,
-as Gdex always was. Closing the first-run question without a pick leaves it there, with no role saved; but while Jack of
+as Tourbook always was. Closing the first-run question without a pick leaves it there, with no role saved; but while Jack of
 Trades cannot be picked (`mayPickRole('all')` is `'locked'`: licences live, the free days over, no licence) it leaves the
 Audiophile, saved, as Carry on free does (`licence.js` `carryOnFree`), since only the Audiophile works then. **Every spec
 runs as Jack of Trades** unless it sets a role (`tests/helpers.cjs` marks the tour done and the role card dismissed).
@@ -131,9 +131,9 @@ of Trades has one: Master of None, drawn under the name on its card as `.rp-sub`
 reader, "Jack of Trades, Master of None", through a comma only it gets, `.rp-comma.sr-only`, which takes no room on
 the line, so it never pushes "Trades" down), `sections` (the menu in order; My card and then Settings are always added
 last, by `menuSections`, whatever the list says, so neither is ever a bonus track), `start` (`bookings` for every role,
-and its first track: **Gdex opens on the calendar on every page load**, in every role and in Jack of Trades, whatever
+and its first track: **Tourbook opens on the calendar on every page load**, in every role and in Jack of Trades, whatever
 was open last.
-`startSection()` is the one source for where a start opens; the old `gdex-tab` key is no longer read or written, and is
+`startSection()` is the one source for where a start opens; the old `tourbook-tab` key is no longer read or written, and is
 removed at boot. Explicit jumps still go where they say: `logiGo`, `openBooking`, `openAct`, a tour step, the first-run
 pick. Within a visit, leaving Bookings and coming back keeps the view, the day and an open booking), `names` (only
 Bookings and Acts are renamed: Artists, Roster, Bands, My act, Shows, Gigs), `what` (fills What you do in the tour), `newKind`, `kinds` and
@@ -143,7 +143,7 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 
 | Helper | Use |
 |---|---|
-| `role()`, `roleId()`, `roleChosen()`, `setRole(id, { start })` | The current role; `setRole` saves it and fires `gdex-role` (the app redraws the menu and the page). |
+| `role()`, `roleId()`, `roleChosen()`, `setRole(id, { start })` | The current role; `setRole` saves it and fires `tourbook-role` (the app redraws the menu and the page). |
 | `menuSections(r)`, `offMenu(r)`, `startSection(r)` | The menu (always ending with Settings), the bonus tracks, where a fresh start opens. |
 | `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act). |
 | `cardAudience()` | Who the person shows their contact card to, in the role's words ("promoters, venues and fans at the merch desk"): My card's lead line, its empty state and its walkthrough. |
@@ -151,13 +151,13 @@ the deal, settlement, quote & invoice and costs boxes off booking pages altogeth
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
 | `gearByBand()` | Backline in a fold per act, with what you put in (item 17): true for a producer, a manager and Jack of Trades (the roles that invest in the acts they work with; Backline is on the producer's and the manager's menus, right after their acts). Kept in a list of its own in `js/roles.js`, so the roles' lines are not touched. |
 | `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `acts.sampleWork`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
-| `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `gdex-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Jack of Trades, is asked). |
+| `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `tourbook-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Jack of Trades, is asked). |
 
 Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
 seen last), and "From a past show" offers shows up to today (holds and offers too when money is off), leaving out
 any show marked "Didn’t go". `acts.sampleWork: false` (band, solo artist, scout, audiophile) leaves out the act form's
 Sample work field and the QR code on the act's card; a producer, a manager and Jack of Trades (no key) have both. Tools writes
-`gdex-tool-pick` only when a tool is picked (the `gdex-tool` the build before roles wrote on every draw is never read),
+`tourbook-tool-pick` only when a tool is picked (the `tourbook-tool` the build before roles wrote on every draw is never read),
 and works out the first tool (picked, else `tools.tool`, else the tuner) and Songs its first view each time it is
 drawn, so a role's default applies until the person chooses. `songs.view: 'setlists'` applies only when there are songs
 and setlists; a link that needs the songs list calls `showSongs()` (`pages/songs.js`) before `logiGo('songs')`, as the
@@ -174,7 +174,7 @@ Studio log, whatever a role calls anything); hiding never deletes or edits data;
 to other people (press kit, rider, day sheet, invoice, settlement) follows the role. On the section menu, sections
 off the role's menu are listed on the sleeve (or the track list) under Bonus tracks; one that is open sits on the
 record as the bonus track (★) until you move on, and joins the digital player's row of tabs meanwhile
-(`createDeck(…, { extras, onExtra })`, `deck.setTabs(tabs, index)`). The three menus (`gdex-prefs` `menu`: `record`,
+(`createDeck(…, { extras, onExtra })`, `deck.setTabs(tabs, index)`). The three menus (`tourbook-prefs` `menu`: `record`,
 `tape`, `digital`) do the same things: ⏮ ⏭, a swipe, the arrow keys, and a list of every section. The digital
 player is described under "The section menu" below.
 
@@ -184,22 +184,22 @@ Kept in `localStorage` on the device, never in the database, so backups do not c
 
 | Key | What | Erase this device |
 |---|---|---|
-| `gdex-prefs` | Display: theme, light or dark, text and button size, contrast, animation, vibration, and the section menu (`menu`: `record`, `tape` or `digital`). | kept |
-| `gdex-cal-view` | The calendar's view: `month`, `two`, `week`, `three` or `day`. Read and written only through `calMode()` / `saveCalMode()` (`js/bookings-kit.js`); only the calendar's view buttons save it. | kept |
-| `gdex-role` | The role (`setRole`). | cleared |
-| `gdex-ask-seen` | "Did you see them?" on or off (`setAskSetting`). | cleared |
-| `gdex-licence` | The website's licence (`js/licence-state.js`, `js/licence-web.js`): `{ on?, statusAt?, first?, seen?, token?, licence?, via?, checked?, tried?, cancelled?, expired? }`. Its second copy of the free days is IndexedDB `gdex` / `kv` / `licence-days` (`{ first, seen }`), which Erase does not touch either. | **kept** |
-| `gdex-terms` | The terms agreed at the first working use: `{ v: TERMS_VERSION, at }` (`js/terms.js`). | **kept** |
-| `gdex-licence-cache` | The desktop app only: the bridge's last licence state, to draw the menu before the bridge answers. | cleared |
-| `gdex-drive`, `gdex-drive-file`, `gdex-google-tokens`, `gdex-google-email`, `gdex-drive-who`, `gdex-sync-at`, `gdex-backup-cloud` | Google Drive (`js/drive.js`, `js/sync.js`): linked, the file id of `gdex-db.json`, the hour's token (`drive.appdata` only), the account's address (Google's `login_hint` only), "Name · address" for Signed in as, the last good sync, the last daily copy. | cleared, after Drive is disconnected |
+| `tourbook-prefs` | Display: theme, light or dark, text and button size, contrast, animation, vibration, and the section menu (`menu`: `record`, `tape` or `digital`). | kept |
+| `tourbook-cal-view` | The calendar's view: `month`, `two`, `week`, `three` or `day`. Read and written only through `calMode()` / `saveCalMode()` (`js/bookings-kit.js`); only the calendar's view buttons save it. | kept |
+| `tourbook-role` | The role (`setRole`). | cleared |
+| `tourbook-ask-seen` | "Did you see them?" on or off (`setAskSetting`). | cleared |
+| `tourbook-licence` | The website's licence (`js/licence-state.js`, `js/licence-web.js`): `{ on?, statusAt?, first?, seen?, token?, licence?, via?, checked?, tried?, cancelled?, expired? }`. Its second copy of the free days is IndexedDB `tourbook` / `kv` / `licence-days` (`{ first, seen }`), which Erase does not touch either. | **kept** |
+| `tourbook-terms` | The terms agreed at the first working use: `{ v: TERMS_VERSION, at }` (`js/terms.js`). | **kept** |
+| `tourbook-licence-cache` | The desktop app only: the bridge's last licence state, to draw the menu before the bridge answers. | cleared |
+| `tourbook-drive`, `tourbook-drive-file`, `tourbook-google-tokens`, `tourbook-google-email`, `tourbook-drive-who`, `tourbook-sync-at`, `tourbook-backup-cloud` | Google Drive (`js/drive.js`, `js/sync.js`): linked, the file id of `tourbook-db.json`, the hour's token (`drive.appdata` only), the account's address (Google's `login_hint` only), "Name · address" for Signed in as, the last good sync, the last daily copy. | cleared, after Drive is disconnected |
 
-`gdex-tour`, `gdex-role-nudged`, `gdex-settings-open`, `gdex-tool-pick` and the like are cleared too.
+`tourbook-tour`, `tourbook-role-nudged`, `tourbook-settings-open`, `tourbook-tool-pick` and the like are cleared too.
 
 A choice that storage cannot keep (private mode, or storage full) still holds for the visit: the display
 preferences and the calendar's view live in memory while the page is open, and `askSetting()` reads storage every
 time except straight after a write that failed, when its copy in memory answers until a write works again.
 
-Aa and Settings → Display are two copies of one panel (`a11y.js` `displayPanel()`). Every choice fires `gdex-prefs`
+Aa and Settings → Display are two copies of one panel (`a11y.js` `displayPanel()`). Every choice fires `tourbook-prefs`
 on `window`; each copy on the page draws itself again on it, and Settings' closed line follows it, so a choice made in
 Aa over Settings shows there at once.
 
@@ -228,10 +228,10 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 ```
 
 * `db` is a live binding: read `db.venues` etc. at render time; never keep it across `await`.
-* **Other tabs.** Each tab keeps the database in memory and writes it whole. When another tab of Gdex on the device
-  writes `gdex-db-v1` (or clears storage), this tab takes in what it wrote (the `storage` event; redrawn with reason
+* **Other tabs.** Each tab keeps the database in memory and writes it whole. When another tab of Tourbook on the device
+  writes `tourbook-db-v1` (or clears storage), this tab takes in what it wrote (the `storage` event; redrawn with reason
   `'sync'`, nothing written or synced), so an Erase or a change in one tab is not undone by the next change in another.
-  `js/sync.js` follows `gdex-drive` the same way: Drive disconnected (or connected) in another tab is disconnected (or
+  `js/sync.js` follows `tourbook-drive` the same way: Drive disconnected (or connected) in another tab is disconnected (or
   connected) here too.
 * **The licence's gate.** `update` returns `false` and changes nothing when the licence refuses the change (a working
   role after its free days); `upsert` and `patch` return `null` then, `remove` `false`. Every caller that uses the
@@ -350,7 +350,7 @@ It travels in backups, and in nothing printed, sent or exported for another prog
 rateUnit: 'day'|'hour'|'show', notes }`. Act membership lives on the act (`act.members`).
 
 `gear`: `{ id, name, category, make, model, serial, value, qty, owner (personId), location, notes, actId, paidBy }`.
-`actId` is the act the item is for and `paidBy` who paid for it: `'me'` (the person using Gdex, their profile),
+`actId` is the act the item is for and `paidBy` who paid for it: `'me'` (the person using Tourbook, their profile),
 `'band'` (the act) or a person's id. Both keys are absent on an item that is for no act and whose payer is not known
 (the gear form leaves them off then, as on old gear), and anything else stored there, an act or a person since deleted
 or junk from a backup edited by hand, reads as none and not known: read them only through `model.gearActId(g)` and
@@ -367,7 +367,7 @@ colour set by hand (`''` automatic, `'relaxed'`, `'some'`, `'strict'`). Read the
 ignores anything unknown. They belong to the venue and apply to every show there (a show cannot override them; a typed
 venue has none), and nothing about them goes into a day sheet, an invoice or a calendar file. The venue form always
 stores all three, so a venue saved through it is told apart from one that never had them (the sample adds its rules
-only to the latter). It replaces only the rules this build knows: the answers to any other rule (from a newer Gdex,
+only to the latter). It replaces only the rules this build knows: the answers to any other rule (from a newer Tourbook,
 or a backup edited by hand) are kept as they were stored (`model.unknownRules(v)`).
 
 `songs`: `{ id, title, actId, key, bpm, duration (seconds), tuning, status, isrc, lyrics, link, notes,
@@ -491,7 +491,7 @@ text, has no letter or digit, or says only "TBC", "n/a" and the like; `'unique'`
 genre is read: capitals, accents, hyphens and apostrophes are ignored; it is split into genres at commas, slashes,
 "&", "+", brackets, semicolons and the words "and", "or", "with", "featuring", "meets", "vs" and "influenced by",
 never inside the pairs that are one genre (R&B, rhythm and blues, drum and bass, D&B, rock and roll, country and
-western, singer/songwriter); the first genre written that Gdex can place decides (a first one it does not know, or a
+western, singer/songwriter); the first genre written that Tourbook can place decides (a first one it does not know, or a
 phrase such as "covers band", leaves it to the next). In a genre the last word or phrase known decides, as English puts
 the main word last ("indie rock" and "folk rock" are Rock, "doom folk" is Folk, "pop punk" is Punk), phrases before
 their words, so a phrase is how an exception is written ("punk rock" is Punk, "post-punk" Rock, "Latin pop" Latin,
@@ -614,14 +614,14 @@ may call it.
 | `pages/settings.js` `vcard(p?)` / `hasCard(p)` / `qrFor(text)` / `saveCard()` / `editProfile()` | settings | The profile as a vCard 3.0 / whether it makes a card (a name or business, and a phone, an email or a website that is a web address, as `vcard()` keeps it) / the QR code's SVG for a text (UTF-8, the last one kept) / save the card as a .vcf (`print.js` `saveFile`) / the Your details form. My card uses them, so the card is the same everywhere. |
 | `js/tools-ui.js` `keepAwake()` / `letSleep()` | tools | Keep the screen on (the Screen Wake Lock) / let it sleep: the set timer, and My card's Show big. |
 | `js/backup.js` `driveBehind()` / `beforeErase()` / `backupLine()` | drive | Erase this device asks it first: with Drive linked, a last sync from the tap; null, or what Drive still lacks, in words / Erase this device calls it next: Google Drive is disconnected (its copy stays) and the linked file let go, so nothing linked is written over by the empty database / Settings → Backups' closed line, which names Google Drive's state. |
-| `js/licence-state.js` (the whole API is under "The licence" below) | licence | `mayOpen`, `mayWork`, `mayPickRole`, `gateWork`, `canWrite`, `licenceNow`, `onLicenceChange` / the window event `gdex-licence`… |
-| `js/update.js` `desktop()` / `js/version.js` `shareBase()` / `publicHref()` | desktop | The desktop bridge when it has the update controls, else `null` / where share links and a calendar entry point: **an address someone else will open comes from `shareBase()` or `publicHref()`, never `location.href`**: in the desktop app they give `https://gdex.crowmade.app/` (`PUBLIC_SITE`). |
+| `js/licence-state.js` (the whole API is under "The licence" below) | licence | `mayOpen`, `mayWork`, `mayPickRole`, `gateWork`, `canWrite`, `licenceNow`, `onLicenceChange` / the window event `tourbook-licence`… |
+| `js/update.js` `desktop()` / `js/version.js` `shareBase()` / `publicHref()` | desktop | The desktop bridge when it has the update controls, else `null` / where share links and a calendar entry point: **an address someone else will open comes from `shareBase()` or `publicHref()`, never `location.href`**: in the desktop app they give `https://tourbook.crowmade.app/` (`PUBLIC_SITE`). |
 | `js/tour.js` `sheetTutorial(title, steps)` / `setSearchStep(step)` | core | Register walkthrough steps for a sheet by its title / the welcome tour's stop for the search box, just after the section menu (`js/search.js` gives it; the tour cannot import the search). |
 | `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. |
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
 | `blocks/guests.js` `guestCounts(b)`; `blocks/settlement.js` `isSettled(b)` / `settlementDoc(b)` | show | Names, heads and in / whether the night is settled / the printable settlement. |
 | `js/daysheet-doc.js` `cleanDaySheet(data)` / renderer | daysheet | Pure (no store): the whitelist and renderer shared by the app and `daysheet.html`. |
-| `js/ics.js` `bookingIcs(b)` / `allIcs(list)` | bookings | Calendar files (RFC 5545, past-midnight safe: an end after midnight is the next day, and a show that starts and plays before 06:00 starts the morning after its date, while anything else before 06:00 is on its date, as Gdex shows it; no money). |
+| `js/ics.js` `bookingIcs(b)` / `allIcs(list)` | bookings | Calendar files (RFC 5545, past-midnight safe: an end after midnight is the next day, and a show that starts and plays before 06:00 starts the morning after its date, while anything else before 06:00 is on its date, as Tourbook shows it; no money). |
 | `js/print.js` `printElement(el, css)` / `docPage(title, el, css)` / `saveFile(text, name, type)` / `fileName(title, ext)` / `csv(rows)` | core | Printing and saving documents. |
 
 `onSaved(record)` is called with the stored record after a form saves.
@@ -636,7 +636,7 @@ booking can lack a date, so `openBooking` and `showBooking` keep the day they ha
 so Back returns there); Back from a booking, and a booking deleted while open, land on the Day view of its day
 (`go({ view: 'cal', mode: 'day', day })`), which does not change the saved view.
 
-**When the day turns** with Gdex open (it is left on screen over midnight, or brought back from the background on
+**When the day turns** with Tourbook open (it is left on screen over midnight, or brought back from the background on
 another day), the calendar moves on: `app.js` calls `dayTurned()` (exported by `pages/bookings.js`) from a timer set for
 just after the next local midnight (set afresh at every call), on `visibilitychange` to visible and on every
 `pageshow`. When today is not the day the page last knew, a calendar whose `S.day` was that day moves to the new today
@@ -747,7 +747,7 @@ buttons, one control: ← → move the focus between them, round from the last t
   was pressed goes with the booking, so the draw that follows puts the focus on the view's heading
   (`[data-view-head]`).
 
-### When Gdex opens
+### When Tourbook opens
 
 `js/app.js` works out, as it boots, the shows that were waiting for "Did you see them?" (`waitingShows(now, { holds:
 true })`, from the database as loaded), and after the role question and the welcome tour, once no sheet or tour is on
@@ -866,7 +866,7 @@ Every record goes on using the current name, so lists and search stay in one pie
   songs, its setlists, its take logs and its invoices, by any name it has had), the acts list, People, Songs, the
   Studio log and the two song pickers (a setlist's + Songs, the metronome's song tempo); the booking form lists an act
   as `Owl Parliament (formerly The Night Owls)`.
-* **Never outside Gdex.** Documents, calendar files and spreadsheets call `actName` / `bookingTitle` / `a.name`,
+* **Never outside Tourbook.** Documents, calendar files and spreadsheets call `actName` / `bookingTitle` / `a.name`,
   which are the current name; `44-formerly` checks each of them. A document made before the change keeps the
   words it was made with (an invoice's lines are stored text), as does a booking's own typed title.
 
@@ -1095,14 +1095,15 @@ from results closed by a touch (`inputmode="none"`, until the next tap or key on
 unless the focus is in a field or a sheet, form or tour is up. While a sheet is up (the track list, a form, "Did you see
 them?") `#app` is inert, so the box cannot be reached and `/` does nothing: the question at opening always wins.
 
-The top bar has ?, Install (when offered), Aa and Backup. Under 470 px the small words "booking deck" beside GDEX are
-hidden (with large buttons and Install showing they would squeeze the buttons); under 560 px the brand keeps its width
-and the buttons narrow to share the rest of the row, so all four fit at 320 px with extra-large text and large buttons
-and GDEX is never cut short (`styles.css`, after `.top-actions`; `05-deck` checks it at 320 px with extra-large text and
+The top bar has ?, Install (when offered), Aa and Backup. Under 680 px the small words "booking deck" beside TOURBOOK are
+hidden (with large buttons and Install showing, and from 560 px the labels Install and Backup, they would squeeze the
+buttons); under 560 px the brand keeps its width and the buttons narrow to share the rest of the row, 4 px apart under
+470 px, so all four fit at 320 px with extra-large text and large buttons and TOURBOOK is never cut short (under 400 px
+it is never larger than with normal text, as from 400 px, where it is 16 px whatever the text size) (`styles.css`, after `.top-actions`; `05-deck` checks it at 320 px with extra-large text and
 large buttons in each menu, `46-search` from 320 to 720 px at every text and button size; both with Install hidden and
 showing).
 
-* **Opening.** Typing in the box opens the results over the page: one of Gdex's sheets (`util.sheet`, title "Search",
+* **Opening.** Typing in the box opens the results over the page: one of Tourbook's sheets (`util.sheet`, title "Search",
   `.sheet.srch-sheet`, its body `div.srch`) whose own box, `input#srch-q` at the top (`.srch-top`, sticky, with the
   tabs), takes the words, the caret or selection the box had, and the focus, so the person types on; the box at the top
   of the page follows every key. A tap on the box when it holds words, Enter, or ↓ (which then goes to the first result)
@@ -1120,7 +1121,7 @@ showing).
   and a kind kept in a working section only while `mayOpen(section) === 'open'` (`SECTION_OF`: people → People, songs
   and setlists → Songs, gear → Backline, logs → Studio log, money → Money; the build spec [S-33]), so a free Audiophile
   without a licence finds none of them and a search never starts the free days. The open results redraw on the
-  licence's `gdex-licence` event, and a tap stops when `logiGo` resolves `false` (`openThere`). Each kind's words are those its own section's search reads, from the function
+  licence's `tourbook-licence` event, and a tap stops when `logiGo` resolves `false` (`openThere`). Each kind's words are those its own section's search reads, from the function
   the section exports (`actSearchText`, `venueText` and `venueMatches` with the house rules, `personText`, `gearText`,
   `songText` (with the song's album), `logWords`; `setlistWords` for setlists, which have no search of their own), so the two never disagree; a
   band is found by every name it has had, and so are its members, songs, setlists, take logs and invoices. Money is
@@ -1275,9 +1276,9 @@ no kind for it). The card is Settings' own: `vcard()`, `hasCard()`, `qrFor()`, `
   height, with the words beside it) and `div.cd-big-words` (the name, `p#cd-big-help` "Tap anywhere to close.",
   `button#cd-big-close`, which has the focus and keeps it from Tab and from anything that would take it: a `focusin`
   listener in the capture phase gives it back). A click anywhere, Escape, ✕ Close or Back closes
-  it: opening it pushes `history.state` `{ gdexBig: true }`, Back pops it, and any other close takes the entry away
+  it: opening it pushes `history.state` `{ tourbookBig: true }`, Back pops it, and any other close takes the entry away
   with `history.back()` (whose popstate is skipped). The screen is kept on with `tools-ui.js` `keepAwake()` (asked
-  again when Gdex comes back into sight) and let go with `letSleep()`; the focus goes back to `#cd-big`. Leaving the
+  again when Tourbook comes back into sight) and let go with `letSleep()`; the focus goes back to `#cd-big`. Leaving the
   page closes it; a redraw of the page does not. A sheet that opens while it shows ("Did you see them?" at a return)
   is under it and cannot take the focus; Escape (its listener is in the capture phase) or Enter on ✕ Close closes Show
   big alone, `#app` stays inert, and the focus goes to that sheet; ✕ Close and `#cd-big` share `data-fk="cd-big"`, so
@@ -1310,8 +1311,8 @@ days. Never write code that treats "no answer" as off.
 
 **The state** (`licenceNow()`, synchronous, never throws): `{ kind: 'web' | 'desktop', mode, canEdit, started, first,
 trialLeft, trialEnds, licence, seats }`, with `mode` one of `off`, `unstarted`, `trial`, `ended`, `clock`, `licensed`,
-`pending`, `released`, `cancelled`, `expired`, `offline`, `away`. The website computes it from `gdex-licence`; the
-desktop app's comes over the bridge (`desktop/licence.cjs`, kept as `gdex-licence-cache` to draw the menu before the
+`pending`, `released`, `cancelled`, `expired`, `offline`, `away`. The website computes it from `tourbook-licence`; the
+desktop app's comes over the bridge (`desktop/licence.cjs`, kept as `tourbook-licence-cache` to draw the menu before the
 bridge answers). `licenceReady()` resolves once the IndexedDB copy is joined in and the sign-in's signature checked;
 the sheets at opening and `startFreeDays()` wait for it.
 
@@ -1323,7 +1324,7 @@ the sheets at opening and `startFreeDays()` wait for it.
 | `workMark()` / `sectionMark(id)` / `roleBadge(id)` | The marks and words of §9.2-9.3 ("30 days free", "🔒 Licence"), `null` or `''` while off. |
 | `startFreeDays()` / `toastStarted()` | Starts the free days (after the status, so a pause is respected; the terms sheet first) / says so once per start. Once they have started, or with a licence, it asks the terms again of a working role in use while they are due (changed since they were agreed: "The terms have changed"); the role picker asks them before a working role is set. Not now: read-only for the visit. |
 | `freeDaysFrom()` / `adoptFreeDaysFrom(t)` | This device's start, for Google Drive / an earlier start from Drive, taken without asking the terms ([S-39]); they are asked at the next opening in a working role. |
-| `serverTime(ms)` / `refreshLicence()` / `onLicenceChange(fn)` / `LICENCE_EVENT` | The licence server's time from a JSON answer's `Date` header / recompute now / every change, also as the window event `gdex-licence`. |
+| `serverTime(ms)` / `refreshLicence()` / `onLicenceChange(fn)` / `LICENCE_EVENT` | The licence server's time from a JSON answer's `Date` header / recompute now / every change, also as the window event `tourbook-licence`. |
 
 Rules: a page never compares `roleId()` to decide the licence: it asks these. `window.logiGo(id)` resolves `true` once
 the section is drawn and `false` when the licence refused it (callers that went on to open a record stop). A role
@@ -1332,20 +1333,20 @@ in use (Carry on free as an Audiophile, the free days running out, a pause endin
 the licence's own (`util.closeSheets`), so a working form left open cannot save. Without the working roles
 (`workMark()` set) an Audiophile adds only shows (+ New, a day's, a venue's or a link's, and Duplicate), keeps sessions
 and rehearsals to look at, sees no Fee on a diary entry, and a show it duplicates carries nothing of the working boxes
-or the money (`copyOf`). Erase this device keeps `gdex-licence`,
-`gdex-terms` and the IndexedDB copy. The free-days-over sheet comes at every opening (and after 3 hours out of sight)
+or the money (`copyOf`). Erase this device keeps `tourbook-licence`,
+`tourbook-terms` and the IndexedDB copy. The free-days-over sheet comes at every opening (and after 3 hours out of sight)
 while a working role is read-only, before "Did you see them?", which is not asked then.
 
-**The guards.** The free days are kept in two places on the website (`gdex-licence` and IndexedDB `gdex` / `kv` /
+**The guards.** The free days are kept in two places on the website (`tourbook-licence` and IndexedDB `tourbook` / `kv` /
 `licence-days`; joined as the earlier `first` and the later `seen`), and on the desktop in `licence.json` and its
 mirror in `desktop-state.json`, so deleting one starts nothing again ([S-27]). The website never takes a later start
-than one it has known in a visit (a start only ever moves earlier), so emptying or editing `gdex-licence` with Gdex open
+than one it has known in a visit (a start only ever moves earlier), so emptying or editing `tourbook-licence` with Tourbook open
 starts nothing either, and its writes to the IndexedDB copy keep the earlier start. A device whose clock puts the start more
 than a day ahead, or has seen a time more than two days ahead, counts its days as over (`clock`) until the clock is
 right; the `Date` header of the licence server's JSON answers puts the stored values right, keeping the days used
-([S-38]). A website sign-in counts only once `readWebNote(token)` (`js/licence-note.js`: Ed25519, prefix `GDEX-WEB\0`,
+([S-38]). A website sign-in counts only once `readWebNote(token)` (`js/licence-note.js`: Ed25519, prefix `TOURBOOK-WEB\0`,
 key 2 from `js/licence-keys.js`) verifies it and its `ref` and email match; one that fails is removed ([S-40]). A page
-on `localhost` at a port in 47861-47880 without `window.gdexDesktop` is the desktop app's files in a browser: mode
+on `localhost` at a port in 47861-47880 without `window.tourbookDesktop` is the desktop app's files in a browser: mode
 `away`, every working section and role locked, Google Drive refused ([S-42]).
 
 **When the licence server is asked** ([S-43]), and only where licences are live: the status at most every 6 hours, and
@@ -1360,12 +1361,12 @@ contract is in `docs/licence-server.md` (for the developer).
 * Free for every role, licence or not. Off until the owner's client id is in `js/cloud-config.js`
   (`CLOUD_APPS.google`); until then the Backups panel's Drive card says "Not set up yet" and nothing about Google
   loads. Google's sign-in script is loaded only when the connect sheet opens or Drive is already linked; the desktop
-  app never loads it (`window.gdexDesktop.googleSignIn` opens the sign-in in the web browser).
-* One scope, `drive.appdata` (the desktop app accepts no other). Files in the hidden app folder: `gdex-db.json` (the
+  app never loads it (`window.tourbookDesktop.googleSignIn` opens the sign-in in the web browser).
+* One scope, `drive.appdata` (the desktop app accepts no other). Files in the hidden app folder: `tourbook-db.json` (the
   shared copy: the database plus one top-level field `freeDaysFrom`, the earliest free-days start of any device on that
-  Drive) and the daily copies `gdex-backup-<mon…sun>.json` and `gdex-backup-YYYY-MM.json` (the last 12 months). A
-  shared copy Gdex can't read stops the sync but not the daily copy (written from this device); Put this device's copy
-  in its place keeps the bad one as `gdex-db-unreadable-YYYY-MM-DD.json` (`replaceUnreadable()` in `js/sync.js`).
+  Drive) and the daily copies `tourbook-backup-<mon…sun>.json` and `tourbook-backup-YYYY-MM.json` (the last 12 months). A
+  shared copy Tourbook can't read stops the sync but not the daily copy (written from this device); Put this device's copy
+  in its place keeps the bad one as `tourbook-db-unreadable-YYYY-MM-DD.json` (`replaceUnreadable()` in `js/sync.js`).
 * `store.afterWrite(fn)` runs after `update`, `replaceAll` and `mergeIn` (never after `adopt`): `js/sync.js` syncs
   800 ms after the last change. A sync reads Drive's copy, merges it (`store.mergeDb`), takes in what changed with
   `store.adopt(data)` (no new `updatedAt`, no `afterWrite`, never asks the licence's gate: Drive keeps flowing in a
@@ -1390,7 +1391,7 @@ contract is in `docs/licence-server.md` (for the developer).
   through the store's redraw, so a sync never redraws the page or moves the focus.
 * Erase this device first syncs from the tap (`driveBehind()` in `js/backup.js`: `syncNow({ ask: true })`, so a sign-in
   opens when Google's hour is up). When Drive still lacks a change made here (not synced, and `db.updatedAt` after
-  `gdex-sync-at`), nothing is erased: the section says so with Try again or Sign in again and Save a backup, and the
+  `tourbook-sync-at`), nothing is erased: the section says so with Try again or Sign in again and Save a backup, and the
   button becomes Erase anyway. Then `beforeErase` disconnects Drive; the copy in Drive stays.
 
 ## The desktop app (`desktop/`; `docs/desktop.md`)
@@ -1398,9 +1399,9 @@ contract is in `docs/licence-server.md` (for the developer).
 The same files in an Electron window. `desktop/main.cjs` serves them from a small server at `http://localhost:47861`
 (47862-47880 when another program holds it, with Google's sign-in refused there), an address fixed for good at the
 first release: it is where Chromium keeps the data and one of the Google client's JavaScript origins. Each run makes
-a random `X-Gdex-App` value that the main process adds to every request of the window
+a random `X-Tourbook-App` value that the main process adds to every request of the window
 (`session.webRequest.onBeforeSendHeaders`); the server answers 403 to anything without it, except Google's sign-in page
-`/__gdex/google` (its own one-time keys), so the same address in a web browser loads nothing, and `/licence/…` is a JSON
+`/__tourbook/google` (its own one-time keys), so the same address in a web browser loads nothing, and `/licence/…` is a JSON
 404 there. The window gets the microphone (audio only), the File System Access API, clipboard writing, full screen and
 the screen wake lock (`'screen-wake-lock'`, as Electron names it); location only on a Mac (on Windows and Linux Chromium
 would ask Google's location service, so there the venue form's "📡 I’m here now" says to use Find from address or a
@@ -1409,7 +1410,7 @@ a Mac and off with no languages on Windows and Linux, where Electron would other
 from Google at every start. `tests/desktop.mjs` runs the app behind a recording proxy and fails on any host but
 `localhost` and `127.0.0.1`.
 
-**The bridge** (`window.gdexDesktop`, `desktop/preload.cjs`; every IPC handler answers only Gdex's own page, and each
+**The bridge** (`window.tourbookDesktop`, `desktop/preload.cjs`; every IPC handler answers only Tourbook's own page, and each
 caller tests for the member it uses, because specs stand in for parts of it):
 
 | Member | Answers |
@@ -1419,11 +1420,11 @@ caller tests for the member it uses, because specs stand in for parts of it):
 | `googleSignIn({ client, scope, hint })` | Google's token answer, or `{ error: 'access_denied' \| 'popup_closed' \| 'timed_out' \| 'replaced' \| 'address_taken' \| 'failed' \| 'refused' }`; only `drive.appdata` with a `….apps.googleusercontent.com` client |
 | `licence.state()` | the state with `kind: 'desktop'`, `enabled`, `buyUrl`, `os`, `seats`, `mode`, `canEdit`, `started`, `first`, `trialLeft`, `trialEnds` and `licence` (null without a code, else with `issued`); a pending state adds `daysLeft`; `'off'` has `started: false`, `first: 0`; in mode `clock`, decide by the mode, not `trialLeft` |
 | `licence.start()`, `licence.adopt(t)` | start the free days / take an earlier start from Drive: the new state, also sent as `licence:changed` |
-| `licence.enter(code, { release })` | the state (with `offline: true` when the server did not answer), `{ error }`, `{ error: 'expired', expires }` (an ended code: the page writes the date as About does), or `{ error: 'full', computers, swapsLeft, seats }`; while off `{ error: 'This version of Gdex does not use licence codes yet: every role is free.' }` |
+| `licence.enter(code, { release })` | the state (with `offline: true` when the server did not answer), `{ error }`, `{ error: 'expired', expires }` (an ended code: the page writes the date as About does), or `{ error: 'full', computers, swapsLeft, seats }`; while off `{ error: 'This version of Tourbook does not use licence codes yet: every role is free.' }` |
 | `licence.recheck()`, `licence.release()`, `licence.code()`, `licence.buy()`, `licence.localPrice()`, `licence.onChange(cb)` | as Vdex's; `localPrice()` is `null` while off and asks nothing; `release()` while off keeps the code and asks nothing |
 
 The desktop app contacts nothing while its licence is off and Google Drive is not linked, but for OpenStreetMap when a
-venue's map or Find from address is used, and its update checks once installed (`desktop/updater.cjs`, `https://gdex-download.crowmade.app/`, Gdex's own bucket; the same address in
+venue's map or Find from address is used, and its update checks once installed (`desktop/updater.cjs`, `https://tourbook-download.crowmade.app/`, Tourbook's own bucket; the same address in
 `package.json`'s `build.publish` and the feed, and, from the first public release, `download.html`'s links, kept equal by
 `86-download-page`; until then the page links no installer and says the app is coming). It is built by hand
 (`.github/workflows/desktop.yml`) and uploads nothing.
@@ -1437,7 +1438,7 @@ venue's map or Find from address is used, and its update checks once installed (
   forms do at 50 ms and the track list at 60 ms, and only when nothing in the sheet has it yet (someone quick, or a check
   under load, may already be typing in another box: the running order's Build, the input list and the passphrase sheet
   check this too); Escape or ✕ gives it back to the opener (to `#page` when it opened with nothing focused, as the
-  terms and the free-days-over sheet do as Gdex opens, and no other sheet is left open), and so does a tap on its dim
+  terms and the free-days-over sheet do as Tourbook opens, and no other sheet is left open), and so does a tap on its dim
   backdrop, which closes it on the click, never on the press, and only when the press began and ended on the
   backdrop: the click stops there, so nothing under it is pressed, and the press never takes the focus out of the
   sheet; with `dismissOnBackdrop: false`, as forms and "Did you see them?" have, the tap closes nothing and the focus
@@ -1496,7 +1497,7 @@ settlement or budget).
 
 ## Writing for people
 
-Gdex is used by musicians on a phone, often in a dark venue or a studio. Write the way Vdex does: plain words,
+Tourbook is used by musicians on a phone, often in a dark venue or a studio. Write the way Vdex does: plain words,
 short sentences, no jargon a musician would not use, helpful empty states, labels on every control, confirmation
 before anything destructive, and a toast after a save that isn't visible otherwise. Use music words people know:
 load-in, soundcheck, doors, set, curfew, changeover, guarantee, door split, settlement, rider, input list, stage plot,
@@ -1509,10 +1510,10 @@ backline, take, comp, stems, split sheet.
   prints a PASS or FAIL line. End every spec with `ok('no errors in the console', errors.length === 0, …)` and
   `await browser.close()`, and wrap the whole spec in `(async () => { … })().catch(e => { console.log('FAIL … crashed — ' + e.message); process.exit(1); })`.
 * `open({ touch: true })` emulates a touch screen (`page.touchscreen.tap`; the mouse still works).
-* `open()` marks the welcome tour done, dismisses the role card and turns "Did you see them?" off (`gdex-ask-seen`
+* `open()` marks the welcome tour done, dismisses the role card and turns "Did you see them?" off (`tourbook-ask-seen`
   `'off'`, set again on every load), so no sheet opens over a spec's own work. A spec about the question opens with
   `open({ ask: true })`, which leaves the key alone; it seeds its shows, then reloads.
-* Gdex opens on the calendar on every load: after `page.reload()`, `go(page, id)` to be anywhere else. `toMonth(page)`
+* Tourbook opens on the calendar on every load: after `page.reload()`, `go(page, id)` to be anywhere else. `toMonth(page)`
   goes from a booking's page or any calendar view to the Month view.
 * The whole suite takes about 30 minutes on one machine for each leg; CI runs the two side by side (`13-calendar`,
   `43-ask` and `56-rules` open several browsers each). `43-ask` has `clockKit(page)` for a page whose clock is set by hand (coming back after hours).
@@ -1522,12 +1523,12 @@ backline, take, comp, stems, split sheet.
   ones at least two days on, stepping a `Date` with `setDate` (never `Date.now() ± n × 864e5`), and test "is it over"
   through `model.showOver(b, now)` with a fixed `now`. A check that must use today's date gives the same result at
   00:10 and at 23:50.
-* **Both legs.** CI runs the suite twice: as the repository is (licences off) and with `GDEX_LICENCE=on`, where the
+* **Both legs.** CI runs the suite twice: as the repository is (licences off) and with `TOURBOOK_LICENCE=on`, where the
   test server serves `js/licence-config.js` with `localhost` live and the status `{ on: true }`, sends no `Date` header
   on `/licence/*` (a spec's clock is its own), and `open()` seeds, before the first page, free days already under way
   and the terms agreed (only when absent). A context a spec makes itself takes `licenceLeg(ctx)`; a page whose clock a
   spec moved years on takes `licenceAt(page, sel)`, which seeds them in the page's own time and loads the page again, since
-  an open Gdex never takes a later start than one it has known (both from `tests/helpers.cjs`; nothing in the off leg). The specs
+  an open Tourbook never takes a later start than one it has known (both from `tests/helpers.cjs`; nothing in the off leg). The specs
   that read differently in the on leg, and why:
 
   | Spec | In the on leg |
@@ -1557,7 +1558,7 @@ backline, take, comp, stems, split sheet.
   xvfb, behind a recording proxy that fails on any outside host); Drive's `90-drive`, `91-drive-merge`,
   `92-drive-desktop`.
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
-* `window.gdexAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
+* `window.tourbookAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
   meter, timer, wake lock): a spec can check that leaving a page leaves nothing listening.
 * `00-smoke` must keep passing: every section opens with and without the sample, with no console errors.
 

@@ -1,7 +1,7 @@
-// Keeping this device and Google Drive the same (free for everyone: decisions §9). Linked, every sync reads Gdex's copy
-// in the person's Drive (gdex-db.json), merges it with this device's record by record (store.mergeDb), takes in what
+// Keeping this device and Google Drive the same (free for everyone: decisions §9). Linked, every sync reads Tourbook's copy
+// in the person's Drive (tourbook-db.json), merges it with this device's record by record (store.mergeDb), takes in what
 // came from the other devices (store.adopt: no new time, never pushed straight back) and writes the copy back only
-// when Drive lacks something. A change made here syncs 800 ms after the last one; Gdex syncs again when it opens, when
+// when Drive lacks something. A change made here syncs 800 ms after the last one; Tourbook syncs again when it opens, when
 // it comes back into view after a minute, and when the connection comes back. The first sync of each day also saves a
 // dated copy (one per weekday and one per month, the last 12 kept). The Drive copy also carries freeDaysFrom, the
 // earliest day any device on that Drive started its free days (the build spec [S-39]), outside the database.
@@ -16,7 +16,7 @@ const LS = {
   set: (k, v) => { try { localStorage.setItem(k, String(v)); } catch { /* private mode */ } },
   del: k => { try { localStorage.removeItem(k); } catch { /* private mode */ } },
 };
-const K = { on: 'gdex-drive', at: 'gdex-sync-at', copy: 'gdex-backup-cloud' };
+const K = { on: 'tourbook-drive', at: 'tourbook-sync-at', copy: 'tourbook-backup-cloud' };
 const fail = (message, name = 'DriveError') => { const e = new Error(message); e.name = name; return e; };
 
 // status: off | synced | saving | needs-permission | error. unreadable: the shared copy in Drive can't be read (an
@@ -111,7 +111,7 @@ async function runSync({ ask = false, quiet = false } = {}) {
     S.unreadable = !!e.unreadable;
     setStatus(e.name === 'NotAllowedError' ? 'needs-permission' : 'error', e.message);
     if (e.name === 'BusyError') { clearTimeout(busyTimer); busyTimer = setTimeout(() => { if (adapter) sync({ quiet: true }); }, 60000); }
-    // A shared copy Gdex can't read is left alone, but the day still gets its dated copy, from this device's data.
+    // A shared copy Tourbook can't read is left alone, but the day still gets its dated copy, from this device's data.
     if (e.unreadable) await dailyCopy(a, earliest(freeDaysFrom()), alive);
   }
 }
@@ -120,7 +120,7 @@ async function runSync({ ask = false, quiet = false } = {}) {
 // On the first good sync of each day: the weekday's file (overwritten a week later) and, when the month has none yet,
 // the month's. Monthly files beyond the last 12 are deleted. A failure is kept and shown; the next sync tries again.
 const WEEK = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-const MONTHLY = /^gdex-backup-\d{4}-\d{2}\.json$/;
+const MONTHLY = /^tourbook-backup-\d{4}-\d{2}\.json$/;
 async function dailyCopy(a, from, alive) {
   const now = new Date(), day = ymd(now), month = day.slice(0, 7);
   if (lastCopy().day === day) return;
@@ -128,7 +128,7 @@ async function dailyCopy(a, from, alive) {
     const files = await a.listCopies();
     if (!alive()) return;
     const text = payload(from);
-    const wk = `gdex-backup-${WEEK[now.getDay()]}.json`, mo = `gdex-backup-${month}.json`;
+    const wk = `tourbook-backup-${WEEK[now.getDay()]}.json`, mo = `tourbook-backup-${month}.json`;
     const named = n => files.filter(f => f.name === n);
     await a.writeCopy(wk, text, (named(wk)[0] || {}).id || null);
     for (const f of named(wk).slice(1)) await a.deleteCopy(f.id); // two devices made it at once: one is enough
@@ -196,7 +196,7 @@ export async function connectDrive() {
   return driveState();
 }
 
-// The shared copy in Drive can't be read (S.unreadable): it is kept aside, as it is, as gdex-db-unreadable-<day>.json, and
+// The shared copy in Drive can't be read (S.unreadable): it is kept aside, as it is, as tourbook-db-unreadable-<day>.json, and
 // this device's copy goes in its place; the daily copies stay. Read again first: a copy that can be read now (another
 // device put it right) is merged as usual instead. From a tap (signs in again when the hour is up).
 export async function replaceUnreadable() {
@@ -212,7 +212,7 @@ export async function replaceUnreadable() {
       setStatus('saving');
       try { await a.read(); return; } catch (e) { if (!e.unreadable) throw e; } // readable after all: the sync below merges it
       if (adapter !== a || gen !== g) return;
-      await a.setAside(`gdex-db-unreadable-${ymd(new Date())}.json`);
+      await a.setAside(`tourbook-db-unreadable-${ymd(new Date())}.json`);
       if (adapter !== a || gen !== g) return;
       await a.write(payload(earliest(freeDaysFrom())));
       S.unreadable = false;
@@ -238,7 +238,7 @@ export async function disconnectDrive() {
   return true;
 }
 
-// Delete Gdex's copy and every daily copy from Drive, then disconnect. This device keeps everything. Nothing new is
+// Delete Tourbook's copy and every daily copy from Drive, then disconnect. This device keeps everything. Nothing new is
 // copied while it deletes, and a sync already running finishes first, so nothing lands after the delete.
 export async function deleteDriveCopy() {
   const a = adapter;
@@ -258,8 +258,8 @@ export async function deleteDriveCopy() {
 }
 
 // Once, when the backups module loads (at idle on every open): sync when linked (quietly: with the hour over it says
-// "sign in" and opens nothing), after every change, when Gdex comes back into view after a minute or more, and when
-// the connection comes back. Leaving Gdex with a change waiting syncs it at once.
+// "sign in" and opens nothing), after every change, when Tourbook comes back into view after a minute or more, and when
+// the connection comes back. Leaving Tourbook with a change waiting syncs it at once.
 let started = false;
 export function initDrive() {
   if (started) return;
@@ -272,7 +272,7 @@ export function initDrive() {
     hiddenAt = 0;
   });
   addEventListener('online', () => { if (adapter) sync({ quiet: true }); });
-  // Another tab of Gdex on this device disconnected Drive (Disconnect, Delete Gdex's copy, Erase) or connected it: this
+  // Another tab of Tourbook on this device disconnected Drive (Disconnect, Delete Tourbook's copy, Erase) or connected it: this
   // tab follows, so it never syncs a Drive the person disconnected.
   addEventListener('storage', e => {
     if (e.key !== K.on && e.key !== null) return;

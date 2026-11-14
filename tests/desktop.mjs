@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // The desktop app's smoke test: launches the Electron app (under xvfb-run on Linux: `xvfb-run -a npm run
 // test:desktop`) against a local stand-in for the licence server, and checks the window, the local server, the bridge,
-// the permissions, Google's sign-in page, that Gdex's files are only for its own window, and that nothing but this
-// computer is contacted (no Google, no gdex.crowmade.app, no download address) by someone who never linked Drive:
-// both the window's requests (GDEX_TEST_NET_WATCH) and everything Chromium's network stack tries, which goes through a
+// the permissions, Google's sign-in page, that Tourbook's files are only for its own window, and that nothing but this
+// computer is contacted (no Google, no tourbook.crowmade.app, no download address) by someone who never linked Drive:
+// both the window's requests (TOURBOOK_TEST_NET_WATCH) and everything Chromium's network stack tries, which goes through a
 // local recording proxy that answers every outside request with a refusal and forwards nothing (Electron's own
 // downloads, such as spellchecker dictionaries or the location service, never pass the window's request hooks).
 //   1. As built: the licence follows desktop/licence-on.json and desktop/licence-keys.json (off in the repository).
-//   2. With throw-away keys (GDEX_TEST_LICENCE_KEYS, read only by a development run): the free days start when the
+//   2. With throw-away keys (TOURBOOK_TEST_LICENCE_KEYS, read only by a development run): the free days start when the
 //      page asks, the start is mirrored in desktop-state.json, and the price comes from the licence server.
 // Prints PASS / FAIL lines, and SKIP when Electron is not installed here (FAIL instead when the CI variable is set).
 import { createRequire } from 'node:module';
@@ -34,7 +34,7 @@ try { require.resolve('electron/package.json', { paths: [repo] }); electronPath 
 const { _electron: electron } = require('playwright');
 const codes = require(join(repo, 'desktop', 'licence-codes.cjs'));
 
-// A stand-in for the licence server at gdex.crowmade.app: the price with tax (with the Date header every answer
+// A stand-in for the licence server at tourbook.crowmade.app: the price with tax (with the Date header every answer
 // carries), and a JSON 404 for everything else. It records what it was asked.
 const asked = [];
 const stub = createServer((req, res) => {
@@ -64,21 +64,21 @@ async function launch(profile, extraEnv = {}) {
   await waitForPort();
   const app = await electron.launch({
     executablePath: electronPath, args: ['.', '--no-sandbox', '--use-fake-device-for-media-stream', `--proxy-server=http://127.0.0.1:${proxy.address().port}`], cwd: repo, timeout: 60000,
-    env: { ...process.env, NODE_OPTIONS: '', GDEX_TEST_NO_BROWSER: '1', GDEX_TEST_NET_WATCH: '1', GDEX_LICENCE_SITE: SITE, GDEX_TEST_PROFILE: profile, ...extraEnv },
+    env: { ...process.env, NODE_OPTIONS: '', TOURBOOK_TEST_NO_BROWSER: '1', TOURBOOK_TEST_NET_WATCH: '1', TOURBOOK_LICENCE_SITE: SITE, TOURBOOK_TEST_PROFILE: profile, ...extraEnv },
   });
   const win = await app.firstWindow({ timeout: 60000 });
   const bad = [];
   win.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) bad.push(m.text()); });
   win.on('pageerror', e => bad.push('pageerror: ' + e.message));
   await win.waitForLoadState('domcontentloaded');
-  await win.evaluate(() => { localStorage.setItem('gdex-tour', 'done'); localStorage.setItem('gdex-role-nudged', '1'); localStorage.setItem('gdex-ask-seen', 'off'); });
+  await win.evaluate(() => { localStorage.setItem('tourbook-tour', 'done'); localStorage.setItem('tourbook-role-nudged', '1'); localStorage.setItem('tourbook-ask-seen', 'off'); });
   await win.reload();
   await win.waitForSelector('#deck .dk-next', { timeout: 30000 });
   return { app, win, bad };
 }
 
 const profiles = [];
-const newProfile = () => { const p = mkdtempSync(join(tmpdir(), 'gdex-desktop-')); profiles.push(p); return p; };
+const newProfile = () => { const p = mkdtempSync(join(tmpdir(), 'tourbook-desktop-')); profiles.push(p); return p; };
 try {
   /* ============================== 1. as built ============================== */
   const profile = newProfile();
@@ -86,18 +86,18 @@ try {
   const url = win.url(), base = new URL(url).origin, port = Number(new URL(url).port);
   ok('the app opens at its own local address (http://localhost:47861/, or a fallback up to 47880)', /^http:\/\/localhost:(4786[1-9]|4787\d|47880)\/$/.test(url), url);
   const usual = port === 47861;
-  if (!usual) console.log(`(another program held localhost:47861, so Gdex opened at ${port}: Google's sign-in is checked as refused below)`);
+  if (!usual) console.log(`(another program held localhost:47861, so Tourbook opened at ${port}: Google's sign-in is checked as refused below)`);
   const who = await app.evaluate(({ app }) => ({ name: app.getName(), data: app.getPath('userData'), version: app.getVersion() }));
-  ok('it is called Gdex, keeps its data in the test profile, and carries the web app’s version', who.name === 'Gdex' && resolve(who.data) === resolve(profile) && who.version === /VERSION = '([^']+)'/.exec(readFileSync(join(repo, 'js', 'version.js'), 'utf8'))[1], JSON.stringify(who));
+  ok('it is called Tourbook, keeps its data in the test profile, and carries the web app’s version', who.name === 'Tourbook' && resolve(who.data) === resolve(profile) && who.version === /VERSION = '([^']+)'/.exec(readFileSync(join(repo, 'js', 'version.js'), 'utf8'))[1], JSON.stringify(who));
   const mac = process.platform === 'darwin';
   const spell = await app.evaluate(({ session }) => ({ on: session.defaultSession.isSpellCheckerEnabled(), langs: session.defaultSession.getSpellCheckerLanguages() }));
   ok(mac ? 'the spellchecker is the Mac’s own' : 'the spellchecker is off, with no languages, so no dictionaries are fetched (Electron gets them from Google on Windows and Linux)', mac || (spell.on === false && spell.langs.length === 0), JSON.stringify(spell));
-  const members = await win.evaluate(() => ({ top: Object.keys(window.gdexDesktop).sort(), licence: Object.keys(window.gdexDesktop.licence).sort(), platform: window.gdexDesktop.platform, vdex: 'vdexDesktop' in window }));
-  ok('the bridge window.gdexDesktop has exactly its members (no Dropbox, Microsoft or iCloud sign-in)',
+  const members = await win.evaluate(() => ({ top: Object.keys(window.tourbookDesktop).sort(), licence: Object.keys(window.tourbookDesktop.licence).sort(), platform: window.tourbookDesktop.platform, vdex: 'vdexDesktop' in window }));
+  ok('the bridge window.tourbookDesktop has exactly its members (no Dropbox, Microsoft or iCloud sign-in)',
     members.top.join() === ['checkForUpdates', 'googleSignIn', 'installUpdate', 'licence', 'onStatus', 'openDownload', 'platform', 'updateState'].join()
     && members.licence.join() === ['adopt', 'buy', 'code', 'enter', 'localPrice', 'onChange', 'recheck', 'release', 'start', 'state'].join()
     && ['win32', 'darwin', 'linux'].includes(members.platform) && !members.vdex, JSON.stringify(members));
-  const upd = await win.evaluate(async () => ({ bridge: (await window.gdexDesktop.updateState()).status, page: (await import('./js/update.js')).updateState().desktop, workers: (await navigator.serviceWorker.getRegistrations()).length, install: document.getElementById('installBtn').hidden }));
+  const upd = await win.evaluate(async () => ({ bridge: (await window.tourbookDesktop.updateState()).status, page: (await import('./js/update.js')).updateState().desktop, workers: (await navigator.serviceWorker.getRegistrations()).length, install: document.getElementById('installBtn').hidden }));
   ok('updates: a development run says "dev", the page follows the bridge, no service worker is registered, and Install is hidden', upd.bridge === 'dev' && upd.page && upd.page.status === 'dev' && upd.workers === 0 && upd.install === true, JSON.stringify(upd));
   await win.evaluate(() => window.logiGo('settings')); await sleep(400);
   await win.locator('#se-about > summary').click(); await sleep(250);
@@ -109,9 +109,9 @@ try {
   // The licence follows the two switches in the repository.
   const on = JSON.parse(readFileSync(join(repo, 'desktop', 'licence-on.json'), 'utf8')).on === true;
   const keysIn = Object.keys(JSON.parse(readFileSync(join(repo, 'desktop', 'licence-keys.json'), 'utf8'))).includes('1');
-  const lic = await win.evaluate(() => window.gdexDesktop.licence.state());
-  const started = await win.evaluate(() => window.gdexDesktop.licence.start());
-  const priced = await win.evaluate(() => window.gdexDesktop.licence.localPrice().then(p => ({ p }), e => ({ error: String(e && e.message) })));
+  const lic = await win.evaluate(() => window.tourbookDesktop.licence.state());
+  const started = await win.evaluate(() => window.tourbookDesktop.licence.start());
+  const priced = await win.evaluate(() => window.tourbookDesktop.licence.localPrice().then(p => ({ p }), e => ({ error: String(e && e.message) })));
   if (on && keysIn) {
     ok('licences are switched on in this build: the free days have not started until the page asks', lic.mode === 'unstarted' && lic.kind === 'desktop' && lic.canEdit && started.mode === 'trial', JSON.stringify([lic, started]));
   } else {
@@ -124,21 +124,21 @@ try {
     const tryIt = c => navigator.mediaDevices.getUserMedia(c).then(s => { s.getTracks().forEach(t => t.stop()); return 'granted'; }, e => e.name);
     return { mic: await tryIt({ audio: true }), camera: await tryIt({ video: true }), both: await tryIt({ audio: true, video: true }) };
   });
-  ok('the microphone is granted to Gdex, the camera refused (also asked together with the microphone)', media.mic === 'granted' && media.camera === 'NotAllowedError' && media.both === 'NotAllowedError', JSON.stringify(media));
+  ok('the microphone is granted to Tourbook, the camera refused (also asked together with the microphone)', media.mic === 'granted' && media.camera === 'NotAllowedError' && media.both === 'NotAllowedError', JSON.stringify(media));
   const wake = await win.evaluate(() => navigator.wakeLock.request('screen').then(l => l.release().then(() => 'held'), e => e.name + ': ' + e.message));
-  const perms = await app.evaluate(() => global.__gdexPermissions);
+  const perms = await app.evaluate(() => global.__tourbookPermissions);
   ok('the screen can be kept on (the wake lock resolves)', wake === 'held', wake + ' — permissions asked: ' + JSON.stringify([...new Set(perms.map(p => p.permission))]));
   const geo = await win.evaluate(async mac => ({ state: (await navigator.permissions.query({ name: 'geolocation' })).state, ask: mac ? 'not asked on a Mac' : await new Promise(r => navigator.geolocation.getCurrentPosition(() => r('position'), e => r('error ' + e.code), { timeout: 8000 })) }), mac);
   ok(mac ? 'location is allowed on a Mac (the system finds it)' : 'location is refused on Windows and Linux (Chromium would ask Google’s location service), and asking for it contacts nothing', mac ? geo.state === 'granted' : geo.state === 'denied' && geo.ask === 'error 1' && tried.length === 0, JSON.stringify(geo) + ' ' + tried.join(', '));
   const notified = await win.evaluate(() => Notification.requestPermission());
-  ok('…and anything else is refused (notifications, which Gdex never uses)', notified === 'denied', notified);
+  ok('…and anything else is refused (notifications, which Tourbook never uses)', notified === 'denied', notified);
 
-  // Gdex's files are only for its own window ([S-42]).
+  // Tourbook's files are only for its own window ([S-42]).
   const plain = await Promise.all(['/', '/index.html', '/js/app.js', '/css/licence.css'].map(p => get(base + p)));
-  ok('from outside the app (no window key), the app’s files answer 403 “Open Gdex from its desktop app.”', plain.every(r => r.status === 403 && /Open Gdex from its desktop app/.test(r.body)), plain.map(r => r.status).join());
-  const forged = await get(base + '/index.html', { 'X-Gdex-App': 'guessed' });
+  ok('from outside the app (no window key), the app’s files answer 403 “Open Tourbook from its desktop app.”', plain.every(r => r.status === 403 && /Open Tourbook from its desktop app/.test(r.body)), plain.map(r => r.status).join());
+  const forged = await get(base + '/index.html', { 'X-Tourbook-App': 'guessed' });
   ok('…a guessed key is refused too', forged.status === 403);
-  const rebound = await Promise.all([`evil.example:${port}`, 'localhost', `localhost:${port}.evil.example`].map(h => get(base + '/__gdex/google?n=x', { Host: h })));
+  const rebound = await Promise.all([`evil.example:${port}`, 'localhost', `localhost:${port}.evil.example`].map(h => get(base + '/__tourbook/google?n=x', { Host: h })));
   ok('…and a request addressed to another name (a page pointing its own name at this computer) is refused', rebound.every(r => r.status === 403), rebound.map(r => r.status).join());
   const licReq = await get(base + '/licence/web/status');
   ok('the licence server’s addresses are never the app: a JSON 404', licReq.status === 404 && /^application\/json/.test(licReq.type) && licReq.body === '{"error":"not-found"}', JSON.stringify(licReq));
@@ -146,36 +146,36 @@ try {
 
   // Google's sign-in: a one-time page in the web browser at the app's address, handing the token back to the window.
   const signin = {};
-  await win.evaluate(() => { window.__g = window.gdexDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata', hint: 'h@example.com' }); });
+  await win.evaluate(() => { window.__g = window.tourbookDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata', hint: 'h@example.com' }); });
   await sleep(300);
   if (usual) {
-    const gUrl = await app.evaluate(() => global.__gdexLastExternal);
-    signin.opensBrowser = /^http:\/\/localhost:47861\/__gdex\/google\?n=[A-Za-z0-9_-]{32}$/.test(gUrl);
+    const gUrl = await app.evaluate(() => global.__tourbookLastExternal);
+    signin.opensBrowser = /^http:\/\/localhost:47861\/__tourbook\/google\?n=[A-Za-z0-9_-]{32}$/.test(gUrl);
     const gPage = await fetch(gUrl), gHtml = await gPage.text(), csp = gPage.headers.get('content-security-policy') || '';
-    signin.page = gPage.ok && /Continue with Google/.test(gHtml) && /Sign in to Google for Gdex/.test(gHtml) && /h@example\.com/.test(gHtml) && !/Vdex/.test(gHtml) && /script-src 'nonce-/.test(csp) && /default-src 'none'/.test(csp);
+    signin.page = gPage.ok && /Continue with Google/.test(gHtml) && /Sign in to Google for Tourbook/.test(gHtml) && /h@example\.com/.test(gHtml) && !/Vdex/.test(gHtml) && /script-src 'nonce-/.test(csp) && /default-src 'none'/.test(csp);
     const parses = html => [...html.matchAll(/<script nonce="[^"]+">([\s\S]*?)<\/script>/g)].every(m => { try { new Function(m[1]); return true; } catch { return false; } }) && /<script nonce="[^"]+">/.test(html);
     signin.scriptParses = parses(gHtml);
     const key = (gHtml.match(/"key":"([^"]+)"/) || [])[1];
     const answer = JSON.stringify({ access_token: 'gt', expires_in: 3600, scope: 'https://www.googleapis.com/auth/drive.appdata', token_type: 'Bearer' });
     signin.needsKey = (await fetch(gUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: base }, body: answer })).status === 403;
-    signin.needsOrigin = (await fetch(gUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example', 'X-Gdex-Key': key }, body: answer })).status === 403;
+    signin.needsOrigin = (await fetch(gUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example', 'X-Tourbook-Key': key }, body: answer })).status === 403;
     signin.servedOnce = (await fetch(gUrl)).status === 404;
-    const post = await fetch(gUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: base, 'X-Gdex-Key': key }, body: answer });
+    const post = await fetch(gUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: base, 'X-Tourbook-Key': key }, body: answer });
     const got = await win.evaluate(() => window.__g);
     signin.handsOver = post.status === 204 && got.access_token === 'gt' && got.expires_in === 3600;
-    signin.thenGone = (await fetch(gUrl)).status === 404 && (await fetch(base + '/__gdex/google?n=guess')).status === 404;
-    await win.evaluate(() => { window.__g1 = window.gdexDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata', hint: '' }); });
+    signin.thenGone = (await fetch(gUrl)).status === 404 && (await fetch(base + '/__tourbook/google?n=guess')).status === 404;
+    await win.evaluate(() => { window.__g1 = window.tourbookDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata', hint: '' }); });
     await sleep(200);
-    await win.evaluate(() => { window.__g2 = window.gdexDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata', hint: '' }); });
+    await win.evaluate(() => { window.__g2 = window.tourbookDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata', hint: '' }); });
     await sleep(200);
     signin.oneAtATime = (await win.evaluate(() => window.__g1)).error === 'replaced';
-    const g2Url = await app.evaluate(() => global.__gdexLastExternal); await fetch(g2Url); // opened, then left: the window stops waiting only when replaced or after five minutes
+    const g2Url = await app.evaluate(() => global.__tourbookLastExternal); await fetch(g2Url); // opened, then left: the window stops waiting only when replaced or after five minutes
   } else {
     signin.awayRefused = (await win.evaluate(() => window.__g)).error === 'address_taken';
   }
-  signin.oddClientRefused = (await win.evaluate(() => window.gdexDesktop.googleSignIn({ client: 'not a client', scope: 'https://www.googleapis.com/auth/drive.appdata' }))).error === (usual ? 'refused' : 'address_taken');
-  signin.oddScopeRefused = (await win.evaluate(() => window.gdexDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://evil.example/all' }))).error === (usual ? 'refused' : 'address_taken');
-  signin.wholeDriveRefused = (await win.evaluate(() => window.gdexDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive' }))).error === (usual ? 'refused' : 'address_taken');
+  signin.oddClientRefused = (await win.evaluate(() => window.tourbookDesktop.googleSignIn({ client: 'not a client', scope: 'https://www.googleapis.com/auth/drive.appdata' }))).error === (usual ? 'refused' : 'address_taken');
+  signin.oddScopeRefused = (await win.evaluate(() => window.tourbookDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://evil.example/all' }))).error === (usual ? 'refused' : 'address_taken');
+  signin.wholeDriveRefused = (await win.evaluate(() => window.tourbookDesktop.googleSignIn({ client: '123-abc.apps.googleusercontent.com', scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive' }))).error === (usual ? 'refused' : 'address_taken');
   ok('Google’s sign-in opens once in the web browser with the hint and a nonce CSP, refuses an answer without the page’s key or from another origin, hands the token to the window, then is gone', Object.values(signin).every(Boolean), JSON.stringify(signin));
 
   // Nobody who never linked Google Drive contacts anyone: type in a field for a moment, open every section.
@@ -184,18 +184,18 @@ try {
   await win.keyboard.press('Escape'); await sleep(200);
   const sections = await win.evaluate(async () => { const { SECTIONS } = await import('./js/roles.js'); for (const id of SECTIONS) { await window.logiGo(id); await new Promise(r => setTimeout(r, 250)); } return SECTIONS; });
   await sleep(500);
-  const hosts = await app.evaluate(() => [...global.__gdexHosts]);
+  const hosts = await app.evaluate(() => [...global.__tourbookHosts]);
   const allowed = new Set([`localhost:${port}`, `127.0.0.1:${stub.address().port}`]);
-  ok(`typing and opening all ${sections.length} sections contacts nothing but this computer (no Google, no gdex.crowmade.app, no download address)`, hosts.length > 0 && hosts.every(h => allowed.has(h)), hosts.join(', '));
+  ok(`typing and opening all ${sections.length} sections contacts nothing but this computer (no Google, no tourbook.crowmade.app, no download address)`, hosts.length > 0 && hosts.every(h => allowed.has(h)), hosts.join(', '));
   ok('…and with licences off the licence server was asked nothing at all', on && keysIn ? true : asked.length === 0, asked.join(', '));
   ok('…nor did anything else in Electron try an outside address (the recording proxy saw nothing: no dictionaries, no location service)', tried.length === 0, tried.join(', '));
   // Links: a mail link and the shop open outside; the window stays on the app. (Last: Playwright then waits for the
   // navigation the app cancelled, so nothing is clicked after this.)
   await win.evaluate(() => { location.href = 'mailto:someone@example.com'; }); await sleep(600);
-  const mailOut = await app.evaluate(() => global.__gdexLastExternal);
+  const mailOut = await app.evaluate(() => global.__tourbookLastExternal);
   await win.evaluate(() => { location.href = '/buy'; }); await sleep(600);
-  const shopOut = await app.evaluate(() => global.__gdexLastExternal);
-  ok('a mail link opens in the mail program, and the shop (/buy) in the web browser, while the window stays on Gdex', mailOut === 'mailto:someone@example.com' && shopOut === SITE + '/buy' && win.url() === url, JSON.stringify([mailOut, shopOut, win.url()]));
+  const shopOut = await app.evaluate(() => global.__tourbookLastExternal);
+  ok('a mail link opens in the mail program, and the shop (/buy) in the web browser, while the window stays on Tourbook', mailOut === 'mailto:someone@example.com' && shopOut === SITE + '/buy' && win.url() === url, JSON.stringify([mailOut, shopOut, win.url()]));
 
   ok('no errors in the console, and no content security policy complaints', bad.length === 0, bad.join(' | '));
   await app.close();
@@ -205,27 +205,27 @@ try {
   const testKeys = JSON.stringify({ 1: pair1.publicKey, 2: pair2.publicKey, 9: pair9.publicKey });
   const profile2 = newProfile();
   asked.length = 0;
-  let run = await launch(profile2, { GDEX_TEST_LICENCE_KEYS: testKeys });
-  let s = await run.win.evaluate(() => window.gdexDesktop.licence.state());
+  let run = await launch(profile2, { TOURBOOK_TEST_LICENCE_KEYS: testKeys });
+  let s = await run.win.evaluate(() => window.tourbookDesktop.licence.state());
   ok('with licences on, a new computer has not started its free days (no early user)', s.mode === 'unstarted' && s.enabled && s.started === false && s.first === 0 && s.canEdit && s.buyUrl === SITE + '/buy', JSON.stringify(s));
-  const changes = await run.win.evaluate(() => new Promise(res => { const seen = []; const off = window.gdexDesktop.licence.onChange(x => seen.push(x.mode)); window.gdexDesktop.licence.start().then(st => setTimeout(() => { off(); res({ st, seen }); }, 300)); }));
+  const changes = await run.win.evaluate(() => new Promise(res => { const seen = []; const off = window.tourbookDesktop.licence.onChange(x => seen.push(x.mode)); window.tourbookDesktop.licence.start().then(st => setTimeout(() => { off(); res({ st, seen }); }, 300)); }));
   s = changes.st;
   ok('start() starts them now, and the page hears of it (onChange)', s.mode === 'trial' && s.started && s.trialLeft === 30 && Math.abs(s.first - Date.now()) < 120e3 && changes.seen.includes('trial'), JSON.stringify(changes.seen));
   const mirrored = JSON.parse(readFileSync(join(profile2, 'desktop-state.json'), 'utf8')).licence, stored = JSON.parse(readFileSync(join(profile2, 'licence.json'), 'utf8'));
   ok('the start is in licence.json and its mirror in desktop-state.json, and there is no "founder"', mirrored && mirrored.first === s.first && stored.first === s.first && !('founder' in stored) && !('founder' in mirrored), JSON.stringify(mirrored));
   const first = s.first;
-  s = await run.win.evaluate(t => window.gdexDesktop.licence.adopt(t), first - 2 * DAY);
+  s = await run.win.evaluate(t => window.tourbookDesktop.licence.adopt(t), first - 2 * DAY);
   ok('adopt() takes an earlier start from another device on the same Google Drive', s.first === first - 2 * DAY && s.trialLeft === 28, String(s.trialLeft));
-  const price = await run.win.evaluate(() => window.gdexDesktop.licence.localPrice());
+  const price = await run.win.evaluate(() => window.tourbookDesktop.licence.localPrice());
   ok('the price with tax comes from the licence server (only its taxed part reaches the page)', JSON.stringify(price) === JSON.stringify({ taxed: { place: 'Germany', tax: 'VAT', rate: 19, total: '23.80' } }) && asked.includes('GET /licence/price'), JSON.stringify([price, asked]));
-  const bad2 = (await run.win.evaluate(() => window.gdexDesktop.licence.enter('VDEX-0A1B2-C3D4E-F5G6H'))).error;
-  ok('a Vdex code pasted in gets its own message', /This is a Vdex licence code\. Gdex has its own licence/.test(bad2 || ''), bad2);
+  const bad2 = (await run.win.evaluate(() => window.tourbookDesktop.licence.enter('VDEX-0A1B2-C3D4E-F5G6H'))).error;
+  ok('a Vdex code pasted in gets its own message', /This is a Vdex licence code\. Tourbook has its own licence/.test(bad2 || ''), bad2);
   ok('no errors in the console (licences on)', run.bad.length === 0, run.bad.join(' | '));
   ok('…and with licences on, nothing outside was tried either (the licence server is the local stand-in here)', tried.length === 0, tried.join(', '));
   await run.app.close();
   rmSync(join(profile2, 'licence.json'));
-  run = await launch(profile2, { GDEX_TEST_LICENCE_KEYS: testKeys });
-  s = await run.win.evaluate(() => window.gdexDesktop.licence.state());
+  run = await launch(profile2, { TOURBOOK_TEST_LICENCE_KEYS: testKeys });
+  s = await run.win.evaluate(() => window.tourbookDesktop.licence.state());
   ok('licence.json deleted: the next start takes the free days’ start back from desktop-state.json', s.mode === 'trial' && s.first === first - 2 * DAY && existsSync(join(profile2, 'licence.json')), JSON.stringify({ mode: s.mode, first: s.first }));
   await run.app.close();
 } catch (e) {

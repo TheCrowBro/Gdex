@@ -1,4 +1,4 @@
-// The gdex Worker. Everything at https://gdex.crowmade.app is the static website (served straight from the files in
+// The tourbook Worker. Everything at https://tourbook.crowmade.app is the static website (served straight from the files in
 // ./site), except these few addresses, which this script answers (wrangler.jsonc → assets.run_worker_first), and an
 // address that is none of the files, which reaches it after the files (not_found_handling "none") and gets a 404 page:
 //
@@ -14,13 +14,13 @@
 //   /licence/price             the price with tax in the country the request comes from (js/tax.js: the UK, the EU and
 //                              Australia), for the Buy buttons on the website and in the desktop app
 //
-// Gdex's own: nothing here is shared with Vdex's Worker (its code prefix, signing prefixes, salts, keys, KV namespace,
-// Stripe payment link and email sender are all Gdex's; docs/licence-server.md). A Vdex payment never makes a Gdex code:
-// only payments through Gdex's own payment links count.
+// Tourbook's own: nothing here is shared with Vdex's Worker (its code prefix, signing prefixes, salts, keys, KV namespace,
+// Stripe payment link and email sender are all Tourbook's; docs/licence-server.md). A Vdex payment never makes a Tourbook code:
+// only payments through Tourbook's own payment links count.
 //
 // Codes are made and checked by desktop/licence-codes.cjs, the same file the desktop app and the generator use. The list
 // of computers for each code, and which codes are cancelled, are kept in the LICENCES KV namespace (created by Wrangler
-// on the first deploy as gdex-licences). Secrets, set in Cloudflare (Workers & Pages → gdex → Settings → Variables and
+// on the first deploy as tourbook-licences). Secrets, set in Cloudflare (Workers & Pages → tourbook → Settings → Variables and
 // Secrets):
 //   LICENCE_SHOP_KEY       the shop's private key (key 2), from the generator page; signs paid codes and activations
 //   STRIPE_SECRET_KEY      a restricted Stripe key that can only read Checkout Sessions
@@ -30,7 +30,7 @@
 //   BUY_URL                the payment link's address (https://buy.stripe.com/…)
 //   RESEND_API_KEY         Resend, to email codes (without it the code is only shown after paying, and the website's
 //                          sign-in stays off)
-//   MAIL_FROM, REPLY_TO    the email's sender (default "Gdex <licences@gdex.crowmade.app>") and where replies go
+//   MAIL_FROM, REPLY_TO    the email's sender (default "Tourbook <licences@tourbook.crowmade.app>") and where replies go
 //   WEB_SIGN_IN            "on" lets the website ask for a licence once licences are live in its build
 //                          (js/licence-config.js); anything else pauses it, and every role opens again within hours
 //   SIGN_IN_EMAILS_PER_DAY a higher daily cap on sign-in emails, on a paid Resend plan (default 30)
@@ -41,7 +41,7 @@ import codes from '../desktop/licence-codes.cjs';
 import { PRICE, withTax } from '../js/tax.js';
 import KEYS from '../desktop/licence-keys.json';
 
-const SITE = 'https://gdex.crowmade.app';
+const SITE = 'https://tourbook.crowmade.app';
 const SHOP_KID = 2;
 const DAY = 86400e3;
 const SWAPS = 3;                // moving a code to a new computer while all its places are taken: 3 times in 30 days
@@ -63,7 +63,7 @@ const testWords = r => (r.expires ? `This was a test order (Stripe’s test mode
 const API_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600' };
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), { status, headers: { ...API_HEADERS, ...extra } });
-// A page of the shop, in Gdex's colours (the Stage theme, light or dark as the device is). Its own strict policy: no
+// A page of the shop, in Tourbook's colours (the Stage theme, light or dark as the device is). Its own strict policy: no
 // script but the one it is given (with a fresh nonce), no frames, no forms.
 function page(status, title, body, script = '') {
   const nonce = codes.b64u.enc(crypto.getRandomValues(new Uint8Array(16)));
@@ -76,7 +76,7 @@ main{max-width:640px;margin:0 auto;padding:40px 16px 64px}h1{font-size:1.6rem;li
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0}
 textarea{width:100%;font:.95rem/1.5 ui-monospace,Menlo,Consolas,monospace;color:inherit;background:transparent;border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical;word-break:break-all;field-sizing:content}
 button,.btn{display:inline-flex;align-items:center;min-height:44px;font:inherit;font-weight:700;padding:8px 18px;border-radius:10px;border:0;background:var(--accent);color:var(--ink);cursor:pointer;text-decoration:none;margin:8px 8px 0 0}
-:focus-visible{outline:3px solid var(--accent);outline-offset:2px}p,li{overflow-wrap:anywhere}ol li{margin:6px 0}</style></head><body><main><p class="brand" aria-hidden="true"><i></i>GDEX</p>${body}</main>${script ? `<script nonce="${nonce}">${script}</script>` : ''}</body></html>`, {
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}p,li{overflow-wrap:anywhere}ol li{margin:6px 0}</style></head><body><main><p class="brand" aria-hidden="true"><i></i>TOURBOOK</p>${body}</main>${script ? `<script nonce="${nonce}">${script}</script>` : ''}</body></html>`, {
     status,
     headers: {
       'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex',
@@ -98,7 +98,7 @@ function shopKey(env) {
   const text = String(env.LICENCE_SHOP_KEY || '').trim();
   if (!text || !KEYS[SHOP_KID]) return Promise.resolve(null);
   if (!shopKeys.has(text)) shopKeys.set(text, (async () => {
-    try { const k = await codes.importPrivate(text, true); if ((await codes.publicOf(k)) !== KEYS[SHOP_KID]) { console.error(`LICENCE_SHOP_KEY is not the key ${SHOP_KID} built into Gdex`); return null; } return codes.importPrivate(text); }
+    try { const k = await codes.importPrivate(text, true); if ((await codes.publicOf(k)) !== KEYS[SHOP_KID]) { console.error(`LICENCE_SHOP_KEY is not the key ${SHOP_KID} built into Tourbook`); return null; } return codes.importPrivate(text); }
     catch (e) { console.error('LICENCE_SHOP_KEY could not be read: ' + e.message); return null; }
   })());
   return shopKeys.get(text);
@@ -115,7 +115,7 @@ const selling = env => !!(env.STRIPE_SECRET_KEY && paymentLinks(env).length);
 // The payment link's address, when it is one: /buy goes there, and the website's licence is live only with it.
 const buyUrl = env => { const u = String(env.BUY_URL || '').trim(); return /^https:\/\/[^/\s]+\/\S*$/.test(u) ? u : ''; };
 // The serial comes from the Checkout Session, so the thank-you page, a reload of it and the email all show the same code.
-async function refForSession(id) { const h = await sha256('gdex-order|' + id); const serial = new DataView(h.buffer).getUint32(0) || 1; return { serial, ref: codes.refOf(SHOP_KID, serial) }; }
+async function refForSession(id) { const h = await sha256('tourbook-order|' + id); const serial = new DataView(h.buffer).getUint32(0) || 1; return { serial, ref: codes.refOf(SHOP_KID, serial) }; }
 async function licenceForSession(s, env) {
   if (!s || typeof s !== 'object' || !/^cs_(live|test)_[A-Za-z0-9]{10,250}$/.test(String(s.id))) return { error: 'not-found' };
   if (s.status !== 'complete' || !['paid', 'no_payment_required'].includes(s.payment_status)) return { error: 'not-paid' };
@@ -126,7 +126,7 @@ async function licenceForSession(s, env) {
   const { serial, ref } = await refForSession(s.id);
   const issued = today((Number(s.created) || 0) * 1000 || Date.now());
   const expires = s.livemode === false ? today(Date.parse(issued + 'T00:00:00Z') + TEST_DAYS * DAY) : '';
-  const code = await codes.signCode(key, SHOP_KID, { serial, name: name || (mail ? '' : 'Gdex customer'), email: mail, issued, expires });
+  const code = await codes.signCode(key, SHOP_KID, { serial, name: name || (mail ? '' : 'Tourbook customer'), email: mail, issued, expires });
   return { code, ref, name, email: email || '', sessionId: s.id, expires };
 }
 
@@ -138,19 +138,19 @@ async function thanks(url, env) {
   if (!selling(env)) return closed();
   const s = /^cs_(live|test)_[A-Za-z0-9]{10,250}$/.test(id) ? await stripeGet(env, 'checkout/sessions/' + encodeURIComponent(id)) : null;
   const r = await licenceForSession(s, env);
-  if (r.error === 'not-ready') return closed(); // a paid order, but no shop key (or not the one built into Gdex)
+  if (r.error === 'not-ready') return closed(); // a paid order, but no shop key (or not the one built into Tourbook)
   if (r.error === 'not-paid') return page(202, 'Your payment is on its way', `<h1>Your payment is on its way</h1><p>Some ways of paying take a little while to confirm. <a href="/licence/thanks?session_id=${esc(encodeURIComponent(id))}">Reload this page</a> in a minute.${env.RESEND_API_KEY ? ' We’ll also email your licence as soon as the payment is confirmed.' : ''}</p>`);
   if (r.error) return page(404, 'We couldn’t find that order', '<h1>We couldn’t find that order</h1><p>If you have just paid, wait a minute and reload this page. If it still doesn’t work, reply to your receipt email and we’ll send your licence code.</p>');
   const x = await cancelled(env, r.ref); // refunded, disputed or cancelled by the owner: the code is not shown as a licence
   if (x) return page(410, 'This order’s licence no longer works', `<h1>This order’s licence no longer works</h1><p>${x.why === 'refund' ? 'This order was refunded, so its licence code no longer works.' : x.why === 'dispute' ? 'The payment for this order was disputed, so its licence code doesn’t work.' : 'The licence code of this order has been cancelled.'} Questions? Reply to your receipt email.</p>`);
   const who = r.name || r.email, web = await webReady(env), mailed = !!(env.RESEND_API_KEY && r.email);
-  return page(200, 'Thank you: here is your Gdex licence', `<h1>Thank you: here is your Gdex licence</h1>
+  return page(200, 'Thank you: here is your Tourbook licence', `<h1>Thank you: here is your Tourbook licence</h1>
 <p>${who ? `Licensed to <b>${esc(who)}</b>. ` : ''}It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).${mailed ? ` We’ve emailed it to you too, at ${esc(r.email)}.` : ' Keep a copy: this page is the only place it is shown.'}</p>
 ${r.expires ? `<p><b>${esc(testWords(r))}</b></p>
 ` : ''}
 <div class="card"><label for="code" class="muted">Your licence code</label><textarea id="code" rows="8" readonly>${esc(r.code)}</textarea><button id="copy" type="button">Copy the code</button> <span id="copied" class="muted" role="status"></span></div>
-${web ? `<p><b>On the website:</b> Settings → About &amp; licence → Sign in, with ${r.email ? `<b>${esc(r.email)}</b>` : 'the email address you paid with'}. Gdex emails you a 6-digit code to type in.</p>
-` : ''}<p><b>In the desktop app:</b> Settings → About &amp; licence → Enter licence code, and paste the code. <a href="/download.html">Download Gdex for your computer</a> if you haven’t yet.</p>
+${web ? `<p><b>On the website:</b> Settings → About &amp; licence → Sign in, with ${r.email ? `<b>${esc(r.email)}</b>` : 'the email address you paid with'}. Tourbook emails you a 6-digit code to type in.</p>
+` : ''}<p><b>In the desktop app:</b> Settings → About &amp; licence → Enter licence code, and paste the code. <a href="/download.html">Download Tourbook for your computer</a> if you haven’t yet.</p>
 <p class="muted">Audiophile stays free for everyone, licence or not. The receipt from Stripe is your proof of purchase. Questions? Reply to ${mailed && env.REPLY_TO ? 'the email your licence comes in' : 'your receipt email'}.</p>`,
   "document.getElementById('copy').onclick=async()=>{const t=document.getElementById('code'),m=document.getElementById('copied');try{await navigator.clipboard.writeText(t.value);m.textContent='Copied.'}catch(e){t.select();m.textContent='Press Ctrl+C (Cmd+C on a Mac) to copy.'}}");
 }
@@ -197,12 +197,12 @@ async function webhook(request, env) {
 // The licence email. Every value in its HTML is escaped; the subject is fixed text.
 async function sendCode(env, r, web) {
   const who = r.name ? `${r.name} (${r.email})` : r.email;
-  const text = `Thank you for buying Gdex.\n\nLicensed to ${who}. It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).${r.expires ? `\n\n${testWords(r)}` : ''}\n\nYour licence code:\n\n${r.code}\n\n${web ? `On the website (${SITE}): Settings → About & licence → Sign in, with this email address. Gdex emails you a 6-digit code to type in.\n\n` : ''}In the desktop app: Settings → About & licence → Enter licence code, and paste the code. Download Gdex for your computer: ${SITE}/download.html\n\nKeep this email: it is your licence.${env.REPLY_TO ? ' Questions? Reply to it.' : ''}\n`;
-  const html = `<p>Thank you for buying Gdex.</p><p>Licensed to <b>${esc(r.name || r.email)}</b>${r.name ? ` (${esc(r.email)})` : ''}. It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).</p>${r.expires ? `<p><b>${esc(testWords(r))}</b></p>` : ''}<p>Your licence code:</p><p style="font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;background:#f3eefb;color:#211a2e;padding:12px;border-radius:8px">${esc(r.code)}</p>${web ? `<p><b>On <a href="${SITE}/">the website</a>:</b> Settings → About &amp; licence → Sign in, with this email address. Gdex emails you a 6-digit code to type in.</p>` : ''}<p><b>In the desktop app:</b> Settings → About &amp; licence → Enter licence code, and paste the code. <a href="${SITE}/download.html">Download Gdex for your computer</a>.</p><p>Keep this email: it is your licence.${env.REPLY_TO ? ' Questions? Reply to it.' : ''}</p>`;
+  const text = `Thank you for buying Tourbook.\n\nLicensed to ${who}. It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).${r.expires ? `\n\n${testWords(r)}` : ''}\n\nYour licence code:\n\n${r.code}\n\n${web ? `On the website (${SITE}): Settings → About & licence → Sign in, with this email address. Tourbook emails you a 6-digit code to type in.\n\n` : ''}In the desktop app: Settings → About & licence → Enter licence code, and paste the code. Download Tourbook for your computer: ${SITE}/download.html\n\nKeep this email: it is your licence.${env.REPLY_TO ? ' Questions? Reply to it.' : ''}\n`;
+  const html = `<p>Thank you for buying Tourbook.</p><p>Licensed to <b>${esc(r.name || r.email)}</b>${r.name ? ` (${esc(r.email)})` : ''}. It covers every role on up to 3 of your devices (computers with the desktop app; signing in on the website doesn’t use one).</p>${r.expires ? `<p><b>${esc(testWords(r))}</b></p>` : ''}<p>Your licence code:</p><p style="font:15px/1.5 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;background:#f3eefb;color:#211a2e;padding:12px;border-radius:8px">${esc(r.code)}</p>${web ? `<p><b>On <a href="${SITE}/">the website</a>:</b> Settings → About &amp; licence → Sign in, with this email address. Tourbook emails you a 6-digit code to type in.</p>` : ''}<p><b>In the desktop app:</b> Settings → About &amp; licence → Enter licence code, and paste the code. <a href="${SITE}/download.html">Download Tourbook for your computer</a>.</p><p>Keep this email: it is your licence.${env.REPLY_TO ? ' Questions? Reply to it.' : ''}</p>`;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': 'gdex-licence-' + r.sessionId },
-    body: JSON.stringify({ from: env.MAIL_FROM || 'Gdex <licences@gdex.crowmade.app>', to: [r.email], ...(env.REPLY_TO ? { reply_to: env.REPLY_TO } : {}), subject: plain('Your Gdex licence'), text, html }),
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': 'tourbook-licence-' + r.sessionId },
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Tourbook <licences@tourbook.crowmade.app>', to: [r.email], ...(env.REPLY_TO ? { reply_to: env.REPLY_TO } : {}), subject: plain('Your Tourbook licence'), text, html }),
   }).catch(() => null);
   if (res && (res.ok || res.status === 409)) return true; // 409: this email was already sent (or is being sent) for this order
   console.error('Resend answered ' + (res ? res.status : 'nothing'));
@@ -213,7 +213,7 @@ async function sendCode(env, r, web) {
 // A computer running the desktop app is listed by the random ID its install made. Other computers only ever see a short
 // tag made from it, so one cannot take another off the list except through a counted swap. Signing in on the website
 // takes no place.
-const tagOf = async id => codes.b64u.enc(await sha256('gdex-seat|' + id)).slice(0, 12);
+const tagOf = async id => codes.b64u.enc(await sha256('tourbook-seat|' + id)).slice(0, 12);
 const OS = new Set(['Mac', 'Windows', 'Linux']);
 const validInstall = v => typeof v === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(v);
 async function readCode(text) { try { const r = await codes.verifyCode(String(text || ''), { keys: KEYS }); return r; } catch { return null; } }
@@ -277,7 +277,7 @@ async function linkEmail(env, email, lic) {
   await env.LICENCES.put('e:' + email, JSON.stringify({ licences: list.slice(-20) }));
 }
 // The licences an email can use now: linked ones that are not cancelled or past their end date. An email with none
-// linked is looked up in Stripe too (an order whose webhook never arrived, say), among Gdex's own payment links only.
+// linked is looked up in Stripe too (an order whose webhook never arrived, say), among Tourbook's own payment links only.
 async function licencesFor(env, email) {
   const rec = await env.LICENCES.get('e:' + email, 'json'); // a storage error becomes a 500, never a 'no licence' answer
   let list = rec && Array.isArray(rec.licences) ? rec.licences : [];
@@ -323,7 +323,7 @@ async function webToken(env, token) {
   return v;
 }
 // Only a scrambled form of the identity is kept for this, never the email address itself.
-const forgotKey = async ikey => 'z:' + hex(await sha256('gdex-forgot|' + ikey));
+const forgotKey = async ikey => 'z:' + hex(await sha256('tourbook-forgot|' + ikey));
 // Delete my licence records (Settings → About & licence): what the server keeps about this sign-in's email address goes:
 // its links to its licences and any sign-in code (when codes were sent that day stays, without anything else, so a
 // deletion cannot reset the limits). The computers on the licence stay (a random number per install, nothing about the
@@ -443,11 +443,11 @@ async function endedFor(env, v) {
 }
 // The sign-in email. The address is escaped in the HTML; the subject holds only the six digits.
 async function sendSignIn(env, email, code) {
-  const text = `Your code to sign in to Gdex is ${code}\n\nUse it within 15 minutes, to sign in as ${email}. If you didn’t ask for it, ignore this email: nobody can sign in without this code.\n`;
-  const html = `<p>Your code to sign in to Gdex is</p><p style="font:28px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:4px;font-weight:700">${esc(code)}</p><p>Use it within 15 minutes, to sign in as ${esc(email)}. If you didn’t ask for it, ignore this email: nobody can sign in without this code.</p>`;
+  const text = `Your code to sign in to Tourbook is ${code}\n\nUse it within 15 minutes, to sign in as ${email}. If you didn’t ask for it, ignore this email: nobody can sign in without this code.\n`;
+  const html = `<p>Your code to sign in to Tourbook is</p><p style="font:28px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:4px;font-weight:700">${esc(code)}</p><p>Use it within 15 minutes, to sign in as ${esc(email)}. If you didn’t ask for it, ignore this email: nobody can sign in without this code.</p>`;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.MAIL_FROM || 'Gdex <licences@gdex.crowmade.app>', to: [email], ...(env.REPLY_TO ? { reply_to: env.REPLY_TO } : {}), subject: plain(`${code} is your Gdex sign-in code`), text, html }),
+    body: JSON.stringify({ from: env.MAIL_FROM || 'Tourbook <licences@tourbook.crowmade.app>', to: [email], ...(env.REPLY_TO ? { reply_to: env.REPLY_TO } : {}), subject: plain(`${code} is your Tourbook sign-in code`), text, html }),
   }).catch(() => null);
   if (res && res.ok) return true;
   console.error('Resend answered ' + (res ? res.status : 'nothing') + ' for a sign-in code');
@@ -455,7 +455,7 @@ async function sendSignIn(env, email, code) {
 }
 
 /* ------------------------------ the owner ------------------------------- */
-// A ref as a code carries it: one of Gdex's keys and a serial of 1 to 4294967295, without leading zeros (so "2:079" is
+// A ref as a code carries it: one of Tourbook's keys and a serial of 1 to 4294967295, without leading zeros (so "2:079" is
 // code 2:79); '' for a ref no code can have, which is refused rather than reported as looked up, cancelled or cleared.
 const cleanRef = v => {
   const m = String(v).match(/^(\d{1,3}):(\d{1,10})$/), kid = m && Number(m[1]), serial = m && Number(m[2]);
@@ -488,7 +488,7 @@ export default {
       if (p === '/buy') {
         const to = buyUrl(env);
         if (m === 'GET' && to) return new Response(null, { status: 302, headers: { Location: to, 'Cache-Control': 'no-store' } });
-        return page(200, 'Gdex licence', `<h1>The Gdex licence is not on sale yet</h1><p>It will cost ${PRICE} USD once, for up to 3 of your own devices. Until then every role is free: <a href="/index.html">open Gdex</a>.</p>`);
+        return page(200, 'Tourbook licence', `<h1>The Tourbook licence is not on sale yet</h1><p>It will cost ${PRICE} USD once, for up to 3 of your own devices. Until then every role is free: <a href="/index.html">open Tourbook</a>.</p>`);
       }
       if (p === '/licence/price' && m === 'GET') {
         // Cloudflare says which country the request comes from; the page shows that country's total, if it has one.
@@ -511,10 +511,10 @@ export default {
       return p.startsWith('/licence/') && p !== '/licence/thanks' ? json(500, { error: 'server' }) : page(500, 'Something went wrong', '<h1>Something went wrong</h1><p>Try again in a minute.</p>');
     }
     // An address that is none of the website's files reaches this script (wrangler.jsonc: not_found_handling "none"),
-    // as does every other request but /buy and /licence/…, from the files' answer: a 404 is given a page in Gdex's look
+    // as does every other request but /buy and /licence/…, from the files' answer: a 404 is given a page in Tourbook's look
     // that says so, instead of an empty answer (a blank page in a browser), still with the status 404.
     const res = await env.ASSETS.fetch(request);
-    if (res.status === 404 && (m === 'GET' || m === 'HEAD')) return page(404, 'Page not found', '<h1>There’s nothing at this address</h1><p>The page may have moved, or the link has a mistake in it. <a href="/index.html">Open Gdex</a>.</p>');
+    if (res.status === 404 && (m === 'GET' || m === 'HEAD')) return page(404, 'Page not found', '<h1>There’s nothing at this address</h1><p>The page may have moved, or the link has a mistake in it. <a href="/index.html">Open Tourbook</a>.</p>');
     return res;
   },
 };

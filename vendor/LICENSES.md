@@ -17,4 +17,4 @@
 
 # Adapted code
 
-Gdex began as a copy of the shell of Vdex (TheCrowBro/Logi-Video-Production-app-), by the same author.
+Tourbook began as a copy of the shell of Vdex (TheCrowBro/Logi-Video-Production-app-), by the same author.

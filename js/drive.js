@@ -1,7 +1,7 @@
-// Google sign-in and Gdex's files in Google Drive (free for everyone: decisions §9). Signing in uses Google Identity
-// Services' token client on the website and the desktop app's trip through the web browser (window.gdexDesktop), asks
-// for one permission only, drive.appdata (a hidden folder in the person's Drive that only Gdex can open), and keeps
-// the token for its hour. driveAdapter() reads and writes the files in that folder: gdex-db.json (the copy every device
+// Google sign-in and Tourbook's files in Google Drive (free for everyone: decisions §9). Signing in uses Google Identity
+// Services' token client on the website and the desktop app's trip through the web browser (window.tourbookDesktop), asks
+// for one permission only, drive.appdata (a hidden folder in the person's Drive that only Tourbook can open), and keeps
+// the token for its hour. driveAdapter() reads and writes the files in that folder: tourbook-db.json (the copy every device
 // shares) and the daily copies. Nothing here runs until the person connects Drive; js/sync.js decides when.
 import { CLOUD_APPS } from './cloud-config.js';
 import { toast } from './util.js';
@@ -11,34 +11,34 @@ const LS = {
   set: (k, v) => { try { localStorage.setItem(k, String(v)); } catch { /* private mode */ } },
   del: k => { try { localStorage.removeItem(k); } catch { /* private mode */ } },
 };
-const K = { on: 'gdex-drive', file: 'gdex-drive-file', tokens: 'gdex-google-tokens', email: 'gdex-google-email', who: 'gdex-drive-who' };
+const K = { on: 'tourbook-drive', file: 'tourbook-drive-file', tokens: 'tourbook-google-tokens', email: 'tourbook-google-email', who: 'tourbook-drive-who' };
 export const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
-export const DB_FILE = 'gdex-db.json';
+export const DB_FILE = 'tourbook-db.json';
 const API = 'https://www.googleapis.com/drive/v3', UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const FIELDS = 'files(id,name,modifiedTime,size)';
 // The daily copies: one per weekday (overwritten each week) and one per month.
-export const COPY_NAME = /^gdex-backup-(mon|tue|wed|thu|fri|sat|sun|\d{4}-\d{2})\.json$/;
+export const COPY_NAME = /^tourbook-backup-(mon|tue|wed|thu|fri|sat|sun|\d{4}-\d{2})\.json$/;
 
 // Words on screen (the build spec §9.8).
 export const WORDS = {
-  away: 'Open Gdex from its desktop app to connect Google Drive.',
-  taken: 'Gdex can’t open Google’s sign-in because another program on this computer is using the connection Gdex needs. Restart the computer, open Gdex first, and try again.',
-  browser: 'Carry on in your web browser: sign in to Google there, then come back to Gdex.',
-  notSetUp: 'Google Drive isn’t set up in this copy of Gdex yet.',
+  away: 'Open Tourbook from its desktop app to connect Google Drive.',
+  taken: 'Tourbook can’t open Google’s sign-in because another program on this computer is using the connection Tourbook needs. Restart the computer, open Tourbook first, and try again.',
+  browser: 'Carry on in your web browser: sign in to Google there, then come back to Tourbook.',
+  notSetUp: 'Google Drive isn’t set up in this copy of Tourbook yet.',
   again: 'Google Drive wants you to sign in again.',
-  scope: 'Google didn’t give Gdex the permission it needs. Try again and leave the box ticked.',
+  scope: 'Google didn’t give Tourbook the permission it needs. Try again and leave the box ticked.',
   full: 'Your Google Drive is full: free up space, then tap Sync now.',
-  busy: 'Google Drive is busy: Gdex will try again in a minute.',
-  offline: 'Can’t reach Google Drive (no internet?). Gdex tries again when you’re back online.',
-  vdex: 'The copy in your Google Drive is a Vdex file, not a Gdex one, so Gdex left it alone.',
-  notGdex: 'The copy in your Google Drive isn’t a Gdex file, so Gdex left it alone.',
+  busy: 'Google Drive is busy: Tourbook will try again in a minute.',
+  offline: 'Can’t reach Google Drive (no internet?). Tourbook tries again when you’re back online.',
+  vdex: 'The copy in your Google Drive is a Vdex file, not a Tourbook one, so Tourbook left it alone.',
+  notTourbook: 'The copy in your Google Drive isn’t a Tourbook file, so Tourbook left it alone.',
   noLoad: 'Couldn’t load Google’s sign-in. Check the connection and try again.',
 };
 // Google's answers when a sign-in does not finish (the token client's error types and the desktop app's own).
 export const GOOGLE_ERR = {
   access_denied: 'Google sign-in was cancelled.',
   popup_closed: 'The Google window was closed before you signed in.',
-  popup_failed_to_open: 'The Google window was blocked. Allow pop-ups for Gdex and tap again.',
+  popup_failed_to_open: 'The Google window was blocked. Allow pop-ups for Tourbook and tap again.',
   timed_out: 'The Google sign-in in your web browser wasn’t finished. Tap Connect to try again.',
   failed: 'Google sign-in didn’t work. Tap again to try again.',
   refused: 'Google sign-in didn’t work. Tap again to try again.',
@@ -51,15 +51,15 @@ const notAllowed = () => fail(WORDS.again, 'NotAllowedError');
 // Anything else Google Drive answers with: a short reason, said as "Couldn’t reach Google Drive: <reason>."
 const bad = r => fail(`an error from Google (${r.status})`);
 
-// Gdex's own client (js/cloud-config.js); empty: "Not set up yet".
+// Tourbook's own client (js/cloud-config.js); empty: "Not set up yet".
 export const clientId = () => String((CLOUD_APPS && CLOUD_APPS.google) || '').trim();
 export const configured = () => !!clientId();
-// The desktop app serves Gdex at localhost:47861 (47862-47880 when another program holds that port). Its files opened
+// The desktop app serves Tourbook at localhost:47861 (47862-47880 when another program holds that port). Its files opened
 // in a web browser, without the desktop app around them, connect nothing (the build spec [S-42]); and Google knows
 // only the usual port, so the desktop app refuses to sign in on a stand-in one.
 const DESKTOP_PORT = 47861;
-export const desktopFilesInBrowser = () => /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && Number(location.port) >= DESKTOP_PORT && Number(location.port) <= DESKTOP_PORT + 19 && !window.gdexDesktop;
-export const inDesktopApp = () => !!window.gdexDesktop;
+export const desktopFilesInBrowser = () => /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && Number(location.port) >= DESKTOP_PORT && Number(location.port) <= DESKTOP_PORT + 19 && !window.tourbookDesktop;
+export const inDesktopApp = () => !!window.tourbookDesktop;
 
 /* ------------------------------- signing in ------------------------------- */
 // Google's script is loaded only once the person has asked for Drive (the connect sheet, or Drive already linked), so
@@ -75,8 +75,8 @@ export const loadGIS = () => gis || (gis = new Promise((res, rej) => {
   document.head.append(s);
 }));
 
-// The token, kept for its hour so reopening Gdex within it needs no tap (exp: a minute early). One whose hour is over
-// (or that can't be read) is removed the first time Gdex looks for it, unless another tab has just put a new one there.
+// The token, kept for its hour so reopening Tourbook within it needs no tap (exp: a minute early). One whose hour is over
+// (or that can't be read) is removed the first time Tourbook looks for it, unless another tab has just put a new one there.
 const stored = () => {
   const raw = LS.get(K.tokens);
   if (raw == null) return null;
@@ -110,7 +110,7 @@ export async function googleToken(interactive) {
   };
   // The desktop app: Google refuses its sign-in inside an app window, so it opens in the web browser and the answer
   // comes back to the app (desktop/main.cjs).
-  const desk = window.gdexDesktop;
+  const desk = window.tourbookDesktop;
   if (desk) {
     if (typeof desk.googleSignIn !== 'function') throw fail(GOOGLE_ERR.failed);
     if (Number(location.port) !== DESKTOP_PORT) throw fail(WORDS.taken);
@@ -187,20 +187,20 @@ async function gfetch(url, init = {}) {
 }
 
 /* ------------------------------- the files ------------------------------- */
-// Gdex's file rules, as js/backup.js has them (copied, so this module does not import the backups panel).
+// Tourbook's file rules, as js/backup.js has them (copied, so this module does not import the backups panel).
 const arr = Array.isArray;
-const isVdex = d => !!d && typeof d === 'object' && d.app !== 'gdex' && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
+const isVdex = d => !!d && typeof d === 'object' && d.app !== 'tourbook' && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
   || (arr(d.logs) && arr(d.shifts) && !arr(d.acts)) || (!d.app && (arr(d.bookings) || arr(d.gear)) && !arr(d.songs) && !arr(d.acts)));
-const isGdex = d => !!d && typeof d === 'object' && !arr(d) && (d.app === 'gdex' || (arr(d.songs) && arr(d.bookings)));
-// A file's text as Gdex's data; null when it is empty. Anything else is refused and left alone (the error is marked
+const isTourbook = d => !!d && typeof d === 'object' && !arr(d) && (d.app === 'tourbook' || (arr(d.songs) && arr(d.bookings)));
+// A file's text as Tourbook's data; null when it is empty. Anything else is refused and left alone (the error is marked
 // unreadable: js/sync.js keeps the daily copies going and offers to put this device's copy in its place).
 const unreadable = message => Object.assign(fail(message), { unreadable: true });
-export function parseGdex(text) {
+export function parseTourbook(text) {
   if (!text || !String(text).trim()) return null;
   let d;
-  try { d = JSON.parse(text); } catch { throw unreadable(WORDS.notGdex); }
+  try { d = JSON.parse(text); } catch { throw unreadable(WORDS.notTourbook); }
   if (isVdex(d)) throw unreadable(WORDS.vdex);
-  if (!isGdex(d)) throw unreadable(WORDS.notGdex);
+  if (!isTourbook(d)) throw unreadable(WORDS.notTourbook);
   return d;
 }
 
@@ -210,7 +210,7 @@ export function driveAdapter() {
     if (!r.ok) throw bad(r);
     return ((await r.json()).files || []).filter(f => f && f.id && f.name);
   };
-  // Every gdex-db.json, oldest first. Two devices linking at the same moment can each make one: the oldest is the one
+  // Every tourbook-db.json, oldest first. Two devices linking at the same moment can each make one: the oldest is the one
   // every device uses (js/sync.js merges the others into it and deletes them).
   const find = async () => {
     const ids = (await list(`name='${DB_FILE}'`)).map(f => f.id);
@@ -225,7 +225,7 @@ export function driveAdapter() {
   };
   const patch = async (id, text) => { const r = await gfetch(`${UPLOAD}/files/${encodeURIComponent(id)}?uploadType=media&fields=id,modifiedTime`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: text }); if (r.ok) await written(r); return r; }; // its body read here: callers look only at ok and status
   const create = async (name, text) => {
-    const b = 'gdex' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const b = 'tourbook' + Date.now().toString(36) + Math.random().toString(36).slice(2);
     const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, parents: ['appDataFolder'] })}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${text}\r\n--${b}--`;
     const r = await gfetch(`${UPLOAD}/files?uploadType=multipart&fields=id,modifiedTime`, { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body });
     if (!r.ok) throw bad(r);
@@ -246,18 +246,18 @@ export function driveAdapter() {
       if (!LS.get(K.email) || !LS.get(K.who)) await googleWho(t);
       return true;
     },
-    // The shared copy: { data (null when there is none yet), extras: [{ id, data }] (more gdex-db.json files, oldest
+    // The shared copy: { data (null when there is none yet), extras: [{ id, data }] (more tourbook-db.json files, oldest
     // after the first; data null when unreadable, and then it is left alone) }.
     read: async () => {
       const ids = await find();
       if (!ids.length) return { data: null, extras: [] };
       const text = await media(ids[0]);
       if (text == null) { LS.del(K.file); return { data: null, extras: [] }; }
-      const data = parseGdex(text);
+      const data = parseTourbook(text);
       const extras = [];
       for (const id of ids.slice(1)) {
         let d = null;
-        try { d = parseGdex(await media(id)); } catch (e) { if (e.name === 'NotAllowedError') throw e; }
+        try { d = parseTourbook(await media(id)); } catch (e) { if (e.name === 'NotAllowedError') throw e; }
         extras.push({ id, data: d });
       }
       return { data, extras };
@@ -276,7 +276,7 @@ export function driveAdapter() {
       LS.set(K.file, await create(DB_FILE, text));
     },
     // The shared copy kept, exactly as it is, as another file (name) in the same folder, so that write() can put this
-    // device's copy in its place: for a shared copy Gdex can't read. False when there is none.
+    // device's copy in its place: for a shared copy Tourbook can't read. False when there is none.
     setAside: async name => {
       const id = (await find())[0];
       if (!id) return false;
@@ -295,7 +295,7 @@ export function driveAdapter() {
       let id = copies.get(name);
       if (!id) { id = ((await list(`name='${name.replace(/'/g, "\\'")}'`))[0] || {}).id; }
       if (!id) throw fail('That daily copy is no longer in your Google Drive.');
-      const data = parseGdex(await media(id));
+      const data = parseTourbook(await media(id));
       if (!data) throw fail('That daily copy is empty.');
       return data;
     },
@@ -306,7 +306,7 @@ export function driveAdapter() {
       return made;
     },
     deleteCopy: id => remove(id),
-    // Every file in Gdex's hidden folder: the shared copy and every daily copy. Returns how many went.
+    // Every file in Tourbook's hidden folder: the shared copy and every daily copy. Returns how many went.
     deleteAll: async () => {
       let n = 0;
       for (let round = 0; round < 5; round++) {
@@ -318,7 +318,7 @@ export function driveAdapter() {
       return n;
     },
     // Forget the link, the token and the account on this device. Google's permission stays until the person removes
-    // Gdex in their Google Account (the panel says how).
+    // Tourbook in their Google Account (the panel says how).
     signOut: () => { for (const k of Object.values(K)) LS.del(k); copies = new Map(); },
   };
 }

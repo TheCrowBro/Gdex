@@ -12,7 +12,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 async function run(how) {
   const touch = how === 'touch';
   // The tape deck, whose list is called the track list.
-  const { browser, page, errors } = await open({ sample: true, touch, init: () => { try { localStorage.setItem('gdex-prefs', JSON.stringify({ menu: 'tape' })); } catch (e) { /* ignore */ } } });
+  const { browser, page, errors } = await open({ sample: true, touch, init: () => { try { localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: 'tape' })); } catch (e) { /* ignore */ } } });
   // Every click that reaches the page (#app) is noted.
   await page.evaluate(() => { window.__hits = []; document.getElementById('app').addEventListener('click', e => window.__hits.push(e.target.closest('[id]')?.id || e.target.tagName), true); });
   const tap = (x, y) => (touch ? page.touchscreen.tap(x, y) : page.mouse.click(x, y));
@@ -105,10 +105,10 @@ async function run(how) {
   await clear();
 
   /* ---------------- a sheet that opened with nothing focused ---------------- */
-  // As Gdex opens, a sheet can come up before anything has the focus (the terms, the free days over): Escape, ✕ and the
+  // As Tourbook opens, a sheet can come up before anything has the focus (the terms, the free days over): Escape, ✕ and the
   // backdrop each leave the focus on the page, not nowhere.
   for (const way of ['Escape', '✕', 'backdrop']) {
-    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); return import('./js/util.js').then(u => { u.sheet('Opened with nothing focused', u.h('p', null, 'A sheet put up as Gdex opens.')); }); }); await sleep(300);
+    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); return import('./js/util.js').then(u => { u.sheet('Opened with nothing focused', u.h('p', null, 'A sheet put up as Tourbook opens.')); }); }); await sleep(300);
     if (way === 'Escape') await page.keyboard.press('Escape');
     else if (way === '✕') await page.click('.sheet[aria-label="Opened with nothing focused"] .sheet-head [aria-label="Close"]');
     else await tap(6, 12);

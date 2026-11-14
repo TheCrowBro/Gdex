@@ -1,6 +1,6 @@
-# The browser specs (tests/specs) on every push and pull request, and on demand. They run Gdex in Chromium with
+# The browser specs (tests/specs) on every push and pull request, and on demand. They run Tourbook in Chromium with
 # Playwright against a local copy of the site, twice side by side: with licences off, as the repository is until the
-# owner switches them on, and with GDEX_LICENCE=on, where the test server serves them as live on localhost and every
+# owner switches them on, and with TOURBOOK_LICENCE=on, where the test server serves them as live on localhost and every
 # spec starts inside free days already under way (tests/lib.mjs, tests/helpers.cjs). The run also fails when the
 # offline file list in sw.js is out of date (a file added or removed without running node tools/stamp-build.mjs --dev).
 # The desktop job runs the desktop app's smoke test (tests/desktop.mjs) under xvfb on pull requests, by hand, and on
@@ -44,7 +44,7 @@ jobs:
           git diff --exit-code -- sw.js js/version.js || { echo "::error::Run node tools/stamp-build.mjs --dev and commit sw.js"; exit 1; }
       - run: npm test
         env:
-          GDEX_LICENCE: ${{ matrix.licence }}
+          TOURBOOK_LICENCE: ${{ matrix.licence }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:

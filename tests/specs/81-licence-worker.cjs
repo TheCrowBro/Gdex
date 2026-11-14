@@ -1,8 +1,8 @@
-// Gdex's licence server (cloudflare/worker.mjs), bundled as Wrangler does and run in Cloudflare's own runtime (workerd,
+// Tourbook's licence server (cloudflare/worker.mjs), bundled as Wrangler does and run in Cloudflare's own runtime (workerd,
 // through Miniflare), with Stripe and Resend faked and throw-away keys in place of desktop/licence-keys.json: every
 // address of the build spec §3.9 (the Buy link, the price per country, the thank-you page, the Stripe webhook with
 // refunds and disputes, the 3-computer activation with moves and release, the owner's signed requests, the website's
-// sign-in by an emailed code with every limit, Delete my licence records), that a Vdex payment never makes a Gdex code,
+// sign-in by an emailed code with every limit, Delete my licence records), that a Vdex payment never makes a Tourbook code,
 // that the website's licence stays paused until every setting the shop needs is there, that every value from Stripe or
 // a request reaches a page or an email only escaped, and the Worker's configuration. Nothing here reaches the network.
 // Needs `npm ci --prefix cloudflare` (CI does it): without it this spec says SKIP, or FAIL in CI ([S-26]).
@@ -18,8 +18,8 @@ const NM = path.join(REPO, 'cloudflare/node_modules');
 const codes = require(path.join(REPO, 'desktop/licence-codes.cjs'));
 const DAY = 86400e3;
 const today = () => new Date().toISOString().slice(0, 10);
-// A purchase's ref as the Worker makes it: key 2 and a serial from Gdex's own salt and the Checkout Session's id.
-const refForSession = sessionId => { const h = crypto.createHash('sha256').update('gdex-order|' + sessionId).digest(); return '2:' + (h.readUInt32BE(0) || 1); };
+// A purchase's ref as the Worker makes it: key 2 and a serial from Tourbook's own salt and the Checkout Session's id.
+const refForSession = sessionId => { const h = crypto.createHash('sha256').update('tourbook-order|' + sessionId).digest(); return '2:' + (h.readUInt32BE(0) || 1); };
 
 (async () => {
   if (!fs.existsSync(path.join(NM, 'miniflare')) || !fs.existsSync(path.join(NM, 'esbuild'))) {
@@ -41,7 +41,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
 
     const calls = [];
     const sessions = new Map();
-    const session = (id, extra = {}) => ({ id, object: 'checkout.session', livemode: true, status: 'complete', payment_status: 'paid', payment_link: 'plink_gdex', created: Date.parse('2026-11-02T12:00:00Z') / 1000, payment_intent: 'pi_' + id.slice(-12), customer_details: { name: 'Pat Buyer', email: 'Pat@Example.com' }, ...extra });
+    const session = (id, extra = {}) => ({ id, object: 'checkout.session', livemode: true, status: 'complete', payment_status: 'paid', payment_link: 'plink_tourbook', created: Date.parse('2026-11-02T12:00:00Z') / 1000, payment_intent: 'pi_' + id.slice(-12), customer_details: { name: 'Pat Buyer', email: 'Pat@Example.com' }, ...extra });
     let resendStatus = 200;
     const outbound = async request => {
       const u = new URL(request.url), body = request.method === 'POST' ? await request.text() : '';
@@ -59,7 +59,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
       if (u.hostname === 'api.resend.com') return new Response(JSON.stringify({ id: 'email_1' }), { status: resendStatus });
       return new Response('unexpected', { status: 599 });
     };
-    const env = { LICENCE_SHOP_KEY: codes.b64u.enc(shop.pkcs8), STRIPE_SECRET_KEY: 'rk_test_key', STRIPE_WEBHOOK_SECRET: 'whsec_testsecret', STRIPE_PAYMENT_LINK: 'plink_gdex', BUY_URL: 'https://buy.stripe.com/test_gdex', RESEND_API_KEY: 're_test', REPLY_TO: 'help@example.com', WEB_SIGN_IN: 'on' };
+    const env = { LICENCE_SHOP_KEY: codes.b64u.enc(shop.pkcs8), STRIPE_SECRET_KEY: 'rk_test_key', STRIPE_WEBHOOK_SECRET: 'whsec_testsecret', STRIPE_PAYMENT_LINK: 'plink_tourbook', BUY_URL: 'https://buy.stripe.com/test_tourbook', RESEND_API_KEY: 're_test', REPLY_TO: 'help@example.com', WEB_SIGN_IN: 'on' };
     // cf: false: Miniflare's own request details, never fetched from Cloudflare (it would otherwise download a sample
     // from workers.cloudflare.com and keep it in .wrangler/). Each test request names its own country.
     const opts = bindings => convertV4MiniflareOptions({ modules: true, script, compatibilityDate: '2026-10-01', cf: false, kvNamespaces: ['LICENCES'], durableObjects: { SIGNIN: { className: 'SignInCodes', useSQLite: true } }, bindings, outboundService: outbound,
@@ -68,23 +68,23 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const drop = async m => { open.splice(open.indexOf(m), 1); await m.dispose(); };
     const mf = make(env);
     const kv = await mf.getKVNamespace('LICENCES');
-    const SITE = 'https://gdex.crowmade.app';
+    const SITE = 'https://tourbook.crowmade.app';
     const answers = []; // every answer of the main Worker, for the header checks at the end
     const fetchIn = async (m, p, init) => { const r = await m.dispatchFetch(SITE + p, { redirect: 'manual', ...init }); if (m === mf) answers.push({ p, r }); return r; };
     const get = (p, init, m = mf) => fetchIn(m, p, init);
     const post = (p, body, m = mf) => fetchIn(m, p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
     const mails = () => calls.filter(c => c.url === 'https://api.resend.com/emails').map(c => JSON.parse(c.body));
-    const lastCode = to => { const x = mails().filter(e => e.to[0] === to).at(-1); return x && (x.subject.match(/^(\d{6}) is your Gdex sign-in code$/) || [])[1]; };
+    const lastCode = to => { const x = mails().filter(e => e.to[0] === to).at(-1); return x && (x.subject.match(/^(\d{6}) is your Tourbook sign-in code$/) || [])[1]; };
 
     /* ----------------------------- the basics ----------------------------- */
     ok('any other address is the static website', (await (await get('/index.html')).text()) === 'static file /index.html');
     { // An address that is none of the files: the files answer 404 with nothing, and the Worker gives it a page that says so.
       const nf = await get('/missing/page.html'), t = await nf.text(), hd = await get('/missing', { method: 'HEAD' }), po = await get('/missing', { method: 'POST', body: 'x' });
-      ok('an address that is none of the website\'s files is a 404 page in Gdex\'s look (not an empty answer), with a link to Gdex, its own strict policy, never cached, not indexed', nf.status === 404 && /<h1>There’s nothing at this address<\/h1>/.test(t) && /<a href="\/index\.html">Open Gdex<\/a>/.test(t) && /^text\/html/.test(nf.headers.get('content-type')) && /default-src 'none'.*frame-ancestors 'none'/.test(nf.headers.get('content-security-policy')) && nf.headers.get('cache-control') === 'no-store' && nf.headers.get('x-robots-tag') === 'noindex', `${nf.status} ${t.slice(0, 80)}`);
+      ok('an address that is none of the website\'s files is a 404 page in Tourbook\'s look (not an empty answer), with a link to Tourbook, its own strict policy, never cached, not indexed', nf.status === 404 && /<h1>There’s nothing at this address<\/h1>/.test(t) && /<a href="\/index\.html">Open Tourbook<\/a>/.test(t) && /^text\/html/.test(nf.headers.get('content-type')) && /default-src 'none'.*frame-ancestors 'none'/.test(nf.headers.get('content-security-policy')) && nf.headers.get('cache-control') === 'no-store' && nf.headers.get('x-robots-tag') === 'noindex', `${nf.status} ${t.slice(0, 80)}`);
       ok('…HEAD too (404); any other method keeps the files\' own answer', hd.status === 404 && po.status === 404 && (await po.text()) === '', `${hd.status} ${po.status}`);
     }
     const buy = await get('/buy');
-    ok('/buy goes to Gdex\'s Stripe payment link', buy.status === 302 && buy.headers.get('location') === 'https://buy.stripe.com/test_gdex' && buy.headers.get('cache-control') === 'no-store');
+    ok('/buy goes to Tourbook\'s Stripe payment link', buy.status === 302 && buy.headers.get('location') === 'https://buy.stripe.com/test_tourbook' && buy.headers.get('cache-control') === 'no-store');
     { // the price with tax in the country the request comes from (js/tax.js), for the Buy buttons
       const at = async country => { const r = await get('/licence/price', { cf: { country } }); return { cc: r.headers.get('cache-control') || '', ct: r.headers.get('content-type') || '', body: await r.json() }; };
       const gb = (await at('GB')).body, au = (await at('AU')).body, de = (await at('DE')).body, fi = (await at('FI')).body;
@@ -102,8 +102,8 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const th = await get('/licence/thanks?session_id=' + sid), html = await th.text();
     const code = (html.match(/<textarea id="code"[^>]*>([^<]+)<\/textarea>/) || [])[1];
     const v = code && (await codes.verifyCode(code, { keys: KEYS }));
-    ok('the thank-you page shows a GDEX- code made by the shop key, for the buyer, for 3 devices, its ref from Gdex\'s own salt', th.status === 200 && /^GDEX-/.test(code) && v && v.status === 'valid' && v.licence.kid === 2 && v.licence.ref === refForSession(sid) && v.licence.name === 'Pat Buyer' && v.licence.email === 'pat@example.com' && v.licence.seats === 3 && !v.licence.comp && v.licence.issued === '2026-11-02');
-    ok('it says, in Gdex\'s words, how to use it on the website and in the desktop app', /Thank you: here is your Gdex licence/.test(html) && /On the website:<\/b> Settings → About &amp; licence → Sign in, with <b>pat@example\.com<\/b>/.test(html) && /In the desktop app:<\/b> Settings → About &amp; licence → Enter licence code/.test(html) && /every role on up to 3 of your devices/.test(html) && /Audiophile stays free/.test(html) && /We’ve emailed it to you too/.test(html) && !/Vdex|Android|iPhone|App Store/i.test(html));
+    ok('the thank-you page shows a TOURBOOK- code made by the shop key, for the buyer, for 3 devices, its ref from Tourbook\'s own salt', th.status === 200 && /^TOURBOOK-/.test(code) && v && v.status === 'valid' && v.licence.kid === 2 && v.licence.ref === refForSession(sid) && v.licence.name === 'Pat Buyer' && v.licence.email === 'pat@example.com' && v.licence.seats === 3 && !v.licence.comp && v.licence.issued === '2026-11-02');
+    ok('it says, in Tourbook\'s words, how to use it on the website and in the desktop app', /Thank you: here is your Tourbook licence/.test(html) && /On the website:<\/b> Settings → About &amp; licence → Sign in, with <b>pat@example\.com<\/b>/.test(html) && /In the desktop app:<\/b> Settings → About &amp; licence → Enter licence code/.test(html) && /every role on up to 3 of your devices/.test(html) && /Audiophile stays free/.test(html) && /We’ve emailed it to you too/.test(html) && !/Vdex|Android|iPhone|App Store/i.test(html));
     ok('reloading the page shows the same code', (await (await get('/licence/thanks?session_id=' + sid)).text()).includes(code));
     ok('a live order\'s code (livemode true) never ends', v && v.licence.expires === '' && !/test order/i.test(html), v && v.licence.expires);
     const TEST_ORDER = 'cs_test_testModeOrder00000001', noonOf = d => Date.parse(d + 'T12:00:00Z');
@@ -119,7 +119,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
       ok('…its thank-you page says it is a test order and when the code stops working', /This was a test order \(Stripe’s test mode\), so this code works only until 4 November 2026\./.test(tpage), (tpage.match(/<p>[^<]*Licensed to[\s\S]{0,400}/) || [''])[0]);
     }
     { // a new payment link (a new price) beside the old one: purchases through either still get their code
-      const both = make({ ...env, STRIPE_PAYMENT_LINK: 'plink_newprice, plink_gdex' });
+      const both = make({ ...env, STRIPE_PAYMENT_LINK: 'plink_newprice, plink_tourbook' });
       const again = await (await both.dispatchFetch(SITE + '/licence/thanks?session_id=' + sid, { redirect: 'manual' })).text();
       ok('with a second payment link added, a purchase through the first still shows the same code', again.includes(code));
       await drop(both);
@@ -128,7 +128,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     ok('the page carries its own strict security headers and is never cached', !!nonce && html.includes(`<script nonce="${nonce}">`) && /default-src 'none'/.test(csp) && /frame-ancestors 'none'/.test(csp) && th.headers.get('cache-control') === 'no-store' && th.headers.get('x-robots-tag') === 'noindex' && th.headers.get('referrer-policy') === 'no-referrer');
     sessions.set('cs_test_vdexPayment000000001', session('cs_test_vdexPayment000000001', { payment_link: 'plink_vdex' }));
     sessions.set('cs_test_notPaidYet00000000001', session('cs_test_notPaidYet00000000001', { payment_status: 'unpaid' }));
-    ok('a payment through another link on the same Stripe account (Vdex\'s) gets no Gdex code', (await get('/licence/thanks?session_id=cs_test_vdexPayment000000001')).status === 404);
+    ok('a payment through another link on the same Stripe account (Vdex\'s) gets no Tourbook code', (await get('/licence/thanks?session_id=cs_test_vdexPayment000000001')).status === 404);
     const pending = await get('/licence/thanks?session_id=cs_test_notPaidYet00000000001');
     ok('a payment still being confirmed says so, with a link to reload', pending.status === 202 && /Your payment is on its way/.test(await pending.text()));
     ok('a made-up order number gets no code', (await get('/licence/thanks?session_id=cs_test_doesNotExist0000001')).status === 404 && (await get('/licence/thanks?session_id=../../v1/balance')).status === 404);
@@ -141,8 +141,8 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const done = { id: 'evt_1', type: 'checkout.session.completed', data: { object: sessions.get(sid) } };
     calls.length = 0;
     const wh = await signed(done), whb = await wh.json(), mail = calls.find(c => c.url === 'https://api.resend.com/emails'), mb = mail && JSON.parse(mail.body);
-    ok('a completed payment emails the same code through Resend, once per order (Gdex\'s own idempotency key)', wh.status === 200 && whb.ok && whb.ref === v.licence.ref && mb && mb.to[0] === 'pat@example.com' && mb.text.includes(code) && mb.reply_to === 'help@example.com' && mail.headers['idempotency-key'] === 'gdex-licence-' + sid && mb.from === 'Gdex <licences@gdex.crowmade.app>');
-    ok('the email is Gdex\'s: "Your Gdex licence", the code, the same steps, "Keep this email: it is your licence"', mb.subject === 'Your Gdex licence' && /Settings → About & licence → Sign in, with this email address/.test(mb.text) && /Settings → About & licence → Enter licence code/.test(mb.text) && /Keep this email: it is your licence\. Questions\? Reply to it\./.test(mb.text) && mb.html.includes(code) && !/Vdex|Android|iPhone|App Store/i.test(mb.text + mb.html));
+    ok('a completed payment emails the same code through Resend, once per order (Tourbook\'s own idempotency key)', wh.status === 200 && whb.ok && whb.ref === v.licence.ref && mb && mb.to[0] === 'pat@example.com' && mb.text.includes(code) && mb.reply_to === 'help@example.com' && mail.headers['idempotency-key'] === 'tourbook-licence-' + sid && mb.from === 'Tourbook <licences@tourbook.crowmade.app>');
+    ok('the email is Tourbook\'s: "Your Tourbook licence", the code, the same steps, "Keep this email: it is your licence"', mb.subject === 'Your Tourbook licence' && /Settings → About & licence → Sign in, with this email address/.test(mb.text) && /Settings → About & licence → Enter licence code/.test(mb.text) && /Keep this email: it is your licence\. Questions\? Reply to it\./.test(mb.text) && mb.html.includes(code) && !/Vdex|Android|iPhone|App Store/i.test(mb.text + mb.html));
     ok('a webhook with a wrong or old signature is refused', (await signed(done, undefined, 'whsec_wrong')).status === 400 && (await signed(done, Math.floor(Date.now() / 1000) - 3600)).status === 400 && (await post('/licence/stripe-webhook', JSON.stringify(done))).status === 400);
     resendStatus = 500;
     ok('if the email fails, Stripe is told to try again (502)', (await signed(done)).status === 502);
@@ -156,7 +156,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
       calls.length = 0;
       const tsign = await (await signed({ type: 'checkout.session.completed', data: { object: sessions.get(TEST_ORDER) } })).json();
       const tmail = mails().find(m => [].concat(m.to).includes('tess@example.com'));
-      const mcode = tmail && (tmail.text.match(/GDEX-[0-9A-Z]+(?:-[0-9A-Z]+)*/) || [''])[0];
+      const mcode = tmail && (tmail.text.match(/TOURBOOK-[0-9A-Z]+(?:-[0-9A-Z]+)*/) || [''])[0];
       const mv = mcode && (await codes.verifyCode(mcode, { keys: KEYS, now: noonOf('2026-11-02') }).catch(() => null));
       ok('…its webhook emails the same two-day code, saying so too', tsign.ok === true && !!mv && mv.licence.expires === '2026-11-04' && /This was a test order \(Stripe’s test mode\), so this code works only until 4 November 2026\./.test(tmail.text) && /This was a test order \(Stripe’s test mode\), so this code works only until 4 November 2026\./.test(tmail.html), JSON.stringify({ tsign, expires: mv && mv.licence.expires }));
       sessions.delete(TEST_ORDER);
@@ -198,7 +198,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     { // after the refund nothing presents the code as a working licence: a reload of the thank-you page, or Stripe trying
       // again with a purchase webhook that had failed (the email was down)
       const after = await get('/licence/thanks?session_id=' + rsid), afterHtml = await after.text();
-      ok('…the thank-you page then says the order was refunded and its code no longer works, and shows no code', after.status === 410 && /This order was refunded, so its licence code no longer works\./.test(afterHtml) && !afterHtml.includes(rcode) && !/GDEX-|Thank you: here is/.test(afterHtml), `${after.status} ${afterHtml.slice(afterHtml.indexOf('<h1>'), afterHtml.indexOf('<h1>') + 120)}`);
+      ok('…the thank-you page then says the order was refunded and its code no longer works, and shows no code', after.status === 410 && /This order was refunded, so its licence code no longer works\./.test(afterHtml) && !afterHtml.includes(rcode) && !/TOURBOOK-|Thank you: here is/.test(afterHtml), `${after.status} ${afterHtml.slice(afterHtml.indexOf('<h1>'), afterHtml.indexOf('<h1>') + 120)}`);
       calls.length = 0;
       const retried = await (await signed({ type: 'checkout.session.completed', data: { object: sessions.get(rsid) } })).json();
       ok('…and a purchase webhook Stripe tries again after it emails nothing (ignored: cancelled)', retried.ignored === 'cancelled' && mails().length === 0, JSON.stringify(retried));
@@ -208,7 +208,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const dp = await (await signed({ type: 'charge.dispute.created', data: { object: { payment_intent: sessions.get(dsid).payment_intent } } })).json();
     ok('a dispute cancels the code too', dp.cancelled === 1 && (await post('/licence/activate', { code: dcode, install: id(21) })).status === 403);
     const vr = await (await signed({ type: 'charge.refunded', data: { object: { refunded: true, payment_intent: sessions.get('cs_test_vdexPayment000000001').payment_intent } } })).json();
-    ok('a refund of a Vdex purchase cancels nothing of Gdex\'s', vr.ok && vr.cancelled === 0);
+    ok('a refund of a Vdex purchase cancels nothing of Tourbook\'s', vr.ok && vr.cancelled === 0);
 
     /* ---------------------------- the owner ---------------------------- */
     const adm = async (op, ref, { key = ownerKey, kid = 1, at = Date.now(), ...more } = {}) => { const r = await post('/licence/admin', await codes.signNote('admin', key, kid, { op, ref, at, ...more })); return { status: r.status, cors: r.headers.get('access-control-allow-origin'), ...(await r.json()) }; };
@@ -225,7 +225,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     { // a ref is read as a number pair: one written with leading zeros is the same code, and one no code can carry is refused
       const impossible = [];
       for (const r of ['5:79', '0:79', '2:0', '2:4294967296', '2:00000']) { const a = await adm('cancel', r); if (a.status !== 400 || a.error !== 'bad-ref') impossible.push(`${r} → ${a.status} ${JSON.stringify(a.cancelled || a.error)}`); }
-      ok('an owner request for a ref no code can have (a key Gdex does not have, serial 0 or past 4294967295) is refused (400 bad-ref), never reported as done', impossible.length === 0, impossible.join('; '));
+      ok('an owner request for a ref no code can have (a key Tourbook does not have, serial 0 or past 4294967295) is refused (400 bad-ref), never reported as done', impossible.length === 0, impossible.join('; '));
       const z79 = await codes.signCode(shopKey, 2, { name: 'Zero Padded', email: 'zero@example.com', serial: 79, issued: '2026-11-02' });
       const before = (await post('/licence/activate', { code: z79, install: id(40) })).status, zc = await adm('cancel', '2:079');
       const afterZ = await post('/licence/activate', { code: z79, install: id(40) });
@@ -240,14 +240,14 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     ok('an email with no licence gets the same answer, and no email is sent to it', nobody.status === 200 && nobody.ok && !nobody.email && mails().length === 0);
     const st = await web('start', { email: '  PAT@example.com ' });
     const pc = lastCode('pat@example.com'), sent = mails().at(-1);
-    ok('the buyer\'s email (any case) gets a 6-digit code: "<code> is your Gdex sign-in code", good for 15 minutes', JSON.stringify(st) === JSON.stringify(nobody) && /^\d{6}$/.test(pc || '') && /Use it within 15 minutes/.test(sent.text) && /If you didn’t ask for it, ignore this email/.test(sent.text) && !sent.text.includes(code));
+    ok('the buyer\'s email (any case) gets a 6-digit code: "<code> is your Tourbook sign-in code", good for 15 minutes', JSON.stringify(st) === JSON.stringify(nobody) && /^\d{6}$/.test(pc || '') && /Use it within 15 minutes/.test(sent.text) && /If you didn’t ask for it, ignore this email/.test(sent.text) && !sent.text.includes(code));
     const wrong = await web('verify', { email: 'pat@example.com', code: pc === '000000' ? '111111' : '000000' });
     ok('a wrong code is refused (400 wrong-code)', wrong.status === 400 && wrong.error === 'wrong-code');
     const probe = await web('verify', { email: 'nobody@example.com', code: '000000' });
     ok('checking a code says nothing about whether the email has a licence (the same answer for one with none)', JSON.stringify(probe) === JSON.stringify(wrong));
     const good = await web('verify', { email: 'pat@example.com', code: pc });
     const tok = good.token && (await codes.readNote('web', good.token, { keys: KEYS, signers: [2] }));
-    ok('the right code signs in: a GDEX-WEB token signed by the shop for that email and licence', good.status === 200 && tok && tok.email === 'pat@example.com' && tok.ref === v.licence.ref && good.licence.seats === 3 && good.licence.email === 'pat@example.com' && good.licence.name === 'Pat Buyer');
+    ok('the right code signs in: a TOURBOOK-WEB token signed by the shop for that email and licence', good.status === 200 && tok && tok.email === 'pat@example.com' && tok.ref === v.licence.ref && good.licence.seats === 3 && good.licence.email === 'pat@example.com' && good.licence.name === 'Pat Buyer');
     ok('each code works once', (await web('verify', { email: 'pat@example.com', code: pc })).error === 'wrong-code');
     ok('a signed-in browser checks back and is confirmed', (await web('check', { token: good.token })).ok === true);
     ok('a made-up or edited token is refused (401 signed-out)', (await web('check', { token: { ...good.token, data: good.token.data.replace('pat@', 'pam@') } })).status === 401 && (await web('check', { token: await codes.signNote('web', ownerKey, 1, { email: 'pat@example.com', ref: v.licence.ref, iat: 1 }) })).status === 401 && (await web('check', { token: 'x' })).error === 'signed-out');
@@ -288,7 +288,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const rb = await web('verify', { email: 'robin@example.com', code: lastCode('robin@example.com') });
     ok('…and signs in with that free licence', rb.status === 200 && rb.licence.comp === true && rb.licence.ref.startsWith('1:'));
     const noMail = await codes.signCode(ownerKey, 1, { name: 'No Address', comp: true, issued: '2026-11-02' });
-    ok('a code that is not valid, a code with no email in it, or an address that is not one is refused (400)', (await web('start', { code: 'GDEX-AAAAA' })).error === 'invalid-code' && (await web('start', { code: noMail })).error === 'no-email' && (await web('start', { email: 'not an address' })).error === 'invalid-email' && (await web('start', 'nope')).status === 400);
+    ok('a code that is not valid, a code with no email in it, or an address that is not one is refused (400)', (await web('start', { code: 'TOURBOOK-AAAAA' })).error === 'invalid-code' && (await web('start', { code: noMail })).error === 'no-email' && (await web('start', { email: 'not an address' })).error === 'invalid-email' && (await web('start', 'nope')).status === 400);
     const freeCode2 = await codes.signCode(ownerKey, 1, { name: 'Sam Linked', email: 'sam@example.com', comp: true, issued: '2026-11-02' });
     const lnk = await adm('link', (await codes.verifyCode(freeCode2, { keys: KEYS })).licence.ref, { code: freeCode2 });
     await web('start', { email: 'sam@example.com' });
@@ -302,7 +302,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     sessions.set('cs_test_lateVdexBuyer00000001', session('cs_test_lateVdexBuyer00000001', { payment_link: 'plink_vdex', customer_details: { name: 'Vdex Only', email: 'vonly@example.com' } }));
     calls.length = 0;
     await web('start', { email: 'late@example.com' }); await web('start', { email: 'vonly@example.com' });
-    ok('a buyer whose webhook never came is looked up in Stripe, among Gdex\'s payment links only', calls.some(c => /customer_details%5Bemail%5D=late%40example\.com|customer_details\[email\]=late%40example\.com/.test(c.url) && /payment_link=plink_gdex/.test(c.url)) && /^\d{6}$/.test(lastCode('late@example.com') || '') && !lastCode('vonly@example.com'));
+    ok('a buyer whose webhook never came is looked up in Stripe, among Tourbook\'s payment links only', calls.some(c => /customer_details%5Bemail%5D=late%40example\.com|customer_details\[email\]=late%40example\.com/.test(c.url) && /payment_link=plink_tourbook/.test(c.url)) && /^\d{6}$/.test(lastCode('late@example.com') || '') && !lastCode('vonly@example.com'));
     // The lead's decision 2 here too: a test-mode order found in Stripe (its webhook never came) keeps its end date, so
     // once its two days are over it signs in to nothing.
     const tlsid = 'cs_test_lateTestOrder000000001'; sessions.set(tlsid, session(tlsid, { livemode: false, customer_details: { name: 'Late Tester', email: 'late-test@example.com' } }));
@@ -393,9 +393,9 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     await kv.put('m:' + today(), '0');
     await web('start', { email: 'o\'brien"@example.com' });
     const xsign = mails().filter(x => x.to[0] === 'o\'brien"@example.com').at(-1);
-    ok('…and the sign-in email\'s', !!xsign && /^\d{6} is your Gdex sign-in code$/.test(xsign.subject) && xsign.html.includes('o&#39;brien&quot;@example.com') && !xsign.html.includes('o\'brien"'));
+    ok('…and the sign-in email\'s', !!xsign && /^\d{6} is your Tourbook sign-in code$/.test(xsign.subject) && xsign.html.includes('o&#39;brien&quot;@example.com') && !xsign.html.includes('o\'brien"'));
     ok('every email\'s subject is one line of at most 120 characters', mails().length > 0 && calls.filter(c => c.url === 'https://api.resend.com/emails').every(c => { const s = JSON.parse(c.body).subject; return !/[\r\n]/.test(s) && s.length <= 120; }));
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gdex-worker-')), modFile = path.join(tmp, 'worker.mjs');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tourbook-worker-')), modFile = path.join(tmp, 'worker.mjs');
     fs.writeFileSync(modFile, script);
     const mod = await import(pathToFileURL(modFile).href);
     ok('a subject built from a value with a line break has none (plain)', mod.plain('Line one\r\nBcc: someone@example.com\nthree') === 'Line one Bcc: someone@example.com three' && mod.plain('x'.repeat(300)).length === 120 && mod.esc('<a href="x">\'') === '&lt;a href=&quot;x&quot;&gt;&#39;');
@@ -420,7 +420,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     const jsonAnswers = answers.filter(a => /^application\/json/.test(a.r.headers.get('content-type') || ''));
     const badJson = jsonAnswers.filter(a => a.r.headers.get('content-type') !== 'application/json; charset=utf-8' || a.r.headers.get('x-content-type-options') !== 'nosniff' || (a.p !== '/licence/web/status' && a.r.headers.get('cache-control') !== 'no-store'));
     ok('every JSON answer is application/json; charset=utf-8, nosniff, and never cached (but the status, 5 minutes)', jsonAnswers.length > 50 && badJson.length === 0, badJson.slice(0, 3).map(a => a.p).join(', '));
-    // Cloudflare adds a Date header to every answer at its edge (the server time Gdex corrects a wrong clock with, [S-38]);
+    // Cloudflare adds a Date header to every answer at its edge (the server time Tourbook corrects a wrong clock with, [S-38]);
     // workerd run locally adds none, so here the Worker's own answers must simply not set one of their own.
     const own = answers.filter(a => a.p === '/buy' || a.p.startsWith('/licence/')), dated = own.filter(a => a.r.headers.get('date'));
     if (dated.length === own.length) ok('every answer of the licence server carries a Date header', true);
@@ -457,7 +457,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     {
       const m = make({});
       const nb = await m.dispatchFetch(SITE + '/buy', { redirect: 'manual' }), nbt = await nb.text();
-      ok('before the shop is set up, /buy says the Gdex licence is not on sale yet, in Gdex\'s words', nb.status === 200 && /The Gdex licence is not on sale yet/.test(nbt) && /It will cost 20 USD once, for up to 3 of your own devices\. Until then every role is free: <a href="\/index\.html">open Gdex<\/a>\./.test(nbt));
+      ok('before the shop is set up, /buy says the Tourbook licence is not on sale yet, in Tourbook\'s words', nb.status === 200 && /The Tourbook licence is not on sale yet/.test(nbt) && /It will cost 20 USD once, for up to 3 of your own devices\. Until then every role is free: <a href="\/index\.html">open Tourbook<\/a>\./.test(nbt));
       ok('…activation says "not ready", the thank-you page says the shop is not open, and the status is off', (await m.dispatchFetch(SITE + '/licence/activate', { method: 'POST', body: JSON.stringify({ code, install: id(1) }) })).status === 503 && (await m.dispatchFetch(SITE + '/licence/thanks?session_id=' + sid)).status === 503 && (await (await m.dispatchFetch(SITE + '/licence/web/status')).json()).on === false);
       await drop(m);
       const half = make({ ...env, BUY_URL: 'http://buy.example.com/x' });
@@ -469,18 +469,18 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
       const t3 = Math.floor(Date.now() / 1000), raw3 = JSON.stringify(done), sig3 = crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(`${t3}.${raw3}`).digest('hex');
       const wh3 = await m.dispatchFetch(SITE + '/licence/stripe-webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Stripe-Signature': `t=${t3},v1=${sig3}` }, body: raw3 });
       const th3 = await m.dispatchFetch(SITE + '/licence/thanks?session_id=' + sid), th3t = await th3.text();
-      ok('a shop key that is not the one built into Gdex keeps the shop closed instead of selling codes nobody can use', (await m.dispatchFetch(SITE + '/licence/activate', { method: 'POST', body: JSON.stringify({ code, install: id(1) }) })).status === 503 && th3.status === 503 && /The shop is not open yet/.test(th3t) && /reply to your receipt email/.test(th3t) && !/GDEX-/.test(th3t) && wh3.status === 503 && (await (await m.dispatchFetch(SITE + '/licence/web/status')).json()).on === false);
+      ok('a shop key that is not the one built into Tourbook keeps the shop closed instead of selling codes nobody can use', (await m.dispatchFetch(SITE + '/licence/activate', { method: 'POST', body: JSON.stringify({ code, install: id(1) }) })).status === 503 && th3.status === 503 && /The shop is not open yet/.test(th3t) && /reply to your receipt email/.test(th3t) && !/TOURBOOK-/.test(th3t) && wh3.status === 503 && (await (await m.dispatchFetch(SITE + '/licence/web/status')).json()).on === false);
       await drop(m);
     }
 
     /* ------------------------------ the config ------------------------------ */
     const wr = JSON.parse(fs.readFileSync(path.join(REPO, 'cloudflare/wrangler.jsonc'), 'utf8').replace(/^\s*\/\/.*$/gm, ''));
     const { WORKER_ROUTES } = await import(pathToFileURL(path.join(REPO, 'tools/site-files.mjs')).href);
-    ok('the Worker is Gdex\'s: named gdex, at gdex.crowmade.app only, with no workers.dev or preview address', wr.name === 'gdex' && JSON.stringify(wr.routes) === JSON.stringify([{ pattern: 'gdex.crowmade.app', custom_domain: true }]) && wr.workers_dev === false && wr.preview_urls === false);
+    ok('the Worker is Tourbook\'s: named tourbook, at tourbook.crowmade.app only, with no workers.dev or preview address', wr.name === 'tourbook' && JSON.stringify(wr.routes) === JSON.stringify([{ pattern: 'tourbook.crowmade.app', custom_domain: true }]) && wr.workers_dev === false && wr.preview_urls === false);
     ok('only /buy and /licence/… run the script; the rest is served as files', wr.main === 'worker.mjs' && JSON.stringify(wr.assets.run_worker_first) === JSON.stringify(['/buy', '/licence/*']) && JSON.stringify(WORKER_ROUTES) === JSON.stringify(wr.assets.run_worker_first) && wr.assets.binding === 'ASSETS' && wr.assets.directory === './site' && wr.assets.html_handling === 'none' && wr.assets.not_found_handling === 'none');
     ok('the licence store is created by Wrangler (no ID, so never Vdex\'s), and dashboard secrets survive a publish', JSON.stringify(wr.kv_namespaces) === JSON.stringify([{ binding: 'LICENCES' }]) && wr.keep_vars === true);
     const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'cloudflare/package.json'), 'utf8')), lock = JSON.parse(fs.readFileSync(path.join(REPO, 'cloudflare/package-lock.json'), 'utf8'));
-    ok('Wrangler is pinned to an exact version with its checksum', pkg.name === 'gdex-cloudflare' && /^\d+\.\d+\.\d+$/.test(pkg.devDependencies.wrangler) && lock.packages['node_modules/wrangler'].version === pkg.devDependencies.wrangler && /^sha512-/.test(lock.packages['node_modules/wrangler'].integrity));
+    ok('Wrangler is pinned to an exact version with its checksum', pkg.name === 'tourbook-cloudflare' && /^\d+\.\d+\.\d+$/.test(pkg.devDependencies.wrangler) && lock.packages['node_modules/wrangler'].version === pkg.devDependencies.wrangler && /^sha512-/.test(lock.packages['node_modules/wrangler'].integrity));
   } catch (e) {
     console.log('FAIL spec crashed — ' + (e && e.stack || e));
     process.exitCode = 1;

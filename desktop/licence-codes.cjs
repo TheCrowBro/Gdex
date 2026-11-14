@@ -1,12 +1,12 @@
-// Gdex licence codes: the one implementation of the code format, shared by the desktop app (desktop/licence.cjs), the
+// Tourbook licence codes: the one implementation of the code format, shared by the desktop app (desktop/licence.cjs), the
 // website's Worker (cloudflare/worker.mjs, which sells and activates codes) and the owner's offline generator page
 // (tools/licence-generator.template.html, built by tools/build-generator.mjs). It uses only Web Crypto, which all three
 // have, so a code made by one is checked the same way by the others.
 //
-// A code is "GDEX-" followed by Crockford base32 (no I, L, O or U) of payload + Ed25519 signature, in groups of five.
-// The signature covers "GDEX-LICENCE\0" + payload. Notes signed with the same keys use other prefixes ("GDEX-ACTIVE\0"
-// for a computer's activation receipt, "GDEX-ADMIN\0" for the owner's requests to the Worker), so nothing signed for
-// one purpose can be passed off as another. "GDEX-WEB\0" signs the website's sign-in tokens.
+// A code is "TOURBOOK-" followed by Crockford base32 (no I, L, O or U) of payload + Ed25519 signature, in groups of five.
+// The signature covers "TOURBOOK-LICENCE\0" + payload. Notes signed with the same keys use other prefixes ("TOURBOOK-ACTIVE\0"
+// for a computer's activation receipt, "TOURBOOK-ADMIN\0" for the owner's requests to the Worker), so nothing signed for
+// one purpose can be passed off as another. "TOURBOOK-WEB\0" signs the website's sign-in tokens.
 //
 // Payload, format 1: version(1) kid(1) flags(1: bit 0 = free licence) edition(1: 1 = desktop) seats(1) serial(4)
 // issued(2) expires(2: 0 = never; both in days from 1 Jan 2026) nameLength(1) name nameLength... emailLength(1) email.
@@ -19,7 +19,7 @@ const DAY = 86400e3;
 const HEADER = 13, SIG = 64, MAX_TEXT = 64, SEATS = 3;
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const FLAG_COMP = 1, EDITION_DESKTOP = 1;
-const PREFIX = { licence: 'GDEX-LICENCE\0', active: 'GDEX-ACTIVE\0', admin: 'GDEX-ADMIN\0', web: 'GDEX-WEB\0' };
+const PREFIX = { licence: 'TOURBOOK-LICENCE\0', active: 'TOURBOOK-ACTIVE\0', admin: 'TOURBOOK-ADMIN\0', web: 'TOURBOOK-WEB\0' };
 // Key numbers: 1 = the owner's key (generator), 2 = the shop's key (a Worker secret), 9 = the owner's spare, kept
 // apart. Only the owner's keys may sign requests to change what the Worker holds about a code.
 const OWNER_KIDS = [1, 9];
@@ -46,7 +46,7 @@ function b32decode(text) {
   const out = []; let bits = 0, value = 0;
   for (const ch of clean) {
     const v = ALPHABET.indexOf(ch);
-    if (v < 0) throw new LicenceError('invalid', 'The code has a character that does not belong in a Gdex code. Copy it again from your email.');
+    if (v < 0) throw new LicenceError('invalid', 'The code has a character that does not belong in a Tourbook code. Copy it again from your email.');
     value = (value << 5) | v; bits += 5;
     if (bits >= 8) { out.push((value >>> (bits - 8)) & 255); bits -= 8; }
     value &= (1 << bits) - 1;
@@ -54,12 +54,12 @@ function b32decode(text) {
   if (bits >= 5 || value !== 0) throw new LicenceError('invalid', 'The code is incomplete. Copy it again, including every group.');
   return Uint8Array.from(out);
 }
-const formatCode = bytes => 'GDEX-' + b32encode(bytes).match(/.{1,5}/g).join('-');
-// Finds the code in pasted text ("Your code: GDEX-ABCDE-… Thanks!"), in any case, with its groups split across lines by
+const formatCode = bytes => 'TOURBOOK-' + b32encode(bytes).match(/.{1,5}/g).join('-');
+// Finds the code in pasted text ("Your code: TOURBOOK-ABCDE-… Thanks!"), in any case, with its groups split across lines by
 // an email program. Groups are joined by dashes, so the words after the code are never taken as part of it.
 function extract(text) {
-  const m = String(text || '').slice(0, 4000).match(/GDEX-([0-9A-Z]+(?:\s*-\s*[0-9A-Z]+)*)/i);
-  if (!m) throw new LicenceError('invalid', 'Paste the whole code: it starts with GDEX-.');
+  const m = String(text || '').slice(0, 4000).match(/TOURBOOK-([0-9A-Z]+(?:\s*-\s*[0-9A-Z]+)*)/i);
+  if (!m) throw new LicenceError('invalid', 'Paste the whole code: it starts with TOURBOOK-.');
   return b32decode(m[1]);
 }
 const cleanCode = text => formatCode(extract(text));
@@ -88,8 +88,8 @@ function packPayload({ kid, serial, name = '', email = '', comp = false, seats =
   return p;
 }
 function unpackPayload(p) {
-  const not = () => new LicenceError('invalid', 'This is not a Gdex licence code.');
-  const newer = () => new LicenceError('newer', 'This code is for a newer version of Gdex. Update Gdex, then enter it again.');
+  const not = () => new LicenceError('invalid', 'This is not a Tourbook licence code.');
+  const newer = () => new LicenceError('newer', 'This code is for a newer version of Tourbook. Update Tourbook, then enter it again.');
   if (p.length < HEADER + 2) throw not();
   if (p[0] !== 1) throw p[0] > 1 ? newer() : not();
   const nl = p[13]; if (nl > MAX_TEXT || 14 + nl >= p.length) throw not();
@@ -136,9 +136,9 @@ async function verifyCode(text, { keys, now = Date.now() } = {}) {
   if (bytes.length < HEADER + 2 + SIG) throw new LicenceError('invalid', 'The code is incomplete. Copy it again, including every group.');
   const payload = bytes.subarray(0, bytes.length - SIG), sig = bytes.subarray(bytes.length - SIG);
   const lic = unpackPayload(payload);
-  if (!keys || !keys[lic.kid]) throw new LicenceError('unknown-key', 'This version of Gdex does not recognise who made this code. Update Gdex, then enter it again.');
+  if (!keys || !keys[lic.kid]) throw new LicenceError('unknown-key', 'This version of Tourbook does not recognise who made this code. Update Tourbook, then enter it again.');
   if (!(await verifyBytes('licence', payload, sig, lic.kid, keys))) throw new LicenceError('invalid', 'This code is not valid. Copy it again from your email, including every group.');
-  if (lic.edition !== EDITION_DESKTOP) throw new LicenceError('invalid', 'This code is not for the Gdex desktop app.');
+  if (lic.edition !== EDITION_DESKTOP) throw new LicenceError('invalid', 'This code is not for the Tourbook desktop app.');
   lic.ref = refOf(lic.kid, lic.serial);
   lic.code = formatCode(bytes);
   if (lic.expires && now >= Date.parse(lic.expires + 'T00:00:00Z') + DAY) return { status: 'expired', licence: lic };
@@ -168,11 +168,11 @@ async function wrappingKey(passphrase, salt, iterations) {
   const base = await subtle().importKey('raw', enc.encode(String(passphrase).normalize('NFC')), 'PBKDF2', false, ['deriveKey']);
   return subtle().deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
-const aad = (kid, pub) => enc.encode(`gdex-licence-key|${kid}|${pub}`);
+const aad = (kid, pub) => enc.encode(`tourbook-licence-key|${kid}|${pub}`);
 async function sealKeyFile(kid, pkcs8, publicKeyText, passphrase, label = '', iterations = 600000) {
   const salt = globalThis.crypto.getRandomValues(new Uint8Array(16)), iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
   const ct = await subtle().encrypt({ name: 'AES-GCM', iv, additionalData: aad(kid, publicKeyText) }, await wrappingKey(passphrase, salt, iterations), pkcs8);
-  return { type: 'gdex-licence-signing-key', version: 1, kid, label, alg: 'Ed25519', publicKey: publicKeyText, created: today(),
+  return { type: 'tourbook-licence-signing-key', version: 1, kid, label, alg: 'Ed25519', publicKey: publicKeyText, created: today(),
     kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations, salt: b64u.enc(salt) }, cipher: { name: 'AES-GCM', iv: b64u.enc(iv) }, encryptedPrivateKey: b64u.enc(ct) };
 }
 async function createKeyFile({ kid, passphrase, label = '', iterations }) {
@@ -180,7 +180,7 @@ async function createKeyFile({ kid, passphrase, label = '', iterations }) {
   try { return await sealKeyFile(kid, pkcs8, pub, passphrase, label, iterations); } finally { pkcs8.fill(0); }
 }
 async function decryptKeyFile(file, passphrase) {
-  if (!file || file.type !== 'gdex-licence-signing-key' || file.version !== 1) throw new Error('This is not a Gdex licence key file');
+  if (!file || file.type !== 'tourbook-licence-signing-key' || file.version !== 1) throw new Error('This is not a Tourbook licence key file');
   try {
     return new Uint8Array(await subtle().decrypt({ name: 'AES-GCM', iv: b64u.dec(file.cipher.iv), additionalData: aad(file.kid, file.publicKey) },
       await wrappingKey(passphrase, b64u.dec(file.kdf.salt), file.kdf.iterations), b64u.dec(file.encryptedPrivateKey)));

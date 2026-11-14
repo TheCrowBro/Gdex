@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- The only address this page can reach is gdex.crowmade.app, and only when you look up, clear, cancel or link a code.
+<!-- The only address this page can reach is tourbook.crowmade.app, and only when you look up, clear, cancel or link a code.
      Your key never leaves this page: it is unlocked into the browser in a form that can sign but cannot be read out.
      Built by tools/build-generator.mjs: change the template, then run it. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://gdex.crowmade.app; img-src data:; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://tourbook.crowmade.app; img-src data:; form-action 'none'; base-uri 'none'">
 <meta name="color-scheme" content="dark light">
-<title>Gdex licence generator</title>
+<title>Tourbook licence generator</title>
 <style>
   :root { --bg: #120f1a; --card: #231d33; --line: #382f50; --text: #efe9fb; --muted: #a59dbb; --accent: #ff5c8a; --ink: #2a0612; --ok: #5fb376; --bad: #e5604d; color-scheme: dark; }
   @media (prefers-color-scheme: light) { :root { --bg: #efecf5; --card: #fcfbff; --line: #d5cee5; --text: #1f1830; --muted: #6c6484; --accent: #c3265a; --ink: #ffffff; --ok: #246b3c; --bad: #b3321c; color-scheme: light; } }
@@ -35,13 +35,13 @@
 </head>
 <body>
 <main>
-<h1>Gdex licence generator</h1>
-<p class="muted">For the owner only. Keep this file, your key files and your passphrase on your own computer. Making keys and codes works with no internet; looking up, clearing, cancelling and linking codes talks to gdex.crowmade.app.</p>
+<h1>Tourbook licence generator</h1>
+<p class="muted">For the owner only. Keep this file, your key files and your passphrase on your own computer. Making keys and codes works with no internet; looking up, clearing, cancelling and linking codes talks to tourbook.crowmade.app.</p>
 <p id="support" class="bad" hidden>This browser cannot sign licence codes. Open this file in an up-to-date Chrome, Edge, Firefox or Safari.</p>
 
 <section id="unlock">
   <h2>1. Unlock your key</h2>
-  <p class="muted">Use gdex-licence-key-1.json (or your spare, gdex-licence-key-9-spare.json) and its passphrase.</p>
+  <p class="muted">Use tourbook-licence-key-1.json (or your spare, tourbook-licence-key-9-spare.json) and its passphrase.</p>
   <label for="keyfile">Key file</label><input id="keyfile" type="file" accept=".json,application/json">
   <label for="pass">Passphrase</label><input id="pass" type="password" autocomplete="off">
   <button id="open">Unlock</button> <span id="keystate" class="muted"></span>
@@ -62,7 +62,7 @@
     <button id="copy" class="ghost">Copy</button> <a id="mail" href="#">Write the email</a>
   </div>
   <h2 style="margin-top:24px">Codes made</h2>
-  <p class="muted">Your ledger (gdex-ledger.csv) is the list of every Gdex code you have made. Open it before making codes, and save it afterwards. Keep it with your Gdex key files, apart from any other app’s.</p>
+  <p class="muted">Your ledger (tourbook-ledger.csv) is the list of every Tourbook code you have made. Open it before making codes, and save it afterwards. Keep it with your Tourbook key files, apart from any other app’s.</p>
   <label for="ledgerfile">Open ledger</label><input id="ledgerfile" type="file" accept=".csv,text/csv">
   <button id="saveledger" class="ghost">Save ledger</button>
   <div class="table"><table><thead><tr><th>Issued</th><th>Ref</th><th>Type</th><th>Name</th><th>Email</th><th>Ends</th><th>Note</th></tr></thead><tbody id="rows"></tbody></table></div>
@@ -74,7 +74,7 @@
   <label for="which">Code or ref</label><input id="which" type="text" autocomplete="off">
   <button id="look" class="ghost">Look up</button>
   <button id="clear" class="ghost" title="Takes every computer off the code, so it can be activated afresh (a lost or broken computer)">Clear its computers</button>
-  <button id="cancel" class="ghost" title="Stops the code working: Gdex’s working roles become read-only on its devices within about a week">Cancel the code</button>
+  <button id="cancel" class="ghost" title="Stops the code working: Tourbook’s working roles become read-only on its devices within about a week">Cancel the code</button>
   <button id="restore" class="ghost">Restore a cancelled code</button>
   <button id="link" class="ghost" title="Lets the person sign in on the website with the email address in the code">Link for website sign-in</button>
   <div id="lookout" class="muted"></div>
@@ -82,17 +82,17 @@
 
 <section id="newkey">
   <h2>First time only: make your keys</h2>
-  <p class="muted">Do this once, before selling. It makes three keys, Gdex’s own (never use another app’s keys for Gdex):</p>
+  <p class="muted">Do this once, before selling. It makes three keys, Tourbook’s own (never use another app’s keys for Tourbook):</p>
   <ol class="muted">
-    <li><b>Your key</b> (gdex-licence-key-1.json): makes free codes in this page.</li>
-    <li><b>The shop key</b> (gdex-licence-key-2-shop.json): Cloudflare uses it to make codes for paying customers. You paste it into Cloudflare once.</li>
-    <li><b>A spare</b> (gdex-licence-key-9-spare.json): replaces your key if it is ever lost or leaked. Keep it somewhere else, such as a USB stick in a drawer.</li>
+    <li><b>Your key</b> (tourbook-licence-key-1.json): makes free codes in this page.</li>
+    <li><b>The shop key</b> (tourbook-licence-key-2-shop.json): Cloudflare uses it to make codes for paying customers. You paste it into Cloudflare once.</li>
+    <li><b>A spare</b> (tourbook-licence-key-9-spare.json): replaces your key if it is ever lost or leaked. Keep it somewhere else, such as a USB stick in a drawer.</li>
   </ol>
   <p class="muted">All three are locked with the passphrase below. Keep it in your password manager: without it the key files are useless, to you as well.</p>
   <div class="row"><div><label for="np1">New passphrase (12 or more characters)</label><input id="np1" type="password" autocomplete="new-password"></div><div><label for="np2">The same again</label><input id="np2" type="password" autocomplete="new-password"></div></div>
   <button id="makekey" class="ghost">Make my keys</button>
   <div id="newkeyout" hidden>
-    <label for="publine">Public keys: send this to the person who builds Gdex (it is not secret). It goes in desktop/licence-keys.json.</label><textarea id="publine" rows="3" readonly></textarea>
+    <label for="publine">Public keys: send this to the person who builds Tourbook (it is not secret). It goes in desktop/licence-keys.json.</label><textarea id="publine" rows="3" readonly></textarea>
     <label for="newshop">The shop key: paste it into Cloudflare as the secret LICENCE_SHOP_KEY (see docs/licence-server.md). Never email or share it.</label><textarea id="newshop" rows="3" readonly></textarea>
     <label for="paper">Paper backups of your key and the spare: write them down and keep them like cash. Anyone holding one can make codes.</label><textarea id="paper" rows="4" readonly></textarea>
   </div>
@@ -103,7 +103,7 @@
 <script>
 const Codes = (() => { const module = { exports: {} }; /*LICENCE_CODES*/
 return module.exports; })();
-const SITE = 'https://gdex.crowmade.app';
+const SITE = 'https://tourbook.crowmade.app';
 (() => {
   const $ = id => document.getElementById(id);
   const say = (t, bad) => { $('msg').textContent = t; $('msg').className = bad ? 'bad' : 'ok'; };
@@ -114,7 +114,7 @@ const SITE = 'https://gdex.crowmade.app';
   const safeCell = v => /^[=+\-@\t\r]/.test(String(v)) ? "'" + v : String(v);
   const parseCsv = t => { const rows = []; let row = [], cell = '', q = false; for (let i = 0; i < t.length; i++) { const c = t[i]; if (q) { if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; } else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; } else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; } else if (c !== '\r') cell += c; } if (cell || row.length) { row.push(cell); rows.push(row); } return rows; };
   const HEAD = ['issued', 'ref', 'type', 'name', 'email', 'expires', 'seats', 'note', 'code'];
-  const LEDGER = 'gdex-ledger.csv';
+  const LEDGER = 'tourbook-ledger.csv';
   let key = null, ledger = [], unsaved = 0;
   (async () => { try { await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign']); } catch { $('support').hidden = false; } })();
   window.addEventListener('beforeunload', e => { if (unsaved) { e.preventDefault(); e.returnValue = ''; } });
@@ -133,13 +133,13 @@ const SITE = 'https://gdex.crowmade.app';
     } catch (e) { say(e.message, true); }
   };
 
-  // The email to send with a code you made: Gdex's steps, the website's only when the code holds an email address.
+  // The email to send with a code you made: Tourbook's steps, the website's only when the code holds an email address.
   const letter = (row, lic, comp) => [
     `Hi${row.name ? ' ' + row.name.split(' ')[0] : ''},`,
-    `Here is your Gdex licence${comp ? ', with my compliments' : ''}. It covers every role on up to ${lic.seats} of your devices (computers with the desktop app; signing in on the website doesn’t use one)${row.expires ? ', until ' + row.expires : ''}.`,
+    `Here is your Tourbook licence${comp ? ', with my compliments' : ''}. It covers every role on up to ${lic.seats} of your devices (computers with the desktop app; signing in on the website doesn’t use one)${row.expires ? ', until ' + row.expires : ''}.`,
     row.code,
-    ...(row.email ? [`On the website (${SITE}): Settings → About & licence → Sign in, with ${row.email}. Gdex emails you a 6-digit code to type in.`] : []),
-    `In the desktop app: download Gdex from ${SITE}/download.html, open it, go to Settings → About & licence → Enter licence code, and paste the code.`,
+    ...(row.email ? [`On the website (${SITE}): Settings → About & licence → Sign in, with ${row.email}. Tourbook emails you a 6-digit code to type in.`] : []),
+    `In the desktop app: download Tourbook from ${SITE}/download.html, open it, go to Settings → About & licence → Enter licence code, and paste the code.`,
     'Keep this email: it is your licence.',
     'Thanks!',
   ].join('\n\n');
@@ -153,7 +153,7 @@ const SITE = 'https://gdex.crowmade.app';
       const row = { issued: f.issued, ref: lic.ref, type: f.comp ? 'free' : 'paid', name: lic.name, email: lic.email, expires: f.expires, seats: String(lic.seats), note: $('note').value.trim(), code };
       ledger.push(row); unsaved++; draw();
       $('code').value = code; $('for').textContent = row.name || row.email; $('result').hidden = false;
-      $('mail').href = `mailto:${encodeURIComponent(row.email)}?subject=${encodeURIComponent('Your Gdex licence')}&body=${encodeURIComponent(letter(row, lic, f.comp))}`;
+      $('mail').href = `mailto:${encodeURIComponent(row.email)}?subject=${encodeURIComponent('Your Tourbook licence')}&body=${encodeURIComponent(letter(row, lic, f.comp))}`;
       $('which').value = code;
       say('Code made. Save the ledger before you close this page.');
       if (row.email && [1, 9].includes(key.kid)) ask('link', { quiet: true }); // so they can sign in on the website with that email
@@ -163,22 +163,22 @@ const SITE = 'https://gdex.crowmade.app';
   $('ledgerfile').onchange = async () => {
     try {
       const rows = parseCsv(await readFile($('ledgerfile'))), head = (rows.shift() || []).map(x => x.trim());
-      if (!head.includes('ref') || !head.includes('code')) throw new Error('That is not a Gdex ledger');
+      if (!head.includes('ref') || !head.includes('code')) throw new Error('That is not a Tourbook ledger');
       // A Vdex ledger has VDEX- codes in its code column (a note or a name that mentions Vdex is not one).
-      if (rows.some(r => /^\s*VDEX-/i.test(r[head.indexOf('code')] || ''))) throw new Error('That is a Vdex ledger, not Gdex’s. Keep the two apart: open gdex-ledger.csv here.');
+      if (rows.some(r => /^\s*VDEX-/i.test(r[head.indexOf('code')] || ''))) throw new Error('That is a Vdex ledger, not Tourbook’s. Keep the two apart: open tourbook-ledger.csv here.');
       const old = rows.filter(r => r.length > 1).map(r => Object.fromEntries(head.map((k, i) => [k, String(r[i] || '').replace(/^'(?=[=+\-@])/, '')])));
       const known = new Set(old.map(r => r.ref)); ledger = old.concat(ledger.filter(r => !known.has(r.ref))); draw(); say(`Ledger opened: ${ledger.length} code${ledger.length === 1 ? '' : 's'}.`);
     } catch (e) { say(e.message, true); }
   };
-  $('saveledger').onclick = () => { download(LEDGER, [HEAD.join(','), ...ledger.map(r => HEAD.map(k => csvCell(k === 'code' || k === 'ref' ? r[k] || '' : safeCell(r[k] || ''))).join(','))].join('\r\n') + '\r\n', 'text/csv'); unsaved = 0; say(`Ledger saved to your Downloads as ${LEDGER}. Keep it with your Gdex key files.`); };
+  $('saveledger').onclick = () => { download(LEDGER, [HEAD.join(','), ...ledger.map(r => HEAD.map(k => csvCell(k === 'code' || k === 'ref' ? r[k] || '' : safeCell(r[k] || ''))).join(','))].join('\r\n') + '\r\n', 'text/csv'); unsaved = 0; say(`Ledger saved to your Downloads as ${LEDGER}. Keep it with your Tourbook key files.`); };
 
   // Requests to the shop, signed with the unlocked key, so only the owner can make them.
-  // A typed ref is read as a number pair (2:079 is code 2:79); one no Gdex code can carry is not sent.
+  // A typed ref is read as a number pair (2:079 is code 2:79); one no Tourbook code can carry is not sent.
   async function refOf(text) {
     const t = String(text || '').trim(), m = t.match(/^(\d{1,3}):(\d{1,10})$/);
     if (m) {
       const kid = Number(m[1]), serial = Number(m[2]);
-      if (![1, 2, 9].includes(kid) || !(serial >= 1 && serial <= 0xffffffff)) throw new Error('That is not the ref of a Gdex code: it starts with 1:, 2: or 9:, then a number from 1 to 4294967295 (like 2:3735928559).');
+      if (![1, 2, 9].includes(kid) || !(serial >= 1 && serial <= 0xffffffff)) throw new Error('That is not the ref of a Tourbook code: it starts with 1:, 2: or 9:, then a number from 1 to 4294967295 (like 2:3735928559).');
       return Codes.refOf(kid, serial);
     }
     const b = Codes.extract(t), p = Codes.unpackPayload(b.subarray(0, b.length - 64)); return Codes.refOf(p.kid, p.serial);
@@ -186,15 +186,15 @@ const SITE = 'https://gdex.crowmade.app';
   async function ask(op, { quiet = false } = {}) {
     try {
       const text = $('which').value, ref = await refOf(text);
-      if (op === 'link' && !/GDEX-/i.test(text)) throw new Error('Paste the whole code to link it for website sign-in (a ref is not enough).');
-      if (op === 'cancel' && !confirm(`Cancel ${ref}? Gdex’s working roles become read-only on its devices within about a week.`)) return;
+      if (op === 'link' && !/TOURBOOK-/i.test(text)) throw new Error('Paste the whole code to link it for website sign-in (a ref is not enough).');
+      if (op === 'cancel' && !confirm(`Cancel ${ref}? Tourbook’s working roles become read-only on its devices within about a week.`)) return;
       let at = Date.now();
       for (let tries = 0; tries < 2; tries++) {
         const note = await Codes.signNote('admin', key.privateKey, key.kid, { op, ref, at, ...(op === 'link' ? { code: Codes.cleanCode(text) } : {}) });
         const r = await fetch(SITE + '/licence/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(note) });
         const b = await r.json().catch(() => ({}));
         if (b.error === 'stale' && b.now && !tries) { at = b.now; continue; } // this computer's clock is off: use the server's
-        if (!r.ok) throw new Error(b.error === 'not-signed' ? 'The shop didn’t accept your key. Is this the key built into Gdex?' : b.error === 'not-ready' ? 'The shop is not set up yet (see docs/licence-server.md).' : b.error === 'bad-code' ? 'That code has no email address in it, or is not valid.' : 'The shop answered ' + r.status);
+        if (!r.ok) throw new Error(b.error === 'not-signed' ? 'The shop didn’t accept your key. Is this the key built into Tourbook?' : b.error === 'not-ready' ? 'The shop is not set up yet (see docs/licence-server.md).' : b.error === 'bad-code' ? 'That code has no email address in it, or is not valid.' : 'The shop answered ' + r.status);
         const list = (b.computers || []).map(c => `${c.os} (added ${c.added}, last used ${c.seen})`).join('; ');
         $('lookout').textContent = `${b.ref}: ${b.cancelled ? `CANCELLED (${b.cancelled.why}). ` : ''}${b.computers.length ? `on ${b.computers.length} computer${b.computers.length === 1 ? '' : 's'}: ${list}.` : 'not on any computer.'} Moved ${b.swaps} time${b.swaps === 1 ? '' : 's'} in the last 30 days.`;
         say({ look: 'Looked up.', clear: 'Its computers are cleared: it can be activated afresh.', cancel: 'Cancelled.', restore: 'Restored.', link: quiet ? 'Code made, and linked to its email for website sign-in. Save the ledger before you close this page.' : 'Linked: its email address can now sign in on the website.' }[op]);
@@ -203,7 +203,7 @@ const SITE = 'https://gdex.crowmade.app';
     } catch (e) {
       const offline = e.message === 'Failed to fetch';
       if (quiet) say('Code made. Not yet linked for website sign-in (no connection): when you are online, press “Link for website sign-in”. Save the ledger before you close this page.', true);
-      else say(offline ? 'Couldn’t reach gdex.crowmade.app. Check the internet connection.' : e.message, true);
+      else say(offline ? 'Couldn’t reach tourbook.crowmade.app. Check the internet connection.' : e.message, true);
     }
   }
   for (const op of ['look', 'clear', 'cancel', 'restore', 'link']) $(op).onclick = () => ask(op);
@@ -216,9 +216,9 @@ const SITE = 'https://gdex.crowmade.app';
       const owner = await Codes.createKeyFile({ kid: 1, passphrase: p, label: 'owner' });
       const shop = await Codes.createKeyFile({ kid: 2, passphrase: p, label: 'shop' });
       const spare = await Codes.createKeyFile({ kid: 9, passphrase: p, label: 'spare' });
-      download('gdex-licence-key-1.json', JSON.stringify(owner, null, 2) + '\n', 'application/json');
-      download('gdex-licence-key-2-shop.json', JSON.stringify(shop, null, 2) + '\n', 'application/json');
-      download('gdex-licence-key-9-spare.json', JSON.stringify(spare, null, 2) + '\n', 'application/json');
+      download('tourbook-licence-key-1.json', JSON.stringify(owner, null, 2) + '\n', 'application/json');
+      download('tourbook-licence-key-2-shop.json', JSON.stringify(shop, null, 2) + '\n', 'application/json');
+      download('tourbook-licence-key-9-spare.json', JSON.stringify(spare, null, 2) + '\n', 'application/json');
       $('publine').value = JSON.stringify({ 1: owner.publicKey, 2: shop.publicKey, 9: spare.publicKey });
       $('newshop').value = await Codes.shopSecret(shop, p);
       $('paper').value = (await Codes.paperBackup(owner, p)) + '\n' + (await Codes.paperBackup(spare, p));

@@ -520,7 +520,7 @@ export function calendarSteps(ctx) {
   return [
     { title: 'New booking', text: 'Add a show, a studio session, a rehearsal or anything else in the diary.', target: ['.bk-new'] },
     { title: 'Export calendar', text: moneyShown() ? 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar, or to send to the band. No fees or deals go in it.' : 'Saves your upcoming bookings as a calendar file for Apple, Google or Outlook Calendar.', target: ['.bk-export'] },
-    { title: 'Views', text: 'Month, 2 weeks, Week, 3 days or Day. Gdex opens on the one you picked here last.', target: ['.bk-views'] },
+    { title: 'Views', text: 'Month, 2 weeks, Week, 3 days or Day. Tourbook opens on the one you picked here last.', target: ['.bk-views'] },
     // A day with nothing on has no grid: no hours to speak of, and nothing to tap, so those two steps are skipped there.
     { title: 'The calendar', text: gridHelp(mode), target: [mode === 'day' ? '.bk-dayview .bk-grid' : '.bk-cal-panel'] },
     ...(mode === 'day' ? [

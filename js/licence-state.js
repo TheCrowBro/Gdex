@@ -6,9 +6,9 @@
 // Off until the owner switches it on: on the website while LICENCE_SITES (js/licence-config.js) lacks this host, in the
 // desktop app while its own switch is off (the bridge says so). Off, every answer is "open", nothing is shown, and
 // nothing is asked of a licence server. The sources of truth:
-//   website   localStorage gdex-licence (+ its second copy, IndexedDB gdex/kv/licence-days), js/licence-web.js for
+//   website   localStorage tourbook-licence (+ its second copy, IndexedDB tourbook/kv/licence-days), js/licence-web.js for
 //             the server's answers (the status, the sign-in, the daily check), loaded only when live
-//   desktop   window.gdexDesktop.licence (desktop/licence.cjs), its last answer kept as gdex-licence-cache
+//   desktop   window.tourbookDesktop.licence (desktop/licence.cjs), its last answer kept as tourbook-licence-cache
 // The sheets, the Settings panel and the bar are in js/licence.js, loaded when one is needed.
 import { roleId, roleChosen, roleNeedsLicence, sectionNeedsLicence } from './roles.js';
 import { setGate, redraw } from './store.js';
@@ -18,36 +18,36 @@ import { readWebNote } from './licence-note.js';
 import { kvGet, kvSet } from './kv.js';
 import { termsDue, askTerms } from './terms.js';
 
-export const LICENCE_EVENT = 'gdex-licence';
+export const LICENCE_EVENT = 'tourbook-licence';
 // Owner question 6 (answered: locked). true would make the working boxes and the paid records a free role reaches from
 // its own sections (line-up, setlist, take log, People's cards…) free again.
 export const FREE_KEEPS_WORK = false;
 
-const KEY = 'gdex-licence', CACHE = 'gdex-licence-cache', DAYS = 'licence-days';
+const KEY = 'tourbook-licence', CACHE = 'tourbook-licence-cache', DAYS = 'licence-days';
 const DAY = 864e5, TRIAL_DAYS = 30, SEATS = 3;
 const OFFLINE_LIMIT = 90 * DAY;          // a sign-in must be confirmed at least once in 90 days
 const PAUSE_FRESH = 12 * 3600e3;         // a paused status counts for 12 hours (the build spec [S-9])
 const STATUS_FRESH = 6 * 3600e3;         // the status is asked at most this often
-const EARLIEST = Date.UTC(2026, 0, 1);   // no free day starts before Gdex had a licence
+const EARLIEST = Date.UTC(2026, 0, 1);   // no free day starts before Tourbook had a licence
 const num = x => (Number.isFinite(Number(x)) ? Number(x) : 0);
 const pad = n => String(n).padStart(2, '0');
 const localDay = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
 
 /* ----------------------------------- where ----------------------------------- */
-const bridge = () => (window.gdexDesktop && window.gdexDesktop.licence) || null;
-// The desktop app's files opened in a web browser (its local server's ports, without its bridge): a licence-free Gdex
+const bridge = () => (window.tourbookDesktop && window.tourbookDesktop.licence) || null;
+// The desktop app's files opened in a web browser (its local server's ports, without its bridge): a licence-free Tourbook
 // with Drive, were it allowed. Every paid role and section is locked there, and nothing is asked (the build spec [S-42]).
-const away = () => !window.gdexDesktop && /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && num(location.port) >= 47861 && num(location.port) <= 47880;
+const away = () => !window.tourbookDesktop && /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && num(location.port) >= 47861 && num(location.port) <= 47880;
 // This website is one where the licence is live (the owner's switch). A pause from the licence server can still make it off.
 const liveSite = () => !bridge() && !away() && LICENCE_SITES.includes(location.hostname);
 
 /* ------------------------------ the website's record ------------------------------ */
-// gdex-licence, read and written whole. Where storage is blocked (a private window), the visit keeps its own copy.
+// tourbook-licence, read and written whole. Where storage is blocked (a private window), the visit keeps its own copy.
 let mem = null;
 const clone = o => JSON.parse(JSON.stringify(o));
-// The earliest start of the free days this visit has known ([S-27]). Gdex only ever moves a start earlier (Google
-// Drive's, the licence server's time), so a later start, or none, in gdex-licence while Gdex is open is one copy changed
+// The earliest start of the free days this visit has known ([S-27]). Tourbook only ever moves a start earlier (Google
+// Drive's, the licence server's time), so a later start, or none, in tourbook-licence while Tourbook is open is one copy changed
 // by hand: the earlier counts, as the IndexedDB copy makes it count at the next opening when the key is deleted.
 let earliest = 0;
 function read() {
@@ -62,7 +62,7 @@ function write(s) {
   mem = clone(s);
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* blocked: kept for this visit */ }
 }
-// The free days' second copy, beside gdex-licence (the build spec [S-27]): fire and forget, joined with what it holds
+// The free days' second copy, beside tourbook-licence (the build spec [S-27]): fire and forget, joined with what it holds
 // (the earlier start), never overwritten with a later one.
 const keepDays = s => {
   const first = num(s.first), seen = num(s.seen);
@@ -149,7 +149,7 @@ export function changeLicence(fn) {
 }
 
 /* ---------------------------- the website's sign-in, checked ---------------------------- */
-// A token counts only once its signature checks out (Ed25519, GDEX-WEB, key 2) and it names the licence it came with
+// A token counts only once its signature checks out (Ed25519, TOURBOOK-WEB, key 2) and it names the licence it came with
 // (the build spec [S-40]). Until the check has run (a few milliseconds) it is believed. A browser that cannot check
 // (no Ed25519) believes it, as Vdex does, and leaves it to the daily check.
 // What was checked: the token whole and the licence it names, so a change to any of them is checked again.
@@ -201,8 +201,8 @@ export function licenceReady() {
 /* ------------------------------------ the answers ------------------------------------ */
 const hasLicence = s => (s.mode === 'licensed' || s.mode === 'pending') && s.canEdit;
 // A paid role in use counts once the first run is settled (a role picked, the welcome tour done, or the first-run
-// question closed), so a newcomer is never counted while "Who's using Gdex?" is still up ([S-2]).
-export const firstRunSettled = () => roleChosen() || !!lsGet('gdex-tour') || !!lsGet('gdex-role-nudged');
+// question closed), so a newcomer is never counted while "Who's using Tourbook?" is still up ([S-2]).
+export const firstRunSettled = () => roleChosen() || !!lsGet('tourbook-tour') || !!lsGet('tourbook-role-nudged');
 // The table of the build spec §3.5: paid: the role in use is a paid one.
 function answer(paid) {
   const s = licenceNow();
@@ -251,11 +251,11 @@ function workClosed() {
   workWas = now;
 }
 onLicenceChange(workClosed);
-window.addEventListener('gdex-role', workClosed);
+window.addEventListener('tourbook-role', workClosed);
 
 // A mark: its text, and its spoken words, said after the name of what it marks ("People, needs a licence").
 const markFor = a => (a === 'start' ? { text: '30 days free', label: 'opens your 30 free days' }
-  : licenceNow().mode === 'away' ? { text: '🔒 Desktop app', label: 'only in Gdex’s desktop app' }
+  : licenceNow().mode === 'away' ? { text: '🔒 Desktop app', label: 'only in Tourbook’s desktop app' }
     : { text: '🔒 Licence', label: 'needs a licence' });
 // The mark on the More boxes fold (§9.3: "More boxes, opens your 30 free days"); null when gateWork would call at once.
 export const workMark = () => (workOpen() ? null : markFor(mayWork()));
@@ -269,9 +269,9 @@ export function sectionMark(id) {
 // picked now. '' for each while they are open, and while off.
 export function closedWords() {
   const away = licenceNow().mode === 'away';
-  const bonus = workOpen() ? '' : away ? 'They come with Gdex’s working roles, in Gdex’s desktop app.'
-    : mayWork() === 'start' ? 'They come with Gdex’s working roles: opening one starts your 30 free days.' : 'They come with Gdex’s working roles and need a licence.';
-  const roles = mayPickRole('all') !== 'locked' ? '' : away ? 'The working roles work only in Gdex’s desktop app.' : 'The working roles need a licence now.';
+  const bonus = workOpen() ? '' : away ? 'They come with Tourbook’s working roles, in Tourbook’s desktop app.'
+    : mayWork() === 'start' ? 'They come with Tourbook’s working roles: opening one starts your 30 free days.' : 'They come with Tourbook’s working roles and need a licence.';
+  const roles = mayPickRole('all') !== 'locked' ? '' : away ? 'The working roles work only in Tourbook’s desktop app.' : 'The working roles need a licence now.';
   return { bonus, roles };
 }
 // The role picker's words for a role (§9.2); '' while off.
@@ -296,7 +296,7 @@ export function toastStarted() {
   const s = licenceNow(), until = endsWords(s);
   if (!s.started || !(s.first > 0) || s.first === toldStart) return;
   toldStart = s.first;
-  toast(`Your 30 free days of Gdex’s working roles have started on this device${until ? `: until ${until}` : ''}.`);
+  toast(`Your 30 free days of Tourbook’s working roles have started on this device${until ? `: until ${until}` : ''}.`);
 }
 
 let starting = null;
@@ -380,7 +380,7 @@ export function refreshLicence() {
 /* ------------------------------------ the sources ------------------------------------ */
 let sourced = false;
 // Called once at idle by js/app.js. Desktop: the bridge's state, and its changes. Website, only when live: the status,
-// the daily check of a sign-in, and a look again when Gdex comes back, comes online, every hour and when another tab
+// the daily check of a sign-in, and a look again when Tourbook comes back, comes online, every hour and when another tab
 // changes the record. Off: nothing is loaded and nothing is asked.
 export function initLicenceSource() {
   if (sourced) return Promise.resolve();

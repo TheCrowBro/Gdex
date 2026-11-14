@@ -6,7 +6,7 @@
 // Last, the seams the licence, the desktop app and Google Drive are built on (the build spec §3-§4): which roles and
 // sections need a licence, the store's write gate and its hooks, Replace everywhere, Erase keeping the licence, the
 // IndexedDB store, the service worker leaving the Worker's addresses alone (its route test in Node, and once running in
-// Chromium), the owner's two switches still off in the repository, the licence code format made Gdex's, the test
+// Chromium), the owner's two switches still off in the repository, the licence code format made Tourbook's, the test
 // server keeping off the desktop app's ports, and, with licences off, every answer "open" and nothing asked of a
 // licence server.
 const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
@@ -18,7 +18,7 @@ const { pathToFileURL } = require('url');
 // The repository itself, not the test's scratch copy: desktop/ is left out of that, and in the licence leg the test
 // server serves its own js/licence-config.js (the build spec [S-26], [S-34]).
 const REPO = path.join(__dirname, '..', '..');
-const LEG = process.env.GDEX_LICENCE === 'on' ? 'on' : 'off';
+const LEG = process.env.TOURBOOK_LICENCE === 'on' ? 'on' : 'off';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // Runs fn(store, arg) in the page. The function's text is sent as part of the expression Playwright evaluates (the
@@ -31,7 +31,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   /* ================= with the sample ================= */
   const { browser, page, errors } = await open({ sample: true });
   await page.waitForSelector('.bk-monthview');
-  ok('the test helper turns the question off on every load', (await page.evaluate(() => localStorage.getItem('gdex-ask-seen'))) === 'off');
+  ok('the test helper turns the question off on every load', (await page.evaluate(() => localStorage.getItem('tourbook-ask-seen'))) === 'off');
 
   /* ---------------- when a show is over ---------------- */
   const D = '2031-05-17', D1 = '2031-05-18'; // every date here is counted from a fixed day, never from today
@@ -296,7 +296,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   await sleep(200);
   await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(2600);
   const atOpen = await page.evaluate(() => import('./js/model.js').then(m => ({ waiting: m.waitingShows(new Date(), { holds: true }).map(b => b.id), sheets: document.querySelectorAll('.sheet, .tour-card').length, page: window.logiPage(), inert: document.getElementById('app').inert, fetched: performance.getEntriesByType('resource').some(e => /acts-ask\.js/.test(e.name)) })));
-  ok('three shows that are over are waiting when Gdex opens', ['g-past0', 'g-past1', 'g-past2'].every(id => atOpen.waiting.includes(id)), atOpen.waiting.join(','));
+  ok('three shows that are over are waiting when Tourbook opens', ['g-past0', 'g-past1', 'g-past2'].every(id => atOpen.waiting.includes(id)), atOpen.waiting.join(','));
   ok('…with the question turned off, no sheet opens over the calendar', atOpen.sheets === 0 && atOpen.page === 'bookings' && atOpen.inert === false && atOpen.fetched === true, JSON.stringify(atOpen));
 
   /* ---------------- Settings: the seam for the question, and the walkthrough's words ---------------- */
@@ -312,7 +312,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   {
     const { browser, page, errors } = await open();
     const asked = await page.evaluate(() => import('./js/roles.js').then(r => {
-      const KEY = 'gdex-ask-seen', out = {};
+      const KEY = 'tourbook-ask-seen', out = {};
       for (const id of ['all', 'producer', 'manager', 'band', 'solo', 'scout', 'audiophile']) {
         r.setRole(id);
         const row = [];
@@ -334,7 +334,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     ok('the setting is saved as on or off, and removed for “follow my role”', asked.setOn === 'on' && asked.setOff === 'off' && asked.setNone === null && asked.setJunk === null, JSON.stringify([asked.setOn, asked.setOff, asked.setNone, asked.setJunk]));
 
     const cal = await page.evaluate(() => import('./js/bookings-kit.js').then(k => {
-      const KEY = 'gdex-cal-view', out = { modes: k.CAL_MODES };
+      const KEY = 'tourbook-cal-view', out = { modes: k.CAL_MODES };
       localStorage.removeItem(KEY); out.unset = k.calMode();
       localStorage.setItem(KEY, 'week'); out.week = k.calMode();
       localStorage.setItem(KEY, 'fortnight'); out.junk = k.calMode();
@@ -347,7 +347,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     // the section menu in its own words, for each of the three menus
     const words = {};
     for (const menu of ['record', 'tape', 'digital']) {
-      await page.evaluate(m => { localStorage.removeItem('gdex-role'); localStorage.setItem('gdex-prefs', JSON.stringify({ menu: m })); }, menu);
+      await page.evaluate(m => { localStorage.removeItem('tourbook-role'); localStorage.setItem('tourbook-prefs', JSON.stringify({ menu: m })); }, menu);
       await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(200);
       words[menu] = await page.evaluate(() => Promise.all([import('./js/a11y.js'), import('./js/tour.js'), import('./js/roles.js')]).then(([a, t, r]) => {
         const tracks = () => t.welcomeSteps().find(s => s.title === 'Your sections are tracks').text, last = () => { const s = t.welcomeSteps(); return s[s.length - 1].text; };
@@ -367,35 +367,35 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     await go(page, 'settings');
     await page.evaluate(() => { document.getElementById('se-role').open = true; }); await page.waitForSelector('#se-role .rp-about');
     const about = await page.textContent('#se-role .rp-about');
-    ok('digital player: Your role speaks of the track list (tap ☰), and says Gdex always opens on the calendar', /bonus tracks on the track list \(tap ☰\)/.test(about) && /Gdex always opens on the calendar\./.test(about) && !/sleeve|tap Tracks|opens first/.test(about), about);
+    ok('digital player: Your role speaks of the track list (tap ☰), and says Tourbook always opens on the calendar', /bonus tracks on the track list \(tap ☰\)/.test(about) && /Tourbook always opens on the calendar\./.test(about) && !/sleeve|tap Tracks|opens first/.test(about), about);
 
     // Erase this device keeps the display preferences (the theme, the calendar's view), not the role or the question.
     const kept = await page.evaluate(() => import('./js/store.js').then(s => {
-      localStorage.setItem('gdex-cal-view', 'week'); localStorage.setItem('gdex-ask-seen', 'on'); localStorage.setItem('gdex-role', 'scout');
-      const prefs = localStorage.getItem('gdex-prefs');
+      localStorage.setItem('tourbook-cal-view', 'week'); localStorage.setItem('tourbook-ask-seen', 'on'); localStorage.setItem('tourbook-role', 'scout');
+      const prefs = localStorage.getItem('tourbook-prefs');
       s.eraseAll();
-      return { cal: localStorage.getItem('gdex-cal-view'), prefs: localStorage.getItem('gdex-prefs') === prefs && !!prefs, ask: localStorage.getItem('gdex-ask-seen'), role: localStorage.getItem('gdex-role'), tour: localStorage.getItem('gdex-tour') };
+      return { cal: localStorage.getItem('tourbook-cal-view'), prefs: localStorage.getItem('tourbook-prefs') === prefs && !!prefs, ask: localStorage.getItem('tourbook-ask-seen'), role: localStorage.getItem('tourbook-role'), tour: localStorage.getItem('tourbook-tour') };
     }));
     ok('Erase this device keeps the calendar’s view and the display settings, and clears the role and the question’s setting', kept.cal === 'week' && kept.prefs && kept.ask === null && kept.role === null && kept.tour === null, JSON.stringify(kept));
     // A browser whose storage is full still reads but cannot write. A choice made then holds for the visit all the same.
     const full = await page.evaluate(() => import('./js/roles.js').then(r => {
-      localStorage.removeItem('gdex-ask-seen');
+      localStorage.removeItem('tourbook-ask-seen');
       const real = Storage.prototype.setItem, out = {};
       Storage.prototype.setItem = function () { throw new DOMException('The quota has been exceeded.', 'QuotaExceededError'); };
       try {
-        r.setAskSetting('off'); out.off = [r.askSetting(), r.askSeen(), localStorage.getItem('gdex-ask-seen')];
-        r.setAskSetting('on'); out.on = [r.askSetting(), r.askSeen(), localStorage.getItem('gdex-ask-seen')];
+        r.setAskSetting('off'); out.off = [r.askSetting(), r.askSeen(), localStorage.getItem('tourbook-ask-seen')];
+        r.setAskSetting('on'); out.on = [r.askSetting(), r.askSeen(), localStorage.getItem('tourbook-ask-seen')];
       } finally { Storage.prototype.setItem = real; }
-      r.setAskSetting('off'); out.kept = [r.askSetting(), localStorage.getItem('gdex-ask-seen')];
-      localStorage.setItem('gdex-ask-seen', 'on'); out.read = r.askSetting(); // changed in storage since: read again, now that a write worked
-      r.setAskSetting(''); out.cleared = [r.askSetting(), localStorage.getItem('gdex-ask-seen')];
+      r.setAskSetting('off'); out.kept = [r.askSetting(), localStorage.getItem('tourbook-ask-seen')];
+      localStorage.setItem('tourbook-ask-seen', 'on'); out.read = r.askSetting(); // changed in storage since: read again, now that a write worked
+      r.setAskSetting(''); out.cleared = [r.askSetting(), localStorage.getItem('tourbook-ask-seen')];
       return out;
     }));
     ok('with storage full, Never ask and Always ask still hold for the visit', same(full.off, ['off', false, null]) && same(full.on, ['on', true, null]), JSON.stringify(full));
     ok('…and once a choice can be written again, storage is what is read', same(full.kept, ['off', 'off']) && full.read === 'on' && same(full.cleared, ['', null]), JSON.stringify(full));
     await page.evaluate(() => { window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function () { throw new DOMException('The quota has been exceeded.', 'QuotaExceededError'); }; });
     await page.click('#displayBtn'); await page.locator('.sheet [data-pref="menu:tape"]').click(); await sleep(250);
-    const fullMenu = await page.evaluate(() => Promise.all([import('./js/a11y.js'), import('./js/tour.js')]).then(([a, t]) => ({ style: a.menuStyle(), stored: JSON.parse(localStorage.getItem('gdex-prefs')).menu, attr: document.documentElement.dataset.menu, deck: !!document.querySelector('#deck .dk-cassette'),
+    const fullMenu = await page.evaluate(() => Promise.all([import('./js/a11y.js'), import('./js/tour.js')]).then(([a, t]) => ({ style: a.menuStyle(), stored: JSON.parse(localStorage.getItem('tourbook-prefs')).menu, attr: document.documentElement.dataset.menu, deck: !!document.querySelector('#deck .dk-cassette'),
       tracks: t.welcomeSteps().find(x => x.title === 'Your sections are tracks').text, last: (x => x[x.length - 1].text)(t.welcomeSteps()) })));
     await page.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
     await page.keyboard.press('Escape'); await sleep(200);
@@ -409,7 +409,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   {
     const { browser, page, errors } = await open({ ask: true });
     await sleep(2200);
-    const st = await page.evaluate(() => ({ key: localStorage.getItem('gdex-ask-seen'), sheets: document.querySelectorAll('.sheet, .tour-card').length, fetched: performance.getEntriesByType('resource').some(e => /acts-ask\.js/.test(e.name)), page: window.logiPage() }));
+    const st = await page.evaluate(() => ({ key: localStorage.getItem('tourbook-ask-seen'), sheets: document.querySelectorAll('.sheet, .tour-card').length, fetched: performance.getEntriesByType('resource').some(e => /acts-ask\.js/.test(e.name)), page: window.logiPage() }));
     ok('open({ ask: true }) leaves the question’s setting unset', st.key === null);
     ok('with nothing waiting, nothing is asked and the question’s code is not even fetched', st.sheets === 0 && st.fetched === false && st.page === 'bookings', JSON.stringify(st));
     ok('no errors in the console (ask: true)', errors.length === 0, errors.slice(0, 5).join(' | '));
@@ -431,14 +431,14 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       vm.runInNewContext(`${(/^const WORKER_ROUTES = .*$/m.exec(sw) || [''])[0]}\n${(/^const workerRoute = .*$/m.exec(sw) || [''])[0]}\nthis.workerRoute = workerRoute;`, box);
       return u => box.workerRoute(new URL(u));
     };
-    const atRoot = routeOf('https://gdex.crowmade.app/'), inFolder = routeOf('https://example.org/gdex/');
+    const atRoot = routeOf('https://tourbook.crowmade.app/'), inFolder = routeOf('https://example.org/tourbook/');
     const routes = {
-      root: ['/buy', '/licence/web/status', '/licence/price', '/licence/'].map(p => atRoot('https://gdex.crowmade.app' + p)),
-      notRoot: ['/', '/index.html', '/buy/x', '/buyer', '/licence', '/licences/x', '/js/licence-state.js'].map(p => atRoot('https://gdex.crowmade.app' + p)),
+      root: ['/buy', '/licence/web/status', '/licence/price', '/licence/'].map(p => atRoot('https://tourbook.crowmade.app' + p)),
+      notRoot: ['/', '/index.html', '/buy/x', '/buyer', '/licence', '/licences/x', '/js/licence-state.js'].map(p => atRoot('https://tourbook.crowmade.app' + p)),
       elsewhere: atRoot('https://example.org/buy'),
-      folder: [inFolder('https://example.org/gdex/buy'), inFolder('https://example.org/gdex/licence/web/check'), inFolder('https://example.org/buy')],
+      folder: [inFolder('https://example.org/tourbook/buy'), inFolder('https://example.org/tourbook/licence/web/check'), inFolder('https://example.org/buy')],
     };
-    ok('…and its test sends exactly those past the cache, under a sub-folder too, and never another site’s', routes.root.every(Boolean) && !routes.notRoot.some(Boolean) && routes.elsewhere === false && same(routes.folder, [true, true, false]) && /if \(url\.pathname\.includes\('\/__gdex\/'\)\) return;/.test(sw), JSON.stringify(routes));
+    ok('…and its test sends exactly those past the cache, under a sub-folder too, and never another site’s', routes.root.every(Boolean) && !routes.notRoot.some(Boolean) && routes.elsewhere === false && same(routes.folder, [true, true, false]) && /if \(url\.pathname\.includes\('\/__tourbook\/'\)\) return;/.test(sw), JSON.stringify(routes));
     const csp = Object.fromEntries((/http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(read('index.html')) || [])[1].split(';').map(d => d.trim().split(/\s+/)).filter(d => d[0]).map(d => [d[0], d.slice(1)]));
     ok('index.html’s CSP lets Google’s sign-in in: its script, style and frame, and nothing else changes for frames', ['script-src', 'style-src', 'frame-src'].every(d => (csp[d] || []).includes('https://accounts.google.com')) && same(csp['frame-src'], ["'self'", 'https://accounts.google.com']) && same(csp['script-src'], ["'self'", 'https://accounts.google.com']), JSON.stringify(csp));
     const keysJson = JSON.parse(read('desktop/licence-keys.json'));
@@ -449,9 +449,9 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     const sites = (await esm('js/licence-config.js')).LICENCE_SITES, desk = JSON.parse(read('desktop/licence-on.json'));
     ok('the owner’s switches are off in the repository: LICENCE_SITES is [] and desktop/licence-on.json is { "on": false }', same(sites, []) && same(desk, { on: false }), JSON.stringify([sites, desk]));
     const ignored = read('.gitignore').split('\n').map(l => l.trim());
-    ok('.gitignore keeps keys, ledgers and builds out of the repository', ['dist/', 'cloudflare/site/', 'cloudflare/.wrangler/', 'gdex-licence-key-*.json', '*ledger*.csv'].every(l => ignored.includes(l)), ignored.join(' '));
-    // desktop/licence-codes.cjs is Vdex's code format made Gdex's (the build spec §4 step 11): it loads as CommonJS, no
-    // Vdex name is left, and what it makes with a throw-away key is Gdex's; a Vdex code is not taken for one.
+    ok('.gitignore keeps keys, ledgers and builds out of the repository', ['dist/', 'cloudflare/site/', 'cloudflare/.wrangler/', 'tourbook-licence-key-*.json', '*ledger*.csv'].every(l => ignored.includes(l)), ignored.join(' '));
+    // desktop/licence-codes.cjs is Vdex's code format made Tourbook's (the build spec §4 step 11): it loads as CommonJS, no
+    // Vdex name is left, and what it makes with a throw-away key is Tourbook's; a Vdex code is not taken for one.
     const codesText = read('desktop/licence-codes.cjs'), codes = require(path.join(REPO, 'desktop', 'licence-codes.cjs'));
     const pair = await codes.newKeyPair(), keys = { 1: pair.publicKey };
     const signer = await crypto.subtle.importKey('pkcs8', pair.pkcs8, { name: 'Ed25519' }, false, ['sign']);
@@ -459,13 +459,13 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     const checked = await codes.verifyCode(`Your code: ${code.toLowerCase()} Thanks!`, { keys });
     const note = await codes.signNote('web', signer, 1, { ref: checked.licence.ref });
     const made = {
-      code: code.slice(0, 5), status: checked.status, web: await codes.readNote('web', note, { keys }), active: await codes.readNote('active', note, { keys }),
-      vdex: await codes.verifyCode(code.replace(/^GDEX-/, 'VDEX-'), { keys }).then(() => 'taken', e => e.status),
+      code: code.slice(0, 9), status: checked.status, web: await codes.readNote('web', note, { keys }), active: await codes.readNote('active', note, { keys }),
+      vdex: await codes.verifyCode(code.replace(/^TOURBOOK-/, 'VDEX-'), { keys }).then(() => 'taken', e => e.status),
       type: (await codes.createKeyFile({ kid: 9, passphrase: 'a throw-away passphrase', iterations: 1000 })).type,
     };
-    ok('desktop/licence-codes.cjs is Gdex’s own: no Vdex left, GDEX signing prefixes, and a code, a note and a key file made with a throw-away key are Gdex’s',
-      !/vdex/i.test(codesText) && codesText.includes("{ licence: 'GDEX-LICENCE\\0', active: 'GDEX-ACTIVE\\0', admin: 'GDEX-ADMIN\\0', web: 'GDEX-WEB\\0' }") && codesText.includes('`gdex-licence-key|${kid}|${pub}`')
-      && same(made, { code: 'GDEX-', status: 'valid', web: { ref: checked.licence.ref }, active: null, vdex: 'invalid', type: 'gdex-licence-signing-key' }), JSON.stringify(made));
+    ok('desktop/licence-codes.cjs is Tourbook’s own: no Vdex left, TOURBOOK signing prefixes, and a code, a note and a key file made with a throw-away key are Tourbook’s',
+      !/vdex/i.test(codesText) && codesText.includes("{ licence: 'TOURBOOK-LICENCE\\0', active: 'TOURBOOK-ACTIVE\\0', admin: 'TOURBOOK-ADMIN\\0', web: 'TOURBOOK-WEB\\0' }") && codesText.includes('`tourbook-licence-key|${kid}|${pub}`')
+      && same(made, { code: 'TOURBOOK-', status: 'valid', web: { ref: checked.licence.ref }, active: null, vdex: 'invalid', type: 'tourbook-licence-signing-key' }), JSON.stringify(made));
     // The test server keeps off the desktop app's ports, 47861-47880 (the build spec trap 25: a page there without the
     // desktop's bridge is "the desktop's files in a browser"). The OS cannot be made to hand one out, so the address it
     // reports is stood in for: handed one for port 0, serve() listens again; a port asked for by number is kept.
@@ -480,7 +480,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     };
     const desktopPort = n => n >= 47861 && n <= 47880;
     const any = await listened(0, []);
-    const ports = { any, handed: await listened(0, [47861, 47880]), below: await listened(0, [47860]), above: await listened(0, [47881]), byNumber: await listened(any.kept, [47861]), thisRun: Number(new URL(process.env.GDEX_URL || 'http://localhost:8124/').port) };
+    const ports = { any, handed: await listened(0, [47861, 47880]), below: await listened(0, [47860]), above: await listened(0, [47881]), byNumber: await listened(any.kept, [47861]), thisRun: Number(new URL(process.env.TOURBOOK_URL || 'http://localhost:8124/').port) };
     ok('the test server keeps off the desktop app’s ports: handed 47861 then 47880 it listens again twice, 47860 and 47881 are kept, and so is a port asked for by number', ports.any.listens === 1 && ports.handed.listens === 3 && !desktopPort(ports.handed.kept) && ports.below.listens === 1 && ports.above.listens === 1 && same([ports.byNumber.listens, ports.byNumber.kept], [1, any.kept]) && !desktopPort(ports.thisRun), JSON.stringify(ports));
 
     /* ---------------- in the page ---------------- */
@@ -538,7 +538,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       out.adoptedAt = s.db.updatedAt; out.adoptedAct = (s.byId('acts', 'from-drive') || {}).updatedAt; out.noField = !('freeDaysFrom' in s.db);
       out.reasons = reasons.slice(-1);
       await new Promise(r => setTimeout(r, 0));
-      out.saved = JSON.parse(localStorage.getItem('gdex-db-v1')).updatedAt;
+      out.saved = JSON.parse(localStorage.getItem('tourbook-db-v1')).updatedAt;
       unhook(); s.update(() => {}); out.unhooked = n;
       unsub();
       s.remove('acts', 'from-drive');
@@ -546,7 +546,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     }));
     ok('afterWrite fires after update, replaceAll and mergeIn, never after adopt, and stops when unsubscribed', hooks.update === 1 && hooks.replaceAll === 2 && hooks.mergeIn === 3 && hooks.adopt === 3 && hooks.unhooked === 3, JSON.stringify(hooks));
     ok('adopt keeps the copy’s own times, saves it, redraws with the reason \'sync\', passes a refusing gate, and drops freeDaysFrom', hooks.adoptedAt === 12345 && hooks.saved === 12345 && hooks.adoptedAct === 777 && same(hooks.reasons, ['sync']) && hooks.noField, JSON.stringify(hooks));
-    const norm = await store(page, s => { const n = s.normalise({ app: 'gdex', freeDaysFrom: 1, acts: [{ id: 'a1', name: 'A' }] }); return { has: 'freeDaysFrom' in n, acts: n.acts.length }; });
+    const norm = await store(page, s => { const n = s.normalise({ app: 'tourbook', freeDaysFrom: 1, acts: [{ id: 'a1', name: 'A' }] }); return { has: 'freeDaysFrom' in n, acts: n.acts.length }; });
     ok('normalise drops the Drive copy’s freeDaysFrom: it never enters the database or a backup', norm.has === false && norm.acts === 1, JSON.stringify(norm));
 
     // Replace: plainly, the backup's own times and no tombstones; everywhere (Drive linked), every device follows.
@@ -603,7 +603,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     // Bringing a backup back is a change: refused, the chooser stays open and nothing is merged or replaced.
     await go(page, 'settings');
     const refused = await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/backup.js')]).then(([s, b]) => {
-      const file = new File([JSON.stringify({ ...JSON.parse(s.serialize()), acts: [] })], 'gdex-backup-test.json', { type: 'application/json' });
+      const file = new File([JSON.stringify({ ...JSON.parse(s.serialize()), acts: [] })], 'tourbook-backup-test.json', { type: 'application/json' });
       window.__chosen = 'waiting'; b.importBackup(file).then(v => { window.__chosen = v; });
       window.__before = s.serialize();
     }));
@@ -623,31 +623,31 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     const line = await page.evaluate(() => import('./js/backup.js').then(b => ({ fn: b.backupLine(), shown: document.querySelector('#se-backups .se-sub').textContent })));
     ok('Settings → Backups’ closed line is backupLine()', line.fn === line.shown && /^(⚠ )?(Last backup|No backup yet|Nothing to back up yet)/.test(line.fn), JSON.stringify(line));
 
-    // The IndexedDB store: one database, gdex version 1, store kv, for the free days' copy and the linked file alike.
+    // The IndexedDB store: one database, tourbook version 1, store kv, for the free days' copy and the linked file alike.
     const idb = await page.evaluate(() => Promise.all([import('./js/kv.js'), import('./js/backup.js')]).then(async ([k, b]) => {
       const out = {};
       await k.kvSet('licence-days', { first: 11, seen: 22 });
       out.round = await k.kvGet('licence-days');
-      out.direct = await new Promise((res, rej) => { const r = indexedDB.open('gdex', 1); r.onsuccess = () => { const d = r.result; const q = d.transaction('kv').objectStore('kv').get('licence-days'); q.onsuccess = () => { res({ v: q.result, version: d.version }); d.close(); }; q.onerror = () => rej(q.error); }; r.onerror = () => rej(r.error); });
+      out.direct = await new Promise((res, rej) => { const r = indexedDB.open('tourbook', 1); r.onsuccess = () => { const d = r.result; const q = d.transaction('kv').objectStore('kv').get('licence-days'); q.onsuccess = () => { res({ v: q.result, version: d.version }); d.close(); }; q.onerror = () => rej(q.error); }; r.onerror = () => rej(r.error); });
       await k.kvSet('fileHandle', 'stand-in');
       out.before = await k.kvGet('fileHandle');
       await b.beforeErase(); // Erase unlinks the copy in a file first: it deletes the handle from the same store
       out.after = await k.kvGet('fileHandle');
       return out;
     }));
-    ok('kvSet and kvGet round-trip in IndexedDB gdex (version 1), store kv', same(idb.round, { first: 11, seen: 22 }) && same(idb.direct, { v: { first: 11, seen: 22 }, version: 1 }), JSON.stringify(idb));
+    ok('kvSet and kvGet round-trip in IndexedDB tourbook (version 1), store kv', same(idb.round, { first: 11, seen: 22 }) && same(idb.direct, { v: { first: 11, seen: 22 }, version: 1 }), JSON.stringify(idb));
     ok('…and the linked file’s handle lives in the same store (beforeErase unlinks it there)', idb.before === 'stand-in' && idb.after === undefined, JSON.stringify(idb));
     const src = read('js/backup.js');
     ok('js/backup.js opens IndexedDB only through js/kv.js', /import \{ kv \} from '\.\/kv\.js';/.test(src) && !/indexedDB\.open/.test(src));
 
     // Erase this device keeps the free-day count, the website sign-in and the terms agreed (and IndexedDB's copy).
     const erase = await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/kv.js')]).then(async ([s, k]) => {
-      localStorage.setItem('gdex-licence', JSON.stringify({ first: 3, seen: 4 })); localStorage.setItem('gdex-terms', JSON.stringify({ v: 't', at: 5 }));
-      localStorage.setItem('gdex-drive', '1'); localStorage.setItem('gdex-role', 'band');
+      localStorage.setItem('tourbook-licence', JSON.stringify({ first: 3, seen: 4 })); localStorage.setItem('tourbook-terms', JSON.stringify({ v: 't', at: 5 }));
+      localStorage.setItem('tourbook-drive', '1'); localStorage.setItem('tourbook-role', 'band');
       s.eraseAll();
-      return { licence: localStorage.getItem('gdex-licence'), terms: localStorage.getItem('gdex-terms'), drive: localStorage.getItem('gdex-drive'), role: localStorage.getItem('gdex-role'), days: await k.kvGet('licence-days'), acts: s.db.acts.length };
+      return { licence: localStorage.getItem('tourbook-licence'), terms: localStorage.getItem('tourbook-terms'), drive: localStorage.getItem('tourbook-drive'), role: localStorage.getItem('tourbook-role'), days: await k.kvGet('licence-days'), acts: s.db.acts.length };
     }));
-    ok('Erase this device keeps gdex-licence, gdex-terms and IndexedDB’s licence-days, and clears the rest', erase.licence === '{"first":3,"seen":4}' && erase.terms === '{"v":"t","at":5}' && erase.drive === null && erase.role === null && same(erase.days, { first: 11, seen: 22 }) && erase.acts === 0, JSON.stringify(erase));
+    ok('Erase this device keeps tourbook-licence, tourbook-terms and IndexedDB’s licence-days, and clears the rest', erase.licence === '{"first":3,"seen":4}' && erase.terms === '{"v":"t","at":5}' && erase.drive === null && erase.role === null && same(erase.days, { first: 11, seen: 22 }) && erase.acts === 0, JSON.stringify(erase));
     ok('no errors in the console (the seams)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
 
@@ -670,10 +670,10 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
           open: r.SECTIONS.every(id => L.mayOpen(id) === 'open'), work: L.mayWork(), pick: roleIds.every(id => L.mayPickRole(id) === 'open'),
           called, mark: L.workMark(), write: L.canWrite(), start: await L.startFreeDays(), from: L.freeDaysFrom(),
           badges: roleIds.every(id => L.roleBadge(id) === ''), marks: r.SECTIONS.every(id => L.sectionMark(id) === null),
-          sites: c.LICENCE_SITES, licence: localStorage.getItem('gdex-licence'), terms: localStorage.getItem('gdex-terms'),
+          sites: c.LICENCE_SITES, licence: localStorage.getItem('tourbook-licence'), terms: localStorage.getItem('tourbook-terms'),
         };
       }), NAMES);
-      ok('js/licence-state.js exports every name of the contract (the build spec §3.5), with the event gdex-licence and FREE_KEEPS_WORK false', same(L.missing, []) && L.event === 'gdex-licence' && L.keeps === false, JSON.stringify(L.missing));
+      ok('js/licence-state.js exports every name of the contract (the build spec §3.5), with the event tourbook-licence and FREE_KEEPS_WORK false', same(L.missing, []) && L.event === 'tourbook-licence' && L.keeps === false, JSON.stringify(L.missing));
       if (LEG === 'off') {
         ok('licences off: the mode is off and every answer is open (sections, work, roles, the gate calls through at once, the store gate allows)', L.mode === 'off' && L.on === false && L.ready && L.open && L.work === 'open' && L.pick && L.called === 1 && L.mark === null && L.write === true, JSON.stringify(L));
         ok('…nothing is started, nothing is marked, no badge', L.start === false && L.from === 0 && L.badges && L.marks, JSON.stringify(L));
@@ -700,7 +700,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       const page = await ctx.newPage(), errors = [];
       page.on('pageerror', e => errors.push(e.message));
       page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
-      await page.goto(new URL('terms.html', process.env.GDEX_URL || 'http://localhost:8124/').href);
+      await page.goto(new URL('terms.html', process.env.TOURBOOK_URL || 'http://localhost:8124/').href);
       await page.evaluate(() => navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => true));
       await page.reload();
       await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 15000 });

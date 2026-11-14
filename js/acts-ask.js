@@ -1,9 +1,9 @@
-// "Did you see them?": after a show is over, Gdex asks whether the person saw the act. Yes takes a score out of 100 for
+// "Did you see them?": after a show is over, Tourbook asks whether the person saw the act. Yes takes a score out of 100 for
 // the act's card (the "Log a time seen" form, with the show's date, place and booking filled in); No marks the show
 // "Didn’t go", so it stays on the calendar, is never counted as seen and is never asked about again. Who is asked is
 // js/roles.js askSeen(); which shows are waiting is js/model.js waitingShows().
-// js/app.js calls askAtOpen(ids) with the shows that were waiting as Gdex opened, and again, with the list as it stands
-// by then, each time Gdex comes back after three hours or more out of sight. So it may be called many times in a visit:
+// js/app.js calls askAtOpen(ids) with the shows that were waiting as Tourbook opened, and again, with the list as it stands
+// by then, each time Tourbook comes back after three hours or more out of sight. So it may be called many times in a visit:
 // each call opens the sheet before it returns, or does nothing (the person is not asked, no show of those is still
 // waiting, or the sheet is already up: there are never two). Settings → Your role draws askPref().
 // The sheet remembers nothing: a row's answer is always read from the store (model.seenAnswer), and every answer is
@@ -102,8 +102,8 @@ export function askAtOpen(ids) {
 
   fill();
   const body = h('div', { class: 'ac-ask' },
-    h('p', { class: 'small muted' }, list.length === 1 ? 'This show is over. Tap Yes if you saw it and give a score, or No if you missed it. Close this any time: until you answer, Gdex asks again for two weeks after the show.'
-      : 'These shows are over. Tap Yes for the ones you saw and give a score, or No for the ones you missed. Close this any time: Gdex asks again about the rest for two weeks after each show.'),
+    h('p', { class: 'small muted' }, list.length === 1 ? 'This show is over. Tap Yes if you saw it and give a score, or No if you missed it. Close this any time: until you answer, Tourbook asks again for two weeks after the show.'
+      : 'These shows are over. Tap Yes for the ones you saw and give a score, or No for the ones you missed. Close this any time: Tourbook asks again about the rest for two weeks after each show.'),
     listBox,
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost', id: 'ac-ask-close', onclick: () => close() }, 'Done')));
   ({ el, close } = sheet(TITLE, body, {
@@ -123,10 +123,10 @@ export function askAtOpen(ids) {
 // The Settings control (Settings → Your role) that turns the question on or off for this device: follow the role,
 // always ask, never ask. A group of pressed buttons, not radios (Your role has one radio group: the roles).
 const CHOICES = [['', 'ac-ask-auto', 'Follow my role'], ['on', 'ac-ask-on', 'Always ask'], ['off', 'ac-ask-off', 'Never ask']];
-const prefNote = cur => (cur === 'on' ? 'Gdex asks about every show that has finished, for two weeks after it.'
+const prefNote = cur => (cur === 'on' ? 'Tourbook asks about every show that has finished, for two weeks after it.'
   // Never ask: a role that scores shows (a scout, an audiophile) keeps ★ Score on a show's own page; anyone else has it there only while they are asked
-  : cur === 'off' ? (pageOpt('bookings', 'score', false) ? 'Gdex never asks. You can still score a show from its own page or the act’s card.' : 'Gdex never asks. You can still score a show from the act’s card.')
-    : askDefault() ? 'Your role is asked: when Gdex opens, it lists the shows that have finished so you can score the ones you saw.'
+  : cur === 'off' ? (pageOpt('bookings', 'score', false) ? 'Tourbook never asks. You can still score a show from its own page or the act’s card.' : 'Tourbook never asks. You can still score a show from the act’s card.')
+    : askDefault() ? 'Your role is asked: when Tourbook opens, it lists the shows that have finished so you can score the ones you saw.'
       : 'Your role is not asked. Choose Always ask to be asked anyway.');
 export function askPref() {
   const el = h('div', { class: 'pref ac-ask-pref', role: 'group', 'aria-label': 'Ask after a show' });
@@ -146,5 +146,5 @@ export function askPref() {
 sheetTutorial(TITLE, [
   { title: 'Shows that are over', text: 'Every show on your calendar that finished in the last two weeks and has no answer yet.', target: ['.ac-ask-list'] },
   { title: 'Yes or No', text: 'Yes opens the score form with the date and place filled in. No marks the show Didn’t go: it stays on your calendar and is never counted as seen.', target: ['.ac-ask-row'] },
-  { title: 'Later', text: 'Close this and Gdex asks again next time, for two weeks after the show. You can also answer on the show’s own page, and turn the question off under Settings → Your role.', target: ['#ac-ask-close'] },
+  { title: 'Later', text: 'Close this and Tourbook asks again next time, for two weeks after the show. You can also answer on the show’s own page, and turn the question off under Settings → Your role.', target: ['#ac-ask-close'] },
 ]);
