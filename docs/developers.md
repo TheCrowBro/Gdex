@@ -208,7 +208,9 @@ way, before any read gets an answer (reads made meanwhile wait); where there is 
 the old database are left as they are, nothing is said, and nothing throws (storage blocked or full, junk, no old
 database, IndexedDB refusing it): whatever cannot be copied stays behind. Only the first opening copies: from then on
 a `tourbook-…` key is always there (Erase keeps `tourbook-db-v1`), so nothing Tourbook clears later (a role, an Erase)
-comes back from an old key. The share pages read no storage, and the desktop app needs nothing (it never had Gdex data).
+comes back from an old key. Erase (`eraseAll` in `js/store.js`) also removes the old `gdex-<x>` of every key it
+removes, `gdex-db-v1` included, and keeps the old copies of the four keys it keeps, so "removes everything Tourbook
+keeps on this device" holds for the old names too. The share pages read no storage, and the desktop app needs nothing (it never had Gdex data).
 Backup files saved under Gdex still open (`app: 'gdex'`, or `{ gdex: 'encrypted-backup' }` for a locked one: `js/backup.js`,
 and `js/drive.js` likewise), and the service worker drops Gdex's old `gdex-…` caches with its own old ones. `09-from-gdex`
 checks all of it, and that the old name is found nowhere else. To drop the copy later: delete `js/from-gdex.js`, its

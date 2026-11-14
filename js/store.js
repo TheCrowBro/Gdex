@@ -356,6 +356,10 @@ export function eraseAll() {
   // sign-in (tourbook-licence), and the terms agreed (tourbook-terms). IndexedDB is not touched, so its licence-days copy stays.
   const KEEP = new Set(['tourbook-prefs', 'tourbook-cal-view', 'tourbook-licence', 'tourbook-terms']);
   try { const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); keys.filter(k => k && k.startsWith('tourbook-') && k !== KEY && !KEEP.has(k)).forEach(k => localStorage.removeItem(k)); } catch { /* blocked storage */ }
+  // From Gdex (decisions §19, js/from-gdex.js): the old gdex-… copy of everything Erase removes goes too, the old
+  // database included (gdex-db-v1), so "removes everything Tourbook keeps on this device" holds for the old names.
+  // The kept four keep their old copies, as Tourbook's own are kept.
+  try { const keys = []; for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); keys.filter(k => k && k.startsWith('gdex-') && k.length > 5 && !KEEP.has('tourbook-' + k.slice(5))).forEach(k => localStorage.removeItem(k)); } catch { /* blocked storage */ }
 }
 
 /* ------------------------------- sample ------------------------------- */

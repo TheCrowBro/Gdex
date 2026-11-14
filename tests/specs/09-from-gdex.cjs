@@ -102,7 +102,10 @@ const OLD_KV = [['licence-days', { first: T - 864e5, seen: T }], ['note', 'kept 
     await page.evaluate(() => import('./js/store.js').then(s => s.eraseAll()));
     await openApp(page);
     const st3 = await storage(page), a3 = await app(page);
-    ok('…an Erase is not undone by the old keys: the database stays empty and the role unset, the gdex- keys still there', a3.acts.length === 0 && !('tourbook-role' in st3) && st3['gdex-db-v1'] === OLD['gdex-db-v1'], JSON.stringify(a3));
+    ok('…an Erase is not undone by the old keys: the database stays empty and the role unset', a3.acts.length === 0 && !('tourbook-role' in st3), JSON.stringify(a3));
+    const KEPT = ['gdex-prefs', 'gdex-cal-view', 'gdex-licence', 'gdex-terms'];
+    const oldLeft = Object.keys(st3).filter(k => k.startsWith('gdex-') && k !== 'gdex-'); // a bare gdex- was never Gdex's
+    ok('…and Erase removes the old gdex- copies too (the old database gdex-db-v1 and the role), keeping only the old copies of the four keys Erase keeps', !('gdex-db-v1' in st3) && !('gdex-role' in st3) && oldLeft.every(k => KEPT.includes(k)) && KEPT.filter(k => k in OLD).every(k => st3[k] === OLD[k]), oldLeft.join(', '));
     await ctx.close();
   }
 
@@ -259,7 +262,7 @@ const OLD_KV = [['licence-days', { first: T - 864e5, seen: T }], ['note', 'kept 
     let files;
     try { files = require('child_process').execFileSync('git', ['ls-files', '-co', '--exclude-standard'], { cwd: REPO, encoding: 'utf8' }).split('\n').filter(Boolean); }
     catch { const walk = d => fs.readdirSync(path.join(REPO, d)).flatMap(n => { const r = d ? d + '/' + n : n; if (SKIP.test(r)) return []; return fs.statSync(path.join(REPO, r)).isDirectory() ? walk(r) : [r]; }); files = walk(''); }
-    const ALLOWED = ['README.md', 'CLAUDE.md', 'docs/developers.md', 'docs/go-live.md', 'docs/desktop.md', 'docs/licence-server.md', 'index.html', 'sw.js', 'js/from-gdex.js', 'js/kv.js', 'js/backup.js', 'js/drive.js', 'tests/specs/09-from-gdex.cjs'];
+    const ALLOWED = ['README.md', 'CLAUDE.md', 'docs/developers.md', 'docs/go-live.md', 'docs/desktop.md', 'docs/licence-server.md', 'index.html', 'sw.js', 'js/from-gdex.js', 'js/kv.js', 'js/backup.js', 'js/drive.js', 'js/store.js', 'tests/specs/09-from-gdex.cjs'];
     const named = files.filter(f => !SKIP.test(f) && !/\.(png|ico|jpe?g|gif|webp)$/i.test(f) && fs.existsSync(path.join(REPO, f)) && /gdex/i.test(fs.readFileSync(path.join(REPO, f), 'utf8')));
     ok('the old name is found only in the copy, the old backups and caches it still reads, and the docs that say so', files.length > 100 && named.every(f => ALLOWED.includes(f)), named.filter(f => !ALLOWED.includes(f)).join(', ') || String(files.length));
     const html = fs.readFileSync(path.join(REPO, 'index.html'), 'utf8');
