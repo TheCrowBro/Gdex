@@ -88,12 +88,14 @@ unchanged from what you published for Vdex; everything else says what Tourbook d
 ## 2. Cloudflare (15 minutes)
 
 An API token from the "Edit Cloudflare Workers" template, in the account that holds crowmade.app. **What it can reach:
-every Worker in that account, Vdex's included** (Cloudflare cannot limit a token to one Worker). So, in the Tourbook
-repository on GitHub: **Settings → Environments → New environment `tourbook-live`**, required reviewer: you, deployment
+every Worker in that account, Vdex's included** (Cloudflare cannot limit a token to one Worker). So, in Tourbook's
+repository on GitHub (TheCrowBro/Gdex): **Settings → Environments → New environment `tourbook-live`**, required reviewer: you, deployment
 branches: `main` only; put `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` there, **not** as repository secrets.
 Every run of the publish workflow then waits for your approval, and it refuses any configuration but Tourbook's own. The
 first publish creates the Worker `tourbook`, the address tourbook.crowmade.app, the licence store `tourbook-licences` and the
 Worker's own Durable Object for sign-in codes (`SignInCodes`); nothing of Vdex's changes. Steps: `docs/licence-server.md`, Part 1.
+If you made an Environment named `gdex-live` (or `gdex-sign`) before the app was renamed Tourbook, make `tourbook-live`
+(and `tourbook-sign`) instead, put the secrets there and delete the old ones: the workflows use only the new names.
 
 ## 3. Licence keys (15 minutes, on your own computer)
 
@@ -134,7 +136,7 @@ client id (it goes in `js/cloud-config.js`). Until then the Google Drive card sa
 Unsigned desktop builds work, with warnings when they are opened. To sign: the Apple Developer ID certificate and
 notarisation secrets and the Azure signing secrets. **What they can reach: they sign and notarize any app as you, Vdex's
 included**, and the app-specific password signs in to your Apple Account (`docs/licence-server.md`, "What each key can
-reach"). So, in the Tourbook repository on GitHub: **Settings → Environments → New environment `tourbook-sign`**, required
+reach"). So, in Tourbook's repository on GitHub (TheCrowBro/Gdex): **Settings → Environments → New environment `tourbook-sign`**, required
 reviewer: you, deployment branches: `main` only; put the secrets there, **not** as repository secrets (a workflow on any
 pushed branch can read those). Every run of the desktop build then waits for your approval. Steps: `docs/desktop.md`.
 

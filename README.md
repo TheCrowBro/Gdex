@@ -17,6 +17,9 @@ licence is published yet.
 
 Tourbook is a sibling of Vdex, the app for videographers, and shares its look and the way it works.
 
+Tourbook was called Gdex until just before its launch. Its GitHub repository is still TheCrowBro/Gdex, which the owner
+may rename on GitHub; nothing here depends on the repository's name.
+
 ## Start here
 
 1. **Open Tourbook** in your phone's or computer's browser. (It is not published at a public address yet; until it is,

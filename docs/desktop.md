@@ -143,7 +143,7 @@ unpacked folder only, quickest for a look). The version is `VERSION` in `js/vers
 
 Unsigned installers work: Windows shows "Windows protected your PC" (More info → Run anyway) and a Mac needs System
 Settings → Privacy & Security → Open Anyway; an unsigned Mac app cannot update itself (it says when a new version is
-out, with a link to the download page). The workflow signs on its own once these are in the Tourbook repository on GitHub.
+out, with a link to the download page). The workflow signs on its own once these are in Tourbook's repository on GitHub (TheCrowBro/Gdex).
 The same Apple Developer ID and the same Azure certificate profile that sign other apps can sign Tourbook: no second fee.
 
 **Where the secrets go: the protected Environment `tourbook-sign`, never repository secrets.** They can sign any app as you,

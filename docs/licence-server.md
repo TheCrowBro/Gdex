@@ -82,7 +82,7 @@ purchase emails always have room. On a paid Resend plan, raise it with the setti
    **Account Resources** choose your account; under **Zone Resources**, **Specific zone** → **crowmade.app**.
    **Continue to summary** → **Create Token**, and copy it straight away: Cloudflare shows it only once.
 3. **Workers & Pages** → on the right, **Account Details** → copy the **Account ID**.
-4. In the **Tourbook** repository on GitHub: **Settings → Environments → New environment**, name `tourbook-live`.
+4. In Tourbook's repository on GitHub (**TheCrowBro/Gdex**): **Settings → Environments → New environment**, name `tourbook-live`.
    - **Required reviewers:** yourself. Tick **Prevent self-review** only if someone else will approve.
    - **Deployment branches and tags:** **Selected branches** → add `main` only.
    - **Environment secrets → Add secret**, twice: `CLOUDFLARE_API_TOKEN` (the token) and `CLOUDFLARE_ACCOUNT_ID` (the
