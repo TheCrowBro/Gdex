@@ -132,6 +132,13 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
     const live = fs.readFileSync(path.join(REPO, 'docs/go-live.md'), 'utf8'), before9a = (live.split('## 9.')[1] || '').split('**(a)')[0];
     const claude = (fs.readFileSync(path.join(REPO, 'CLAUDE.md'), 'utf8').split('## Publishing')[1] || '');
     ok('docs/go-live.md, before 9(a): the developer merges the finished work into main and pushes it, with the owner\'s go-ahead, so Actions shows Publish Gdex; CLAUDE.md says publishing runs from main', /\*\*\(0\) The work on `main`\.\*\* The developer merges the finished work into `main` and pushes it, with your go-ahead\./.test(before9a) && /only once its file \(`\.github\/workflows\/publish\.yml`\) is on the repository’s default branch, which must be\s+`main`/.test(before9a) && /Publishing runs from `main` only/.test(claude), before9a.trim().slice(0, 300));
+    // This launch (decisions §18: the licence off, no Google Drive, no desktop app) opens docs/go-live.md: the names the
+    // first publish makes are Gdex's own and the same as the configuration's (the KV store is named by Wrangler after the
+    // Worker and its binding, as it does when the configuration gives no id), the address is checked free first, and the
+    // steps say how to undo it.
+    const launch = (live.split('## Put the website live')[1] || '').split('\n## ')[0], wrc = JSON.parse(read('cloudflare/wrangler.jsonc').replace(/^\s*\/\/.*$/gm, ''));
+    const kvName = `${wrc.name}-${wrc.kv_namespaces[0].binding.toLowerCase().replace(/_/g, '-')}`;
+    ok('docs/go-live.md opens with putting the website live: the Worker gdex at gdex.crowmade.app, its KV store gdex-licences and SignInCodes (the configuration\'s own names), the address checked free first, Rollback and Remove to undo it', live.indexOf('## Put the website live') < live.indexOf('## 1.') && kvName === 'gdex-licences' && launch.includes('**`' + kvName + '`**') && launch.includes('**`' + wrc.name + '`**') && launch.includes('**gdex.crowmade.app**') && launch.includes('**`' + wrc.durable_objects.bindings[0].class_name + '`**') && /no record named `gdex`/.test(launch) && /Rollback/.test(launch) && /Domains & Routes/.test(launch) && /npx wrangler deploy --config wrangler\.jsonc/.test(launch), kvName);
 
     /* ------------------------------ the guard ------------------------------ */
     const lines = yml.split('\n'), g = lines.findIndex(l => /^\s+GUARD: \|$/.test(l)), indent = (lines[g + 1] || '').match(/^\s*/)[0];

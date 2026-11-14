@@ -1,5 +1,73 @@
 # Before Gdex goes live: the owner's list
 
+## Put the website live: this launch (licence off, no Google Drive, no desktop app)
+
+The first launch is Gdex itself at **https://gdex.crowmade.app**, installable and working offline, with its terms,
+privacy and download pages, and the licence server's addresses switched off: every role free, nothing asked, Google
+Drive saying "Not set up yet", the download page saying the desktop app is coming, `/buy` saying the licence is not on
+sale yet. Nothing goes on the internet until you say **"publish"**; each step below happens only with your go-ahead, in
+this order. You approve; the developer runs.
+
+1. **You read the terms and the privacy policy** (`terms.html`, `privacy.html`; the preview has them) and say what to
+   change. They go live with this launch: who provides Gdex, the contact address, the law, the courts, the liability
+   cap and the refund are copied unchanged from Vdex's (question 4 below), and their date is the day they were written.
+2. **You check the address is free.** In Cloudflare, the crowmade.app zone → **DNS → Records**: no record named `gdex`;
+   and under **Workers & Pages** no Worker or Pages project uses gdex.crowmade.app. A publish from GitHub runs Wrangler
+   without anyone at a keyboard, and then Wrangler takes over a DNS record or another Worker's custom domain of the
+   same name without asking.
+3. **The developer checks the owner's other sessions** for anything about gdex.crowmade.app or crowmade.app (the
+   decisions, §18), and says what they found. This launch adds only the name gdex.crowmade.app: crowmade.app's own
+   pages (published from the Vdex repository) and vdex.crowmade.app are not touched. A link to Gdex on crowmade.app's
+   home page is not part of it (that page's design is the "Cloudflare Website Maintenance" session's).
+4. **The Cloudflare token**, in the protected Environment `gdex-live` (step 2 below; `docs/licence-server.md`, Part 1).
+   What your account needs: the token made in the account that holds the crowmade.app zone (as Vdex's is), with
+   Workers. The free plan is enough for everything this launch makes. If the publish later stops at the address with a permissions error, add
+   **Zone → DNS → Edit** for crowmade.app to the token and run it again (not checked here: it needs Cloudflare).
+5. **The work on `main`** (step 9's (0)): the developer merges the release work into `main` and pushes it.
+6. **Publish**: Actions → **Publish Gdex** → **Run workflow** on `main`, type `publish gdex`, then approve the run. It
+   runs every test (licences off and on), stamps the build with `main`'s commit (so installed copies update; the
+   repository keeps the `dev` stamp, which CI needs), runs the guard, stages the website's own files and runs
+   `npx wrangler deploy --config wrangler.jsonc`. The first publish makes, in your account, only these, all Gdex's own:
+   - the Worker **`gdex`**: its script (`cloudflare/worker.mjs`) and the website's own files, with their headers;
+   - the address **gdex.crowmade.app**, a Custom Domain of that Worker (Cloudflare adds its DNS record and certificate
+     in the crowmade.app zone and changes nothing else there); no workers.dev or preview address;
+   - the KV store **`gdex-licences`** (binding `LICENCES`; Wrangler names it after the Worker and the binding, since
+     the configuration gives no id) and the Durable Object class **`SignInCodes`** (binding `SIGNIN`, inside the
+     Worker `gdex`). The licence server's code is bound to them, so they are made now even with the licence off; they
+     stay empty and cost nothing until licences are on;
+   - no secrets and no variables: none are needed while the licence is off.
+   The guard refuses any other name, address, store or binding (Vdex's Worker, KV, domain or bucket included).
+7. **Check it**: the workflow checks the live build, the security header and the licence server's answers itself.
+   Then by hand: https://gdex.crowmade.app asks "Who’s using Gdex?" and says nothing about a licence; Settings → About
+   shows the build; ☁ → Google Drive says "Not set up yet"; `/buy` says the licence is not on sale yet;
+   `/download.html` says the desktop app is coming; any wrong address shows "There’s nothing at this address". Install
+   it from the browser, and open it once with the network off.
+
+**From your own computer instead** (question 6): `npx wrangler login`; in the repository on `main`,
+`node tools/stamp-build.mjs`, `node tools/stage-site.mjs cloudflare/site --cloudflare`, then in `cloudflare/`
+`npx wrangler deploy --config wrangler.jsonc`. If Wrangler asks about the KV store, choose **Create new** and keep
+the name `gdex-licences` (never one it lists: they can be Vdex's); if it asks to take over an address or a record,
+answer no and do step 2 again. Afterwards, `git checkout -- cloudflare/wrangler.jsonc` (Wrangler writes the store's id
+into it, which the guard refuses) and `node tools/stamp-build.mjs --dev` (never commit the release stamp).
+
+**To undo it:**
+- A bad version: Workers & Pages → **gdex** → **Deployments** → the version before → **Rollback**, or publish a fixed
+  commit. Installed copies take whichever build is served at their next visit.
+- Take the website off its address: **gdex** → **Settings → Domains & Routes** → gdex.crowmade.app → **Remove**
+  (Cloudflare removes the DNS record it made). The Worker stays, unreachable.
+- Remove everything, only while licences are off and nothing has been sold: **gdex** → **Settings** → **Delete** (the
+  sign-in codes' Durable Object belongs to that Worker and holds nothing while licences are off), then **Storage &
+  databases → KV** → `gdex-licences` → **Delete**; in GitHub, delete the Environment `gdex-live`, and in Cloudflare,
+  delete the token.
+- What no step undoes: a browser that opened Gdex keeps its offline copy and the person's data on that device. It
+  keeps working offline and stops updating until Gdex is published again.
+
+After this launch, the rest of the list stays as below, each part with its own go-ahead: the licence (steps 3 to 5,
+then 9(b) to 9(d)), Google Drive (step 6), and the desktop app (steps 7 and 8, then 9(e); the download page gets its
+links at the first desktop release, `docs/desktop.md`).
+
+## The whole list
+
 Gdex's licence for the working roles, its licence server, the desktop app and Google Drive are built and tested, and
 **switched off**. Nothing is published, deployed, uploaded or released until you have done the steps below and said
 **"publish"**. Each step in part 9 happens only with your go-ahead, one at a time.
@@ -76,6 +144,8 @@ A new R2 bucket `gdex-downloads` with the custom domain `gdex-download.crowmade.
 Gdex can ever overwrite Vdex's installers or updates). Uploads by hand (the Cloudflare dashboard, or `wrangler r2 object
 put` from your own computer) in the order `docs/desktop.md` gives; if you want CI uploads later, an R2 token scoped to
 `gdex-downloads` only. The address is built into every desktop app for good, so it is settled before the first release.
+Until then the download page links no installer and says the desktop app is coming; the first public desktop release
+puts its three links back, once the files are in the bucket (`docs/desktop.md`, "Releasing", step 0).
 
 **Before the first public desktop release: the hardening** (by the developer, with your go-ahead). Electron's
 fuses in the installed app: `RunAsNode`, `NODE_OPTIONS` and the `--inspect` switches off, the app loaded only from its

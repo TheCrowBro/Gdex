@@ -42,6 +42,7 @@ with Vdex.
 node tests/run.mjs              # every browser spec (Playwright + Chromium)
 node tests/run.mjs 30- songs    # only specs whose file name contains "30-" or "songs"
 node tools/stamp-build.mjs --dev  # after adding or removing a file: refreshes the offline file list in sw.js
+node tools/stamp-build.mjs        # the release stamp: only a publish runs it (docs/go-live.md); never commit it, CI needs 'dev'
 npm run serve                   # http://localhost:8124/
 GDEX_LICENCE=on node tests/run.mjs  # every spec with licences live on the test host (CI's second leg)
 npm ci --prefix cloudflare      # once: Wrangler and Miniflare, so the licence server's specs (79, 81) run
