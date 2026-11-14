@@ -88,7 +88,8 @@ sheets and the tools; sessions, songs, acts and My card; money, gear and insuran
 and sections 13 to 20 (no warranty, the liability limits, consumers' rights, stopping, changes, the law and the courts)
 are the earlier terms' words, adapted from Vdex's, unchanged but for their references to sections 1 to 12: section 16's
 California item (name in section 1, price in section 3) and section 17's list of what still applies after you stop (which
-leaves out your right to use Tourbook, as before). A Contents fold under the short version lists the sections. Who provides Tourbook, the contact address, the law, the courts, the
+now also names section 2, what Tourbook is and is not, which the earlier list left out, and still leaves out your right
+to use Tourbook). A Contents fold under the short version lists the sections. Who provides Tourbook, the contact address, the law, the courts, the
 liability cap and the 14-day refund are as you published them for Vdex. Tell the developer anything to change.
 
 ## 2. Cloudflare (15 minutes)
