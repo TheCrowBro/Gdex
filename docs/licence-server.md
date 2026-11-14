@@ -84,13 +84,15 @@ purchase emails always have room. On a paid Resend plan, raise it with the setti
    **Continue to summary** → **Create Token**, and copy it straight away: Cloudflare shows it only once.
 3. **Workers & Pages** → on the right, **Account Details** → copy the **Account ID**.
 4. In Tourbook's repository on GitHub (**TheCrowBro/Gdex**): **Settings → Environments → New environment**, name `tourbook-live`.
-   - **Required reviewers:** yourself. Tick **Prevent self-review** only if someone else will approve.
+   - **Required reviewers:** yourself, if GitHub shows it. On a private repository GitHub offers it only with Enterprise,
+     so it may be missing: skip it then (the workflow still runs only by hand, on `main`, with the words). Tick
+     **Prevent self-review** only if someone else will approve.
    - **Deployment branches and tags:** **Selected branches** → add `main` only.
    - **Environment secrets → Add secret**, twice: `CLOUDFLARE_API_TOKEN` (the token) and `CLOUDFLARE_ACCOUNT_ID` (the
      account ID).
 
-   Put them **only** here, never under the repository's own secrets: then only the publish workflow, on `main`, after
-   you approve it, can use them.
+   Put them **only** here, never under the repository's own secrets: then only the publish workflow, on `main` (after you
+   approve it, where there is a required reviewer), can use them.
 
 (If you would rather publish from your own computer, with no token in GitHub at all: `npx wrangler login`, then in the
 repository `node tools/stamp-build.mjs`, `node tools/stage-site.mjs cloudflare/site --cloudflare`, and in `cloudflare/`,

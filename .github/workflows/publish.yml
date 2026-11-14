@@ -1,9 +1,12 @@
 # Publishes Tourbook to https://tourbook.crowmade.app: a Cloudflare Worker named tourbook that serves the website's files and, for
-# /buy and /licence/…, Tourbook's licence server (cloudflare/worker.mjs). Only the owner starts it, by hand, and only when
-# the owner has said "publish" (docs/go-live.md): Actions → Publish Tourbook → Run workflow, on main, typing "publish tourbook".
+# /buy and /licence/…, Tourbook's licence server (cloudflare/worker.mjs). It is started by hand (by the owner, or by the
+# developer on the owner's word), and only when the owner has said "publish" (docs/go-live.md): Actions → Publish Tourbook
+# → Run workflow, on main, typing "publish tourbook".
 #
-# It never runs by itself: not on a push, not on a schedule. Its job waits in the protected GitHub Environment
-# tourbook-live, which holds the Cloudflare secrets (never repository secrets) and asks the owner to approve every run.
+# It never runs by itself: not on a push, not on a schedule. Its job runs in the protected GitHub Environment
+# tourbook-live, which holds the Cloudflare secrets (never repository secrets) and, where GitHub offers required
+# reviewers, asks the owner to approve every run (on a private repository only GitHub Enterprise offers them: without
+# one, a run started on main with the words starts at once).
 # Cloudflare cannot limit a token to one Worker, so the token could reach Vdex's Worker too: the guard below refuses
 # any configuration that is not Tourbook's own (name tourbook, the one route tourbook.crowmade.app, no workers.dev address, no
 # borrowed storage), and `wrangler deploy` is the only Wrangler command in any workflow of this repository. Nothing
@@ -36,7 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     # Both legs of the tests run here one after the other, a little over 30 minutes each, before anything is published.
     timeout-minutes: 120
-    # The owner approves each run here; the Cloudflare secrets live only in this Environment (docs/licence-server.md).
+    # The Cloudflare secrets live only in this Environment, which approves each run where it has a required reviewer
+    # (docs/licence-server.md).
     environment: tourbook-live
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

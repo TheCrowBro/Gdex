@@ -25,7 +25,8 @@ this order. You approve; the developer runs.
    Workers. The free plan is enough for everything this launch makes. If the publish later stops at the address with a permissions error, add
    **Zone → DNS → Edit** for crowmade.app to the token and run it again (not checked here: it needs Cloudflare).
 5. **The work on `main`** (step 9's (0)): the developer merges the release work into `main` and pushes it.
-6. **Publish**: Actions → **Publish Tourbook** → **Run workflow** on `main`, type `publish tourbook`, then approve the run. It
+6. **Publish**: Actions → **Publish Tourbook** → **Run workflow** on `main`, type `publish tourbook` (and approve the run, if
+   the Environment has a required reviewer: on a private repository GitHub offers that only with Enterprise). It
    runs every test (licences off and on), stamps the build with `main`'s commit (so installed copies update; the
    repository keeps the `dev` stamp, which CI needs), runs the guard, stages the website's own files and runs
    `npx wrangler deploy --config wrangler.jsonc`. The first publish makes, in your account, only these, all Tourbook's own:
@@ -102,9 +103,11 @@ developer makes the changes they ask for, dated the day they are made (with `TER
 
 An API token from the "Edit Cloudflare Workers" template, in the account that holds crowmade.app. **What it can reach:
 every Worker in that account, Vdex's included** (Cloudflare cannot limit a token to one Worker). So, in Tourbook's
-repository on GitHub (TheCrowBro/Gdex): **Settings → Environments → New environment `tourbook-live`**, required reviewer: you, deployment
-branches: `main` only; put `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` there, **not** as repository secrets.
-Every run of the publish workflow then waits for your approval, and it refuses any configuration but Tourbook's own. The
+repository on GitHub (TheCrowBro/Gdex): **Settings → Environments → New environment `tourbook-live`**, required reviewer: you
+(where GitHub offers it: on a private repository only with Enterprise, so it is missing here), deployment branches: `main`
+only; put `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` there, **not** as repository secrets. Only a run started by
+hand on `main`, with the words, then gets them (and waits for your approval first, where there is a required reviewer),
+and it refuses any configuration but Tourbook's own. The
 first publish creates the Worker `tourbook`, the address tourbook.crowmade.app, the licence store `tourbook-licences` and the
 Worker's own Durable Object for sign-in codes (`SignInCodes`); nothing of Vdex's changes. Steps: `docs/licence-server.md`, Part 1.
 If you made an Environment named `gdex-live` (or `gdex-sign`) before the app was renamed Tourbook, make `tourbook-live`
@@ -158,8 +161,9 @@ Unsigned desktop builds work, with warnings when they are opened. To sign: the A
 notarisation secrets and the Azure signing secrets. **What they can reach: they sign and notarize any app as you, Vdex's
 included**, and the app-specific password signs in to your Apple Account (`docs/licence-server.md`, "What each key can
 reach"). So, in Tourbook's repository on GitHub (TheCrowBro/Gdex): **Settings → Environments → New environment `tourbook-sign`**, required
-reviewer: you, deployment branches: `main` only; put the secrets there, **not** as repository secrets (a workflow on any
-pushed branch can read those). Every run of the desktop build then waits for your approval. Steps: `docs/desktop.md`.
+reviewer: you (where GitHub offers it, as for `tourbook-live`), deployment branches: `main` only; put the secrets there,
+**not** as repository secrets (a workflow on any pushed branch can read those). Only a run of the desktop build on `main`
+then gets them (after your approval, where there is a required reviewer). Steps: `docs/desktop.md`.
 
 ## 8. Downloads (15 minutes)
 
@@ -188,7 +192,7 @@ Actions only once its file (`.github/workflows/publish.yml`) is on the repositor
 same way first.
 
 **(a) The website and the Worker, with licences still off.** Actions → **Publish Tourbook** → **Run workflow** on `main`,
-type `publish tourbook`, then approve the run when GitHub asks. It runs every test (licences off and on), stamps the build,
+type `publish tourbook` (and approve the run if GitHub asks). It runs every test (licences off and on), stamps the build,
 checks the configuration is Tourbook's own, publishes, and checks the live site. Look at https://tourbook.crowmade.app: every
 role is free, nothing about licences shows.
 
@@ -314,7 +318,10 @@ Answered:
   Where replies go (`REPLY_TO`) follows the contact address (question 2).
 - **Where the website is published from:** GitHub, like Vdex: the workflow **Publish Tourbook** on `main`, with the
   Cloudflare token in the protected Environment `tourbook-live` (step 2). You chose it on 14 November 2026 ("Like Vdex,
-  from GitHub"), over publishing from your own computer, which stays possible (below step 7).
+  from GitHub"), over publishing from your own computer, which stays possible (below step 7). GitHub shows no required
+  reviewers on this private repository (only Enterprise offers them there), so a publish starts as soon as it is run;
+  the workflow itself refuses any branch but `main` and any run without the words. The first publish (14 November
+  2026) was started this way.
 - **A lawyer:** "I'll find a lawyer": a lawyer you choose reads the terms and the privacy policy before licences are
   switched on (step 1 and 9(d)).
 

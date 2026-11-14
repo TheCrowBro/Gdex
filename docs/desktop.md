@@ -149,9 +149,10 @@ The same Apple Developer ID and the same Azure certificate profile that sign oth
 **Where the secrets go: the protected Environment `tourbook-sign`, never repository secrets.** They can sign any app as you,
 Vdex's included (`docs/licence-server.md`, "What each key can reach"), and repository secrets can be read by a workflow
 on any branch pushed to the repository. So: Settings → Environments → **New environment `tourbook-sign`**, required
-reviewer: you, deployment branches: `main` only; put each secret below in that Environment (the variables, which are
-not secret, can stay repository variables). The build job (`.github/workflows/desktop.yml`) names that Environment, so
-every run waits for your approval, and a run on any branch but `main` stops before it builds.
+reviewer: you (if GitHub shows it: on a private repository only Enterprise offers it), deployment branches: `main` only;
+put each secret below in that Environment (the variables, which are not secret, can stay repository variables). The
+build job (`.github/workflows/desktop.yml`) names that Environment, so a run on any branch but `main` stops before it
+builds, and, with a required reviewer, every run waits for your approval.
 
 **Mac** (Apple Developer Program, 99 USD a year):
 
