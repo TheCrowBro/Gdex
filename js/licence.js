@@ -39,6 +39,8 @@ const roleWords = (id = roleId()) => ((roleOf(id) || EVERYTHING) === EVERYTHING 
 const roleAs = (id = roleId()) => ((roleOf(id) || EVERYTHING) === EVERYTHING ? `in ${roleWords(id)}` : `as ${roleLabel(id)}`);
 // The Audiophile's own sections in its own words: "your gigs, bands, venues and tools".
 const freeWords = () => { const n = (roleOf(FREE_ROLE) || {}).names || {}; return `your ${[(n.bookings || 'Bookings'), (n.acts || 'Acts'), 'Venues', 'Tools'].map(x => x.toLowerCase()).join(', ').replace(/, (?=[^,]*$)/, ' and ')}`; };
+// My card is free in every role too (item 14), so the offer names it after the Audiophile's own sections.
+const cardFree = () => `, and so does ${sectionName('card', 'My card')}`;
 const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 /* ------------------------------------ the price ------------------------------------ */
@@ -172,7 +174,7 @@ function offer(title, first, gone) {
   const close = () => sh && sh.close();
   sh = sheet(title, h('div', { class: 'stack lic-offer' },
     h('p', null, first),
-    h('p', null, `A licence opens ${PAID_LIST}, and every role: `, onceEl(), `, for up to 3 of your devices. ${capFirst(freeWords())} stay free.`),
+    h('p', null, `A licence opens ${PAID_LIST}, and every role: `, onceEl(), `, for up to 3 of your devices. ${capFirst(freeWords())} stay free${cardFree()}.`),
     h('div', { class: 'actions' }, ...actions(s, d, { sheetWords: true, after: close }), h('button', { type: 'button', class: 'btn ghost lic-later', onclick: close }, 'Not now')),
     buyNote(d)));
   sh.el.classList.add('licence-needed');
@@ -371,7 +373,8 @@ function paintBar() {
   }
   const bar = h('div', { class: 'update-bar licence-bar' + (urgent ? ' urgent' : ''), role: 'status' },
     h('span', null, text), ...buttons,
-    h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Hide until Gdex is next opened', onclick: () => { B.hide = key; paintBar(); } }, '✕'));
+    // The bar goes with its ✕, so the focus goes to the page rather than nowhere.
+    h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Hide until Gdex is next opened', onclick: () => { B.hide = key; paintBar(); document.getElementById('page')?.focus({ preventScroll: true }); } }, '✕'));
   if (!B.bar || B.bar.firstChild.textContent !== text) announce(text);
   if (B.bar) B.bar.replaceWith(bar);
   B.bar = bar;

@@ -88,6 +88,9 @@ export function sheet(title, body, { onClose, dismissOnBackdrop = true } = {}) {
     if (--openSheets === 0 && app) app.inert = false;
     if (opener && opener.isConnected) opener.focus();
     else if (fk) { const twin = document.querySelector(`[data-fk="${CSS.escape(fk)}"]`); if (twin) twin.focus({ preventScroll: true }); }
+    // A sheet that opened with nothing focused (one Gdex puts up as it opens: the terms, the free days over) leaves the
+    // focus on the page, not nowhere, once no other sheet is open.
+    if (!sheetStack.length && (!document.activeElement || document.activeElement === document.body)) document.getElementById('page')?.focus({ preventScroll: true });
     onClose && onClose();
   };
   const keys = e => {

@@ -104,6 +104,20 @@ async function run(how) {
   ok(`${how}: …and keeps the focus in the form, where it was`, f === before && await inSheet(), `${f} (before: ${before})`);
   await clear();
 
+  /* ---------------- a sheet that opened with nothing focused ---------------- */
+  // As Gdex opens, a sheet can come up before anything has the focus (the terms, the free days over): Escape, ✕ and the
+  // backdrop each leave the focus on the page, not nowhere.
+  for (const way of ['Escape', '✕', 'backdrop']) {
+    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); return import('./js/util.js').then(u => { u.sheet('Opened with nothing focused', u.h('p', null, 'A sheet put up as Gdex opens.')); }); }); await sleep(300);
+    if (way === 'Escape') await page.keyboard.press('Escape');
+    else if (way === '✕') await page.click('.sheet[aria-label="Opened with nothing focused"] .sheet-head [aria-label="Close"]');
+    else await tap(6, 12);
+    await sleep(300);
+    const left = await page.evaluate(() => ({ sheets: document.querySelectorAll('.sheet').length, focus: (document.activeElement || {}).id || (document.activeElement || {}).tagName }));
+    ok(`${how}: a sheet opened with nothing focused, closed by ${way}: the focus is on the page, not nowhere`, left.sheets === 0 && left.focus === 'page', JSON.stringify(left));
+    await clear();
+  }
+
   ok(`${how}: no errors in the console`, errors.length === 0, errors.join(' | '));
   await browser.close();
 }

@@ -213,7 +213,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('.dk-sheet .dk-bonus .dk-track[data-section="songs"]'); await sleep(500);
       ok('…tapping one offers the licence and stays where it was', (await sheets(page)).includes('Songs needs a licence') && (await page.evaluate(() => window.logiPage())) === 'bookings', (await sheets(page)).join(' | '));
       const offer = await page.evaluate(() => document.querySelector('.sheet.licence-needed').textContent);
-      ok('…the offer says the free days are over, what a licence opens, the price, and that its own sections stay free', /Your 30 free days of Gdex’s working sections are over on this device\./.test(offer) && /A licence opens People, Songs, Studio log, Backline, Money and Insurance, and every role: 20 USD once plus any tax where you live, for up to 3 of your devices\. Your gigs, bands, venues and tools stay free\./.test(offer) && /Buy a licence · 20 USD/.test(offer) && /Sign in \(I have one\)/.test(offer) && /Not now/.test(offer), offer);
+      ok('…the offer says the free days are over, what a licence opens, the price, and that its own sections and My card stay free', /Your 30 free days of Gdex’s working sections are over on this device\./.test(offer) && /A licence opens People, Songs, Studio log, Backline, Money and Insurance, and every role: 20 USD once plus any tax where you live, for up to 3 of your devices\. Your gigs, bands, venues and tools stay free, and so does My card\./.test(offer) && /Buy a licence · 20 USD/.test(offer) && /Sign in \(I have one\)/.test(offer) && /Not now/.test(offer), offer);
       ok('…and the sheet holds the focus, not Buy', await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('licence-needed')));
       await page.click('.sheet.licence-needed .lic-later'); await sleep(250);
       ok('logiGo to a working section resolves false', (await go(page, 'money')) === false);
@@ -360,6 +360,8 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       ok('…its words: read-only as Producer, nothing deleted, the price, and the way out', /Gdex is read-only as Producer on this device until there is a licence: you can open, search, print and share everything, but not change it\. Nothing has been deleted\. A licence is 20 USD once plus any tax where you live, for up to 3 of your devices\. Or carry on free as an Audiophile, with everything you already have\./.test(words) && /Buy a licence · 20 USD/.test(words) && /Sign in \(I have one\)/.test(words) && /Carry on free as an Audiophile/.test(words), words);
       await closeTop(page); await sleep(1500);
       sh = await sheets(page);
+      // It opened as Gdex opened, with nothing focused: once it is gone the page has the focus (it was left nowhere).
+      ok('…and the focus is on the page, not left nowhere', await page.evaluate(() => document.activeElement && document.activeElement.id === 'page'), await page.evaluate(() => (document.activeElement || {}).id || (document.activeElement || {}).tagName));
       ok('…✕ keeps the role, read-only, and the question is not asked while it is', sh.length === 0 && (await page.evaluate(() => localStorage.getItem('gdex-role'))) === 'producer' && !(await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()))), sh.join(' | '));
       ok('…the bar says read-only, with Buy and Sign in', /^Read-only: Producer needs a licence/.test(await page.textContent('.licence-bar span')) && (await page.locator('.licence-bar .btn').count()) === 2);
       // A form keeps what was typed.
@@ -511,6 +513,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.evaluate(d => import('./js/store.js').then(s => { s.upsert('acts', { id: 't-band', name: 'The Waiting Room' }); s.upsert('bookings', { id: 't-wait', kind: 'show', status: 'confirmed', actId: 't-band', title: '', venueName: 'The Crown', date: d, setTime: '21:00', setLength: 45 }); }), isoIn(-3));
       await page.click('#lic-terms-later'); await sleep(1500);
       let st = await state(page);
+      ok('…Not now leaves the focus on the page, not nowhere', await page.evaluate(() => document.activeElement && document.activeElement.id === 'page'), await page.evaluate(() => (document.activeElement || {}).id || (document.activeElement || {}).tagName));
       ok('a working role in use when the licence comes in: the terms sheet at opening; Not now starts nothing, and the question waits', st.mode === 'unstarted' && !(await stored(page)).first && (await sheets(page)).length === 0 && !(await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite()))), JSON.stringify({ st, sh: await sheets(page) }));
       await reload(page);
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]', { timeout: 8000 });
@@ -763,6 +766,11 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
         && ro.startsWith(`Your free days are over, so the ${E} role can’t change things on this device.`)
         && offerTitle === `The ${E} role needs a licence` && offerWords.includes(`The ${E} role comes with a licence.`),
         JSON.stringify({ over: over.slice(0, 120), bar, ro: ro.slice(0, 90), offerTitle }));
+      // The bar's ✕ hides it until Gdex is next opened, and the focus goes to the page, not nowhere.
+      await closeTop(page);
+      await page.focus('.licence-bar [aria-label="Hide until Gdex is next opened"]'); await page.keyboard.press('Enter'); await sleep(300);
+      const hid = await page.evaluate(() => ({ bar: document.querySelectorAll('.licence-bar').length, focus: (document.activeElement || {}).id || (document.activeElement || {}).tagName }));
+      ok('the read-only bar’s ✕ hides it, with the focus on the page', hid.bar === 0 && hid.focus === 'page', JSON.stringify(hid));
       await ctx.close();
     }
     {
@@ -787,7 +795,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await sampleIn(page); await setLicence(page, ended()); await reload(page); await sleep(1000);
       const ids = await page.evaluate(() => import('./js/store.js').then(s => ['session', 'rehearsal'].map(k => (s.db.bookings.find(b => b.kind === k) || {}).id)));
       const seen = {};
-      for (const [kind, id] of [['session', ids[0]], ['rehearsal', ids[1]]]) for (const label of ['✎ Edit', 'Delete', 'Duplicate', 'Confirmed']) {
+      for (const [kind, id] of [['session', ids[0]], ['rehearsal', ids[1]]]) for (const label of ['✎ Edit', 'Delete', 'Duplicate', 'Confirmed', 'Get a licence…']) {
         await page.evaluate(id => import('./js/pages/bookings.js').then(m => m.openBooking(id)), id); await sleep(500);
         const btn = page.locator('#page button', { hasText: label }).first();
         if (!(await btn.count())) { seen[`${kind} ${label}`] = 'no button'; continue; }
@@ -797,7 +805,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       }
       const want = { session: ['Studio sessions need a licence', 'Studio sessions come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence.'], rehearsal: ['Rehearsals need a licence', 'Rehearsals come with Gdex’s working roles: this one stays here for you to look at, and can be changed with a licence.'] };
       const wrong = Object.entries(seen).filter(([k, v]) => { const w = want[k.split(' ')[0]]; return v === 'no button' ? !/Confirmed/.test(k) : !(v[0] === w[0] && v[1].startsWith(w[1])); });
-      ok('a free Audiophile\'s studio session or rehearsal, free days over: Edit, Delete, Duplicate and the status offer "Studio sessions need a licence" or "Rehearsals need a licence", in the page note\'s words', ids.every(Boolean) && wrong.length === 0, JSON.stringify(wrong.length ? wrong : seen).slice(0, 400));
+      ok('a free Audiophile\'s studio session or rehearsal, free days over: Edit, Delete, Duplicate, the status and the page note\'s own Get a licence… offer "Studio sessions need a licence" or "Rehearsals need a licence", in the page note\'s words', ids.every(Boolean) && wrong.length === 0, JSON.stringify(wrong.length ? wrong : seen).slice(0, 400));
       await ctx.close();
     }
     {

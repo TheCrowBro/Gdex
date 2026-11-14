@@ -525,7 +525,7 @@ function workNote(b) {
   const start = mayWork() === 'start';
   return h('div', { class: 'card lic-work-note' },
     h('p', { class: 'small' }, `${b.kind === 'session' ? 'Studio sessions' : 'Rehearsals'} come with Gdex’s working roles: this one stays here for you to look at, and can be changed ${start ? 'during your 30 free days' : 'with a licence'}.`),
-    h('button', { type: 'button', class: 'btn ghost small', id: 'bk-work-open', onclick: () => gateWork(() => draw()) }, start ? 'Start my 30 free days' : 'Get a licence…'));
+    h('button', { type: 'button', class: 'btn ghost small', id: 'bk-work-open', onclick: () => gateWork(() => draw(), b.kind) }, start ? 'Start my 30 free days' : 'Get a licence…'));
 }
 
 // The boxes the role keeps out of the way (js/roles.js: hide), in one closed fold below the others. They are drawn with
