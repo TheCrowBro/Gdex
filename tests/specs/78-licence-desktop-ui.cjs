@@ -118,6 +118,7 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       await about(page);
       const line = await page.textContent('.licence-panel .licence-line').catch(() => '');
       ok('a licence for 5 devices, this computer moved off it: the sheet at opening, the offers and About all say 5 other devices', /It’s in use on 5 other devices\./.test(over) && /it’s in use on 5 other devices\./.test(offerWords) && /in use on 5 other devices, its limit/.test(line) && !/3 other devices/.test(over + offerWords), JSON.stringify({ over: over.slice(0, 160), offerWords: offerWords.slice(0, 160) }));
+      ok('…and the sheet at opening, which offers Carry on free as an Audiophile, says it is for personal use, not for work (decisions §21)', /Nothing has been deleted\. Or carry on free as an Audiophile, for personal use, not for work\./.test(over) && /Carry on free as an Audiophile/.test(over), over.slice(-200));
       // An ended code pasted into Enter licence code: its end date written as About writes dates.
       await page.evaluate(() => { window.tourbookDesktop.licence.enter = async () => ({ error: 'expired', expires: '2026-10-31' }); return import('./js/licence.js').then(m => m.enterCode()); });
       await page.waitForSelector('#lic-activate'); await page.fill('.sheet textarea.licence-code', 'TOURBOOK-ENDED'); await page.click('#lic-activate'); await sleep(300);

@@ -212,15 +212,17 @@ export function overSheetIfDue() {
     if (s.mode === 'away') return awaySheet().done;
     overOpen = new Promise(resolve => {
       const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, for personal use, not for work, with everything you already have.'];
+      // Every one of these sheets offers Carry on free as an Audiophile, so each says what it is for (decisions §21).
+      const carry = ' Or carry on free as an Audiophile, for personal use, not for work.';
       const readOnly = `Tourbook is read-only ${role} on this device until there is a licence: you can open, search, print and share everything, but not change it. Nothing has been deleted.`;
       const text = {
         ended: ['Your 30 free days are over', [readOnly, ' ', ...how]],
         cancelled: ['Your licence has been cancelled', ['This can happen after a refund. If you think that’s a mistake, reply to the email your licence came in. ', readOnly.replace('until there is a licence', 'until there is a licence again'), ' ', ...how]],
         expired: [`Your licence ended on ${day(s.licence && s.licence.expires)}`, [readOnly, ' ', ...how]],
-        offline: ['Tourbook needs to check your licence', [`It hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`]],
-        released: ['This computer is no longer on your licence', [`It’s in use on ${plural(seatsOf(s), 'other device')}. Activate it here again to choose which one to take off. Until then Tourbook is read-only ${role}. Nothing has been deleted.`]],
-        pending: ['Tourbook needs to activate your licence', [`It hasn’t been able to reach the licence server since the code was entered. Connect to the internet and tap Try again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`]],
-        clock: ['Your device’s clock looks wrong', [`Tourbook can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Tourbook again. Nothing has been deleted. Until then Tourbook is read-only ${role}.`]],
+        offline: ['Tourbook needs to check your licence', [`It hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`, carry]],
+        released: ['This computer is no longer on your licence', [`It’s in use on ${plural(seatsOf(s), 'other device')}. Activate it here again to choose which one to take off. Until then Tourbook is read-only ${role}. Nothing has been deleted.`, carry]],
+        pending: ['Tourbook needs to activate your licence', [`It hasn’t been able to reach the licence server since the code was entered. Connect to the internet and tap Try again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`, carry]],
+        clock: ['Your device’s clock looks wrong', [`Tourbook can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Tourbook again. Nothing has been deleted. Until then Tourbook is read-only ${role}.`, carry]],
       }[s.mode] || ['Tourbook is read-only here', [readOnly, ' ', ...how]];
       let sh = null;
       const close = () => sh && sh.close();
@@ -314,7 +316,7 @@ export function roleLicenceLine() {
     let words, d = {};
     if (s.mode === 'away') words = ['Here, in a web browser, only Audiophile works: open Tourbook from its desktop app for the other roles.'];
     else if (has) words = ['Licensed: every role on this device.'];
-    else if (s.canEdit && s.started) { words = [`Your free days: ${s.trialLeft} left${s.trialEnds ? `, until ${day(s.trialEnds, false)}` : ''}. Audiophile stays free after that.`]; d = { buy: true, enter: true }; }
+    else if (s.canEdit && s.started) { words = [`Your free days: ${s.trialLeft} left${s.trialEnds ? `, until ${day(s.trialEnds, false)}` : ''}. Audiophile stays free after that, for personal use, not for work.`]; d = { buy: true, enter: true }; }
     else if (s.canEdit) words = ['Audiophile is free for good, for personal use, not for work. The other roles, Jack of Trades included, have 30 free days on this device, counted from the first time you use one; then a licence: ', onceEl(), ', for up to 3 of your devices.'];
     else { words = [s.mode === 'ended' ? 'Your free days are over. ' : whyNot(s) + ' ', 'Audiophile is free, for personal use; the other roles need a licence.']; d = nextStep(s); }
     // A warning only for a working role in use.

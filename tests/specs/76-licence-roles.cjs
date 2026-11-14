@@ -143,7 +143,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       const after = await page.$$eval('#se-role [data-role]', bs => Object.fromEntries(bs.map(b => [b.dataset.role, (b.querySelector('.rp-licence') || {}).textContent || ''])));
       ok('the badges read the free days left', after.audiophile === 'Free' && after.band === 'Free days: 30 left' && after.all === 'Free days: 30 left', JSON.stringify(after));
       ok('…and Settings → Your role’s Audiophile card says it is for personal use, not for work', /\. For personal use, not for work\.$/.test(await page.textContent('#se-role .rp-card[data-role="audiophile"] .rp-blurb')));
-      ok('…Your role’s closed line and its licence line say so too', /· 30 free days left$/.test(await page.textContent('#se-role .se-sub')) && /^Your free days: 30 left, until .+\. Audiophile stays free after that\.$/.test(await page.textContent('.rp-licence-line p')));
+      ok('…Your role’s closed line and its licence line say so too', /· 30 free days left$/.test(await page.textContent('#se-role .se-sub')) && /^Your free days: 30 left, until .+\. Audiophile stays free after that, for personal use, not for work\.$/.test(await page.textContent('.rp-licence-line p')));
       ok('…and About is About & licence, with the free days in its line', (await page.textContent('#se-about .twirl-name')) === 'About & licence' && /· free days: 30 left$/.test(await page.textContent('#se-about .se-sub')));
       await ctx.close();
     }
@@ -683,6 +683,8 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.waitForSelector('.sheet.licence-over', { timeout: 6000 });
       const st = await state(page);
       ok('…the clock set back: mode clock, read-only, and its own sheet', st.mode === 'clock' && st.canEdit === false && (await sheets(page)).join() === 'Your device’s clock looks wrong' && /Tourbook can’t count your free days while this device’s date and time are off by more than a day\./.test(await page.textContent('.sheet.licence-over')), JSON.stringify(st));
+      // It offers Carry on free as an Audiophile, so it says what that is for, as every sheet that offers it does (decisions §21).
+      ok('…and its way out says the Audiophile is for personal use, not for work', /Until then Tourbook is read-only as Producer\. Or carry on free as an Audiophile, for personal use, not for work\.$/.test(await page.textContent('.sheet.licence-over .lic-over p')) && (await page.locator('.sheet.licence-over .lic-carry').count()) === 1, await page.textContent('.sheet.licence-over .lic-over p'));
       srv.offline = false; srv.date = () => new Date(real + 3 * HOUR + 10 * 60e3);
       await page.evaluate(() => import('./js/licence-web.js').then(m => m.status(true)));
       await sleep(700);
