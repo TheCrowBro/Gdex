@@ -44,9 +44,8 @@ this order. You approve; the developer runs.
    `/download.html` says the desktop app is coming; any wrong address shows "There’s nothing at this address". Install
    it from the browser, and open it once with the network off.
 
-**From your own computer instead** (the other way you were offered; on 14 November 2026 you chose GitHub, as above):
-`npx wrangler login`; in the repository on `main`, `node tools/stamp-build.mjs`,
-`node tools/stage-site.mjs cloudflare/site --cloudflare`, then in `cloudflare/`
+**From your own computer instead** (question 4): `npx wrangler login`; in the repository on `main`,
+`node tools/stamp-build.mjs`, `node tools/stage-site.mjs cloudflare/site --cloudflare`, then in `cloudflare/`
 `npx wrangler deploy --config wrangler.jsonc`. If Wrangler asks about the KV store, choose **Create new** and keep
 the name `tourbook-licences` (never one it lists: they can be Vdex's); if it asks to take over an address or a record,
 answer no and do step 2 again. Afterwards, `git checkout -- cloudflare/wrangler.jsonc` (Wrangler writes the store's id
@@ -138,7 +137,9 @@ purchase becomes a lasting licence. Steps: `docs/licence-server.md`, Part 4.
 In the Resend account Vdex uses: the sending domain tourbook.crowmade.app verified beside vdex.crowmade.app (Resend's
 free plan allows 3 domains, so no paid plan; the two share its 100 free emails a day), an API key with sending access for
 that domain → `RESEND_API_KEY`. The emails come from `Tourbook <licences@tourbook.crowmade.app>`, `MAIL_FROM`'s default,
-so `MAIL_FROM` stays unset; `REPLY_TO` is the contact address, once you have answered question 2 below. Steps:
+so `MAIL_FROM` stays unset. Add `REPLY_TO` before the shop opens (9(b)): the contact address, support@crowmade.app until
+you answer question 2 below. The terms (section 3) tell buyers they can reply to the email their licence came in, and
+without `REPLY_TO` a reply would go to licences@tourbook.crowmade.app, which has no inbox set up. Steps:
 `docs/licence-server.md`, Part 5.
 
 ## 6. Google (30 minutes)
@@ -192,7 +193,8 @@ checks the configuration is Tourbook's own, publishes, and checks the live site.
 role is free, nothing about licences shows.
 
 **(b) The shop.** In Cloudflare, on the Worker **tourbook**: the shop key (step 3), Stripe's settings (step 4), Resend's
-(step 5). Check `/buy`, a test purchase, the thank-you page, the email, and a refund (`docs/licence-server.md`, Part 7).
+(step 5), `REPLY_TO` included. Check `/buy`, a test purchase, the thank-you page, the email, that a reply to the email
+reaches the contact address, and a refund (`docs/licence-server.md`, Part 7).
 
 **(c) `WEB_SIGN_IN = on`** (a Text variable on the Worker tourbook). Nothing changes on the website yet.
 
@@ -281,13 +283,18 @@ Answered:
 - **What a free Audiophile keeps:** the calendar of the shows they go to and the bands they like; not the working boxes,
   sessions, rehearsals or anything about money. Built so (one constant, `FREE_KEEPS_WORK`, would free the boxes).
 - **The Audiophile is not for work** (14 November 2026: "Yes audiophiles can't use it for work."): it is for your own
-  personal use, going to shows and keeping track of the bands you like. Work (booking, promoting, managing, producing,
-  recording, playing or scouting for pay, for clients or for a business) needs a working role: free for its 30 days, then
-  a licence, which covers every role on its device. The terms say so (the short version, section 3 with examples, and
-  section 12, whose "including paid work" is the working roles'), and so do the role picker's Audiophile card and its
-  words while licences are on, Settings → Your role (the same cards), the Carry on free offers and their toast, the
-  one-time terms sheet's first line and the download page. The app enforces nothing more than the sections each role
-  has: the rule is the terms'.
+  personal use, going to shows and keeping track of the bands you like. Work (anything you do in music for pay, for
+  clients or for a business, such as booking, managing, producing, playing, scouting or reviewing) needs a working role:
+  free for 30 days on each device, then a licence, which covers every role on the devices it is used on. The rule holds
+  before licences are switched on too, while every role is free. The terms say so (the short version, section 3 with
+  examples, and section 12, whose "including paid work" is the working roles'), and so do the role picker's Audiophile
+  card and its words while licences are on, Settings → Your role (the same cards, and the line under them), the Carry on
+  free offers (the free-days-over and read-only sheets, and the desktop app's files opened in a browser) and their toast,
+  the one-time terms sheet's first line and the download page. The app enforces nothing more than the sections each role
+  has: the rule is the terms'. Section 3's examples are the developer's reading of your rule; say if any should change:
+  a band that only plays for fun, unpaid, is not work; helping a friend's paid band for free is; scouting for a label,
+  an agency, a festival or a venue is work even unpaid; and using the Audiophile's tools (the tuner, the set timer…) at a
+  paid gig is work. A licence lifts the rule: with one, any role may be used for work on the devices it covers.
 - **Agreeing to the terms in the app:** a one-time terms sheet the first time someone uses a working role; the free
   Audiophile never sees it. Built so.
 - **Age:** 18 or over for everyone, Vdex's wording.
@@ -302,8 +309,6 @@ Answered:
   tourbook.crowmade.app is a second domain on the same Resend account as Vdex, sharing its 100 free emails a day (Tourbook
   sends at most 30 sign-in emails a day); no paid plan is needed, and Tourbook's key is made for its own domain only.
   Where replies go (`REPLY_TO`) follows the contact address (question 2).
-- **Where the website is published from:** GitHub, with the protected Environment `tourbook-live` (step 2), which you
-  chose on 14 November 2026.
 - **A lawyer:** "I'll find a lawyer": a lawyer you choose reads the terms and the privacy policy before licences are
   switched on (step 1 and 9(d)).
 
@@ -312,7 +317,12 @@ Still open (the build goes ahead with these defaults meanwhile):
 1. **Code signing:** the Apple and Windows signing you have for Vdex, for Tourbook too (no new fee), or unsigned at first?
    *Default: the workflow signs only when the secrets exist.*
 2. **The contact address** in Tourbook's terms, privacy page and emails, and so where replies to the emails go
-   (`REPLY_TO`): the same as Vdex's? *Default: copied from Vdex's terms.*
+   (`REPLY_TO`): the same as Vdex's? *Default: copied from Vdex's terms (support@crowmade.app), and `REPLY_TO` set to
+   it.*
 3. **Backup files and the free days:** someone can save a backup file, open Tourbook in a private window (fresh free days)
    and bring the backup back there. Accept that, or make a backup file carry the free-days start too? *Default: accept
    it.*
+4. **Where the website is published from:** GitHub with the protected Environment `tourbook-live` (step 2), or your own
+   computer (`npx wrangler deploy --config wrangler.jsonc` after signing in to Cloudflare, no token in GitHub at all)?
+   Not answered yet: your "Publish it for now" (14 November 2026) goes ahead with the default. *Default: GitHub with the
+   protected Environment.*

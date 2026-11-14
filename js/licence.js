@@ -211,7 +211,7 @@ export function overSheetIfDue() {
     const s = licenceNow();
     if (s.mode === 'away') return awaySheet().done;
     overOpen = new Promise(resolve => {
-      const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, with everything you already have, for personal use and not for work.'];
+      const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, for personal use, not for work, with everything you already have.'];
       const readOnly = `Tourbook is read-only ${role} on this device until there is a licence: you can open, search, print and share everything, but not change it. Nothing has been deleted.`;
       const text = {
         ended: ['Your 30 free days are over', [readOnly, ' ', ...how]],
@@ -245,7 +245,7 @@ export function awaySheet() {
   let sh = null;
   const close = () => sh && sh.close();
   sh = sheet('Open Tourbook from its desktop app', h('div', { class: 'stack lic-away' },
-    h('p', null, 'This is the desktop app’s copy of Tourbook, opened in a web browser. Its working roles and Google Drive only work in the desktop app; on the web, use tourbook.crowmade.app. Audiophile works here.'),
+    h('p', null, 'This is the desktop app’s copy of Tourbook, opened in a web browser. Its working roles and Google Drive only work in the desktop app; on the web, use tourbook.crowmade.app. Audiophile works here, for personal use, not for work.'),
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn primary', id: 'lic-away-ok', onclick: close }, 'OK'),
       roleNeedsLicence(roleId()) && h('button', { type: 'button', class: 'btn ghost lic-carry', onclick: () => { close(); carryOnFree(); } }, 'Carry on as an Audiophile'))),
@@ -278,7 +278,7 @@ export function readOnlySheet({ form = false } = {}) {
     const has = ['licensed', 'pending'].includes(s.mode);
     sh = sheet('Read-only for now', h('div', { class: 'stack lic-ro' },
       termsChanged(true) ? h('p', null, 'Please read and agree to the updated terms to keep using the working roles. Your information is safe and stays where it is.')
-        : h('p', null, 'Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ', onceEl(), ', for up to 3 of your devices. Audiophile stays free, for personal use, not for work. To use them, please read and agree to Tourbook’s terms.'),
+        : h('p', null, 'Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ', onceEl(), ', for up to 3 of your devices. Audiophile stays free, for personal use, not for work. To use the working roles, please read and agree to Tourbook’s terms.'),
       h('p', { class: 'small muted' }, `Nothing was changed${form ? ': what you typed is still in the form' : ''}.`),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'btn primary', id: 'lic-ro-terms', onclick: async () => { close(); if (await askTerms({ once: once() })) { termsAgreed(); if (await startFreeDays()) toastStarted(); } } }, 'Read and agree'),
@@ -291,7 +291,7 @@ export function readOnlySheet({ form = false } = {}) {
       offline: 'Tourbook hasn’t been able to check your licence for 90 days', released: 'This computer is no longer on your licence', pending: 'Your licence isn’t activated on this computer yet',
     }[s.mode] || 'Your free days are over';
     sh = sheet('Read-only until there is a licence', h('div', { class: 'stack lic-ro' },
-      h('p', null, `${first}, so ${role} can’t change things on this device. Nothing was changed${form ? ' (what you typed is still in the form)' : ''}. You can still open, search, print and share everything. Or carry on free as an Audiophile, for personal use and not for work.`),
+      h('p', null, `${first}, so ${role} can’t change things on this device. Nothing was changed${form ? ' (what you typed is still in the form)' : ''}. You can still open, search, print and share everything. Or carry on free as an Audiophile, for personal use, not for work.`),
       h('div', { class: 'actions' }, ...actions(s, nextStep(s), { sheetWords: true, carry: true, after: close })),
       buyNote(nextStep(s))));
   }
@@ -315,8 +315,8 @@ export function roleLicenceLine() {
     if (s.mode === 'away') words = ['Here, in a web browser, only Audiophile works: open Tourbook from its desktop app for the other roles.'];
     else if (has) words = ['Licensed: every role on this device.'];
     else if (s.canEdit && s.started) { words = [`Your free days: ${s.trialLeft} left${s.trialEnds ? `, until ${day(s.trialEnds, false)}` : ''}. Audiophile stays free after that.`]; d = { buy: true, enter: true }; }
-    else if (s.canEdit) words = ['Audiophile is free for good. The other roles, Jack of Trades included, have 30 free days on this device, counted from the first time you use one; then a licence: ', onceEl(), ', for up to 3 of your devices.'];
-    else { words = [s.mode === 'ended' ? 'Your free days are over. ' : whyNot(s) + ' ', 'Audiophile is free; the other roles need a licence.']; d = nextStep(s); }
+    else if (s.canEdit) words = ['Audiophile is free for good, for personal use, not for work. The other roles, Jack of Trades included, have 30 free days on this device, counted from the first time you use one; then a licence: ', onceEl(), ', for up to 3 of your devices.'];
+    else { words = [s.mode === 'ended' ? 'Your free days are over. ' : whyNot(s) + ' ', 'Audiophile is free, for personal use; the other roles need a licence.']; d = nextStep(s); }
     // A warning only for a working role in use.
     el.replaceChildren(h('p', { class: 'small' + (s.canEdit || has || !roleNeedsLicence(roleId()) ? '' : ' licence-warn') }, ...words), ...(Object.keys(d).length ? [h('div', { class: 'actions' }, ...actions(s, d))] : []));
   };

@@ -194,7 +194,7 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
         const { ctx, page, asked } = await open({ url: `http://localhost:${port}/`, live: true, seed: {} });
         await page.waitForSelector('.sheet.licence-away', { timeout: 6000 });
         const st = await state(page);
-        ok('without the bridge it is the desktop’s files in a browser: mode away, and its sheet at opening', st.mode === 'away' && (await sheets(page)).join() === 'Open Tourbook from its desktop app' && /This is the desktop app’s copy of Tourbook, opened in a web browser\. Its working roles and Google Drive only work in the desktop app; on the web, use tourbook\.crowmade\.app\. Audiophile works here\./.test(await page.textContent('.sheet.licence-away')), JSON.stringify(st));
+        ok('without the bridge it is the desktop’s files in a browser: mode away, and its sheet at opening (the Audiophile works here, for personal use, not for work: decisions §21)', st.mode === 'away' && (await sheets(page)).join() === 'Open Tourbook from its desktop app' && /This is the desktop app’s copy of Tourbook, opened in a web browser\. Its working roles and Google Drive only work in the desktop app; on the web, use tourbook\.crowmade\.app\. Audiophile works here, for personal use, not for work\./.test(await page.textContent('.sheet.licence-away')), JSON.stringify(st));
         ok('…the sheet has no Buy and no Sign in', (await page.locator('.sheet.licence-away .lic-buy, .sheet.licence-away .lic-enter').count()) === 0);
         await closeTop(page);
         const opened = [];

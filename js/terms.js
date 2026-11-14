@@ -7,7 +7,10 @@
 import { h, sheet } from './util.js';
 
 export const TERMS_SHEET = true;
-export const TERMS_VERSION = '2026-11-14'; // the terms' date, plus a count for a second change on the same day
+// The terms' date. A second change on the same day adds a count ('2026-11-14.2') once a device could have agreed to the
+// first; before that (nothing published, and the sheet asks only while licences are on: termsDue below) the date stays
+// (docs/developers.md, the legal pages).
+export const TERMS_VERSION = '2026-11-14';
 const KEY = 'tourbook-terms';
 const read = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return v && typeof v === 'object' ? v : null; } catch { return null; } };
 let agreedNow = false; // agreed this visit where storage could not keep it
@@ -35,10 +38,11 @@ export function askTerms({ once = '20 USD once plus any tax where you live' } = 
       close();
     } },
       h('p', null, changed ? 'Please read and agree to the updated terms to keep using the working roles. Your information is safe and stays where it is.'
-        : `Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ${once}, for up to 3 of your devices. Audiophile stays free, for personal use, not for work. To use them, please read and agree to Tourbook’s terms.`),
+        : `Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ${once}, for up to 3 of your devices. Audiophile stays free, for personal use, not for work. To use the working roles, please read and agree to Tourbook’s terms.`),
       // The points are the short version of terms.html word for word (but its Audiophile and price points, which the line
-      // above says: the Audiophile free, for personal use, not for work), in its order, linking the same sections; the line
-      // above has a twin in js/licence.js (the Read-only for now sheet); tests/specs/83-legal-pages checks all three stay the same.
+      // above says: the Audiophile free, for personal use, not for work), in its order, linking the same sections. The line
+      // above has a twin in js/licence.js (the Read-only for now sheet). tests/specs/83-legal-pages checks the points against
+      // the short version, and the line against its twin.
       h('ul', { class: 'lic-terms-points' },
         h('li', null, 'Tourbook keeps your own records of your shows, sessions, deals, songs and the people you work with. It is not an agent, promoter, manager, label or music publisher, takes no part in your bookings or deals, and never handles money (', link('terms.html#what', 'section 2'), ').'),
         h('li', null, 'Your work stays on your device, and the developer never receives it. Google Drive is optional and free for everyone: it keeps your devices the same, with a dated copy each day, in a private Tourbook folder of your own Drive.'),
