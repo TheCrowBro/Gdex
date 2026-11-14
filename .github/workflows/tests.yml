@@ -19,7 +19,8 @@ jobs:
   web:
     name: web (licences ${{ matrix.licence }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Each leg takes a little over 30 minutes on GitHub's machines (docs/developers.md, The tests): room to grow.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

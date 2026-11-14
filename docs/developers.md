@@ -1538,8 +1538,10 @@ backline, take, comp, stems, split sheet.
   `open({ ask: true })`, which leaves the key alone; it seeds its shows, then reloads.
 * Tourbook opens on the calendar on every load: after `page.reload()`, `go(page, id)` to be anywhere else. `toMonth(page)`
   goes from a booking's page or any calendar view to the Month view.
-* The whole suite takes about 30 minutes on one machine for each leg; CI runs the two side by side (`13-calendar`,
-  `43-ask` and `56-rules` open several browsers each). `43-ask` has `clockKit(page)` for a page whose clock is set by hand (coming back after hours).
+* The whole suite takes a little over 30 minutes on one machine for each leg (`13-calendar`, `43-ask` and `56-rules`
+  open several browsers each). CI runs the two side by side, each stopped after 60 minutes (`.github/workflows/tests.yml`),
+  and a publish runs them one after the other within its 120 (`.github/workflows/publish.yml`). A run GitHub shows as
+  cancelled after exactly its limit ran out of time: raise the limit, never cut checks. `43-ask` has `clockKit(page)` for a page whose clock is set by hand (coming back after hours).
 * **Dates.** The test browser is `en-US` (`fmtShort` gives `Thu, Nov 12`). A check never hard-codes a month or weekday
   name or the order of day and month: it compares with the same formatter run in the page, or reads `data-date`.
 * **The hour of the run.** No check may depend on the hour it runs. Seed past shows at least two days back and coming
