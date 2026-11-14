@@ -101,7 +101,7 @@ export const ROLES = [
     ],
     pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { sampleWork: false, order: 'latest', tabs: ['about'], empty: 'Add an act you’re watching: its name and links. Each time you see them, log a score out of 100; the card keeps the count, your average and latest score, and where they play next.' }, people: { group: 'contact' } } },
   { id: 'audiophile', label: 'Audiophile', icon: '🎧', what: '',
-    blurb: 'Bands you’ve seen with a score each time, gigs coming up, the rooms and the sound meter.',
+    blurb: 'Bands you’ve seen with a score each time, gigs coming up, the rooms and the sound meter. For personal use, not for work.',
     sections: ['bookings', 'acts', 'venues', 'tools'], start: 'bookings', names: { acts: 'Bands', bookings: 'Gigs' },
     newKind: 'show', kinds: ['show', 'other', 'session', 'rehearsal'], hide: HIDE_ALL, money: false,
     kindHelp: { show: 'A gig you’re going to (an in-store or a listening session too): the band, the venue, doors and set time. Score it on the night or after.', other: 'A record fair or anything else in the diary.', session: 'A studio visit or a playback.', rehearsal: 'An open rehearsal or soundcheck.' },

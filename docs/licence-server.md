@@ -2,9 +2,10 @@
 
 Tourbook's working roles (Producer, Manager, Band, Solo artist, Scout and Jack of Trades) are free for **30 days on each
 device**, then need a licence: **20 US dollars once** (plus the tax where the buyer lives) for **up to 3 devices**, bought
-through Stripe, plus **free codes you make yourself**. The Audiophile role is free for good, and Google Drive is free for
-everyone. The licence covers the website (people sign in with the email address they bought with; a website sign-in
-takes no device place) and the desktop app for Windows, Mac and Linux (each computer takes one of the 3 places).
+through Stripe, plus **free codes you make yourself**. The Audiophile role is free for good, for personal use (the terms
+say it is not for work, which needs a working role: section 3), and Google Drive is free for everyone. The licence
+covers the website (people sign in with the email address they bought with; a website sign-in takes no device place)
+and the desktop app for Windows, Mac and Linux (each computer takes one of the 3 places).
 
 Everything here is Tourbook's own, apart from Vdex's in every way: its own Cloudflare Worker (`tourbook`, at
 **https://tourbook.crowmade.app**), its own licence store (`tourbook-licences`), its own keys, its own Stripe product and payment
@@ -55,8 +56,8 @@ address. So a site published before the shop is ready never locks anyone out.
 | R2 token (only if you want CI uploads later) | GitHub, Environment `tourbook-live` | only the bucket it is scoped to, `tourbook-downloads`. It cannot touch Vdex's downloads. Uploading by hand needs no token at all. |
 | `LICENCE_SHOP_KEY` | a secret on the Worker `tourbook` in Cloudflare | signs Tourbook's paid codes, activations and website sign-ins. Not Vdex's: Vdex's apps never accept it. |
 | Your key (1) and the spare (9) | key files on your computer, locked with your passphrase, and paper backups | free codes, and your signed requests to look up, clear, cancel, restore and link codes |
-| Stripe restricted key | a secret on the Worker | reading Checkout Sessions only (no refunds, no payouts, no customers), but **every Checkout Session in the Stripe account**: with one account for Tourbook and Vdex (go-live question 1), Vdex's buyers' too, with their names, email addresses and billing addresses. A separate Stripe account for Tourbook keeps them out of its reach. |
-| Resend API key | a secret on the Worker | sending email from the one domain it is made for (Part 5, step 3) only. Made for a domain Vdex also sends from (step 2's fallback, go-live question 2), it **can send email as Vdex**. |
+| Stripe restricted key | a secret on the Worker | reading Checkout Sessions only (no refunds, no payouts, no customers), but **every Checkout Session in the Stripe account**: Tourbook is sold from the same account as Vdex (your choice, `docs/go-live.md`, Answered), so Vdex's buyers' too, with their names, email addresses and billing addresses. Only a separate Stripe account for Tourbook would keep them out of its reach. |
+| Resend API key | a secret on the Worker | sending email from the one domain it is made for (Part 5, step 3: tourbook.crowmade.app) only. Never make it for a domain Vdex sends from (vdex.crowmade.app): such a key **can send email as Vdex**. |
 | `MAC_CERT_P12` and `MAC_CERT_PASSWORD` (your Developer ID Application certificate), only if you sign | **only** in the GitHub Environment `tourbook-sign` | **signing any Mac app as you, Vdex's included**: whoever has both can ship software under your name. |
 | `APPLE_ID`, `APPLE_APP_PASSWORD` (an app-specific password) and `APPLE_TEAM_ID`, only if you sign | GitHub, Environment `tourbook-sign` | notarizing any app under your Apple team; and the app-specific password signs in to your Apple Account wherever Apple accepts one (iCloud mail, contacts and calendars in other apps). Revoke it at account.apple.com if it leaks. |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET` (the signing app registration), only if you sign | GitHub, Environment `tourbook-sign` | **signing any Windows file with your certificate profile, Vdex's included** (the "Artifact Signing Certificate Profile Signer" role you gave it). Delete the client secret in Microsoft Entra ID if it leaks. |
@@ -66,7 +67,7 @@ address. So a site published before the shop is ready never locks anyone out.
 | | Cost |
 |---|---|
 | Stripe with Managed Payments (Link is the seller, and handles sales tax and VAT) | about 1.58 USD of each 20 USD US card sale, about 1.88 USD on a non-US card. No monthly fee. |
-| Resend (emails the codes) | free up to 3,000 emails a month (100 a day), **shared with Vdex if it is the same Resend account**. A second sending domain may need a paid plan. |
+| Resend (emails the codes) | free up to 3,000 emails a month (100 a day) and 3 verified domains, **shared with Vdex on the same Resend account**: tourbook.crowmade.app is its second domain, so no paid plan is needed. |
 | Cloudflare (the website, the shop, the licence store) | free within the allowances, **shared with Vdex in the same account**: 100,000 Worker requests a day, 1,000 writes a day to the licence stores together (a sign-in uses about one), and the free plan's daily Durable Object requests (Tourbook's sign-in codes: about two per sign-in). Workers Paid (5 USD a month) raises them. |
 
 Tourbook sends at most **30** sign-in emails a day (Vdex 60), so the two together stay under Resend's free 100 a day and
@@ -133,10 +134,11 @@ Every setting in this guide goes in the same place, on the Worker **tourbook**, 
 
 ## Part 4. Stripe (about 40 minutes, plus Stripe's checks)
 
-You can sell Tourbook from the same Stripe account as Vdex or a separate one (owner question 1 in `docs/go-live.md`). With
+Tourbook is sold from the same Stripe account as Vdex (your answer, decisions §20; `docs/go-live.md`, Answered). With
 one account, every card statement shows that account's descriptor, so make it neutral (for example the name you trade
-under) before Tourbook goes on sale. Tourbook's Worker only ever makes codes for payments through **Tourbook's own payment links**,
-so a Vdex purchase on the same account never makes a Tourbook code, and a Vdex refund never cancels one.
+under) before Tourbook goes on sale, and Tourbook's restricted key (step 7) reads every order in the account, Vdex's
+included. Tourbook's Worker only ever makes codes for payments through **Tourbook's own payment links**, so a Vdex
+purchase on the same account never makes a Tourbook code, and a Vdex refund never cancels one.
 
 1. **Account** (skip what is already done): **Settings → Business**: business details, website, a product description
    ("One-time licence for the Tourbook app (downloadable software)"), a statement descriptor of 5 to 22 characters, your
@@ -186,25 +188,29 @@ and in the terms.
 
 ## Part 5. Emailing the codes (10 minutes)
 
-The sender address and where replies go are owner question 2 (`docs/go-live.md`). By default Tourbook's emails come from
-`Tourbook <licences@tourbook.crowmade.app>`.
+Tourbook's emails come from `Tourbook <licences@tourbook.crowmade.app>`, a crowmade address, as Vdex's come from
+licences@vdex.crowmade.app (your answer, decisions §21); Resend delivers them, and the terms and the privacy policy
+name it. That is the Worker's `MAIL_FROM` default, so there is nothing to set for the sender. Resend's free plan has
+allowed 3 verified domains since August 2026 (resend.com/pricing), so tourbook.crowmade.app is a second domain on the
+same Resend account as Vdex, sharing its 100 free emails a day: no paid plan is needed. Where replies go (`REPLY_TO`)
+follows the contact address, still an open question (`docs/go-live.md`, question 2).
 
 1. Sign in at https://resend.com (or sign up).
 2. **Domains → Add domain** → `tourbook.crowmade.app` → **Sign in to Cloudflare** and allow it, so Resend adds its records
-   itself. Wait for **Verified**. (A second domain may need a paid Resend plan; if so, a sender on a domain you already
-   verified works too: set `MAIL_FROM` to it, and in step 3 make the key for that one domain. If Vdex sends from that
-   domain, Tourbook's key can send email as Vdex: it lives only on the Worker, as Vdex's does.)
+   itself. Wait for **Verified**. (It sits beside vdex.crowmade.app in the same account: the free plan allows 3 domains.
+   Never send Tourbook's email from a domain Vdex sends from: a Resend key made for it can send email as Vdex.)
 3. **API Keys → Create API key** → name "Tourbook licences", permission **Sending access**, domain `tourbook.crowmade.app` →
    copy the value starting `re_` and add it in Cloudflare as `RESEND_API_KEY`.
-4. Add `REPLY_TO` in Cloudflare: the address where buyers' replies should go. To change the sender, add `MAIL_FROM` (for
-   example `Tourbook <licences@tourbook.crowmade.app>`).
+4. Add `REPLY_TO` in Cloudflare: the address where buyers' replies should go, the contact address once you have chosen it
+   (`docs/go-live.md`, question 2). Leave `MAIL_FROM` unset: its default is the sender above.
 
 Without Resend, buyers still see their code on the thank-you page, but the website's sign-in stays paused (it works by
 emailing a code).
 
 ## Part 6. Switching the website's licence on (when you are ready)
 
-Do Parts 1 to 5 first, and try the shop (Part 7). Then, in this order:
+Do Parts 1 to 5 first, try the shop (Part 7), and have a lawyer you choose read the terms and the privacy policy
+(`docs/go-live.md`, 9(d)). Then, in this order:
 
 1. **In Cloudflare**, add a **Text** variable `WEB_SIGN_IN` with the value `on`. Nothing changes for anyone yet: the
    published website still lists no licence site.
@@ -299,8 +305,8 @@ developer straight away.
 | `STRIPE_SECRET_KEY` (Secret) | Stripe restricted key, Part 4 | the thank-you page, the Stripe lookup | no codes; the website's licence paused |
 | `STRIPE_WEBHOOK_SECRET` (Secret) | Stripe webhook, Part 4 | emails, refunds, disputes | webhooks refused |
 | `RESEND_API_KEY` (Secret) | Resend, Part 5 | emails, the website's sign-in | codes only on the thank-you page; the website's licence paused |
-| `REPLY_TO` (Secret or Text) | your support address, Part 5 | replies to the emails | no reply address |
-| `MAIL_FROM` (optional) | Part 5 | the sender | `Tourbook <licences@tourbook.crowmade.app>` |
+| `REPLY_TO` (Secret or Text) | the contact address (go-live question 2), Part 5 | replies to the emails | no reply address |
+| `MAIL_FROM` (optional) | leave it unset, Part 5 | the sender | `Tourbook <licences@tourbook.crowmade.app>` |
 | `WEB_SIGN_IN` (Text) | `on`, Part 6 | the website's licence | the website's licence paused: every role open |
 | `SIGN_IN_EMAILS_PER_DAY` (optional) | a number | more than 30 sign-in emails a day, on a paid Resend plan | 30 |
 

@@ -9,11 +9,11 @@ your guitar, counts you in and times your set. Afterwards it settles the night, 
 It works on a phone and on a computer, in the browser or installed like an app, and keeps working with no signal. There
 is no account: your information stays on your own phone or computer unless you choose to save a backup or send a link.
 If you connect your own Google Drive (free, for everyone), Tourbook keeps your phone and computer the same through a private
-Tourbook folder there, with a dated copy each day. The **Audiophile** role is free for good; the working roles (producer,
-manager, band, solo artist, scout, and Jack of Trades) are free for 30 days on each device, then need a licence: 20 US
-dollars once, for up to 3 of your devices. The licence is built but switched off: until it is switched on, every role is
-free and nothing is asked. A desktop app for Windows, Mac and Linux is built too (`docs/desktop.md`); neither it nor the
-licence is published yet.
+Tourbook folder there, with a dated copy each day. The **Audiophile** role is free for good, for your own personal use
+(not for work); the working roles (producer, manager, band, solo artist, scout, and Jack of Trades), for work too, are
+free for 30 days on each device, then need a licence: 20 US dollars once, for up to 3 of your devices. The licence is
+built but switched off: until it is switched on, every role is free and nothing is asked. A desktop app for Windows, Mac
+and Linux is built too (`docs/desktop.md`); neither it nor the licence is published yet.
 
 Tourbook is a sibling of Vdex, the app for videographers, and shares its look and the way it works.
 
@@ -42,7 +42,7 @@ on the calendar every time, and the calendar is the first track on every menu:
 | 🥁 Band | Bookings · Songs · Backline · Tools · Bands · Money · People · Venues | A show opens with the running order and setlist; Songs opens on your setlists. |
 | 🎤 Solo artist | Bookings · Songs · Money · My act · Venues · People · Tools | A show opens with the deal and setlist; private gigs (weddings, parties) are shows too. |
 | 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Tourbook asks if you saw them and takes your score; no fees or settlements. |
-| 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Tourbook asks if you saw them and takes your score; Tools opens on the sound meter; no fees. |
+| 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Tourbook asks if you saw them and takes your score; Tools opens on the sound meter; no fees. Free, for personal use, not for work. |
 | 🧰 Jack of Trades (Master of None) | Bookings · Acts · People · Songs · Studio log · Backline · Venues · Money · Tools · Insurance | Every section on the menu and every box on a booking's page, as Tourbook has always been. Close the question without picking and this is what you get. |
 
 Every menu ends with **My card** and **Settings**, whoever you are. Nothing is ever deleted or out of reach: the

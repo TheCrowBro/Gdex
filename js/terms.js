@@ -35,9 +35,10 @@ export function askTerms({ once = '20 USD once plus any tax where you live' } = 
       close();
     } },
       h('p', null, changed ? 'Please read and agree to the updated terms to keep using the working roles. Your information is safe and stays where it is.'
-        : `Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ${once}, for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Tourbook’s terms.`),
+        : `Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ${once}, for up to 3 of your devices. Audiophile stays free, for personal use, not for work. To use them, please read and agree to Tourbook’s terms.`),
       // The points are the short version of terms.html word for word (but its Audiophile and price points, which the line
-      // above says), in its order, linking the same sections; tests/specs/83-legal-pages checks the two stay the same.
+      // above says: the Audiophile free, for personal use, not for work), in its order, linking the same sections; the line
+      // above has a twin in js/licence.js (the Read-only for now sheet); tests/specs/83-legal-pages checks all three stay the same.
       h('ul', { class: 'lic-terms-points' },
         h('li', null, 'Tourbook keeps your own records of your shows, sessions, deals, songs and the people you work with. It is not an agent, promoter, manager, label or music publisher, takes no part in your bookings or deals, and never handles money (', link('terms.html#what', 'section 2'), ').'),
         h('li', null, 'Your work stays on your device, and the developer never receives it. Google Drive is optional and free for everyone: it keeps your devices the same, with a dated copy each day, in a private Tourbook folder of your own Drive.'),

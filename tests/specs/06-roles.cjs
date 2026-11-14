@@ -44,6 +44,9 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok('a screen reader hears its name with the sub name: “Jack of Trades, Master of None”', (await page.getByRole('button', { name: /^Jack of Trades ?, Master of None A bit of all of it/ }).count()) === 1, await page.locator('.rp-ask .rp-card[data-role="all"]').evaluate(e => e.textContent));
     ok('the old “Not sure? Show me everything” button is gone, and no word on the question says Everything', (await page.locator('.rp-ask .rp-all, .rp-ask button.btn[data-role="all"]').count()) === 0 && !/show me everything|everything/i.test(await page.textContent('.rp-ask')), await page.textContent('.rp-ask'));
     ok('each role shows the menu it gives', /Studio log/.test(await page.textContent('.rp-card[data-role="producer"] .rp-menu')));
+    // The Audiophile is for personal use, not for work (the owner, decisions §21; terms.html section 3): its card says so
+    // where the role is picked, with licences on or off.
+    ok('the Audiophile’s card says it is for personal use, not for work', /\. For personal use, not for work\.$/.test(await page.textContent('.rp-ask .rp-card[data-role="audiophile"] .rp-blurb')), await page.textContent('.rp-ask .rp-card[data-role="audiophile"] .rp-blurb'));
     ok('the first role has the focus', await page.evaluate(() => document.activeElement && document.activeElement.dataset.role === 'producer'));
     ok('the welcome tour waits for the answer', (await page.locator('.tour-card').count()) === 0);
     await page.click('.rp-card[data-role="producer"]');
@@ -112,6 +115,11 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.locator('.rp-ask .rp-card[data-role="all"]').scrollIntoViewIfNeeded();
     const fit = await page.$eval('.rp-ask .rp-card[data-role="all"]', c => { const r = c.getBoundingClientRect(); return [...c.querySelectorAll('.rp-name, .rp-sub, .rp-blurb, .rp-menu')].every(e => { const b = e.getBoundingClientRect(); return b.left >= r.left - 1 && b.right <= r.right + 1 && e.scrollWidth <= e.clientWidth + 1; }) && r.right <= innerWidth; });
     ok(`Jack of Trades${label}: its name, sub name, blurb and menu fit in its card`, fit);
+    // The Audiophile's longer blurb (for personal use, not for work: decisions §21) fits in its card too.
+    await page.locator('.rp-ask .rp-card[data-role="audiophile"]').scrollIntoViewIfNeeded();
+    const fitA = await page.$eval('.rp-ask .rp-card[data-role="audiophile"]', c => { const r = c.getBoundingClientRect(); return [...c.querySelectorAll('.rp-name, .rp-blurb, .rp-menu')].every(e => { const b = e.getBoundingClientRect(); return b.left >= r.left - 1 && b.right <= r.right + 1 && b.top >= r.top - 1 && b.bottom <= r.bottom + 1 && e.scrollWidth <= e.clientWidth + 1; }) && document.documentElement.scrollWidth <= document.documentElement.clientWidth; });
+    const blurbA = await page.textContent('.rp-ask .rp-card[data-role="audiophile"] .rp-blurb');
+    ok(`the Audiophile${label}: its blurb ends “For personal use, not for work.”, and its name, blurb and menu fit in its card, nothing scrolls sideways`, /\. For personal use, not for work\.$/.test(blurbA) && fitA, JSON.stringify({ blurbA, fitA }));
     // what is said aloud as it is picked (util.js announce() fills #sr-live)
     await page.evaluate(() => { window.__said = []; const seen = () => { const r = document.getElementById('sr-live'); if (r && r.textContent) window.__said.push(r.textContent); }; new MutationObserver(seen).observe(document.body, { subtree: true, childList: true, characterData: true }); });
     await page.click('.rp-ask .rp-card[data-role="all"]');
@@ -129,6 +137,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.evaluate(() => { document.getElementById('se-role').open = true; });
     await page.waitForSelector('#se-role .rp-card');
     ok(`Jack of Trades${label}: …where it is the checked card, last, with its sub name`, (await page.$$eval('#se-role .rp-card', bs => bs.map(b => b.dataset.role + ':' + b.getAttribute('aria-checked')))).join(',') === 'producer:false,manager:false,band:false,solo:false,scout:false,audiophile:false,all:true' && (await page.textContent('#se-role .rp-card[data-role="all"] .rp-sub')) === 'Master of None');
+    ok(`Settings → Your role${label}: the Audiophile’s card says it is for personal use, not for work`, /\. For personal use, not for work\.$/.test(await page.textContent('#se-role .rp-card[data-role="audiophile"] .rp-blurb')));
     ok(`no errors in the console (Jack of Trades${label})`, errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
   }

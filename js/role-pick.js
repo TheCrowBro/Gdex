@@ -36,8 +36,9 @@ async function mayPick(id) {
   if (may !== 'locked' && roleNeedsLicence(id) && termsDue(licenceOn()) && !(await askTerms())) return false;
   return true;
 }
-// The first-run question's added sentence while licences are on (§9.2).
-const licenceIntro = () => (licenceOn() ? ' Audiophile is free. The other roles, Jack of Trades included, are free for 30 days on this device, then need a licence: 20 USD once plus any tax where you live, for up to 3 of your devices.' : '');
+// The first-run question's added sentence while licences are on (§9.2). The Audiophile is for personal use, not for work
+// (terms.html, section 3; decisions §21), as its card's blurb says in every state.
+const licenceIntro = () => (licenceOn() ? ' Audiophile is free, for personal use, not for work. The other roles, Jack of Trades included, are free for 30 days on this device, then need a licence: 20 USD once plus any tax where you live, for up to 3 of your devices.' : '');
 
 const NUDGED = 'tourbook-role-nudged';
 const nudged = () => { try { localStorage.setItem(NUDGED, '1'); } catch { /* private mode */ } };

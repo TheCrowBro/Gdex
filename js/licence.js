@@ -211,7 +211,7 @@ export function overSheetIfDue() {
     const s = licenceNow();
     if (s.mode === 'away') return awaySheet().done;
     overOpen = new Promise(resolve => {
-      const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, with everything you already have.'];
+      const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, with everything you already have, for personal use and not for work.'];
       const readOnly = `Tourbook is read-only ${role} on this device until there is a licence: you can open, search, print and share everything, but not change it. Nothing has been deleted.`;
       const text = {
         ended: ['Your 30 free days are over', [readOnly, ' ', ...how]],
@@ -255,11 +255,13 @@ export function awaySheet() {
   return { ...sh, done };
 }
 
-// Carry on free as an Audiophile: the role changes (the calendar opens), nothing is deleted.
+// Carry on free as an Audiophile: the role changes (the calendar opens), nothing is deleted. The Audiophile is for personal use,
+// not for work (terms.html, section 3; decisions §21): the offers and this toast say so, and the app enforces nothing more
+// than the sections each role has.
 export function carryOnFree() {
   setRole(FREE_ROLE, { start: true });
-  toast('Audiophile: free for good. Nothing was deleted; the other roles come back with a licence.');
-  announce('Audiophile: Tourbook is free for good.');
+  toast('Audiophile: free for good, for personal use. Nothing was deleted; the other roles come back with a licence.');
+  announce('Audiophile: Tourbook is free for good, for personal use.');
 }
 
 /* ------------------------------ read-only, after a refused change ------------------------------ */
@@ -276,7 +278,7 @@ export function readOnlySheet({ form = false } = {}) {
     const has = ['licensed', 'pending'].includes(s.mode);
     sh = sheet('Read-only for now', h('div', { class: 'stack lic-ro' },
       termsChanged(true) ? h('p', null, 'Please read and agree to the updated terms to keep using the working roles. Your information is safe and stays where it is.')
-        : h('p', null, 'Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ', onceEl(), ', for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Tourbook’s terms.'),
+        : h('p', null, 'Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ', onceEl(), ', for up to 3 of your devices. Audiophile stays free, for personal use, not for work. To use them, please read and agree to Tourbook’s terms.'),
       h('p', { class: 'small muted' }, `Nothing was changed${form ? ': what you typed is still in the form' : ''}.`),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'btn primary', id: 'lic-ro-terms', onclick: async () => { close(); if (await askTerms({ once: once() })) { termsAgreed(); if (await startFreeDays()) toastStarted(); } } }, 'Read and agree'),
@@ -289,7 +291,7 @@ export function readOnlySheet({ form = false } = {}) {
       offline: 'Tourbook hasn’t been able to check your licence for 90 days', released: 'This computer is no longer on your licence', pending: 'Your licence isn’t activated on this computer yet',
     }[s.mode] || 'Your free days are over';
     sh = sheet('Read-only until there is a licence', h('div', { class: 'stack lic-ro' },
-      h('p', null, `${first}, so ${role} can’t change things on this device. Nothing was changed${form ? ' (what you typed is still in the form)' : ''}. You can still open, search, print and share everything.`),
+      h('p', null, `${first}, so ${role} can’t change things on this device. Nothing was changed${form ? ' (what you typed is still in the form)' : ''}. You can still open, search, print and share everything. Or carry on free as an Audiophile, for personal use and not for work.`),
       h('div', { class: 'actions' }, ...actions(s, nextStep(s), { sheetWords: true, carry: true, after: close })),
       buyNote(nextStep(s))));
   }

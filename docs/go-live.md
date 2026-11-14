@@ -10,7 +10,8 @@ this order. You approve; the developer runs.
 
 1. **You read the terms and the privacy policy** (`terms.html`, `privacy.html`; the preview has them) and say what to
    change. They go live with this launch: who provides Tourbook, the contact address, the law, the courts, the liability
-   cap and the refund are copied unchanged from Vdex's (question 4 below), and their date is the day they were written.
+   cap and the refund are copied unchanged from Vdex's (question 2 below), and their date is the day they were written.
+   Before licences are switched on (9(d)), a lawyer you choose reads them too.
 2. **You check the address is free.** In Cloudflare, the crowmade.app zone → **DNS → Records**: no record named `tourbook`;
    and under **Workers & Pages** no Worker or Pages project uses tourbook.crowmade.app. A publish from GitHub runs Wrangler
    without anyone at a keyboard, and then Wrangler takes over a DNS record or another Worker's custom domain of the
@@ -43,8 +44,9 @@ this order. You approve; the developer runs.
    `/download.html` says the desktop app is coming; any wrong address shows "There’s nothing at this address". Install
    it from the browser, and open it once with the network off.
 
-**From your own computer instead** (question 6): `npx wrangler login`; in the repository on `main`,
-`node tools/stamp-build.mjs`, `node tools/stage-site.mjs cloudflare/site --cloudflare`, then in `cloudflare/`
+**From your own computer instead** (the other way you were offered; on 14 November 2026 you chose GitHub, as above):
+`npx wrangler login`; in the repository on `main`, `node tools/stamp-build.mjs`,
+`node tools/stage-site.mjs cloudflare/site --cloudflare`, then in `cloudflare/`
 `npx wrangler deploy --config wrangler.jsonc`. If Wrangler asks about the KV store, choose **Create new** and keep
 the name `tourbook-licences` (never one it lists: they can be Vdex's); if it asks to take over an address or a record,
 answer no and do step 2 again. Afterwards, `git checkout -- cloudflare/wrangler.jsonc` (Wrangler writes the store's id
@@ -90,7 +92,12 @@ are the earlier terms' words, adapted from Vdex's, unchanged but for their refer
 California item (name in section 1, price in section 3) and section 17's list of what still applies after you stop (which
 now also names section 2, what Tourbook is and is not, which the earlier list left out, and still leaves out your right
 to use Tourbook). A Contents fold under the short version lists the sections. Who provides Tourbook, the contact address, the law, the courts, the
-liability cap and the 14-day refund are as you published them for Vdex. Tell the developer anything to change.
+liability cap and the 14-day refund are as you published them for Vdex. Later the same day, before anything was published,
+the terms gained your rule that the Audiophile is for personal use, not for work (decisions §21; the short version,
+section 3 and section 12, and the one-time terms sheet's first line): the date stayed 14 November 2026 and `TERMS_VERSION`
+`'2026-11-14'`, since no device had agreed to the earlier words. Tell the developer anything to change. **Before licences
+are switched on (9(d)), a lawyer you choose reads the terms and the privacy policy** (you said you would find one); the
+developer makes the changes they ask for, dated the day they are made (with `TERMS_VERSION`).
 
 ## 2. Cloudflare (15 minutes)
 
@@ -114,21 +121,25 @@ switches nothing on. Steps: `docs/licence-server.md`, Parts 2 and 3.
 
 ## 4. Stripe (about 40 minutes, plus Stripe's checks)
 
-A product "Tourbook licence", one-off 20.00 USD, tax not included, tax code "Downloadable Software - business use"; Managed
-Payments on (Link is the seller and handles tax); the terms and privacy addresses in Stripe's public details; a
-**payment link** with Managed Payments, "require customers to accept your terms of service" ticked, and the address
-after payment `https://tourbook.crowmade.app/licence/thanks?session_id={CHECKOUT_SESSION_ID}`; Worker settings `BUY_URL` (the
-link's address) and `STRIPE_PAYMENT_LINK` (its `plink_…` id); a restricted key with Checkout Sessions read →
+In the Stripe account Vdex uses (your answer, under Answered below). A product "Tourbook licence", one-off 20.00 USD,
+tax not included, tax code "Downloadable Software - business use"; Managed Payments on (Link is the seller and handles
+tax); the terms and privacy addresses in Stripe's public details; a **payment link** with Managed Payments, "require
+customers to accept your terms of service" ticked, and the address after payment
+`https://tourbook.crowmade.app/licence/thanks?session_id={CHECKOUT_SESSION_ID}`; Worker settings `BUY_URL` (the link's
+address) and `STRIPE_PAYMENT_LINK` (its `plink_…` id); a restricted key with Checkout Sessions read →
 `STRIPE_SECRET_KEY`; a webhook to `https://tourbook.crowmade.app/licence/stripe-webhook` with
-`checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded` and
-`charge.dispute.created` → `STRIPE_WEBHOOK_SECRET`. Test mode first if you like: while testing, leave `BUY_URL` unset (the
-website then says "not on sale yet") and open the test payment link directly; a test order's code ends two days after
-it was issued, so no test purchase becomes a lasting licence. Steps: `docs/licence-server.md`, Part 4.
+`checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded` and `charge.dispute.created`
+→ `STRIPE_WEBHOOK_SECRET`. Test mode first if you like: while testing, leave `BUY_URL` unset (the website then says "not
+on sale yet") and open the test payment link directly; a test order's code ends two days after it was issued, so no test
+purchase becomes a lasting licence. Steps: `docs/licence-server.md`, Part 4.
 
 ## 5. Resend (10 minutes)
 
-The sending domain verified, an API key with sending access → `RESEND_API_KEY`; `MAIL_FROM` and `REPLY_TO` as you answer
-question 2 below. Steps: `docs/licence-server.md`, Part 5.
+In the Resend account Vdex uses: the sending domain tourbook.crowmade.app verified beside vdex.crowmade.app (Resend's
+free plan allows 3 domains, so no paid plan; the two share its 100 free emails a day), an API key with sending access for
+that domain → `RESEND_API_KEY`. The emails come from `Tourbook <licences@tourbook.crowmade.app>`, `MAIL_FROM`'s default,
+so `MAIL_FROM` stays unset; `REPLY_TO` is the contact address, once you have answered question 2 below. Steps:
+`docs/licence-server.md`, Part 5.
 
 ## 6. Google (30 minutes)
 
@@ -235,7 +246,8 @@ In the same commit, the terms lose the sentence that says the licence is not on 
 "Until licences are switched on at tourbook.crowmade.app, every role is free and the licence parts of these terms do not
 apply yet." comes out of the short version and out of section 3; `TERMS_VERSION` in `js/terms.js` is raised to that
 day's date, so every device is asked to agree to the terms again; and the check in `tests/specs/83-legal-pages.cjs`
-that expects the sentence is changed to expect it gone. Read the terms once more before this step.
+that expects the sentence is changed to expect it gone. **Before this step, a lawyer you choose reads the terms and the
+privacy policy**, and the developer makes the changes they ask for; then read the terms once more yourself.
 
 The public keys must already be in `desktop/licence-keys.json` and `js/licence-keys.js` (step 3): the publish workflow's
 guard refuses to publish live licences without them. Then publish as in (a). From then on every browser at
@@ -268,28 +280,39 @@ Answered:
 
 - **What a free Audiophile keeps:** the calendar of the shows they go to and the bands they like; not the working boxes,
   sessions, rehearsals or anything about money. Built so (one constant, `FREE_KEEPS_WORK`, would free the boxes).
+- **The Audiophile is not for work** (14 November 2026: "Yes audiophiles can't use it for work."): it is for your own
+  personal use, going to shows and keeping track of the bands you like. Work (booking, promoting, managing, producing,
+  recording, playing or scouting for pay, for clients or for a business) needs a working role: free for its 30 days, then
+  a licence, which covers every role on its device. The terms say so (the short version, section 3 with examples, and
+  section 12, whose "including paid work" is the working roles'), and so do the role picker's Audiophile card and its
+  words while licences are on, Settings → Your role (the same cards), the Carry on free offers and their toast, the
+  one-time terms sheet's first line and the download page. The app enforces nothing more than the sections each role
+  has: the rule is the terms'.
 - **Agreeing to the terms in the app:** a one-time terms sheet the first time someone uses a working role; the free
   Audiophile never sees it. Built so.
 - **Age:** 18 or over for everyone, Vdex's wording.
 - **Desktop downloads:** Tourbook's own bucket, tourbook-download.crowmade.app.
+- **Stripe:** the same Stripe account as Vdex (decisions §20). So every card statement shows the account's descriptor
+  (make it neutral, for example the name you trade under, before Tourbook goes on sale), and Tourbook's Stripe key
+  (Checkout Sessions: Read) reads every order in the account, Vdex's buyers' names, email addresses and billing addresses
+  included; only a separate account would keep them apart. Nothing in the code depends on it.
+- **Resend:** "Should be crowmade right?" Yes: the emails come from `Tourbook <licences@tourbook.crowmade.app>` (the
+  Worker's `MAIL_FROM` default), as Vdex's come from licences@vdex.crowmade.app, sent by Resend, which stays named in the
+  terms and the privacy policy. Resend's free plan has allowed 3 verified domains since August 2026, so
+  tourbook.crowmade.app is a second domain on the same Resend account as Vdex, sharing its 100 free emails a day (Tourbook
+  sends at most 30 sign-in emails a day); no paid plan is needed, and Tourbook's key is made for its own domain only.
+  Where replies go (`REPLY_TO`) follows the contact address (question 2).
+- **Where the website is published from:** GitHub, with the protected Environment `tourbook-live` (step 2), which you
+  chose on 14 November 2026.
+- **A lawyer:** "I'll find a lawyer": a lawyer you choose reads the terms and the privacy policy before licences are
+  switched on (step 1 and 9(d)).
 
-Asked again before anything goes live (the build goes ahead with these defaults meanwhile):
+Still open (the build goes ahead with these defaults meanwhile):
 
-1. **Stripe:** the same Stripe account as Vdex, or a separate one? With one account, every card statement shows the
-   account's descriptor, unless you make it neutral, and Tourbook's Stripe key (Checkout Sessions: Read) reads every order
-   in it, Vdex's buyers' names, email addresses and billing addresses included; a separate account keeps them apart.
-   *Default: nothing in the code depends on it.*
-2. **Resend:** which address Tourbook's emails come from, and where replies go. Sending from tourbook.crowmade.app means
-   verifying a second domain, which may need a paid Resend plan; one Resend account shares its 100 free emails a day
-   with Vdex. Sending from a domain Vdex already sends from instead means Tourbook's Resend key can send email as Vdex.
-   *Default: `MAIL_FROM` is a setting, defaulting to licences@tourbook.crowmade.app.*
-3. **Code signing:** the Apple and Windows signing you have for Vdex, for Tourbook too (no new fee), or unsigned at first?
+1. **Code signing:** the Apple and Windows signing you have for Vdex, for Tourbook too (no new fee), or unsigned at first?
    *Default: the workflow signs only when the secrets exist.*
-4. **The contact address** in Tourbook's terms, privacy page and emails: the same as Vdex's? *Default: copied from Vdex's
-   terms.*
-5. **Backup files and the free days:** someone can save a backup file, open Tourbook in a private window (fresh free days)
+2. **The contact address** in Tourbook's terms, privacy page and emails, and so where replies to the emails go
+   (`REPLY_TO`): the same as Vdex's? *Default: copied from Vdex's terms.*
+3. **Backup files and the free days:** someone can save a backup file, open Tourbook in a private window (fresh free days)
    and bring the backup back there. Accept that, or make a backup file carry the free-days start too? *Default: accept
    it.*
-6. **Where the website is published from:** GitHub with the protected Environment `tourbook-live` (step 2), or your own
-   computer (`npx wrangler deploy --config wrangler.jsonc` after signing in to Cloudflare, no token in GitHub at all)?
-   *Default: GitHub with the protected Environment.*
