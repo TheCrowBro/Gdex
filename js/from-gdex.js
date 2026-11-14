@@ -5,8 +5,8 @@
 // tourbook-db-v1), so nothing Tourbook removes later comes back from an old key. js/kv.js copies the old IndexedDB
 // "gdex" the same way when it first makes "tourbook". A plain script, the first in index.html, so it runs before
 // anything reads storage (js/prepaint.js reads the theme). It never throws: storage blocked, full, or holding anything.
-// To drop it later: delete this file, its <script> in index.html, the block marked "from Gdex" in js/kv.js and spec
-// 09-from-gdex, then run node tools/stamp-build.mjs --dev.
+// To drop it later: delete this file, its <script> in index.html, the block marked "from Gdex" in js/kv.js, the old
+// gdex- keys' removal in eraseAll (js/store.js) and spec 09-from-gdex, then run node tools/stamp-build.mjs --dev.
 (() => {
   try {
     const ls = window.localStorage, keys = [];

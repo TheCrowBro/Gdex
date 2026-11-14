@@ -215,7 +215,8 @@ Backup files saved under Gdex still open (`app: 'gdex'`, or `{ gdex: 'encrypted-
 and `js/drive.js` likewise), and the service worker drops Gdex's old `gdex-…` caches with its own old ones. `09-from-gdex`
 checks all of it, and that the old name is found nowhere else. To drop the copy later: delete `js/from-gdex.js`, its
 `<script>` in `index.html`, the block marked "from Gdex" in `js/kv.js` (and the `copied` wait in `idb()`) and
-`tests/specs/09-from-gdex.cjs`, then run `node tools/stamp-build.mjs --dev`.
+`tests/specs/09-from-gdex.cjs`, and the block in `eraseAll` (`js/store.js`) that removes the old `gdex-…` keys (a browser
+that still holds them keeps them after an Erase from then on), then run `node tools/stamp-build.mjs --dev`.
 
 A choice that storage cannot keep (private mode, or storage full) still holds for the visit: the display
 preferences and the calendar's view live in memory while the page is open, and `askSetting()` reads storage every
