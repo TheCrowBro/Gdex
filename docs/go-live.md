@@ -44,7 +44,7 @@ this order. You approve; the developer runs.
    `/download.html` says the desktop app is coming; any wrong address shows "There’s nothing at this address". Install
    it from the browser, and open it once with the network off.
 
-**From your own computer instead** (question 4): `npx wrangler login`; in the repository on `main`,
+**From your own computer instead** (you chose GitHub; this stays possible): `npx wrangler login`; in the repository on `main`,
 `node tools/stamp-build.mjs`, `node tools/stage-site.mjs cloudflare/site --cloudflare`, then in `cloudflare/`
 `npx wrangler deploy --config wrangler.jsonc`. If Wrangler asks about the KV store, choose **Create new** and keep
 the name `tourbook-licences` (never one it lists: they can be Vdex's); if it asks to take over an address or a record,
@@ -246,9 +246,12 @@ becomes
 
 In the same commit, the terms lose the sentence that says the licence is not on yet. In `terms.html` the sentence
 "Until licences are switched on at tourbook.crowmade.app, every role is free and the licence parts of these terms do not
-apply yet." comes out of the short version and out of section 3; `TERMS_VERSION` in `js/terms.js` is raised to that
+apply yet." comes out of the short version and out of section 3, and so does section 3's "This rule applies before
+licences are switched on too, while every role is free." (the end of the paragraph that says the Audiophile is not for
+work); `TERMS_VERSION` in `js/terms.js` is raised to that
 day's date, so every device is asked to agree to the terms again; and the check in `tests/specs/83-legal-pages.cjs`
-that expects the sentence is changed to expect it gone. **Before this step, a lawyer you choose reads the terms and the
+that expects the sentence is changed to expect it gone (and its check of the Audiophile's work paragraph, to expect it
+without that last sentence). **Before this step, a lawyer you choose reads the terms and the
 privacy policy**, and the developer makes the changes they ask for; then read the terms once more yourself.
 
 The public keys must already be in `desktop/licence-keys.json` and `js/licence-keys.js` (step 3): the publish workflow's
@@ -309,6 +312,9 @@ Answered:
   tourbook.crowmade.app is a second domain on the same Resend account as Vdex, sharing its 100 free emails a day (Tourbook
   sends at most 30 sign-in emails a day); no paid plan is needed, and Tourbook's key is made for its own domain only.
   Where replies go (`REPLY_TO`) follows the contact address (question 2).
+- **Where the website is published from:** GitHub, like Vdex: the workflow **Publish Tourbook** on `main`, with the
+  Cloudflare token in the protected Environment `tourbook-live` (step 2). You chose it on 14 November 2026 ("Like Vdex,
+  from GitHub"), over publishing from your own computer, which stays possible (below step 7).
 - **A lawyer:** "I'll find a lawyer": a lawyer you choose reads the terms and the privacy policy before licences are
   switched on (step 1 and 9(d)).
 
@@ -322,7 +328,3 @@ Still open (the build goes ahead with these defaults meanwhile):
 3. **Backup files and the free days:** someone can save a backup file, open Tourbook in a private window (fresh free days)
    and bring the backup back there. Accept that, or make a backup file carry the free-days start too? *Default: accept
    it.*
-4. **Where the website is published from:** GitHub with the protected Environment `tourbook-live` (step 2), or your own
-   computer (`npx wrangler deploy --config wrangler.jsonc` after signing in to Cloudflare, no token in GitHub at all)?
-   Not answered yet: your "Publish it for now" (14 November 2026) goes ahead with the default. *Default: GitHub with the
-   protected Environment.*
