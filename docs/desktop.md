@@ -189,9 +189,10 @@ Even signed, a new Windows app shows a milder "not commonly downloaded" prompt u
 
 Installers and update files go in a Cloudflare R2 bucket of Gdex's alone, **`gdex-downloads`**, with the custom domain
 **`gdex-download.crowmade.app`** (the owner's answer: never Vdex's bucket or download.crowmade.app). The address is in
-four places that `86-download-page` keeps equal: `FEED` in `desktop/updater.cjs`, `build.publish[0].url` in
-`package.json`, and the three links of `download.html`. It is built into every desktop app for good, so it is settled
-before the first release.
+the places that `86-download-page` keeps equal: `FEED` in `desktop/updater.cjs` and `build.publish[0].url` in
+`package.json`, and, from the first public release, the three links of `download.html` (until then the page links no
+installer and says the desktop app is coming: "Releasing", step 0). It is built into every desktop app for good, so it
+is settled before the first release.
 
 1. dash.cloudflare.com → Storage & databases → R2 → **Create bucket** `gdex-downloads` (location Automatic, Standard).
 2. In the bucket: Settings → Custom Domains → Add → `gdex-download.crowmade.app` → Connect, and wait for **Active**.
@@ -230,7 +231,29 @@ Windows, Mac and Linux, before it is uploaded.
 Gdex's website must be live first (share links, the download page, the licence server and Google's sign-in all point
 at gdex.crowmade.app).
 
-0. **The first public release only:** the hardening above is in, and step 3 of it passed on each installer.
+0. **The first public release only:** the hardening above is in, and step 3 of it passed on each installer. And the
+   download page gets its links, in one commit (with the owner's go-ahead, published as the website is, after step 5's
+   files are in the bucket, never before): in `download.html` the paragraph `<p class="soon" id="soon">…</p>` comes out,
+   and the three cards become links to the fixed names:
+
+   ```html
+   <div class="grid">
+     <a class="dl" href="https://gdex-download.crowmade.app/Gdex-Setup.exe"><b>Windows</b><span>Windows 10 or 11 · Gdex-Setup.exe</span></a>
+     <a class="dl" href="https://gdex-download.crowmade.app/Gdex.dmg"><b>Mac</b><span>macOS 12 or later, Apple or Intel · Gdex.dmg</span></a>
+     <a class="dl" href="https://gdex-download.crowmade.app/Gdex.AppImage"><b>Linux</b><span>64-bit · Gdex.AppImage</span></a>
+   </div>
+   ```
+
+   "Once the desktop app is out, download it from this page and open it." becomes "Download Gdex above and open it.",
+   and "Installing, once it’s out" becomes "Installing". In `tests/specs/86-download-page.cjs`, the two checks that
+   begin "while the desktop app is not out" and "…and what speaks of an installer reads as for later" become one:
+
+   ```js
+   ok('the three download links are the fixed names at that address', JSON.stringify(links) === JSON.stringify(['Gdex-Setup.exe', 'Gdex.dmg', 'Gdex.AppImage'].map(f => FEED + f)), links.join(' '));
+   ```
+
+   and the `.dl.later` and `.soon` styles can go. The page then links files that exist, so it is published only once
+   step 4 is done and step 5's check of the bucket passed.
 1. **The version.** Raise `VERSION` in `js/version.js` (a version once uploaded is never uploaded again: installers are
    cached for a year, and a second copy under the same version breaks updates' checksums). Tag the commit `v<VERSION>`
    if a tag is wanted: it must equal `VERSION`.
@@ -247,7 +270,9 @@ at gdex.crowmade.app).
    Content types: `.exe` `application/vnd.microsoft.portable-executable`, `.dmg` `application/x-apple-diskimage`,
    `.zip` `application/zip`, `.yml` `text/yaml`, anything else `application/octet-stream`.
 5. **Check**: `https://gdex-download.crowmade.app/latest.yml` (and the Mac and Linux ones) show the new version, and
-   `https://gdex.crowmade.app/download.html` downloads all three.
+   `https://gdex-download.crowmade.app/Gdex-Setup.exe`, `Gdex.dmg` and `Gdex.AppImage` download. On the first public
+   release, publish the website with step 0's links only now; after that, `https://gdex.crowmade.app/download.html`
+   downloads all three.
 6. **Try it** on a computer that never had Gdex: Settings → About shows the version; with licences on, Settings → About
    & licence shows the free days once a working role is used; buy a licence through Buy, check the thank-you page and
    the email, Enter licence code; refund it in Stripe and see the code cancelled at the next check (or at once with

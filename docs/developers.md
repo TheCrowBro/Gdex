@@ -58,7 +58,7 @@ Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` before `npm ci` unless you need the deskto
 | `index.html` | The app. Links `styles.css` and every `css/*.css`. |
 | `invoice.html`, `daysheet.html` | Share pages: open a document packed into the link (no server). |
 | `privacy.html`, `terms.html` | The privacy policy and the terms of service: no script, their own policy (Part B of item 9; the owner reads them before anything is published). |
-| `download.html` | Gdex for computers: the desktop app's download page (not linked from the app until the owner publishes). |
+| `download.html` | Gdex for computers: the desktop app's download page (not linked from the app until the owner publishes). Until the first public desktop release it links no installer and says the app is coming (`docs/desktop.md`, Releasing, step 0). |
 | `styles.css` | Core styles and themes (copied from Vdex, re-skinned). |
 | `css/<feature>.css` | One stylesheet per feature, owned by that feature. |
 | `js/app.js` | Boot, the section menu, sections, redraw on change. |
@@ -1423,7 +1423,8 @@ caller tests for the member it uses, because specs stand in for parts of it):
 
 The desktop app contacts nothing while its licence is off and Google Drive is not linked, but for OpenStreetMap when a
 venue's map or Find from address is used, and its update checks once installed (`desktop/updater.cjs`, `https://gdex-download.crowmade.app/`, Gdex's own bucket; the same address in
-`package.json`'s `build.publish`, `download.html` and the feed, kept equal by `86-download-page`). It is built by hand
+`package.json`'s `build.publish` and the feed, and, from the first public release, `download.html`'s links, kept equal by
+`86-download-page`; until then the page links no installer and says the app is coming). It is built by hand
 (`.github/workflows/desktop.yml`) and uploads nothing.
 
 ## Shared modules (core)

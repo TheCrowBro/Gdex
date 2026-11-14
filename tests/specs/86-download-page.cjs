@@ -1,7 +1,8 @@
 // The desktop app's download page and its package, and the web app's side of the desktop app.
-//  1. Node: download.html's price list is js/tax.js's (every total, each place once); its three installers, the
-//     updater's feed (desktop/updater.cjs) and electron-builder's publish address (package.json) are Gdex's own
-//     download address, never Vdex's; the page runs no script, links /buy and names the Audiophile as free; the
+//  1. Node: download.html's price list is js/tax.js's (every total, each place once); while the desktop app is not out
+//     it links no installer and says the app is coming; the updater's feed (desktop/updater.cjs) and
+//     electron-builder's publish address (package.json) are Gdex's own download address, never Vdex's; the page runs
+//     no script, links /buy and names the Audiophile as free; the
 //     package holds every website file (tools/site-files.mjs) and the seven desktop files, and is Gdex's, not Vdex's
 //     (app id, name, port, no camera); the build workflow publishes nothing.
 //  2. Chromium: the page at 420 and 320 wide, light and dark, without sideways scrolling; then the web app with a
@@ -33,9 +34,16 @@ const esm = f => import(pathToFileURL(path.join(REPO, f)).href);
   const publish = pkg.build && pkg.build.publish && pkg.build.publish[0];
   const links = [...html.matchAll(/<a class="dl" href="([^"]+)"/g)].map(m => m[1]);
   ok('the updater’s feed is Gdex’s own download address, and electron-builder publishes to the same one', FEED === 'https://gdex-download.crowmade.app/' && publish && publish.url === FEED && publish.provider === 'generic' && publish.channel === 'latest', JSON.stringify({ FEED, publish }));
-  ok('the three download links are the fixed names at that address', JSON.stringify(links) === JSON.stringify(['Gdex-Setup.exe', 'Gdex.dmg', 'Gdex.AppImage'].map(f => FEED + f)), links.join(' '));
+  // The desktop app is not released yet (decisions §18: no installers, no bucket): the page links no file that does not
+  // exist, and says the app is coming. docs/desktop.md's first public release puts the three links back and changes this.
+  const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
+  const installers = hrefs.filter(u => u.includes('gdex-download.crowmade.app') || /\.(exe|dmg|AppImage|zip|yml)$/i.test(u));
+  const soon = (/<p class="soon" id="soon">([\s\S]*?)<\/p>/.exec(html) || [])[1] || '';
+  const later = [...html.matchAll(/<div class="dl later"><b>([^<]+)<\/b><span>([^<]+)<\/span><\/div>/g)].map(m => m[1] + ': ' + m[2]);
+  ok('while the desktop app is not out, the page links no installer (nothing at the download address, no .exe, .dmg or .AppImage) and says it is coming', links.length === 0 && installers.length === 0 && /<b>Coming soon\.<\/b> The desktop app isn’t ready to download yet, so there’s nothing to install for now\./.test(soon) && /<a href="\.\/">open Gdex<\/a>/.test(soon) && JSON.stringify(later) === JSON.stringify(['Windows: Windows 10 or 11 · coming soon', 'Mac: macOS 12 or later, Apple or Intel · coming soon', 'Linux: 64-bit · coming soon']), JSON.stringify({ links, installers, later }));
+  ok('…and what speaks of an installer reads as for later: entering a code once the app is out, installing once it’s out, Google Drive once its sign-in is switched on', /<li>Once the desktop app is out, download it from this page and open it\.<\/li>/.test(html) && !/Download Gdex above/.test(html) && /<h2>Installing, once it’s out<\/h2>/.test(html) && /once Gdex’s Google sign-in is switched on \(until then Gdex says Google Drive isn’t set up yet\)/.test(html));
   const notVdex = u => { const x = new URL(u); return x.hostname !== 'download.crowmade.app' && !/vdex/i.test(x.hostname + x.pathname); };
-  ok('none of them, nor the feed, is Vdex’s download address or has /vdex in it', [FEED, publish.url, ...links].every(notVdex) && !/vdex/i.test(updater.replace(/\/\/.*$/gm, '')));
+  ok('neither the feed nor the publish address (nor a download link, once there are some) is Vdex’s download address or has /vdex in it', [FEED, publish.url, ...links].every(notVdex) && !/vdex/i.test(updater.replace(/\/\/.*$/gm, '')));
   ok('the update page is Gdex’s download page', /const PAGE = 'https:\/\/gdex\.crowmade\.app\/download\.html'/.test(updater) && /'User-Agent': 'Gdex\/'/.test(updater));
   const csp = (/http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html) || [])[1] || '';
   ok('the page runs no script: none in it, and its CSP allows none', !/<script/i.test(html) && /default-src 'none'/.test(csp) && !/script-src/.test(csp), csp);

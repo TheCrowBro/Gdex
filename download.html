@@ -24,8 +24,11 @@
   .lead { font-size: 1.05rem; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px; margin: 18px 0; }
   .dl { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-height: 44px; text-decoration: none; color: var(--text); }
-  .dl:hover, .dl:focus-visible { border-color: var(--accent); }
+  a.dl:hover, a.dl:focus-visible { border-color: var(--accent); }
   .dl b { display: block; font-size: 1.1rem; } .dl span { color: var(--muted); font-size: .9rem; }
+  /* Not out yet: a card, not a link, drawn with a dashed edge so it does not look like a button. */
+  .dl.later { border-style: dashed; }
+  .soon { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 14px; padding: 12px 16px; margin: 18px 0 0; max-width: none; }
   .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 14px 0; padding: 0; list-style: none; }
   .roles li { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin: 0; max-width: none; }
   .roles b { display: block; }
@@ -49,10 +52,11 @@
   </header>
   <p class="lead">The same Gdex as the website, in its own window, with your work kept on your computer. Audiophile, the role for going to shows and keeping track of the bands you like, is free for good. The working roles are free for 30 days on each computer, counted from the first time you use one there. Then a licence is 20 US dollars once plus any tax where you live (<a href="#price">the price with tax</a>), for up to 3 of your own devices. No subscription.</p>
 
+  <p class="soon" id="soon"><b>Coming soon.</b> The desktop app isn’t ready to download yet, so there’s nothing to install for now. Until it is, use Gdex on the website (<a href="./">open Gdex</a>): it keeps working offline once it has been opened, and your browser can install it like an app.</p>
   <div class="grid">
-    <a class="dl" href="https://gdex-download.crowmade.app/Gdex-Setup.exe"><b>Windows</b><span>Windows 10 or 11 · Gdex-Setup.exe</span></a>
-    <a class="dl" href="https://gdex-download.crowmade.app/Gdex.dmg"><b>Mac</b><span>macOS 12 or later, Apple or Intel · Gdex.dmg</span></a>
-    <a class="dl" href="https://gdex-download.crowmade.app/Gdex.AppImage"><b>Linux</b><span>64-bit · Gdex.AppImage</span></a>
+    <div class="dl later"><b>Windows</b><span>Windows 10 or 11 · coming soon</span></div>
+    <div class="dl later"><b>Mac</b><span>macOS 12 or later, Apple or Intel · coming soon</span></div>
+    <div class="dl later"><b>Linux</b><span>64-bit · coming soon</span></div>
   </div>
 
   <h2>Which roles need a licence</h2>
@@ -104,14 +108,14 @@
 
   <h2>Already have a licence code?</h2>
   <ol>
-    <li>Download Gdex above and open it.</li>
+    <li>Once the desktop app is out, download it from this page and open it.</li>
     <li>Go to <b>Settings → About &amp; licence → Enter licence code</b>.</li>
     <li>Paste the whole code from your email (it starts with <code>GDEX-</code>) and press <b>Activate</b>. Gdex needs the internet for this, once.</li>
   </ol>
   <p>One licence works on up to 3 of your computers with the desktop app. To move it to a new one, use <b>Release this computer</b> on the old one, or choose which computer to move it from when you activate the new one. On the website, choose <b>Sign in</b> in Settings → About &amp; licence and use the email address you bought with; Gdex emails you a 6-digit code. Signing in on the website doesn’t use one of your 3 places.</p>
   <p class="muted">A Vdex licence code doesn’t work in Gdex: the two apps have licences of their own.</p>
 
-  <h2>Installing</h2>
+  <h2>Installing, once it’s out</h2>
   <ul>
     <li><b>Windows:</b> open Gdex-Setup.exe. While Gdex is new, Windows may show “Windows protected your PC” or say the app is not commonly downloaded: choose <b>More info</b>, check the publisher, then <b>Run anyway</b>. Gdex updates itself after that.</li>
     <li><b>Mac:</b> open Gdex.dmg and drag Gdex into Applications. If macOS says it cannot check the app, open <b>System Settings → Privacy &amp; Security</b>, scroll down and choose <b>Open Anyway</b>.</li>
@@ -120,7 +124,7 @@
   <p class="muted">Uninstalling keeps your work on the computer, so installing Gdex again brings it back.</p>
 
   <h2>Bringing your work from the website</h2>
-  <p>The website and the desktop app keep their own copies. To share one Gdex between them, connect the same Google Drive in both (☁ at the top of Gdex, then <b>Connect Google Drive…</b>): free, for every role. Or, on the website, save a backup file (☁, then <b>Save a backup</b>) and bring it back in the desktop app.</p>
+  <p>The website and the desktop app keep their own copies. To share one Gdex between them, connect the same Google Drive in both (☁ at the top of Gdex, then <b>Connect Google Drive…</b>): free, for every role, once Gdex’s Google sign-in is switched on (until then Gdex says Google Drive isn’t set up yet). Or, on the website, save a backup file (☁, then <b>Save a backup</b>) and bring it back in the desktop app.</p>
 
   <p class="muted">Buying is covered by the <a href="terms.html#paid">terms of service</a> (including refunds within 14 days), and the <a href="privacy.html">privacy policy</a> explains what the licence check sends.</p>
   <a class="back" href="./">← Back to Gdex</a>
