@@ -3,8 +3,10 @@
 // tourbook-… key there yet) every localStorage key still named gdex-… is copied to its tourbook-… name, and the old
 // IndexedDB "gdex" into "tourbook" when that is first made; the old ones are left as they are, nothing is said, it runs
 // before anything reads storage, it happens once, it never overwrites anything of Tourbook's, and it never throws
-// (storage blocked or full, junk, no old database). Every context here is the spec's own, seeded on the same address
-// through privacy.html, a page that runs no script, before Tourbook is first opened.
+// (storage blocked or full, junk, no old database). In the licence leg it also checks that the free days it brings over
+// only ever move Tourbook's start earlier, never later, and that free days over under Gdex stay over. Every context here
+// is the spec's own, seeded on the same address through privacy.html, a page that runs no script, before Tourbook is
+// first opened.
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const { open, ok, sleep, BASE } = require('../helpers.cjs');
@@ -112,6 +114,52 @@ const OLD_KV = [['licence-days', { first: T - 864e5, seen: T }], ['note', 'kept 
     const st = await storage(page), a = await app(page);
     ok('a browser that already has Tourbook\'s keys gets nothing from Gdex\'s: its own role stays, no database or display choices come over', st['tourbook-role'] === 'band' && a.role === 'band' && a.acts.length === 0 && !('tourbook-prefs' in st) && !('tourbook-daysheet' in st), JSON.stringify({ role: st['tourbook-role'], acts: a.acts }));
     await ctx.close();
+  }
+
+  /* ------------- the licence leg: the copy never gives a later start of the free days ------------- */
+  // A start only ever moves earlier (js/licence-state.js joins its two copies, the earlier start counting): what the copy
+  // brings over can make Tourbook's free days older, never newer, and free days that ended under Gdex stay ended.
+  if (ON) {
+    const DAY = 864e5;
+    const lic = page => page.evaluate(() => import('./js/licence-state.js').then(async L => { await L.licenceReady(); const s = L.licenceNow(); return { mode: s.mode, first: s.first }; }));
+    const seedNewDb = (page, entries) => page.evaluate(entries => new Promise((res, rej) => {
+      const r = indexedDB.open('tourbook', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => { const t = r.result.transaction('kv', 'readwrite'); for (const [k, v] of entries) t.objectStore('kv').put(v, k); t.oncomplete = () => { r.result.close(); res(); }; t.onerror = () => rej(t.error); };
+      r.onerror = () => rej(r.error);
+    }), entries);
+    const firstOf = st => { try { return JSON.parse(st['tourbook-licence']).first; } catch { return null; } };
+    const used = { 'gdex-tour': 'done', 'gdex-role-nudged': '1', 'gdex-ask-seen': 'off', 'gdex-role': 'producer', 'gdex-terms': OLD['gdex-terms'] };
+    // Tourbook's own free days began 3 days ago; Gdex's, in the old IndexedDB, 25 days ago: the earlier counts.
+    {
+      const { ctx, page } = await fresh();
+      await seed(page, { ...used, 'tourbook-tour': 'done', 'tourbook-role-nudged': '1', 'tourbook-ask-seen': 'off', 'tourbook-role': 'producer', 'tourbook-terms': OLD['gdex-terms'], 'tourbook-licence': JSON.stringify({ on: true, statusAt: T, first: T - 3 * DAY, seen: T }) });
+      await seedOldDb(page, [['licence-days', { first: T - 25 * DAY, seen: T }]]);
+      await openApp(page);
+      const L = await lic(page), st = await storage(page);
+      ok('free days: Tourbook\'s own later start gives way to Gdex\'s earlier one, from the old IndexedDB (25 days ago, not 3)', L.mode === 'trial' && L.first === T - 25 * DAY && firstOf(st) === T - 25 * DAY, JSON.stringify({ L, first: firstOf(st) }));
+      await ctx.close();
+    }
+    // Gdex's start is the later one (2 days ago; 1 in its IndexedDB), Tourbook's IndexedDB holds 10 days ago: that stays.
+    {
+      const { ctx, page } = await fresh();
+      await seed(page, { ...used, 'gdex-licence': JSON.stringify({ on: true, statusAt: T, first: T - 2 * DAY, seen: T }) });
+      await seedOldDb(page, [['licence-days', { first: T - DAY, seen: T }]]);
+      await seedNewDb(page, [['licence-days', { first: T - 10 * DAY, seen: T }]]);
+      await openApp(page);
+      const L = await lic(page), st = await storage(page), [days] = await kvGet(page, 'licence-days');
+      ok('…a later start brought over from Gdex never moves Tourbook\'s earlier one (10 days ago stays, in both copies)', L.first === T - 10 * DAY && firstOf(st) === T - 10 * DAY && days && days.first === T - 10 * DAY, JSON.stringify({ L, first: firstOf(st), days }));
+      await ctx.close();
+    }
+    // Free days that ended under Gdex (40 days ago).
+    {
+      const { ctx, page } = await fresh();
+      await seed(page, { ...used, 'gdex-licence': JSON.stringify({ on: true, statusAt: T, first: T - 40 * DAY, seen: T }) });
+      await openApp(page);
+      const L = await lic(page);
+      ok('…and free days that ended under Gdex are over in Tourbook too: the working role is read-only', L.mode === 'ended' && L.first === T - 40 * DAY, JSON.stringify(L));
+      await ctx.close();
+    }
   }
 
   /* ------------------------------ it never throws ------------------------------ */

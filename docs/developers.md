@@ -1557,7 +1557,7 @@ backline, take, comp, stems, split sheet.
   | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
   | `90-drive` | its own contexts take the same seed |
-  | `09-from-gdex` | seeds Gdex's keys, which the copy brings over: in the on leg also Gdex's free days under way |
+  | `09-from-gdex` | seeds Gdex's keys, which the copy brings over: in the on leg also Gdex's free days under way, and checks that what it brings only ever moves the start of the free days earlier, never later, and that free days over under Gdex stay over |
   | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92` | set their own state, or none: the same in both legs |
 
 * The licence's own specs stand the licence server in with Playwright routes (75-78, with a `Date` header and a
