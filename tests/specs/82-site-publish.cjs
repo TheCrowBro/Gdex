@@ -1,6 +1,7 @@
 // What gets published to gdex.crowmade.app (the build spec §6.3): tools/stage-site.mjs, run in a throw-away copy of the
 // repository (with a planted key file and ledger), copies every page and every file of the offline list and nothing
-// else (no desktop app, licence server, tools, docs, tests, key file or package file); the Cloudflare copy's headers
+// else (no desktop app, licence server, tools, docs, tests, key file or package file); the release stamp changes only
+// the build (the repository keeps the dev stamp, and --dev puts it back exactly); the Cloudflare copy's headers
 // carry each page's own policy; the addresses the Worker answers agree everywhere; and the publish workflow runs only by
 // hand, in the owner's protected Environment, after its guard, which refuses any Worker but Gdex's (tried here on
 // tampered copies). Node only: nothing is published and nothing reaches the network.
@@ -41,6 +42,29 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
     ok('every file in the offline list (sw.js) is published', shell.length > 50 && shell.every(f => files.includes(f)), shell.filter(f => !files.includes(f)).join(', '));
     ok('the plain copy has no _headers or _redirects', !files.includes('_headers') && !files.includes('_redirects'));
     fs.rmSync(out, { recursive: true, force: true });
+
+    /* ---------------------------- the release stamp ---------------------------- */
+    // The repository keeps the dev stamp (CI's tests workflow fails on any other); the publish stamps the build it
+    // publishes, after the tests (tools/stamp-build.mjs without --dev), so installed copies update. The release stamp
+    // changes only the build in js/version.js (BUILD, BUILT) and in sw.js (and so its cache name), never the offline list,
+    // and --dev puts the repository's bytes back exactly (after a publish from the owner's own computer, docs/go-live.md).
+    {
+      const before = { v: read('js/version.js'), sw: read('sw.js') };
+      const stamp = (...args) => execFileSync(process.execPath, [path.join(root, 'tools/stamp-build.mjs'), ...args], { cwd: root, stdio: 'pipe', env: { ...process.env, BUILD_SHA: 'abcdef0123456789abcdef0123456789abcdef01' } }).toString();
+      const shellOf = t => t.match(/const SHELL = \[([\s\S]*?)\];/)[1];
+      const changed = (a, b) => a.split('\n').filter((l, i) => l !== b.split('\n')[i]);
+      ok('the repository holds the dev stamp: BUILD \'dev\', no BUILT, cache gdex-dev', /export const BUILD = 'dev';/.test(before.v) && /export const BUILT = '';/.test(before.v) && /^const BUILD = 'dev';/m.test(before.sw) && /const CACHE = 'gdex-' \+ BUILD;/.test(before.sw));
+      const dayBefore = new Date().toISOString().slice(0, 10);
+      stamp();
+      const rel = { v: read('js/version.js'), sw: read('sw.js') }, days = [dayBefore, new Date().toISOString().slice(0, 10)]; // either, at midnight
+      ok('the release stamp writes the commit\'s first 7 characters and the day into js/version.js and sw.js, and nothing else', /export const BUILD = 'abcdef0';/.test(rel.v) && days.some(day => rel.v.includes(`export const BUILT = '${day}';`)) && /^const BUILD = 'abcdef0';/m.test(rel.sw) && changed(rel.v, before.v).length === 2 && changed(rel.sw, before.sw).length === 1 && rel.v.split('\n').length === before.v.split('\n').length && rel.sw.split('\n').length === before.sw.split('\n').length, JSON.stringify([...changed(rel.v, before.v), ...changed(rel.sw, before.sw)]));
+      ok('…the offline list is the same as the dev stamp\'s', shellOf(rel.sw) === shellOf(before.sw));
+      stage('stage-test');
+      ok('…and the staged site carries that build', /^const BUILD = 'abcdef0';/m.test(fs.readFileSync(path.join(root, 'stage-test/sw.js'), 'utf8')) && /export const BUILD = 'abcdef0';/.test(fs.readFileSync(path.join(root, 'stage-test/js/version.js'), 'utf8')));
+      fs.rmSync(path.join(root, 'stage-test'), { recursive: true, force: true });
+      stamp('--dev');
+      ok('the dev stamp puts the repository back exactly, so CI\'s check of the offline list passes again', read('js/version.js') === before.v && read('sw.js') === before.sw);
+    }
 
     /* ------------------------ what stops a publish ------------------------ */
     fs.writeFileSync(path.join(root, 'stray.html'), '<!doctype html>');
