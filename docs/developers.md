@@ -14,7 +14,8 @@ It is a plain web app: ES modules, no framework, no build step, no external libr
 `vendor/qrcode.js`; Google's sign-in script is loaded from Google only once someone taps Connect Google Drive…). It works
 offline once opened, installs to a home screen, and keeps all data in the browser's `localStorage` under keys that
 start with `tourbook-` (and one IndexedDB database, `tourbook`). A desktop app for Windows, Mac and Linux (`desktop/`,
-Electron) wraps the same files.
+Electron) wraps the same files. It was called Gdex until just before its launch (decisions §19): what a browser still
+holds under Gdex's names is copied once to Tourbook's ("From Gdex" below).
 
 **What leaves the device.** Nothing of the person's goes to a server except:
 
@@ -65,6 +66,7 @@ Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` before `npm ci` unless you need the deskto
 | `js/app.js` | Boot, the section menu, sections, redraw on change. |
 | `js/deck.js` | The section menu: a record player, a tape deck or a digital player (Aa → Section menu), each section a track. |
 | `js/store.js` | The database. |
+| `js/from-gdex.js` | The one-time copy from Gdex's old storage names, the first script in `index.html` ("From Gdex" below). |
 | `js/model.js` | Music domain constants and pure sums (deals, settlement, set lengths, durations). |
 | `js/pages/*.js` | One module per section. |
 | `js/bookings-cal.js`, `js/bookings-kit.js` | The calendar's views (drawn for `pages/bookings.js`), and the helpers the two share. |
@@ -194,6 +196,24 @@ Kept in `localStorage` on the device, never in the database, so backups do not c
 | `tourbook-drive`, `tourbook-drive-file`, `tourbook-google-tokens`, `tourbook-google-email`, `tourbook-drive-who`, `tourbook-sync-at`, `tourbook-backup-cloud` | Google Drive (`js/drive.js`, `js/sync.js`): linked, the file id of `tourbook-db.json`, the hour's token (`drive.appdata` only), the account's address (Google's `login_hint` only), "Name · address" for Signed in as, the last good sync, the last daily copy. | cleared, after Drive is disconnected |
 
 `tourbook-tour`, `tourbook-role-nudged`, `tourbook-settings-open`, `tourbook-tool-pick` and the like are cleared too.
+
+### From Gdex: the one-time copy (`js/from-gdex.js`, `js/kv.js`; decisions §19)
+
+The app was called Gdex until just before launch, and its owner used it under that name, so a browser may still hold
+Gdex's keys. On Tourbook's first opening in a browser (no `tourbook-…` key there yet), `js/from-gdex.js`, a plain script
+loaded first in `index.html` so it runs before anything reads storage (`js/prepaint.js` reads the theme), copies every
+`gdex-<x>` key to `tourbook-<x>` where that holds nothing (a bare `gdex-` and other apps' keys are skipped). When
+`js/kv.js` first makes the IndexedDB database `tourbook`, it copies the old database `gdex` (store `kv`) into it the same
+way, before any read gets an answer (reads made meanwhile wait); where there is no `gdex`, none is made. The old keys and
+the old database are left as they are, nothing is said, and nothing throws (storage blocked or full, junk, no old
+database, IndexedDB refusing it): whatever cannot be copied stays behind. Only the first opening copies: from then on
+a `tourbook-…` key is always there (Erase keeps `tourbook-db-v1`), so nothing Tourbook clears later (a role, an Erase)
+comes back from an old key. The share pages read no storage, and the desktop app needs nothing (it never had Gdex data).
+Backup files saved under Gdex still open (`app: 'gdex'`, or `{ gdex: 'encrypted-backup' }` for a locked one: `js/backup.js`,
+and `js/drive.js` likewise), and the service worker drops Gdex's old `gdex-…` caches with its own old ones. `09-from-gdex`
+checks all of it, and that the old name is found nowhere else. To drop the copy later: delete `js/from-gdex.js`, its
+`<script>` in `index.html`, the block marked "from Gdex" in `js/kv.js` (and the `copied` wait in `idb()`) and
+`tests/specs/09-from-gdex.cjs`, then run `node tools/stamp-build.mjs --dev`.
 
 A choice that storage cannot keep (private mode, or storage full) still holds for the visit: the display
 preferences and the calendar's view live in memory while the page is open, and `askSetting()` reads storage every
@@ -1537,6 +1557,7 @@ backline, take, comp, stems, split sheet.
   | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
   | `90-drive` | its own contexts take the same seed |
+  | `09-from-gdex` | seeds Gdex's keys, which the copy brings over: in the on leg also Gdex's free days under way |
   | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92` | set their own state, or none: the same in both legs |
 
 * The licence's own specs stand the licence server in with Playwright routes (75-78, with a `Date` header and a
@@ -1544,7 +1565,8 @@ backline, take, comp, stems, split sheet.
   FAIL under CI). Specs that read `cloudflare/` or `desktop/` read them from the repository, never the scratch copy.
 * Spec files by owner: `00-smoke` (core), `05-deck` and `06-roles` (core), `07-groundwork` (core: the model and the
   contracts under the calendar, the question, the menus and house rules), `08-sheets` (core: a sheet's dim backdrop,
-  tapped with a finger and clicked), `10-bookings`, `11-order` (same-day order and
+  tapped with a finger and clicked), `09-from-gdex` (core: the one-time copy from Gdex's names, and the old name nowhere
+  else), `10-bookings`, `11-order` (same-day order and
   the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
   `46-search`, `47-genres` (main genres: the model's table and the list in groups), `48-song-folds` (a song's album
@@ -1567,7 +1589,7 @@ backline, take, comp, stems, split sheet.
 Only edit files you own. Core files (`index.html`, `styles.css`, `js/app.js`, `js/store.js`, `js/model.js`,
 `js/util.js`, `js/form.js`, `js/deck.js`, `js/a11y.js`, `js/roles.js`, `js/role-pick.js`, `js/tour.js`, `js/tutorials.js`, `js/print.js`, `js/blocks/index.js`,
 `js/bookings-kit.js`, `sw.js`, `tools/`, `tests/lib.mjs`, `tests/run.mjs`, `tests/helpers.cjs`, `tests/specs/00-smoke.cjs`,
-`tests/specs/07-groundwork.cjs`, `tests/specs/08-sheets.cjs`) belong to the integrator: if you
+`tests/specs/07-groundwork.cjs`, `tests/specs/08-sheets.cjs`, `js/from-gdex.js`, `tests/specs/09-from-gdex.cjs`) belong to the integrator: if you
 need a change there, describe it in your report instead.
 
 | Feature | Files |

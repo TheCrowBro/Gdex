@@ -13,7 +13,9 @@ Vdex from here.
   exports between features, which file belongs to which feature, styling rules and the tests.
 - Use `js/model.js` for every music sum (deals, settlement, set lengths, durations, money formatting) and `js/store.js`
   for every write, so a number reads the same on every page.
-- Storage keys, cache names and IndexedDB names start with `tourbook-` (the IndexedDB database is `tourbook`). Nothing of the
+- Storage keys, cache names and IndexedDB names start with `tourbook-` (the IndexedDB database is `tourbook`). The app was
+  called Gdex until just before launch: Gdex's old `gdex-` keys and database are only read, once, by `js/from-gdex.js` and
+  `js/kv.js` (`docs/developers.md`, "From Gdex"); never add a `gdex` name anywhere else (spec 09 checks). Nothing of the
   person's goes to a server except: **Google Drive**, only when the person connects it (Google's sign-in script, loaded
   from Google only once they tap Connect Google Drive…, as its sheet opens; the whole Tourbook database and daily dated copies, in a hidden Tourbook folder of their own Drive,
   with the day their free days first started); and **Tourbook's licence server** at tourbook.crowmade.app

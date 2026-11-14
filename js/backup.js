@@ -40,11 +40,14 @@ const totalOf = counts => Object.values(counts).reduce((a, b) => a + b, 0);
 export const countText = counts => store.COLLECTIONS.filter(c => counts[c]).map(c => `${counts[c]} ${(NAMES[c] || [c, c])[counts[c] === 1 ? 0 : 1]}`).join(' · ') || 'nothing yet';
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
+// Tourbook's files say app 'tourbook'. A file saved while the app was still called Gdex says 'gdex' (a locked one,
+// { gdex: 'encrypted-backup' }): Tourbook's too, since the owner used it under that name (decisions §19). Read, never written.
+const ours = d => d.app === 'tourbook' || d.app === 'gdex';
 // A Vdex file (the videographer app) has crew and no acts or songs. It is refused rather than read as an empty Tourbook.
-export const isVdex = d => !!d && typeof d === 'object' && d.app !== 'tourbook' && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
+export const isVdex = d => !!d && typeof d === 'object' && !ours(d) && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
   || (arr(d.logs) && arr(d.shifts) && !arr(d.acts)) || (!d.app && (arr(d.bookings) || arr(d.gear)) && !arr(d.songs) && !arr(d.acts)));
-export const isTourbook = d => !!d && typeof d === 'object' && !arr(d) && (d.app === 'tourbook' || (arr(d.songs) && arr(d.bookings)));
-const isLocked = d => !!d && typeof d === 'object' && d.tourbook === 'encrypted-backup';
+export const isTourbook = d => !!d && typeof d === 'object' && !arr(d) && (ours(d) || (arr(d.songs) && arr(d.bookings)));
+const isLocked = d => !!d && typeof d === 'object' && (d.tourbook === 'encrypted-backup' || d.gdex === 'encrypted-backup');
 
 /* ------------------------------- how recent ------------------------------- */
 // Whole calendar days between then and today (0 = today).

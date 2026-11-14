@@ -189,9 +189,10 @@ async function gfetch(url, init = {}) {
 /* ------------------------------- the files ------------------------------- */
 // Tourbook's file rules, as js/backup.js has them (copied, so this module does not import the backups panel).
 const arr = Array.isArray;
-const isVdex = d => !!d && typeof d === 'object' && d.app !== 'tourbook' && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
+const ours = d => d.app === 'tourbook' || d.app === 'gdex'; // 'gdex': saved while the app was called Gdex (decisions §19)
+const isVdex = d => !!d && typeof d === 'object' && !ours(d) && (d.vdex === 'encrypted-backup' || d.app === 'vdex' || arr(d.crew)
   || (arr(d.logs) && arr(d.shifts) && !arr(d.acts)) || (!d.app && (arr(d.bookings) || arr(d.gear)) && !arr(d.songs) && !arr(d.acts)));
-const isTourbook = d => !!d && typeof d === 'object' && !arr(d) && (d.app === 'tourbook' || (arr(d.songs) && arr(d.bookings)));
+const isTourbook = d => !!d && typeof d === 'object' && !arr(d) && (ours(d) || (arr(d.songs) && arr(d.bookings)));
 // A file's text as Tourbook's data; null when it is empty. Anything else is refused and left alone (the error is marked
 // unreadable: js/sync.js keeps the daily copies going and offers to put this device's copy in its place).
 const unreadable = message => Object.assign(fail(message), { unreadable: true });
