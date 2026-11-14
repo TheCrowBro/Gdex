@@ -1,5 +1,6 @@
 // The gdex Worker. Everything at https://gdex.crowmade.app is the static website (served straight from the files in
-// ./site), except these few addresses, which this script answers (wrangler.jsonc → assets.run_worker_first):
+// ./site), except these few addresses, which this script answers (wrangler.jsonc → assets.run_worker_first), and an
+// address that is none of the files, which reaches it after the files (not_found_handling "none") and gets a 404 page:
 //
 //   /buy                       goes to the Stripe payment page for the 20 USD licence (every role, up to 3 devices)
 //   /licence/thanks            where Stripe sends a buyer after paying: shows their licence code
@@ -509,7 +510,12 @@ export default {
       console.error(e && e.stack || e);
       return p.startsWith('/licence/') && p !== '/licence/thanks' ? json(500, { error: 'server' }) : page(500, 'Something went wrong', '<h1>Something went wrong</h1><p>Try again in a minute.</p>');
     }
-    return env.ASSETS.fetch(request);
+    // An address that is none of the website's files reaches this script (wrangler.jsonc: not_found_handling "none"),
+    // as does every other request but /buy and /licence/…, from the files' answer: a 404 is given a page in Gdex's look
+    // that says so, instead of an empty answer (a blank page in a browser), still with the status 404.
+    const res = await env.ASSETS.fetch(request);
+    if (res.status === 404 && (m === 'GET' || m === 'HEAD')) return page(404, 'Page not found', '<h1>There’s nothing at this address</h1><p>The page may have moved, or the link has a mistake in it. <a href="/index.html">Open Gdex</a>.</p>');
+    return res;
   },
 };
 export { licenceForSession, refForSession, tagOf, cleanEmail, esc, plain, codeLeft };

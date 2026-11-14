@@ -1,6 +1,7 @@
 // The website at https://gdex.crowmade.app: a Cloudflare Worker that serves the static files, plus a small script
 // (worker.mjs) that answers only /buy and /licence/… (Gdex's licence server: selling, activating and signing in); every
-// other address is served straight from the files without running it. The address is a Custom Domain: on the first
+// other address is served straight from the files without running it, but one that is none of the files, which the
+// script answers with a 404 page (not_found_handling "none"). The address is a Custom Domain: on the first
 // publish Cloudflare creates its DNS record and certificate by itself, in the crowmade.app zone, touching nothing else
 // there (not Vdex's Worker, not crowmade.app's pages). The files come from cloudflare/site, built by
 // tools/stage-site.mjs. html_handling "none" serves /index.html, /invoice.html and the rest by their own names (the

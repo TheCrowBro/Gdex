@@ -311,8 +311,10 @@ developer straight away.
 - `cloudflare/worker.mjs` answers only `/buy` and `/licence/…` (`assets.run_worker_first` in `cloudflare/wrangler.jsonc`,
   equal to `WORKER_ROUTES` in `tools/site-files.mjs` and `sw.js`; spec 82 checks all three). Every other address is a
   file from `cloudflare/site`, built by `tools/stage-site.mjs` (only the website's own files; `_headers` with each page's
-  CSP from its own meta tag plus `frame-ancestors 'none'`). The addresses and answers are the build spec's §3.9; spec 81
-  runs every one of them in workerd (Miniflare) with Stripe and Resend faked.
+  CSP from its own meta tag plus `frame-ancestors 'none'`). An address that is none of those files reaches the script
+  after the files (`not_found_handling: "none"`), which answers a GET or HEAD with a 404 page in Gdex's look instead of
+  the files' empty 404. The addresses and answers are the build spec's §3.9; spec 81 runs every one of them in workerd
+  (Miniflare) with Stripe and Resend faked.
 - It imports `desktop/licence-codes.cjs` (the code format, shared with the desktop app and the generator),
   `desktop/licence-keys.json` (the public keys) and `js/tax.js` (the price with tax per country).
 - The licence store (KV `LICENCES`, created by Wrangler on the first deploy as `gdex-licences`, no id in the config):

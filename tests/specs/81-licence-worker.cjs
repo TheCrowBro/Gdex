@@ -63,7 +63,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     // cf: false: Miniflare's own request details, never fetched from Cloudflare (it would otherwise download a sample
     // from workers.cloudflare.com and keep it in .wrangler/). Each test request names its own country.
     const opts = bindings => convertV4MiniflareOptions({ modules: true, script, compatibilityDate: '2026-10-01', cf: false, kvNamespaces: ['LICENCES'], durableObjects: { SIGNIN: { className: 'SignInCodes', useSQLite: true } }, bindings, outboundService: outbound,
-      serviceBindings: { ASSETS: req => new Response('static file ' + new URL(req.url).pathname) } });
+      serviceBindings: { ASSETS: req => (new URL(req.url).pathname.startsWith('/missing') ? new Response(null, { status: 404 }) : new Response('static file ' + new URL(req.url).pathname)) } });
     const make = bindings => { const m = new Miniflare(opts(bindings)); open.push(m); return m; };
     const drop = async m => { open.splice(open.indexOf(m), 1); await m.dispose(); };
     const mf = make(env);
@@ -78,6 +78,11 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
 
     /* ----------------------------- the basics ----------------------------- */
     ok('any other address is the static website', (await (await get('/index.html')).text()) === 'static file /index.html');
+    { // An address that is none of the files: the files answer 404 with nothing, and the Worker gives it a page that says so.
+      const nf = await get('/missing/page.html'), t = await nf.text(), hd = await get('/missing', { method: 'HEAD' }), po = await get('/missing', { method: 'POST', body: 'x' });
+      ok('an address that is none of the website\'s files is a 404 page in Gdex\'s look (not an empty answer), with a link to Gdex, its own strict policy, never cached, not indexed', nf.status === 404 && /<h1>There’s nothing at this address<\/h1>/.test(t) && /<a href="\/index\.html">Open Gdex<\/a>/.test(t) && /^text\/html/.test(nf.headers.get('content-type')) && /default-src 'none'.*frame-ancestors 'none'/.test(nf.headers.get('content-security-policy')) && nf.headers.get('cache-control') === 'no-store' && nf.headers.get('x-robots-tag') === 'noindex', `${nf.status} ${t.slice(0, 80)}`);
+      ok('…HEAD too (404); any other method keeps the files\' own answer', hd.status === 404 && po.status === 404 && (await po.text()) === '', `${hd.status} ${po.status}`);
+    }
     const buy = await get('/buy');
     ok('/buy goes to Gdex\'s Stripe payment link', buy.status === 302 && buy.headers.get('location') === 'https://buy.stripe.com/test_gdex' && buy.headers.get('cache-control') === 'no-store');
     { // the price with tax in the country the request comes from (js/tax.js), for the Buy buttons
