@@ -75,7 +75,10 @@ const OLD_KV = [['licence-days', { first: T - 864e5, seen: T }], ['note', 'kept 
     await seed(page, OLD); await seedOldDb(page, OLD_KV);
     await openApp(page);
     const st = await storage(page), a = await app(page);
-    const off = COPIED.filter(k => st['tourbook-' + k.slice(5)] !== OLD[k]);
+    // The licence's state (the licence leg) is the licence's to update as Tourbook opens: its free days carry over, from
+    // the earlier of its two copies (the old IndexedDB's, copied too).
+    const off = COPIED.filter(k => k !== 'gdex-licence' && st['tourbook-' + k.slice(5)] !== OLD[k]);
+    if (ON) { let lic = {}; try { lic = JSON.parse(st['tourbook-licence']); } catch { /* none */ } if (lic.first !== OLD_KV[0][1].first) off.push('gdex-licence ' + st['tourbook-licence']); }
     ok('every gdex- key is copied to its tourbook- name, value for value (junk as it was)', !off.length, off.join(', '));
     ok('…the gdex- keys are left exactly as they were, and another app\'s key and a bare "gdex-" are not copied', Object.keys(OLD).every(k => st[k] === OLD[k]) && !('tourbook-' in st) && Object.keys(st).filter(k => st[k] === 'videographer').join() === 'vdex-role', JSON.stringify(Object.keys(st)));
     ok('…it ran before anything read storage: the first scheme painted is the copied dark one (the browser is light), the copied tape deck is the menu', (await page.evaluate(() => window.__firstScheme)) === 'dark' && (await page.evaluate(() => document.documentElement.dataset.menu)) === 'tape', await page.evaluate(() => window.__firstScheme));
