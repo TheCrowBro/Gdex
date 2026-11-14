@@ -432,6 +432,41 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
+      // A Producer read-only on Backline, in its folds by band (item 17): a gear item's Save is refused by the form (the
+      // read-only sheet), the item stays as it was, no fold opens and nothing is logged. Then the save's own guard, which the
+      // licence merge put before the line that opens the item's fold: a stand-in for the store's gate lets the form through
+      // and refuses the write itself, so the save gets nothing back from the store, and it must neither open a fold for the
+      // record it has not got nor read it. The folds are read after the page is drawn afresh, as they are kept for the visit.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'producer', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
+      await sampleIn(page);
+      // The sample's gear is for no band: three items become the first act's while Gdex can still change things.
+      await page.evaluate(() => import('./js/store.js').then(s => { const a = s.db.acts[0]; s.db.gear.slice(0, 3).forEach(g => s.upsert('gear', { ...g, actId: a.id })); }));
+      await setLicence(page, ended()); await reload(page);
+      await page.waitForSelector('.sheet.licence-over', { timeout: 6000 }); await closeTop(page);
+      const folds = async () => { await go(page, 'bookings'); await sleep(300); await go(page, 'backline'); await page.waitForSelector('#page .bl-band'); await sleep(300); return page.$$eval('#page .bl-band', els => els.filter(e => e.classList.contains('open')).map(e => e.dataset.band)); };
+      const nameOf = id => page.evaluate(id => import('./js/store.js').then(s => s.byId('gear', id).name), id);
+      const saveAs = async (id, name) => { await page.evaluate(id => import('./js/pages/backline.js').then(m => m.editGear({ id })), id); await page.waitForSelector('.sheet form.form'); await page.fill('.sheet form [data-key="name"]', name); await page.click('.sheet .form-actions .btn.primary'); };
+      const open0 = await folds(), n0 = errors.length;
+      const gear = await page.evaluate(() => import('./js/store.js').then(s => { const g = s.db.gear.find(x => x.actId); return g ? { id: g.id, name: g.name } : null; }));
+      await saveAs(gear && gear.id, 'Renamed while read-only'); await page.waitForSelector('.sheet.licence-readonly', { timeout: 4000 }); await sleep(300);
+      const refused = (await sheets(page)).includes('Read-only until there is a licence'), name1 = await nameOf(gear && gear.id);
+      while ((await sheets(page)).length) await closeTop(page);
+      const open1 = await folds();
+      ok('a Producer read-only, in Backline’s folds by band: a gear item’s Save is refused (the read-only sheet), the item unchanged, no fold opened by it, no error', !!gear && refused && name1 === gear.name && JSON.stringify(open1) === JSON.stringify(open0) && errors.length === n0, JSON.stringify({ gear, refused, name1, open0, open1, errors: errors.slice(n0) }));
+      await page.evaluate(() => import('./js/store.js').then(s => s.setGate(o => !!(o && o.form))));
+      await saveAs(gear && gear.id, 'Refused by the store'); await sleep(500);
+      const name2 = await nameOf(gear && gear.id), left = await sheets(page), open2 = await folds();
+      ok('…and with the write itself refused after the form let it through, the save opens no fold and reads nothing of the record: the item unchanged, no error', name2 === gear.name && JSON.stringify(open2) === JSON.stringify(open0) && !left.length && errors.length === n0, JSON.stringify({ name2, left, open0, open2, errors: errors.slice(n0) }));
+      // The song's form, in its folds by act and album (item 13), the same way: the save stops at the refused write, before it
+      // opens the song's folds or says it was saved.
+      const t0 = (await toasts(page)).length, song0 = await page.evaluate(() => import('./js/store.js').then(s => s.byId('songs', 's-song1').title));
+      await page.evaluate(() => import('./js/pages/songs.js').then(m => m.editSong({ id: 's-song1' }))); await page.waitForSelector('.sheet form.form');
+      await page.fill('.sheet form [data-key="title"]', 'Refused by the store'); await page.click('.sheet .form-actions .btn.primary'); await sleep(500);
+      const song1 = await page.evaluate(() => import('./js/store.js').then(s => s.byId('songs', 's-song1').title)), said = (await toasts(page)).slice(t0);
+      ok('…a song’s save with the write refused: the song unchanged, no “saved” toast, no error', song1 === song0 && !said.some(t => /saved|added/i.test(t)) && errors.length === n0, JSON.stringify({ song0, song1, said, errors: errors.slice(n0) }));
+      await ctx.close();
+    }
+    {
       // A Manager read-only: the invoice editor keeps what was typed when Save is refused (as a form does), and Delete,
       // refused, does not close it as if the invoice were gone.
       const { ctx, page } = await openLive(browser, errors, { seed: { 'gdex-role': 'manager', 'gdex-terms': agreed(), 'gdex-licence': trialFrom(Date.now() - DAY) } });
