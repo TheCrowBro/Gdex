@@ -81,9 +81,13 @@ The guides each step points to:
 
 ## 1. Read the terms and the privacy policy
 
-`terms.html` and `privacy.html` in the repository (they open in a browser from the file too). They were adapted from
-Vdex's: who provides Tourbook, the contact address, the law, the courts, the liability cap and the 14-day refund are copied
-unchanged from what you published for Vdex; everything else says what Tourbook does. Tell the developer anything to change.
+`terms.html` and `privacy.html` in the repository (they open in a browser from the file too). The privacy policy was
+adapted from Vdex's. The terms were rewritten for Tourbook on 14 November 2026 (decisions §20): they follow how people use
+it (who we are; what Tourbook is and is not in the music world; what is free and the licence, section 3; bookings, day
+sheets and the tools; sessions, songs and acts; money, gear and insurance; information, other people, other services),
+and sections 13 to 20 (no warranty, the liability limits, consumers' rights, stopping, changes, the law and the courts)
+are the earlier terms' words, adapted from Vdex's, unchanged but for two section numbers. Who provides Tourbook, the contact address, the law, the courts, the
+liability cap and the 14-day refund are as you published them for Vdex. Tell the developer anything to change.
 
 ## 2. Cloudflare (15 minutes)
 
@@ -224,7 +228,7 @@ becomes
 
 In the same commit, the terms lose the sentence that says the licence is not on yet. In `terms.html` the sentence
 "Until licences are switched on at tourbook.crowmade.app, every role is free and the licence parts of these terms do not
-apply yet." comes out of the short version and out of section 11; `TERMS_VERSION` in `js/terms.js` is raised to that
+apply yet." comes out of the short version and out of section 3; `TERMS_VERSION` in `js/terms.js` is raised to that
 day's date, so every device is asked to agree to the terms again; and the check in `tests/specs/83-legal-pages.cjs`
 that expects the sentence is changed to expect it gone. Read the terms once more before this step.
 

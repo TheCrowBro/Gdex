@@ -7,7 +7,7 @@
 import { h, sheet } from './util.js';
 
 export const TERMS_SHEET = true;
-export const TERMS_VERSION = '2026-11-13'; // the terms' date, plus a count for a second change on the same day
+export const TERMS_VERSION = '2026-11-14'; // the terms' date, plus a count for a second change on the same day
 const KEY = 'tourbook-terms';
 const read = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return v && typeof v === 'object' ? v : null; } catch { return null; } };
 let agreedNow = false; // agreed this visit where storage could not keep it
@@ -36,11 +36,14 @@ export function askTerms({ once = '20 USD once plus any tax where you live' } = 
     } },
       h('p', null, changed ? 'Please read and agree to the updated terms to keep using the working roles. Your information is safe and stays where it is.'
         : `Tourbook’s working roles and sections are free for 30 days on this device, then need a licence: ${once}, for up to 3 of your devices. Audiophile stays free. To use them, please read and agree to Tourbook’s terms.`),
+      // The points are the short version of terms.html word for word (but its Audiophile and price points, which the line
+      // above says), in its order, linking the same sections; tests/specs/83-legal-pages checks the two stay the same.
       h('ul', { class: 'lic-terms-points' },
-        h('li', null, 'Tourbook comes as it is. It can have mistakes or lose information, so keep your own backups.'),
-        h('li', null, 'You stay responsible for your shows, sessions, day sheets, quotes and invoices, your taxes, people’s safety and the information you keep about others.'),
-        h('li', null, 'The developer’s responsibility is limited (', link('terms.html#liability', 'sections 13 to 16'), '). If you use Tourbook for your business, many kinds of loss are excluded and the rest is capped at 50 US dollars. If you use it as a consumer, you keep your legal rights.'),
-        h('li', null, 'Your work stays on your device, and in a Google Drive you connect. The developer never receives it.')),
+        h('li', null, 'Tourbook keeps your own records of your shows, sessions, deals, songs and the people you work with. It is not an agent, promoter, manager, label or publisher, takes no part in your bookings or deals, and never handles money (', link('terms.html#what', 'section 2'), ').'),
+        h('li', null, 'Your work stays on your device, and the developer never receives it. Google Drive is optional and free for everyone: it keeps your devices the same, with a dated copy each day, in a private Tourbook folder of your own Drive.'),
+        h('li', null, 'Tourbook comes as it is. It can have mistakes, stop working or lose information, so keep your own backups.'),
+        h('li', null, 'You stay responsible for your shows and sessions, the deals and splits you agree, what you send (day sheets, quotes and invoices), your taxes, people’s safety, and the information you keep about other people.'),
+        h('li', null, 'The developer’s responsibility is limited (', link('terms.html#liability', 'sections 13 to 16'), '). If you use Tourbook for your business, many kinds of loss are excluded and the rest is capped at 50 US dollars. If you use it as a consumer, you keep your legal rights.')),
       h('p', { class: 'lic-terms-links' }, link('terms.html', 'Read the terms of service'), link('privacy.html', 'Read the privacy policy')),
       h('label', { class: 'lic-terms-check', for: 'lic-terms-ok' }, box, h('span', null, 'I am 18 or over, and I have read and agree to the ', link('terms.html', 'terms of service'), '.')),
       h('div', { class: 'actions' }, go, h('button', { type: 'button', class: 'btn ghost', id: 'lic-terms-later', onclick: () => close() }, 'Not now')));
