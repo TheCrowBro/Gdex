@@ -60,9 +60,10 @@ window.addEventListener('tourbook-prefs', () => {
 const focusPage = () => document.getElementById('page')?.focus({ preventScroll: true });
 
 // The first open: Jack of Trades (every section) first, then the six roles; the first card takes the focus. Picking one
-// opens its start section (the calendar); then(…) runs the welcome tour. Closing it without a pick is an answer too: Tourbook stays Jack of Trades (no role is saved), and the role card
-// is never offered (tourbook-role-nudged). While Jack of Trades cannot be picked (licences live, the free days over, no licence),
-// closing it leaves the Audiophile instead, as Carry on free does: only the Audiophile works then (the lead's decision 1).
+// opens its start section (the calendar); then(…) runs the welcome tour. Closing it without a pick is an answer too:
+// Tourbook stays Jack of Trades (no role is saved), and the role card is never offered (tourbook-role-nudged). While
+// Jack of Trades cannot be picked (licences live, the free days over, no licence), closing it leaves the Audiophile
+// instead, as Carry on free does: only the Audiophile works then (the lead's decision 1).
 export function askRole({ then = () => {}, title = 'Who’s using Tourbook?' } = {}) {
   let picked = false, close = () => {};
   const pick = async id => {
@@ -104,8 +105,8 @@ export function nudgeRole(anchor) {
 }
 
 // Settings → Your role: Jack of Trades and the six roles as one choice, in the same order; what is on the menu, and the
-// bonus tracks. A choice redraws the page (the app does, on tourbook-role), and the redrawn card keeps the focus. Its words follow the section
-// menu (record player, tape deck or digital player).
+// bonus tracks. A choice redraws the page (the app does, on tourbook-role), and the redrawn card keeps the focus. Its
+// words follow the section menu (record player, tape deck or digital player).
 export function rolePanel() {
   const el = h('div', { class: 'stack rp-panel' });
   const draw = () => {

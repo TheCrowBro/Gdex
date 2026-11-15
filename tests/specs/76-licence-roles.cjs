@@ -108,9 +108,9 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       // Jack of Trades (item 16) is the first card, at the top of the list (the owner, 15 Nov 2026), and takes the focus; its
       // badge is on that card, as on the others. The old "Not sure? Show me everything" button is gone, and nothing on the
       // question, the licence's sentence included, says Everything.
-      ok('…Jack of Trades is the first card, with the focus, and carries its badge on the card; no Show me everything button, no Everything in the words', (await page.$$eval('.rp-ask .rp-card', bs => bs.map(b => b.dataset.role).join())) === 'all,producer,manager,band,solo,scout,audiophile'
-        && await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.role === 'all' && a === document.querySelector('.rp-ask .rp-card'); })
+      ok('…Jack of Trades is the first card and carries its badge on the card; no Show me everything button, no Everything in the words', (await page.$$eval('.rp-ask .rp-card', bs => bs.map(b => b.dataset.role).join())) === 'all,producer,manager,band,solo,scout,audiophile'
         && (await page.textContent('.rp-ask .rp-card[data-role="all"] .rp-licence')) === '30 days free, then a licence' && (await page.locator('.rp-ask .rp-all').count()) === 0 && !/everything/i.test(await page.textContent('.rp-ask')), await page.textContent('.rp-ask'));
+      ok('…and the focus is on that first card, Jack of Trades', await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.role === 'all' && a === document.querySelector('.rp-ask .rp-card'); }), await page.evaluate(() => (document.activeElement || {}).dataset?.role || (document.activeElement || {}).tagName));
       await page.click('.rp-ask .rp-card[data-role="audiophile"]');
       await page.waitForSelector('.tour-card');
       await page.click('.tour-actions .btn.ghost'); // Skip

@@ -224,7 +224,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.waitForSelector('.rp-ask');
     ok('Choose my role asks the question, with Jack of Trades as the first of the seven cards, then the six roles', (await page.$$eval('.rp-ask .rp-card', bs => bs.map(b => b.dataset.role).join())) === 'all,producer,manager,band,solo,scout,audiophile' && (await page.getAttribute('.rp-ask .rp-card:first-child', 'data-role')) === 'all');
     await sleep(150);
-    ok('…and the focus is on that first card, Jack of Trades', await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.role === 'all' && a === document.querySelector('.rp-ask .rp-card'); }));
+    ok('…and the focus is on that first card, Jack of Trades', await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.role === 'all' && a === document.querySelector('.rp-ask .rp-card'); }), await page.evaluate(() => (document.activeElement || {}).dataset?.role || (document.activeElement || {}).tagName));
     await page.focus('.rp-card[data-role="audiophile"]');
     await page.keyboard.press('Enter');
     await sleep(700);
