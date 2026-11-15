@@ -22,8 +22,8 @@ may rename on GitHub; nothing here depends on the repository's name.
 
 ## Start here
 
-1. **Open Tourbook** in your phone's or computer's browser. (It is not published at a public address yet; until it is,
-   the person who looks after the tech can run it: see *For the person who looks after the tech* below.)
+1. **Open Tourbook** at https://tourbook.crowmade.app in your phone's or computer's browser. (The person who looks after
+   the tech can also run it: see *For the person who looks after the tech* below.)
 2. **Put it on your home screen** so it opens like a normal app, even with no signal:
    - **iPhone:** open it in Safari, tap **Share** (the square with an arrow), then **Add to Home Screen**.
    - **Android and computers:** tap **Install** (⤓) at the top of the page.
@@ -215,6 +215,6 @@ found somewhere, in any order; capitals and accents don't matter.
 - The licence server (`cloudflare/`) and the desktop app (`desktop/`) are built and tested, switched off. Google Drive
   is switched on in the repository (Tourbook's own Google sign-in client, since 15 November 2026: `docs/drive.md`):
   tourbook.crowmade.app gets it with its next publish, the desktop app with its first release.
-  [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing is published until the
-  owner says so. `TOURBOOK_LICENCE=on node tests/run.mjs` runs the tests with the licence live;
+  [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing more is published without
+  the owner's go-ahead. `TOURBOOK_LICENCE=on node tests/run.mjs` runs the tests with the licence live;
   `npm ci --prefix cloudflare` first lets the licence server's tests run.
