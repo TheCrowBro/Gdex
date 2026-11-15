@@ -27,7 +27,7 @@ import { formerlyLine } from '../bookings-kit.js'; // "formerly The Night Owls" 
 import { workMark, gateWork, mayWork } from '../licence-state.js';
 // The band and venue boxes take typing (the owner, 15 Nov 2026): the saved names that match are listed to pick, and a
 // name that is in no list is asked about before the save ("Add to your lists?").
-import { boxKey, exactOf } from '../combo.js';
+import { boxKey, exactAll } from '../combo.js';
 import { canChangeQuietly } from '../store.js';
 import { addActNamed, eatSecondClick } from './acts.js';
 import { addVenueNamed } from './venues.js';
@@ -204,6 +204,8 @@ const venueItems = kind => { const want = FITS[kind] || [], fits = v => !want.le
     .sort((a, b) => a.group - b.group); };
 // The acts to pick: every name each is known by (model.actNames), the earlier one under it.
 const actItems = () => sortByName(db.acts).map(a => ({ id: a.id, name: a.name || 'Unnamed act', names: model.actNames(a), group: 0, sub: model.formerName(a) ? `formerly ${model.formerName(a)}` : '' }));
+// A band typed on a booking that no saved act is called. When one is (or two are), it is picked on the form instead.
+const typedOnly = b => !!b.client && !exactAll(actItems(), b.client).length;
 
 // A section's name, and when it is not on the role's menu, where to find it (wireForm adds a button there).
 const pageHint = (id, fallback) => {
@@ -325,9 +327,9 @@ function tidy(v, kind) {
   return out;
 }
 // What was typed in the band and venue boxes that is no saved record and is new in this form: an edit that keeps the
-// name it was saved with asks nothing (so a "Neither" stays answered).
+// name it was saved with asks nothing (so a "Neither" stays answered), nor does a name two saved ones have (data-tied).
 function typedNew(form) {
-  const one = key => { const el = form.querySelector(`input[data-key="${key}"]`); const t = el && !el.dataset.id ? el.value.trim().replace(/\s+/g, ' ') : '';
+  const one = key => { const el = form.querySelector(`input[data-key="${key}"]`); const t = el && !el.dataset.id && !el.dataset.tied ? el.value.trim().replace(/\s+/g, ' ') : '';
     return t && boxKey(t) !== boxKey(el.dataset.was || '') ? t : ''; };
   return { act: one('actId'), venue: one('venueId') };
 }
@@ -405,7 +407,8 @@ function askAdd(fresh, kind, { answer, back }) {
       : [btn('bk-add-yes', 'Yes, add it', { act: !!fresh.act, venue: !!fresh.venue }, true), btn('bk-add-no', 'No, keep it as typed', { act: false, venue: false })]),
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost small', id: 'bk-add-back', onclick: e => { if (e.detail < 2) close(); } }, 'Back to the form')));
   let el = null;
-  ({ el, close } = sheet(ADD_TITLE, body, { onClose: () => { if (!done) back(); } }));
+  // Its backdrop does not close it: the second click of a double click on Add lands there on a wide screen.
+  ({ el, close } = sheet(ADD_TITLE, body, { onClose: () => { if (!done) back(); }, dismissOnBackdrop: false }));
   el.setAttribute('aria-describedby', 'bk-add-q bk-add-why');
 }
 // The role's word for a show: the singular of its name for Bookings when it has one of its own (Gigs: gig; Shows:
@@ -662,7 +665,7 @@ function scoreRow(b) {
   if (!act) {
     const word = actWord();
     // A band typed on the show and never added: it can be added from here, and then scored.
-    if (b.client && !exactOf(actItems(), b.client)) {
+    if (typedOnly(b)) {
       return h('div', { class: 'bk-score bk-score-noact bk-score-typed' },
         h('span', { class: 'bk-score-text' }, `${b.client} isn’t in your ${word}s yet. Add them to score this show.`),
         h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-add', 'aria-label': `Add ${b.client} to your ${word}s`,
@@ -806,8 +809,8 @@ function bookingSteps(b) {
     { title: 'House rules', text: 'What this venue allows and what it does not. The rules belong to the venue and apply to every show there; change them by editing the venue.', target: ['.bk-hero .vn-rules'] },
     said != null && said !== 'no' && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.' + (said === '' && model.showOver(b) ? ' If you missed it, Didn’t go says so and Tourbook stops asking.' : ''), target: ['.bk-score'] },
     said === 'no' && { title: 'Didn’t go', text: 'You said you missed this show, so it is not counted as seen. Change takes that answer back.', target: ['.bk-score'] },
-    scoreable(b) && !actOf(b) && scoresShows() && !(b.client && !exactOf(actItems(), b.client)) && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
-    scoreable(b) && !actOf(b) && scoresShows() && b.client && !exactOf(actItems(), b.client) && { title: 'Score this show', text: `Add them to your ${actWord()}s, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
+    scoreable(b) && !actOf(b) && scoresShows() && !typedOnly(b) && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
+    scoreable(b) && !actOf(b) && scoresShows() && typedOnly(b) && { title: 'Score this show', text: `Add them to your ${actWord()}s, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },
     { title: 'The boxes', text: 'Everything else about the booking, one box each: tap a box to open it. Boxes you open stay open.', target: ['.bk-blocks'] },

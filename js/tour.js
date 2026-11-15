@@ -171,6 +171,16 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   // their box only appears then. Worked out again at every step, so the count and "Done" are always right.
   const find = s => { const scope = (root && root()) || document; return s.target ? s.target.map(sel => { try { return scope.querySelector(sel); } catch { return null; } }).find(el => el && el.offsetParent !== null) || null : null; };
   const willShow = s => !s.target || !!s.go || !!s.before || !!find(s);
+  // The target in the middle of the screen; on a short phone the middle can be under the section menu, which stays at
+  // the top of the page as it scrolls: then in the middle of the room under it.
+  const bringIn = el => {
+    el.scrollIntoView({ block: 'center', inline: 'nearest' });
+    const deck = document.getElementById('deck');
+    if (!deck || deck.contains(el) || !(deck.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) || el.closest('.sheet, .tour')) return;
+    const under = deck.getBoundingClientRect().bottom, r = el.getBoundingClientRect();
+    if (under <= 0 || r.top >= under) return;
+    window.scrollBy(0, r.top - (under + Math.max(0, (innerHeight - under - r.height) / 2)));
+  };
   const step = async n => {
     if (n < 0) return;
     if (n >= STEPS.length) { if (!seen.size && !STEPS.some(x => !x.target)) { stop(); window.dispatchEvent(new CustomEvent('tourbook-tour-empty')); return; } return stop(); }
@@ -179,7 +189,7 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
     if (s.before) { try { await s.before(); } catch { /* the step still shows */ } await new Promise(r => setTimeout(r, 250)); }
     target = find(s);
     if (s.target && !target) return step(n + dir); // nothing to point at here, skip
-    if (target) { target.scrollIntoView({ block: 'center', inline: 'nearest' }); await new Promise(r => setTimeout(r, 250)); }
+    if (target) { bringIn(target); await new Promise(r => setTimeout(r, 250)); }
     const shown = STEPS.map((x, k) => (k === n || (k > n ? willShow(x) : seen.has(k)) ? k : -1)).filter(k => k >= 0), pos = shown.indexOf(n), isLast = pos === shown.length - 1;
     seen.add(n);
     // Leaving the step forwards runs its onNext first (a form's save); Back never saves.

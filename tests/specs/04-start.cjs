@@ -6,7 +6,7 @@
 // with records, a role picked anywhere else, or a welcome tour done before, never gets it. Both legs: these contexts
 // take no licence seed, so in the on leg licences are live with nothing started, and the start must start nothing.
 const { chromium } = require('playwright');
-const { open, ok, sleep, BASE, licenceLeg } = require('../helpers.cjs');
+const { open, ok, sleep, BASE, licenceLeg, typePick } = require('../helpers.cjs');
 
 const LEG = process.env.TOURBOOK_LICENCE === 'on' ? 'on' : 'off';
 const SHOT = process.env.S;
@@ -294,19 +294,69 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       await ctx.close();
     }
 
-    /* ---------------- 16: 320×568, extra-large text and buttons ---------------- */
-    for (const scheme of ['light', 'dark']) {
-      const { ctx, page, errors } = await fresh(browser, { viewport: { width: 320, height: 568 }, prefs: { scheme, text: 'xlarge', targets: 'large' } });
+    /* ---------------- 16: small screens: the card's words in view, its buttons on screen, + New clear of the menu ---------------- */
+    // The card's words fully in view inside its body (no scroll needed for them), the card and its primary on the
+    // screen, the way out in the card's body under the words, no sideways scroll.
+    const fit = page => page.evaluate(() => {
+      const W = innerWidth, H = innerHeight, inside = el => { const r = el.getBoundingClientRect(); return r.left >= -1 && r.top >= -1 && r.right <= W + 1 && r.bottom <= H + 1; };
+      const c = document.querySelector('.tour-card'), body = c.querySelector('.tour-body'), t = document.getElementById('tour-text'), out = document.getElementById('start-backup');
+      const b = body.getBoundingClientRect(), r = t.getBoundingClientRect(), shown = Math.max(0, Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top)) / r.height;
+      return { card: inside(c), primary: inside(c.querySelector('.tour-actions .btn.primary')), words: Math.round(shown * 100), out: !!out && body.contains(out) && !!(t.compareDocumentPosition(out) & Node.DOCUMENT_POSITION_FOLLOWING), wide: document.documentElement.scrollWidth <= document.documentElement.clientWidth };
+    });
+    // What is on top at the middle of the spotlight, the walkthrough's layer aside: inside that selector.
+    const onTop = (page, sel) => page.evaluate(sel => {
+      const sp = document.querySelector('.tour-spot').getBoundingClientRect(), app = document.getElementById('app'), layer = document.querySelector('.tour'), was = app.inert;
+      layer.style.visibility = 'hidden'; app.inert = false;
+      try { const el = document.elementFromPoint(sp.left + sp.width / 2, sp.top + sp.height / 2); return el ? (el.closest(sel) ? true : el.className || el.tagName) : null; } finally { app.inert = was; layer.style.visibility = ''; }
+    }, sel);
+    for (const [w, h, prefs, label] of [[320, 568, { scheme: 'light', text: 'xlarge', targets: 'large' }, 'extra-large text and buttons, light'], [320, 568, { scheme: 'dark', text: 'xlarge', targets: 'large' }, 'extra-large text and buttons, dark'],
+      [740, 360, null, 'a phone on its side'], [360, 640, null, 'a short phone']]) {
+      const { ctx, page, errors } = await fresh(browser, { viewport: { width: w, height: h }, prefs });
+      const at = `${w}×${h}, ${label}`, good = x => x.card && x.primary && x.words >= 99 && x.out && x.wide;
       await pick(page, 'audiophile');
       const up = await cardIs(page, 'Add a band', 'Step 1 of 3');
-      const fit = await page.evaluate(() => {
-        const W = innerWidth, H = innerHeight, inside = el => { const r = el.getBoundingClientRect(); return r.left >= -1 && r.top >= -1 && r.right <= W + 1 && r.bottom <= H + 1; };
-        const c = document.querySelector('.tour-card'), btns = [...c.querySelectorAll('.tour-actions button')];
-        return { card: inside(c), btns: btns.length === 2 && btns.every(inside), wide: document.documentElement.scrollWidth <= document.documentElement.clientWidth };
-      });
-      ok(`16. 320×568, extra-large text and buttons (${scheme}): the card and both its buttons on the screen, no sideways scroll`, up && fit.card && fit.btns && fit.wide, JSON.stringify(fit));
-      await shot(page, `step1-320-xl-${scheme}`);
-      ok(`no errors in the console (320, ${scheme})`, errors.length === 0, errors.slice(0, 5).join(' | '));
+      let f1 = await fit(page);
+      ok(`16. ${at}: Step 1’s words in view, the card and its primary on the screen, the way out under the words, no sideways scroll`, up && good(f1), JSON.stringify(f1));
+      await shot(page, `step1-${w}x${h}-${prefs ? prefs.scheme : 'light'}`);
+      await primary(page); let f = await form(page, 'New act');
+      await f.locator('[data-key=name]').fill('The Moths'); await f.locator('button[type=submit]').click();
+      const up2 = await cardIs(page, 'Add a venue', 'Step 2 of 3'); f1 = await fit(page);
+      ok(`…Step 2 (${at})`, up2 && good(f1), JSON.stringify(f1));
+      await primary(page); f = await form(page, 'Add venue');
+      await f.locator('[data-key=name]').fill('The Lantern Rooms'); await f.locator('button[type=submit]').click();
+      const up3 = await cardIs(page, 'Add a gig', 'Step 3 of 3'); f1 = await fit(page);
+      ok(`…Step 3 (${at})`, up3 && good(f1), JSON.stringify(f1));
+      const top = await onTop(page, '.bk-new');
+      ok(`…Step 3’s spotlight over + New, and + New not under the section menu (${at})`, await spotOver(page, '.bk-new') && top === true, String(top));
+      await shot(page, `step3-${w}x${h}-${prefs ? prefs.scheme : 'light'}`);
+      ok(`no errors in the console (${at})`, errors.length === 0, errors.slice(0, 5).join(' | '));
+      await ctx.close();
+    }
+
+    /* ---------------- 17: a role's start ends on its own last card (STARTS[role].done) ---------------- */
+    {
+      const { ctx, page, errors } = await fresh(browser);
+      await pick(page, 'audiophile');
+      await cardIs(page, 'Add a band', 'Step 1 of 3');
+      // The Audiophile's entry as another role's would be: its steps, and a last card of its own put in its place.
+      const entry = await page.evaluate(() => import('./js/start.js').then(m => {
+        const a = m.STARTS.audiophile, d = a.done, was = { title: d.title({}), text: d.text({}), target: d.target };
+        a.done = { title: () => 'A last card of its own', text: g => `Its words, for the ${g.kind} just added.`, target: ['.bk-page .bk-hero'] };
+        return { steps: a.steps, was };
+      }));
+      ok('17. STARTS.audiophile: its steps (band, venue, gig) and its last card (done: “Your first gig is on your calendar” over the score row)', JSON.stringify(entry.steps) === '["band","venue","gig"]' && entry.was.title === 'Your first gig is on your calendar' && entry.was.text === 'On the night or after, score the band out of 100 on this page. Next, a quick look around. Tap Skip any time.' && entry.was.target[0] === '.bk-page .bk-hero .bk-score', JSON.stringify(entry));
+      await primary(page); let f = await form(page, 'New act');
+      await f.locator('[data-key=name]').fill('The Moths'); await f.locator('button[type=submit]').click();
+      await cardIs(page, 'Add a venue', 'Step 2 of 3');
+      await primary(page); f = await form(page, 'Add venue');
+      await f.locator('[data-key=name]').fill('The Lantern Rooms'); await f.locator('button[type=submit]').click();
+      await cardIs(page, 'Add a gig', 'Step 3 of 3');
+      await primary(page); f = await form(page, 'New show');
+      await typePick(f, 'actId', 'mo', 'The Moths'); await typePick(f, 'venueId', 'lan', 'The Lantern Rooms');
+      await f.locator('button[type=submit]').click();
+      const own = await cardIs(page, 'A last card of its own');
+      ok('…and the start ends on the role’s own last card, its words and its target', own && (await page.textContent('#tour-text')) === 'Its words, for the show just added.' && await spotOver(page, '.bk-page .bk-hero'), await page.textContent('#tour-text').catch(() => ''));
+      ok('no errors in the console (a last card of its own)', errors.length === 0, errors.slice(0, 5).join(' | '));
       await ctx.close();
     }
   } finally {

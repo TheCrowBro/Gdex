@@ -1,8 +1,9 @@
 // The type-and-pick box (the booking form's band and venue boxes, js/form.js type 'combo'): a text box that lists the
 // saved records matching what is typed, under it, in the form's own flow. No capitals or accents are counted, a band's
 // earlier names count too, and names that start with what was typed come first; ↑ ↓ and Enter, a tap, or ▾ (all of
-// them) pick one. Text that is exactly one of a record's names is that record, picked or not; anything else is kept as
-// typed. The box carries the record's id in data-id ('' for none) and fires combochange whenever that changes.
+// them) pick one. Text that is exactly one of a record's names is that record, picked or not (the name to the letter
+// first; two records of that name, neither until one is picked); anything else is kept as typed. The box carries the
+// record's id in data-id ('' for none) and fires combochange whenever that changes.
 // (The owner, 15 Nov 2026: "You should be able to type into the band name or venue bar. If a name of either exists
 // it'll show to be selected.")
 import { h } from './util.js';
@@ -38,20 +39,32 @@ export function rankMatches(items, typed, limit = LIMIT) {
   out.sort((a, b) => a.rank - b.rank || Number(a.earlier) - Number(b.earlier) || (a.item.group || 0) - (b.item.group || 0) || byName.compare(String(a.item.name || ''), String(b.item.name || '')));
   return limit ? out.slice(0, limit) : out;
 }
-// The item the text is, or null: the one picked in this form (keep) while one of its names is still exactly what is
-// typed; else the first whose name now is; else the first with an earlier name that is.
-export function exactOf(items, typed, keep = '') {
-  const list = Array.isArray(items) ? items : [], q = boxKey(typed);
-  if (!q) return null;
+// A name to the letter: capitals and accents kept, spaces tidied.
+const toLetter = s => String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
+// The items the text is: the one picked in this form (keep) while one of its names still is what is typed; else those
+// whose name now is the text to the letter; else those whose name now is the text (no capitals or accents counted); else
+// the same for earlier names. Two or more ("Sable" and "SABLÉ" for "sable", two venues called O2 Academy): only a pick
+// tells them apart.
+export function exactAll(items, typed, keep = '') {
+  const list = Array.isArray(items) ? items : [], q = boxKey(typed), t = toLetter(typed);
+  if (!q) return [];
   const kept = keep && list.find(it => it.id === keep);
-  if (kept && namesOf(kept).some(n => boxKey(n) === q)) return kept;
-  return list.find(it => boxKey(namesOf(it)[0]) === q) || list.find(it => namesOf(it).slice(1).some(n => boxKey(n) === q)) || null;
+  if (kept && namesOf(kept).some(n => boxKey(n) === q)) return [kept];
+  const now = it => namesOf(it).slice(0, 1), before = it => namesOf(it).slice(1);
+  for (const [names, same] of [[now, n => toLetter(n) === t], [now, n => boxKey(n) === q], [before, n => toLetter(n) === t], [before, n => boxKey(n) === q]]) {
+    const hits = list.filter(it => names(it).some(same));
+    if (hits.length) return hits;
+  }
+  return [];
 }
+// The item the text is, or null (none, or two or more that only a pick tells apart).
+export function exactOf(items, typed, keep = '') { const hits = exactAll(items, typed, keep); return hits.length === 1 ? hits[0] : null; }
 
 // The box. id: the form's id for it (its <label for> names it); key: the form's key (data-key); items(): the records
 // [{ id, name, names, sub, group }], read at every keystroke; value: the id it opens with; text: the name it opens with
 // when that is none of the items; words.many: the list in the role's words ('bands', 'venues'). Returns { node, input,
-// id(), text() }: the id it stands for ('' for none) and the text trimmed, its spaces tidied.
+// id(), text() }: the id it stands for ('' for none) and the text trimmed, its spaces tidied. While the text is two or
+// more records' name, the box carries data-tied (how many) and no id.
 export function comboBox({ id, key, items, value = '', text = '', words = {}, placeholder = '' }) {
   const many = words.many || 'records', listId = `${id}-list`;
   const all = () => { try { const x = typeof items === 'function' ? items() : items; return Array.isArray(x) ? x : []; } catch (e) { console.error(e); return []; } };
@@ -71,8 +84,10 @@ export function comboBox({ id, key, items, value = '', text = '', words = {}, pl
   input.value = start ? String(start.name || '') : String(text ?? '');
   input.dataset.id = start ? start.id : '';
   input.dataset.was = input.value;
-  let picked = start ? start.id : ''; // the record picked (or opened with) in this form: exactOf keeps it while it fits
+  let picked = start ? start.id : ''; // the record picked (or opened with) in this form: exactAll keeps it while it fits
   let opts = [], active = -1, liveTimer = 0, quietly = false;
+  let tied = []; // the records typed whose names are the same: none is linked until one is picked
+  const setTied = hits => { tied = hits.length > 1 ? hits : []; if (tied.length) input.dataset.tied = String(tied.length); else delete input.dataset.tied; };
 
   const textNow = () => input.value.trim().replace(/\s+/g, ' ');
   const setId = next => {
@@ -80,11 +95,13 @@ export function comboBox({ id, key, items, value = '', text = '', words = {}, pl
     input.dataset.id = next || '';
     if (was !== input.dataset.id) input.dispatchEvent(new CustomEvent('combochange', { bubbles: true, detail: { id: input.dataset.id } }));
   };
-  // The line under the box (read with it): saved, saved by an earlier name, new in this form, or typed before.
+  // The line under the box (read with it): saved (its name when typed otherwise), two saved by that name, new in this
+  // form, or typed before.
   const sayState = () => {
     const t = textNow(), cur = input.dataset.id ? all().find(it => it.id === input.dataset.id) : null;
     if (!t) state.replaceChildren();
-    else if (cur) state.replaceChildren(h('span', { class: 'cb-yes', 'aria-hidden': 'true' }, '✓ '), boxKey(t) === boxKey(cur.name) ? `In your ${many}` : `In your ${many}, as ${cur.name}`);
+    else if (cur) state.replaceChildren(h('span', { class: 'cb-yes', 'aria-hidden': 'true' }, '✓ '), toLetter(t) === toLetter(cur.name) ? `In your ${many}` : `In your ${many}, as ${cur.name}`);
+    else if (tied.length) state.replaceChildren(`${tied.length === 2 ? 'Two' : tied.length} of your ${many} have this name. Pick the one you mean from the list.`);
     else if (boxKey(t) !== boxKey(input.dataset.was || '')) state.replaceChildren(`Not in your ${many} yet. You’ll be asked whether to add it.`);
     else state.replaceChildren(`Typed, not picked from your ${many}.`);
   };
@@ -152,7 +169,7 @@ export function comboBox({ id, key, items, value = '', text = '', words = {}, pl
   const pick = (it, how = 'keys') => {
     if (!it) return;
     input.value = String(it.name || '');
-    picked = it.id;
+    picked = it.id; setTied([]);
     close();
     if (how !== 'keys' && how !== 'mouse') focusQuiet(); // a finger or a pen
     else if (document.activeElement !== input) input.focus({ preventScroll: true });
@@ -166,7 +183,9 @@ export function comboBox({ id, key, items, value = '', text = '', words = {}, pl
     const t = textNow(), every = all();
     const found = t ? rankMatches(every, t, 0) : [];
     if (found.length) open(found.slice(0, LIMIT)); else close();
-    setId((exactOf(every, t, picked) || {}).id);
+    const hits = exactAll(every, t, picked);
+    setTied(hits);
+    setId(hits.length === 1 ? hits[0].id : '');
     sayState();
     sayCount(found.length);
   };

@@ -5,7 +5,8 @@
 // top. Cancel or ✕ brings the card back, and so do a reload and a closed app, at the step reached (the first step whose
 // list is still empty), until the last step's record is added. The one way out without adding is bringing data in from
 // a backup file or Google Drive. Kept on this device under tourbook-start ({ role, made }: the ids its forms saved).
-// Only the Audiophile has steps so far: another role adds its line to STARTS, and any step of its own to STEPS.
+// Only the Audiophile has steps so far: another role adds its entry to STARTS (its steps and its last card), and any
+// step of its own to STEPS.
 import { h } from './util.js';
 import { db, subscribe, COLLECTIONS } from './store.js';
 import { runTour, tourSeen, welcomeSteps } from './tour.js';
@@ -21,7 +22,9 @@ const q = s => `“${s}”`;
 // The names of the band and the venue the start's own forms saved (else the first in each list), '' when none.
 const names = st => ['acts', 'venues'].map(list => { const r = db[list].find(x => st.made.includes(x.id)) || db[list][0]; return r ? String(r.name || '').trim() : ''; });
 // A step: the list its record goes in, the section and button its card points at, its words, its form (opened with
-// the callback that records what it saved), the line at the top of that form, and for the last step `last`.
+// the callback that records what it saved), the line at the top of that form, and for the last step `last`. These three
+// are in the Audiophile's words (a band you've seen, a venue you go to, a gig you're going to): a role that would say
+// it otherwise has steps of its own, which may share a list and a form with these.
 const STEPS = {
   band: { list: 'acts', go: 'acts', target: ['#ac-new-empty', '#ac-new', '.page-head'],
     title: () => `Add ${an(actWord())}`, button: () => `Add ${an(actWord())}…`,
@@ -41,8 +44,15 @@ const STEPS = {
       : `Type ${an(actWord())} and a venue, and pick each from the list. The rest can wait.`; },
     open: saved => newBooking({ kind: 'show', blankAct: true }, { onSaved: saved }) },
 };
-// The roles with a start of their own, and its steps in order.
-export const STARTS = { audiophile: ['band', 'venue', 'gig'] };
+// The roles with a start of their own: its steps in order, and its last card, shown over the page of what the last
+// step added (done: title, text and target, best first; functions of that record).
+export const STARTS = {
+  audiophile: { steps: ['band', 'venue', 'gig'], done: {
+    title: () => `Your first ${showWord()} is on your calendar`,
+    text: () => `On the night or after, score the ${actWord()} out of 100 on this page. Next, a quick look around. Tap Skip any time.`,
+    target: ['.bk-page .bk-hero .bk-score', '.bk-page .bk-hero'] } },
+};
+const stepsOf = role => (STARTS[role] && STARTS[role].steps) || [];
 
 // The key, read fresh at every check (another tab may have moved it). A copy in memory stands in only while storage
 // refuses the writes (private mode, full): undefined while storage answers.
@@ -57,7 +67,7 @@ function read() {
 function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); kept = undefined; } catch { kept = { role: st.role, made: [...st.made] }; } }
 function clear() { try { localStorage.removeItem(KEY); kept = undefined; } catch { kept = null; } }
 // Where a start is: the first of its role's steps whose list is still empty (-1 when none is).
-const placeOf = st => (STARTS[st.role] || []).findIndex(id => !db[STEPS[id].list].length);
+const placeOf = st => stepsOf(st.role).findIndex(id => !db[STEPS[id].list].length);
 // Data brought in (a backup file, Google Drive, another tab): any record the start's own forms did not save.
 const brought = st => COLLECTIONS.some(c => db[c].some(r => !st.made.includes(r.id)));
 // Every 250 ms until no sheet or walkthrough is on screen.
@@ -78,14 +88,15 @@ export function runStart(picked, then = () => {}) {
     const st = read();
     if (!st) return end(true);
     if (st.role !== roleId() || !STARTS[st.role] || brought(st)) { clear(); return end(true); } // brought in: the welcome tour from its first card
-    const ids = STARTS[st.role], at = placeOf(st);
+    const ids = stepsOf(st.role), at = placeOf(st);
     if (at < 0) { clear(); return end(true); }
     const s = STEPS[ids[at]];
     let why = 'form', stop = null;
     const unsub = subscribe(() => { const now = read(); if (!now || brought(now) || placeOf(now) !== at) { why = 'again'; if (stop) stop(); } });
-    stop = runTour([{ go: s.go, target: s.target, count: `Step ${at + 1} of ${ids.length}`, title: s.title(st), text: s.text(st), button: s.button(st) }], {
+    // The way out is under the words, not beside the primary, so a card cut short on a small screen keeps its room for them.
+    stop = runTour([{ go: s.go, target: s.target, count: `Step ${at + 1} of ${ids.length}`, title: s.title(st), text: s.text(st), button: s.button(st),
+      body: ({ stop: leave }) => h('button', { type: 'button', class: 'btn ghost small start-backup', id: 'start-backup', onclick: () => { why = 'backup'; leave(); } }, 'I have a backup file or Google Drive…') }], {
       forced: true,
-      footer: (n, leave) => h('button', { type: 'button', class: 'btn ghost small start-backup', id: 'start-backup', onclick: () => { why = 'backup'; leave(); } }, 'I have a backup file or Google Drive…'),
       onEnd: safe(() => {
         unsub();
         if (why === 'again') return whenClear(step);
@@ -113,13 +124,14 @@ export function runStart(picked, then = () => {}) {
     if (why === 'again') stop();
   });
 
-  // The last record is added: its page (the card over its score row, else the whole of its top card, which is too tall
-  // for the card to fit beside it on a phone), then the welcome tour without its welcome and without the sections the
-  // start has just been through. However it ends, it marks the welcome tour seen and leaves the person on the calendar.
+  // The last record is added: its page, with the role's last card (the Audiophile's over the gig's score row, else the
+  // whole of its top card, which is too tall for the card to fit beside it on a phone), then the welcome tour without its
+  // welcome and without the sections the start has just been through. However it ends, it marks the welcome tour seen
+  // and leaves the person on the calendar.
   const finish = safe((gig, role) => {
-    const skip = [...new Set(STARTS[role].map(id => STEPS[id].go))];
-    const stop = runTour([{ title: `Your first ${showWord()} is on your calendar`, text: `On the night or after, score the ${actWord()} out of 100 on this page. Next, a quick look around. Tap Skip any time.`,
-      target: ['.bk-page .bk-hero .bk-score', '.bk-page .bk-hero'], before: () => (window.logiPage() === 'bookings' && document.querySelector('.bk-page .bk-hero') ? null : openBooking(gig.id)) },
+    const skip = [...new Set(stepsOf(role).map(id => STEPS[id].go))], done = STARTS[role].done;
+    const stop = runTour([{ title: done.title(gig), text: done.text(gig), target: done.target,
+      before: () => (window.logiPage() === 'bookings' && document.querySelector('.bk-page .bk-hero') ? null : openBooking(gig.id)) },
     ...welcomeSteps({ skip }).slice(1)],
     { remember: true, onEnd: safe(() => { showCalendar(); if (window.logiPage() !== startSection()) window.logiGo(startSection()); end(false); }) });
     if (!stop) whenClear(() => finish(gig, role));

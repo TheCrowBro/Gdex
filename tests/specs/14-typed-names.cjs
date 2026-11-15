@@ -3,7 +3,8 @@
 // type in the name and venue yourself. Doing so should ask if you want to add one, the other, or both to your lists."):
 // js/combo.js (the box: its markup, matching, keys, taps and the room for its list) and js/pages/bookings.js (the
 // question "Add to your lists?", a typed band kept on the booking as client and read everywhere a booking's band is,
-// "+ Add to Bands" on a gig's score row, the role's words). Both legs; its read-only check runs only in the on leg.
+// "+ Add to Bands" on a gig's score row, two saved names that fold the same, the question on a wide screen, who a
+// rehearsal's invoice is for, the role's words). Both legs; its read-only check runs only in the on leg.
 const fs = require('fs');
 const { open, ok, sleep, typePick, toMonth } = require('../helpers.cjs');
 
@@ -110,7 +111,7 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
 
   /* ---- 4. exact typing ---- */
   await box(f, 'actId').fill('sable'); await sleep(80);
-  ok('“sable” typed and not picked is Sable all the same: its id, the text as typed', (await box(f, 'actId').getAttribute('data-id')) === 's-sablea' && (await box(f, 'actId').inputValue()) === 'sable' && (await stateOf(f, 'actId')) === '✓ In your acts');
+  ok('“sable” typed and not picked is Sable all the same: its id, the text as typed, and the line names it as saved (“✓ In your acts, as Sable”)', (await box(f, 'actId').getAttribute('data-id')) === 's-sablea' && (await box(f, 'actId').inputValue()) === 'sable' && (await stateOf(f, 'actId')) === '✓ In your acts, as Sable', await stateOf(f, 'actId'));
   await f.locator('[data-key="title"]').fill('Exact typing'); await f.locator('[data-key="date"]').fill(dayIso(30));
   await f.locator('button[type="submit"]').click(); await sleep(500);
   let rec = await byTitle(page, 'Exact typing');
@@ -279,6 +280,13 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   ok('the shows’ spreadsheet has the band typed in its Act column', /,Sheet Band,Sheet Hall,/.test(csvText), csvText.split('\n').filter(l => /Sheet/.test(l)).join(' / '));
   const round = await store(page, (s, id) => { const file = s.exportJSON(); s.replaceAll(JSON.parse(file)); return s.byId('bookings', id).client; }, TID);
   ok('a backup file brought back keeps it', round === 'New Band', round);
+  // Who a rehearsal's or diary entry's invoice is for does not change with how its band was put in (js/money.js partyTo).
+  const to = await page.evaluate(() => import('./js/money.js').then(m => {
+    const base = { invoice: { number: 'INV-1', status: 'draft', lines: [], payments: [] }, status: 'confirmed', date: '2031-02-01', title: 'Radio session', contact: { name: 'Jo Producer', role: 'Producer' }, venueName: 'Studio Nine' };
+    const read = (kind, band) => m.snapshot({ ...base, kind, id: `to-${kind}`, ...band }, 'invoice').to;
+    return ['rehearsal', 'other'].map(k => [read(k, { actId: '', client: 'New Band' }), read(k, { actId: 's-owls', client: '' })]);
+  }));
+  ok('a rehearsal’s or diary entry’s invoice is for its contact alone, the band typed or picked', to.every(([typed, picked]) => JSON.stringify(typed) === '["Jo Producer, Producer"]' && JSON.stringify(picked) === JSON.stringify(typed)), JSON.stringify(to));
 
   /* ---- 14. the score row, as the Audiophile ---- */
   await setRole(page, 'audiophile');
@@ -294,6 +302,64 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   const SAB = await store(page, (s, d) => s.upsert('bookings', { kind: 'show', status: 'confirmed', date: d, client: 'Sable', venueName: 'The Moth Club' }).id, dayIso(-4));
   await page.evaluate(id => import('./js/pages/bookings.js').then(m => m.openBooking(id)), SAB); await sleep(400);
   ok('with a saved band of that name, the “Pick the band” row stays', (await page.locator('#bk-score-act').count()) === 1 && (await page.locator('#bk-score-add').count()) === 0);
+
+  /* ---- 14b. two saved names that fold the same ---- */
+  await store(page, s => {
+    s.upsert('acts', { id: 'c-sable2', name: 'SABLÉ' });
+    s.upsert('venues', { id: 'v-hall2', name: 'harbour hall', kind: 'venue', address: 'Other Street 9', rules: {} });
+    s.upsert('venues', { id: 'v-o2a', name: 'O2 Academy', kind: 'venue', address: '211 Stockwell Road, Brixton', rules: {} });
+    s.upsert('venues', { id: 'v-o2b', name: 'O2 Academy', kind: 'venue', address: '55 Cookridge Street, Leeds', rules: {} });
+  });
+  await sleep(200);
+  f = await newForm(page, 'show', 'New show');
+  const boxNow = async key => ({ id: await box(f, key).getAttribute('data-id'), tied: await box(f, key).getAttribute('data-tied'), line: await stateOf(f, key), list: await listShown(f, key) });
+  await box(f, 'actId').fill('SABLÉ'); await sleep(100);
+  let cb = await boxNow('actId');
+  ok('Sable and SABLÉ saved: “SABLÉ” typed to the letter is SABLÉ, “✓ In your bands”', cb.id === 'c-sable2' && cb.tied === null && cb.line === '✓ In your bands', JSON.stringify(cb));
+  await box(f, 'actId').fill('SABLE'); await sleep(100);
+  cb = await boxNow('actId');
+  const both = (await optNames(f, 'actId')).slice(0, 2).sort().join(' + ');
+  ok('…“SABLE” is both: neither linked (data-tied 2), the list open with both first, “Two of your bands have this name. Pick the one you mean from the list.”', cb.id === '' && cb.tied === '2' && cb.list && both === 'SABLÉ + Sable' && cb.line === 'Two of your bands have this name. Pick the one you mean from the list.', JSON.stringify({ ...cb, both }));
+  await box(f, 'venueId').fill('Harbour Hall'); await sleep(100);
+  cb = await boxNow('venueId');
+  ok('a venue “Harbour Hall” typed to the letter is the saved Harbour Hall (Pier Road), not “harbour hall”', cb.id === 's-harbour' && cb.line === '✓ In your venues' && /Pier Road/.test(await f.locator('.bk-venue-note').innerText()), JSON.stringify(cb));
+  await box(f, 'venueId').fill('harbour hall'); await sleep(100);
+  cb = await boxNow('venueId');
+  ok('…and “harbour hall” is “harbour hall” (Other Street 9)', cb.id === 'v-hall2' && /Other Street 9/.test(await f.locator('.bk-venue-note').innerText()), JSON.stringify(cb));
+  await box(f, 'venueId').fill('O2 Academy'); await sleep(100);
+  cb = await boxNow('venueId');
+  const towns = await f.locator('[id$="-venueId-list"] .cb-opt[aria-label^="O2 Academy, "]').evaluateAll(els => els.map(e => e.getAttribute('aria-label')));
+  ok('two venues called O2 Academy: neither linked, the line asks for a pick, the list tells them apart by their address', cb.id === '' && cb.tied === '2' && cb.line === 'Two of your venues have this name. Pick the one you mean from the list.' && towns.some(t => /Brixton/.test(t)) && towns.some(t => /Leeds/.test(t)), JSON.stringify({ ...cb, towns }));
+  await f.locator('[data-key="title"]').fill('Tied names'); await f.locator('[data-key="date"]').fill(dayIso(-5));
+  n0 = await counts(page);
+  await f.locator('button[type="submit"]').click(); await sleep(600);
+  rec = await byTitle(page, 'Tied names');
+  const n1 = await counts(page);
+  ok('…Add with both tied: no “Add to your lists?”, nothing added to the lists, the gig kept with both names as typed', (await sheetNamed(page, 'Add to your lists?').count()) === 0 && rec && rec.actId === '' && rec.client === 'SABLE' && rec.venueId === '' && rec.venueName === 'O2 Academy' && n1.acts === n0.acts && n1.venues === n0.venues && n1.bookings === n0.bookings + 1, JSON.stringify({ rec: rec && [rec.actId, rec.client, rec.venueId, rec.venueName], n0, n1 }));
+  await page.waitForSelector('.bk-page .bk-hero'); await sleep(250);
+  ok('…its score row says “Pick the band”: two of the bands have that name', (await page.locator('#bk-score-act').count()) === 1 && (await page.locator('#bk-score-add').count()) === 0);
+  f = await newForm(page, 'show', 'New show');
+  await typePick(f, 'venueId', 'o2', 'O2 Academy, 55 Cookridge Street, Leeds'); await sleep(120);
+  cb = await boxNow('venueId');
+  ok('a pick from the list links the one picked (Leeds), “✓ In your venues”', cb.id === 'v-o2b' && cb.tied === null && cb.line === '✓ In your venues' && /Leeds/.test(await f.locator('.bk-venue-note').innerText()), JSON.stringify(cb));
+  await typePick(f, 'actId', 'sab', 'SABLÉ'); await sleep(120);
+  await box(f, 'actId').fill('Sablé'); await sleep(100);
+  cb = await boxNow('actId');
+  ok('…a band picked stays picked while its name is still what is typed, and the line names it (“✓ In your bands, as SABLÉ”)', cb.id === 'c-sable2' && cb.line === '✓ In your bands, as SABLÉ', JSON.stringify(cb));
+  // A double click on Add on a wide screen: the second click lands on the question's backdrop, which leaves it up.
+  await page.setViewportSize({ width: 1280, height: 800 }); await sleep(200);
+  f = await newForm(page, 'show', 'New show');
+  await box(f, 'actId').fill('Dbl Band'); await sleep(80);
+  n0 = await counts(page);
+  const add = await f.locator('button[type="submit"]').boundingBox();
+  await page.mouse.dblclick(add.x + add.width / 2, add.y + add.height / 2); await sleep(500);
+  ok('1280 px: a double click on Add opens “Add to your lists?” and it stays up; nothing stored', (await sheetNamed(page, 'Add to your lists?').count()) === 1 && await f.isVisible() && JSON.stringify(await counts(page)) === JSON.stringify(n0));
+  await page.mouse.click(8, 8); await sleep(300);
+  ok('…a click on its backdrop leaves it up too (✕, Escape and Back to the form close it)', (await sheetNamed(page, 'Add to your lists?').count()) === 1 && JSON.stringify(await counts(page)) === JSON.stringify(n0));
+  await page.click('#bk-add-back'); await sleep(200);
+  ok('…Back to the form: the form, nothing stored', (await sheetNamed(page, 'Add to your lists?').count()) === 0 && await f.isVisible() && JSON.stringify(await counts(page)) === JSON.stringify(n0));
+  await closeSheets(page);
+  await page.setViewportSize({ width: 420, height: 900 }); await sleep(200);
 
   /* ---- 15. the role's words ---- */
   for (const [role, label, many, word, noun] of [['audiophile', 'Band', 'bands', 'band', 'gig'], ['producer', 'Artist', 'artists', 'artist', 'show'], ['all', 'Act', 'acts', 'act', 'show'], ['scout', 'Act', 'acts', 'act', 'show']]) {

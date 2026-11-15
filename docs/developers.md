@@ -726,7 +726,7 @@ may call it.
 | `js/licence-state.js` (the whole API is under "The licence" below) | licence | `mayOpen`, `mayWork`, `mayPickRole`, `gateWork`, `canWrite`, `licenceNow`, `onLicenceChange` / the window event `tourbook-licence`… |
 | `js/update.js` `desktop()` / `js/version.js` `shareBase()` / `publicHref()` | desktop | The desktop bridge when it has the update controls, else `null` / where share links and a calendar entry point: **an address someone else will open comes from `shareBase()` or `publicHref()`, never `location.href`**: in the desktop app they give `https://tourbook.crowmade.app/` (`PUBLIC_SITE`). |
 | `js/tour.js` `sheetTutorial(title, steps)` / `setSearchStep(step)` | core | Register walkthrough steps for a sheet by its title / the welcome tour's stop for the search box, just after the section menu (`js/search.js` gives it; the tour cannot import the search). |
-| `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. `forced: true`: no Skip, and Escape and the arrow keys do nothing (the start). A step may carry `count` (the words in place of "2 / 5"; `''` for none) and `button` (the primary button's words). The card is described by its words (`#tour-text`). |
+| `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. `forced: true`: no Skip, and Escape and the arrow keys do nothing (the start). A step may carry `count` (the words in place of "2 / 5"; `''` for none) and `button` (the primary button's words). The card is described by its words (`#tour-text`). A step's target on the page is brought to the middle of the screen, or of the room under the section menu when the middle is under it (a short phone). |
 | `js/tour.js` `welcomeSteps({ skip })` | core | The welcome tour's steps for the role in use, without the sections' stops listed in `skip` (the start's shorter tour). |
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
 | `blocks/guests.js` `guestCounts(b)`; `blocks/settlement.js` `isSettled(b)` / `settlementDoc(b)` | show | Names, heads and in / whether the night is settled / the printable settlement. |
@@ -878,9 +878,12 @@ that has an act or a venue box, every role) has two type-and-pick boxes, `form.j
   Best rank first, then the name now before an earlier one, then (venues) the kinds that fit the booking before the
   rest (a studio for a session), then A to Z; at most 50. ▾ and ↓ in an empty box list them all, in the given order.
   A venue's second line is its kind when it does not fit the booking, and the first line of its address.
-* **Exact.** At every keystroke (`exactOf`) the text that is exactly one of a record's names (same rules) is that
-  record, picked or not: the one picked in this form while it still fits, else the first whose name now is, else the
-  first with an earlier name that is. Opening a booking never relinks it: an old booking whose typed name is exactly
+* **Exact.** At every keystroke (`exactAll`; `exactOf` is the one record, or null) the text that is exactly one of a
+  record's names (same rules) is that record, picked or not: the one picked in this form while it still fits, else those
+  whose name now is the text to the letter (capitals, accents and all), else those whose name now is the text, else the
+  same for earlier names. When that is two or more records (`Sable` and `SABLÉ` for "sable", two venues called O2
+  Academy in two towns), none is linked: `data-id` stays `''`, the box carries `data-tied` (how many), the list stays
+  open and only a pick links one. Opening a booking never relinks it: an old booking whose typed name is exactly
   a saved one opens unlinked, keeping its typed address, until the box is typed in. `combochange` (bubbling, `detail:
   { id }`) fires whenever `data-id` changes; the venue box's sync hides the Address box while a saved venue is the one,
   shows its address in `.bk-venue-note`, and fills an empty contact from it.
@@ -891,17 +894,21 @@ that has an act or a venue box, every role) has two type-and-pick boxes, `form.j
   box then has `inputmode="none"` (the phone's keyboard goes down) until the next press or key on it. The list is in
   the form's flow, never a floating layer; its height is what fits above a phone's keyboard (`visualViewport`) and the
   form's Save bar, two to five and a half rows, the sheet's body scrolled up first when two would not fit.
-* **The line.** `✓ In your bands` (`, as <name now>` when typed by an earlier name); `Not in your bands yet. You’ll be
-  asked whether to add it.` for a name typed in this form that is none of them; `Typed, not picked from your bands.`
-  for the name the booking was saved with.
+* **The line.** `✓ In your bands` (`, as <name now>` whenever the text is not its name to the letter: typed by an
+  earlier name, or in other capitals or accents); `Two of your bands have this name. Pick the one you mean from the
+  list.` while the text is two records' name (`3 of your…` for three); `Not in your bands yet. You’ll be asked whether
+  to add it.` for a name typed in this form that is none of them; `Typed, not picked from your bands.` for the name the
+  booking was saved with.
 * **The question.** On Add or Save, a band or venue typed that is no record and is new in this form (`typedNew`: not
-  `data-was`, so an edit that keeps the names it was saved with asks nothing) is asked about before the save, the way
+  `data-was`, so an edit that keeps the names it was saved with asks nothing; nor is a name two records have, which is
+  saved as typed until one is picked) is asked about before the save, the way
   the act form's "New name?" is: the sheet's body hears the submit in the capture phase and holds it; an answer sends
   it again (`form.requestSubmit()`), and that one saves. The sheet "Add to your lists?" (`div.bk-add`: `#bk-add-q`,
   `#bk-add-why`, which describe the dialog, `div.bk-add-answers`, `#bk-add-back`): both new, `#bk-add-both` Add both,
   `#bk-add-act` Just the band, `#bk-add-venue` Just the venue, `#bk-add-none` Neither; one new, `#bk-add-yes` Yes, add it,
   `#bk-add-no` No, keep it as typed. The booking is saved whatever the answer; ✕, Escape and Back to the form save
-  nothing and put the focus back in the first new box. No answer takes the focus, so a held Enter answers nothing (nor
+  nothing and put the focus back in the first new box. Its backdrop does not close it (on a wide screen the second click
+  of a double click on Add lands there). No answer takes the focus, so a held Enter answers nothing (nor
   asks again), and a double click answers once. `addTyped` makes what was asked for (`acts.js` `addActNamed`, `venues.js` `addVenueNamed`: a venue for a
   show, a studio for a session, a rehearsal room for a rehearsal, with the address typed) and links the booking to it.
   A role that is read-only is not asked: `form.js` gives it the licence's sheet, and nothing is stored.
@@ -910,10 +917,12 @@ that has an act or a venue box, every role) has two type-and-pick boxes, `form.j
   (`bookingTitle`, `overlapText`, a square's name, the booking's act row, the search, the day sheet, calendar files,
   the shows' spreadsheet, a printed show document's head, Duplicate, backups, Google Drive's merge, `normalise`). It is
   not an act: it is not scored, filtered by the act chips, asked about ("Did you see them?"), or counted under its name
-  in Money. For a role that scores its shows (the Audiophile), a gig over with a typed band that is none of the acts has
+  in Money. A quote or invoice is addressed the same, typed or picked (`money.js` `partyTo`): a session's to its artist
+  and contact, a rehearsal's or diary entry's to its contact alone. For a role that scores its shows (the Audiophile), a
+  gig over with a typed band that is none of the acts has
   "<name> isn’t in your bands yet. Add them to score this show." and `#bk-score-add` "+ Add to Bands" on its score row,
-  which makes the act and links the gig (the focus then on ★ Score); with a saved act of exactly that name the row
-  stays "Pick the band".
+  which makes the act and links the gig (the focus then on ★ Score); with a saved act (or two) of exactly that name the
+  row stays "Pick the band".
 
 ### When Tourbook opens
 
@@ -940,7 +949,7 @@ meanwhile (`startOn()`: `tourbook-start` is there, so the boot takes the first-r
 
 The owner (15 Nov 2026): "At the beginning, force a tutorial for users to add a band, venue, and then a show for the
 audiophiles role." A role's first steps, taken for real. Only the Audiophile has them so far (`STARTS`: `audiophile:
-['band', 'venue', 'gig']`).
+{ steps: ['band', 'venue', 'gig'], done }`).
 
 * **When.** Straight after a role with steps is picked at "Who’s using Tourbook?" (`askRole` calls `then(id)` with the
   role picked), when that is the role in use, the welcome tour has not been seen and every list (`store.COLLECTIONS`) is
@@ -952,7 +961,9 @@ audiophiles role." A role's first steps, taken for real. Only the Audiophile has
   named for the step ("Add a band…") and opening that page's own form (`editAct`, `editVenue`, `newBooking({ kind:
   'show', blankAct: true }, { onSaved })`), with the step's line at the form's top (`p.start-note#start-note`, which
   describes the form's first box). The gig's card and line name the band and the venue just added, to be found by
-  typing. Cancel or ✕ brings the card back.
+  typing. Cancel or ✕ brings the card back. The way out (below) is under the card's words, not beside its primary, so a
+  card cut short on a small screen (a phone on its side) keeps its room for the words. On a short phone the add button
+  is brought to the middle of the room under the section menu, which stays at the top as the page scrolls (`runTour`).
 * **Where it is** is never stored: it is the first step whose list (`acts`, `venues`, `bookings`) is still empty, so a
   reload, a closed app or a cancelled form comes back at the step reached. `tourbook-start` (`{ role, made }`, the ids
   of what the start's own forms saved; in memory only while storage refuses the write) says a start is under way; it
@@ -961,17 +972,21 @@ audiophiles role." A role's first steps, taken for real. Only the Audiophile has
   record whose id is not in `made`: a backup file, Google Drive's `adopt`, another tab), the start ends and the welcome
   tour runs from its first card. It is checked when a card is about to be drawn and on every store change while one is
   up. An empty backup brings nothing: the start carries on.
-* **The end.** The gig saved, its page shows, then a shorter welcome tour (`remember`): "Your first gig is on your
-  calendar" over the gig's score row (else its top card), then the welcome tour without its welcome card and without
-  the stops of the sections the start went through (`welcomeSteps({ skip })`); Skip on every card. However it ends it
+* **The end.** The gig saved, its page shows, then a shorter welcome tour (`remember`): the role's last card (`done`;
+  the Audiophile's "Your first gig is on your calendar" over the gig's score row, else its top card), then the welcome
+  tour without its welcome card and without the stops of the sections the start went through (`welcomeSteps({ skip })`); Skip on every card. However it ends it
   marks the welcome tour seen and leaves the person on the calendar (`showCalendar()`). A reload during it shows the
   whole welcome tour instead.
 * **Licences, on and off.** The start calls nothing in `licence-*.js`: the Audiophile's own sections, writes through the
   store's gate, nothing sent to the licence server, the free days not started, the terms not asked.
-* **Another role's start.** A line in `STARTS` (its steps in order) and, for a step it does not share, an entry in
-  `STEPS`: `list` (the collection its record goes in), `go` (the section), `target` (its card's selectors, best first),
-  `title`, `text`, `button` and `note` (functions of the start's state, in the role's words), `open(saved)` (opens the
-  form; `saved(record)` once it is stored) and `last` on the final step. Nothing else changes.
+* **Another role's start.** An entry in `STARTS`: `steps` (its steps in order) and `done` (its last card, over the page
+  of what the last step added: `title` and `text`, functions of that record, and `target`, its selectors best first);
+  and, for a step it does not share, an entry in `STEPS`: `list` (the collection its record goes in), `go` (the
+  section), `target` (its card's selectors, best first), `title`, `text`, `button` and `note` (functions of the start's
+  state, in the role's words), `open(saved)` (opens the form; `saved(record)` once it is stored) and `last` on the final
+  step. `band`, `venue` and `gig` are in the Audiophile's words (a band you’ve seen, a venue you go to, a gig you’re
+  going to): a role that would say them otherwise has steps of its own, which may share a list and a form with these.
+  Nothing else changes.
 
 ### The section menu (`js/deck.js`)
 

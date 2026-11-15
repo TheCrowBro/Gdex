@@ -247,11 +247,12 @@ export function removePayment(bookingId, paymentId) {
 
 /* ------------------------------- the document as the client sees it ------------------------------- */
 const profileLines = () => { const p = db.profile || {}; const top = p.business || p.name; return [top, p.business && p.name && p.name !== p.business ? p.name : '', p.address || p.location, p.phone, p.email, p.website].filter(Boolean).map(String); };
-// Who the document is for: a show's promoter and venue; a session's artist and contact; anyone else's client.
+// Who the document is for: a show's promoter and venue; a session's artist and contact; anyone else's contact. A
+// rehearsal's or diary entry's band, typed or picked, is not who it is for.
 function partyTo(b) {
   const c = b.contact && typeof b.contact === 'object' ? b.contact : {}, who = c.name ? [c.name, c.role].filter(Boolean).join(', ') : '';
   const venue = venueOf(b).name, act = actName(b.actId) || b.client || '';
-  const lines = b.kind === 'show' ? [who, venue] : b.kind === 'session' ? [act, who] : [b.client || who, b.client ? who : ''];
+  const lines = b.kind === 'show' ? [who, venue] : b.kind === 'session' ? [act, who] : [who];
   return [...new Set([...lines, c.email, c.phone].filter(Boolean).map(String))];
 }
 const payInfo = bl => { const out = {}; for (const [k, src] of [['accountName'], ['bankName'], ['sortCode'], ['accountNumber'], ['iban'], ['bic'], ['paypal'], ['venmo'], ['cashapp'], ['revolut'], ['payLink'], ['payLinkLabel'], ['note', 'payNote']]) { const v = String(bl[src || k] || '').trim(); if (v) out[k] = v; } return out; };
