@@ -195,7 +195,8 @@ found somewhere, in any order; capitals and accents don't matter.
   dated copy each day for the last week and the last 12 months, in a hidden Tourbook folder of your own Drive that only Tourbook
   can open. It is free, whatever your role. Nothing goes to a Tourbook server.
 - **The licence**, once it is switched on, is all that Tourbook's own server (tourbook.crowmade.app) ever hears about, and
-  only once you use a working role: an Audiophile who never does sends it nothing.
+  only once you use a working role, or a backup file or Google Drive brings in free days started on another device: an
+  Audiophile who does neither sends it nothing.
 - **Save a backup now and then:** tap ☁ at the top → **Save a backup**. Keep the file somewhere safe. To move to a new
   phone or computer, open Tourbook there and import the file. On a computer with Chrome or Edge you can also have Tourbook
   keep a copy in a file inside your Dropbox, Google Drive, OneDrive or iCloud Drive folder.

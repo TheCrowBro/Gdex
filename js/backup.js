@@ -232,25 +232,30 @@ const nameOf = (c, r) => String(r.title || r.name || r.type || r.date || (NAMES[
 const takeFreeDays = d => { const { freeDaysFrom: from, ...rest } = d; return [rest, d.app === 'tourbook' ? from : undefined]; };
 // The chooser's line when bringing the file back changes this device's free days (freeDaysWith: licences on, an
 // earlier start, the count or the last day moved): from which day, how many are left and until when, or that they are
-// over. Dates in the words of the toast that says the free days started ("Dec 3"). what: 'backup' or 'copy'.
+// over. Dates in the words of the toast that says the free days started ("Dec 3"). what: 'backup' or 'copy'. A daily
+// copy carries the earliest start of every device on that Drive, so it names no one device. With Drive linked the next
+// sync carries the start to every connected device (js/sync.js), so the line says so.
 const dayWords = iso => endsWords({ trialEnds: iso });
-function daysLine(d, what) {
+function daysLine(d, what, linked) {
   if (!d) return null;
   const from = dayWords(ymd(new Date(d.first))), left = d.trialLeft === 1 ? '1 day left' : `${d.trialLeft} days left`, until = dayWords(d.trialEnds);
+  const where = what === 'copy' ? 'on a device connected to this Google Drive' : `on the device this ${what} was saved on`;
+  const all = linked ? ' At its next sync, every device connected to this Google Drive counts them from that day too.' : '';
   const over = !(d.trialLeft > 0);
   const text = over
-    ? `⚠ Your free days for the working roles started on ${from} on the device this ${what} was saved on, so they are over. Bringing it back makes the working roles read-only on this device until there is a licence. Audiophile stays free, for personal use, not for work.`
+    ? `⚠ Your free days for the working roles started on ${from} ${where}, so they are over. Bringing it back makes the working roles read-only on this device${linked ? ', and on every device connected to this Google Drive at its next sync,' : ''} until there is a licence. Audiophile stays free, for personal use, not for work.`
     : d.started
-      ? `Your free days for the working roles started earlier on the device this ${what} was saved on, on ${from}. Bringing it back counts them from that day on this device too: ${left}, until ${until}.`
-      : `Your free days for the working roles started on ${from} on the device this ${what} was saved on. Bringing it back starts them on this device from that day: ${left}, until ${until}.`;
+      ? `Your free days for the working roles started earlier, on ${from}, ${where}. Bringing it back counts them from that day on this device too: ${left}, until ${until}.${all}`
+      : `Your free days for the working roles started on ${from} ${where}. Bringing it back starts them on this device from that day: ${left}, until ${until}.${all}`;
   return h('p', { class: 'small se-imp-days' + (over ? ' warn' : '') }, text);
 }
 
 // The chooser for a backup file and for a daily copy from Google Drive (copy: true). With Drive linked (drive: true),
 // Replace reaches every connected device: the restored records are stamped now and everything the backup lacks gets a
 // tombstone (store.replaceAll everywhere), so the next syncs follow it instead of bringing the old ones back. The free
-// days' start the file carries is taken (adoptFreeDaysFrom: only an earlier one, only while licences are on) once the
-// file has really been brought back: never on Cancel, a refused change or Drive unread.
+// days' start the file carries is taken (adoptFreeDaysFrom: only an earlier one, only where licences are live, during
+// the owner's pause too, as Google Drive's is) once the file has really been brought back: never on Cancel, a refused
+// change or Drive unread.
 function chooseHow(raw, name, { drive: linked = false, copy = false } = {}) {
   const [data, from] = takeFreeDays(raw);
   return new Promise(resolve => {
@@ -306,7 +311,7 @@ function chooseHow(raw, name, { drive: linked = false, copy = false } = {}) {
         at > 0 && h('div', { class: 'small muted' }, 'Up to date as of ' + new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })),
         h('p', { class: 'small se-imp-counts' }, h('b', null, copy ? 'In the copy: ' : 'In the file: '), countText(inFile)),
         h('p', { class: 'small muted' }, h('b', null, 'On this device now: '), countText(here))),
-      daysLine(freeDaysWith(from), what),
+      daysLine(freeDaysWith(from), what, linked),
       nHere
         ? [reviveLine,
           h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Merge into this device'),
@@ -711,7 +716,7 @@ export const backupSteps = STEPS;
 sheetTutorial('Backups', STEPS);
 sheetTutorial('Bring back a backup', [
   { title: 'What is in the file', text: 'How many bookings, songs, people and so on the backup holds, next to what is on this device now.', target: ['.se-imp-file'] },
-  { title: 'Your free days', text: 'Shown when bringing the backup back changes this device’s free days for the working roles: they started earlier on the device it was saved on, so they are counted from that day here too.', target: ['.se-imp-days'] },
+  { title: 'Your free days', text: 'Bringing the backup back changes this device’s free days for the working roles. This line says from which day they are counted, how many days are left and until when, or that they are over.', target: ['.se-imp-days'] },
   { title: 'Merge', text: 'Keeps everything here and adds what the backup has that this device lacks. Where the same record is in both, the one changed last wins. Records deleted here since the backup stay deleted, unless you tick Also bring back (ticked for a daily copy).', target: ['.se-imp-merge'] },
   { title: 'Replace', text: 'Makes this device exactly like the file. Anything added here since the backup is lost, so Tourbook asks first.', target: ['.se-imp-replace'] },
 ]);

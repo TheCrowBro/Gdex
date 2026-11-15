@@ -53,7 +53,8 @@ const once = () => (T.local ? `${T.local.total} USD once in ${T.local.place}, in
 const tagEl = () => h('span', { 'data-lic': 'tag' }, tag());
 const onceEl = () => h('span', { 'data-lic': 'once' }, once());
 // Asked only where the licence server already hears from this device ([S-43]): a working role in use, the free days
-// started, or a licence. An Audiophile who never used a working role sends nothing, so its Buy says 20 USD.
+// started, or a licence. An Audiophile whose free days have not started (by its own use, or from a Drive copy or a
+// backup file) sends nothing, so its Buy says 20 USD.
 const priceMatters = () => { const s = licenceNow(); return roleNeedsLicence(roleId()) || !!s.started || !!s.licence; };
 function askLocalPrice() {
   if (T.asked || T.local || !priceMatters()) return;

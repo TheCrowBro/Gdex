@@ -225,7 +225,7 @@ Do Parts 1 to 5 first, try the shop (Part 7), and have a lawyer you choose read 
    in `js/licence-config.js` (`docs/go-live.md`, step 9(d)), published by the publish workflow, which checks the public
    keys are built in first. From then on, every browser at tourbook.crowmade.app has the licence: a working role there has
    30 free days from the first time it is used on that browser, then needs a licence. An Audiophile who never uses a
-   working role sends nothing to the licence server.
+   working role, and brings in no free days from a backup file or Google Drive, sends nothing to the licence server.
 3. **Try it:** in a private browser window open https://tourbook.crowmade.app, pick a working role, then Settings → About &
    licence → **Sign in**, with a licence that is live: for example a free code you made for your own email address
    (Part 8; the generator links it). A refunded or cancelled purchase, test or not, cannot sign in.

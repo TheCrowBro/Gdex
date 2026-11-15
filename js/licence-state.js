@@ -229,11 +229,24 @@ export function canWrite() {
 }
 
 const workOpen = () => !licenceOn() || roleNeedsLicence(roleId()) || FREE_KEEPS_WORK || mayWork() === 'open';
+// A free role's working section, box or record on a device whose free days started without the terms sheet (an earlier
+// start taken from Google Drive or from a backup file brought back, which never ask it) or whose terms changed since:
+// the sheet comes first, as before a start here ([S-37]). A working role in use is asked by startFreeDays instead.
+const termsFirstDue = () => { const s = licenceNow(); return s.mode !== 'off' && s.mode !== 'away' && s.started && !roleNeedsLicence(roleId()) && termsDue(true); };
+// Resolves false only when the sheet was closed without agreeing (nothing opens then; it is asked again next time).
+// id: a section, which counts only when it is a working one (js/app.js's logiGo).
+export async function termsFirst(id = '') {
+  if ((id && !sectionNeedsLicence(id)) || !termsFirstDue()) return true;
+  if (!(await askTerms())) return false;
+  termsAgreed();
+  return true;
+}
 // The one line of [S-3]: a working box or a paid record reached from a free section. fn runs at once while it is
-// open; on 'start' once the free days have started (the terms sheet first if due); on 'locked' the licence is offered.
-// kind: the booking's kind when what was tapped is a studio session or a rehearsal itself, so the offer speaks of it.
+// open (once the terms are agreed, when termsFirst asks them); on 'start' once the free days have started (the terms
+// sheet first if due); on 'locked' the licence is offered. kind: the booking's kind when what was tapped is a studio
+// session or a rehearsal itself, so the offer speaks of it.
 export function gateWork(fn, kind = '') {
-  if (workOpen()) { fn(); return; }
+  if (workOpen()) { if (termsFirstDue()) termsFirst().then(ok => { if (ok) fn(); }).catch(e => console.error(e)); else fn(); return; }
   // Not started after all: open anyway when it has opened meanwhile (the licence server paused it as it was asked).
   if (mayWork() === 'start') { startFreeDays().then(ok => { if (ok) toastStarted(); if (ok || workOpen()) fn(); }).catch(e => console.error(e)); return; }
   import('./licence.js').then(m => (licenceNow().mode === 'away' ? m.awaySheet() : m.offerSection('work', kind))).catch(e => console.error(e));
@@ -360,16 +373,21 @@ export async function adoptFreeDaysFrom(t) {
   return true;
 }
 // What taking start t would do here, said before a backup file is brought back (js/backup.js's chooser): null when it
-// would change nothing the person would notice (licences off, paused or away; a licence that works; the days already
-// over or the clock wrong; t not plausible, or not earlier than this device's own start; the same days left and the same
-// last day), else { first: t, started (whether they had started here), trialLeft, trialEnds } as they would then be.
-// The days are counted as licenceNow counts them, from the latest time seen (which taking t moves on to t at least).
+// would change nothing the person would notice (licences off or away; a licence that works; the days already over or
+// the clock wrong; a desktop bridge that cannot take it; t not plausible, or not earlier than this device's own start;
+// the same days left and the same last day), else { first: t, started (whether they had started here), trialLeft,
+// trialEnds } as they would then be. The days are counted as the state counts them, from the latest time seen (which
+// taking t moves on to t at least). During the owner's pause a start is still taken (adoptFreeDaysFrom, as Google
+// Drive's is) and counts once the pause ends, so the answer is the state as it will be then.
 export function freeDaysWith(t) {
-  const s = licenceNow();
+  const now = Date.now(), raw = bridge() ? null : read();
+  const s = raw && liveSite() && paused(raw, now) ? webState({ ...raw, on: true }, now) : licenceNow();
   if (!plausibleStart(t) || s.mode === 'off' || s.mode === 'away' || hasLicence(s) || !s.canEdit) return null;
-  if (s.started && !(t < num(s.first))) return null;
-  const at = Math.max(Date.now(), bridge() ? 0 : num(read().seen), t);
-  const left = x => Math.max(0, TRIAL_DAYS - Math.floor((at - x) / DAY)), ends = x => localDay(x + TRIAL_DAYS * DAY);
+  if ((bridge() && typeof bridge().adopt !== 'function') || (s.started && !(t < num(s.first)))) return null;
+  const at = Math.max(now, raw ? num(raw.seen) : 0, t);
+  // The last day as each state gives it: the website's a local day, the desktop app's a UTC one (desktop/licence.cjs).
+  const left = x => Math.max(0, TRIAL_DAYS - Math.floor((at - x) / DAY));
+  const ends = x => (bridge() ? new Date(x + TRIAL_DAYS * DAY).toISOString().slice(0, 10) : localDay(x + TRIAL_DAYS * DAY));
   // A start a few hours earlier can move the last day without changing the days left, so both are compared.
   if (s.started && left(t) === left(num(s.first)) && ends(t) === ends(num(s.first))) return null;
   return { first: t, started: !!s.started, trialLeft: left(t), trialEnds: ends(t) };

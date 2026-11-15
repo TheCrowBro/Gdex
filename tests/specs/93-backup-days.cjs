@@ -3,8 +3,11 @@
 // working roles' free days started on the device it was saved on, as Google Drive's copy does; bringing one back counts
 // this device's free days from the earlier of the two, said in the chooser before anything is chosen and taken only once
 // the file is really brought back (never on Cancel, Escape, a refused file or a refused change); the database never
-// holds the field. With licences off nothing changes: not a byte in a file, nothing taken, not one request to a licence
-// server. The spec serves the licence's switch and the status itself, so it reads the same in both legs of CI.
+// holds the field. With Google Drive linked the line says every connected device follows, and a daily copy's line names
+// no one device. During the owner's pause a start is still taken and the line says what it will mean once the pause
+// ends. A free role whose free days started this way agrees to the terms before its first working box or section. With
+// licences off nothing changes: not a byte in a file, nothing taken, not one request to a licence server. The spec serves
+// the licence's switch and the status itself, so it reads the same in both legs of CI.
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const BASE = process.env.TOURBOOK_URL || 'http://localhost:8124/';
@@ -30,16 +33,20 @@ const FAKE_FILE = () => {
 
 (async () => {
   const browser = await chromium.launch();
-  const errors = [];
-  // A phone-sized page like tests/helpers.cjs makes, with the licence's switch served as `sites`, the status answered as
-  // on and the price (no Date header), every request to /licence/ or /buy recorded, and `seed` put in storage once.
-  const openWith = async (sites, { seed = {}, init = null } = {}) => {
+  const errors = [], drives = [];
+  // The licence's switch served as `sites`, the status answered as `status` and the price (no Date header).
+  const liveRoutes = async (ctx, sites, status = '{"on":true}') => {
+    await ctx.route('**/js/licence-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: `export const LICENCE_SITES = ${JSON.stringify(sites)};\n` }));
+    await ctx.route('**/licence/web/status', r => r.fulfill({ status: 200, contentType: 'application/json', body: status }));
+    await ctx.route('**/licence/price', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"price":"20.00","currency":"USD","country":"","taxed":null}' }));
+  };
+  // A phone-sized page like tests/helpers.cjs makes, with liveRoutes, every request to /licence/ or /buy recorded, and
+  // `seed` put in storage once.
+  const openWith = async (sites, { seed = {}, init = null, status = '{"on":true}' } = {}) => {
     const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block', acceptDownloads: true });
     const asked = [];
     ctx.on('request', r => { const p = new URL(r.url()).pathname; if (/^\/licence\/|^\/buy$/.test(p)) asked.push(p); });
-    await ctx.route('**/js/licence-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: `export const LICENCE_SITES = ${JSON.stringify(sites)};\n` }));
-    await ctx.route('**/licence/web/status', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"on":true}' }));
-    await ctx.route('**/licence/price', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"price":"20.00","currency":"USD","country":"","taxed":null}' }));
+    await liveRoutes(ctx, sites, status);
     await ctx.route('https://api.open-meteo.com/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"daily":{"time":[]}}' }));
     await ctx.addInitScript(seed => {
       try {
@@ -156,6 +163,43 @@ const FAKE_FILE = () => {
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await sleep(1500);
       const statusAfter = asked.filter(p => p === '/licence/web/status').length;
       ok('…the licence server hears from this browser only now that the free days have started here: before the file, not even the price', askedBefore.length === 0 && statusAfter >= 1, JSON.stringify({ askedBefore, asked }));
+
+      // The free days started here without the terms sheet: it comes before the first working box or section, as before
+      // a start here. Not now opens nothing (asked again next time); once agreed, both open at once.
+      const termsUp = () => page.waitForSelector('.lic-terms-sheet', { timeout: 4000 }).then(() => true, () => false);
+      const notNow = async () => { if (!(await page.locator('#lic-terms-later').count())) return; await page.click('#lic-terms-later'); await page.waitForSelector('.lic-terms-sheet', { state: 'detached', timeout: 8000 }); await sleep(200); };
+      const atOnce = await page.evaluate(() => import('./js/licence-state.js').then(L => { window.__gw = 0; L.gateWork(() => { window.__gw++; }); return window.__gw; }));
+      const sheet1 = await termsUp(); await notNow();
+      const gwNo = await page.evaluate(() => window.__gw);
+      const go1 = page.evaluate(() => window.logiGo('people'));
+      const sheet2 = await termsUp(); await notNow();
+      const went1 = await go1, page1 = await page.evaluate(() => window.logiPage());
+      ok('…a working box or section first asks the terms (never agreed here): Not now opens neither, and says the section was not opened', atOnce === 0 && sheet1 && gwNo === 0 && sheet2 && went1 === false && page1 !== 'people' && (await page.evaluate(() => localStorage.getItem('tourbook-terms'))) === null, JSON.stringify({ atOnce, sheet1, gwNo, sheet2, went1, page1 }));
+      const go2 = page.evaluate(() => window.logiGo('people'));
+      const sheet3 = await termsUp();
+      if (sheet3) { await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); }
+      const went2 = await go2, page2 = await page.evaluate(() => window.logiPage());
+      const terms = await page.evaluate(() => JSON.parse(localStorage.getItem('tourbook-terms') || 'null'));
+      const gwYes = await page.evaluate(() => import('./js/licence-state.js').then(L => { L.gateWork(() => { window.__gw++; }); return window.__gw; }));
+      ok('…agreed: People opens, the terms are kept, and the next working box opens at once with no sheet', sheet3 && went2 === true && page2 === 'people' && terms && terms.v === TERMS_V && gwYes === 1 && (await page.locator('.lic-terms-sheet').count()) === 0, JSON.stringify({ sheet3, went2, page2, terms, gwYes }));
+      await ctx.close();
+    }
+
+    /* ---------------- the owner's pause: a start brought back is still taken, and the line says what it will mean ---------------- */
+    {
+      const T3 = noon(3), T40 = noon(40);
+      const paused = { on: false, statusAt: Date.now(), first: T3, seen: Date.now() };
+      const { ctx, page } = await openWith(LIVE, { status: '{"on":false}', seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': paused } });
+      await sample(page); await backups(page);
+      const st0 = await lic(page), plain = await saveBackup(page);
+      const line = await bring(page, await withSong(page, 't-pause', { freeDaysFrom: T40 }));
+      const over = `⚠ Your free days for the working roles started on ${(await expect(page, T40)).from} on the device this backup was saved on, so they are over. Bringing it back makes the working roles read-only on this device until there is a licence. Audiophile stays free, for personal use, not for work.`;
+      ok('the owner’s pause (a fresh { on: false }): a backup saved now carries no start, but a file whose start ends the free days still shows the warning, as they will be once the pause ends', st0.mode === 'off' && !('freeDaysFrom' in JSON.parse(plain)) && line === over, JSON.stringify({ mode: st0.mode, line }));
+      await choose(page, '.se-imp-merge');
+      const st1 = await lic(page);
+      await page.evaluate(() => import('./js/licence-state.js').then(L => L.changeLicence(x => { x.on = true; x.statusAt = Date.now(); }))); // the pause ends
+      const st2 = await lic(page);
+      ok('…Merge takes the start during the pause (both copies), and once the pause ends the free days are over, as the line said', st1.mode === 'off' && storedFirst(st1) === T40 && st1.days && st1.days.first === T40 && st2.mode === 'ended' && st2.canEdit === false && await noField(page), JSON.stringify({ st1, st2 }));
       await ctx.close();
     }
 
@@ -228,7 +272,7 @@ const FAKE_FILE = () => {
       await clearOfNoon();
       const T10 = noon(10), want = await expect(page, T10);
       line = await bring(page, await fileOf(page, { freeDaysFrom: T10 }));
-      const words = `Your free days for the working roles started earlier on the device this backup was saved on, on ${want.from}. Bringing it back counts them from that day on this device too: ${want.leftWords}, until ${want.until}.`;
+      const words = `Your free days for the working roles started earlier, on ${want.from}, on the device this backup was saved on. Bringing it back counts them from that day on this device too: ${want.leftWords}, until ${want.until}.`;
       ok('an earlier start: the chooser says the free days count from the file’s day here too, how many are left and until when', line === words, JSON.stringify({ line, words }));
       await choose(page, '.se-imp-replace');
       let now = await lic(page);
@@ -254,7 +298,7 @@ const FAKE_FILE = () => {
       line = (await page.locator(`${BRING} .se-imp-days`).count()) ? await page.locator(`${BRING} .se-imp-days`).innerText() : '';
       await choose(page, '.se-imp-merge');
       now = await lic(page);
-      ok('a locked backup carrying an earlier start: the line once its passphrase opens it, and taken on Merge', line.includes(`on ${want12.from}.`) && line.includes(`${want12.leftWords}, until ${want12.until}.`) && now.first === T12 && await noField(page), JSON.stringify({ line, first: now.first }));
+      ok('a locked backup carrying an earlier start: the line once its passphrase opens it, and taken on Merge', line.includes(`, on ${want12.from}, on the device this backup was saved on.`) && line.includes(`${want12.leftWords}, until ${want12.until}.`) && now.first === T12 && await noField(page), JSON.stringify({ line, first: now.first }));
 
       // A backup saved straight after carries exactly this device's start.
       const again = await saveBackup(page);
@@ -283,7 +327,62 @@ const FAKE_FILE = () => {
       ok('…the free-days questions asked nothing of the licence server but the status and the price', asked.every(p => p === '/licence/web/status' || p === '/licence/price'), asked.join(' '));
       await ctx.close();
     }
+
+    /* ---------------- licences on, Google Drive linked: every connected device follows ---------------- */
+    {
+      // 90-drive's fake Google Drive and device opener, with the real licence (served as live here, as above).
+      const { fakeDrive, device, connect, openBackups, closeSheets, until, weekdayName } = require('./90-drive.cjs');
+      const D = fakeDrive();
+      const dev = async (who, first) => {
+        const d = await device(browser, D, { who, sample: true, seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': trialRecord(first) } });
+        drives.push(d);
+        await liveRoutes(d.ctx, LIVE); await d.page.reload(); await d.page.waitForSelector('#deck .dk-next');
+        await d.page.evaluate(() => import('./js/backup.js'));
+        await connect(d.page); await closeSheets(d.page);
+        return d;
+      };
+      const TA = noon(3), A = await dev('A', TA), pa = A.page;
+      const synced = await until(() => D.json() && D.json().freeDaysFrom === TA);
+      await backups(pa);
+      await clearOfNoon();
+      const T10 = noon(10), want = await expect(pa, T10);
+      let line = await bring(pa, await fileOf(pa, { freeDaysFrom: T10 }));
+      const words = `Your free days for the working roles started earlier, on ${want.from}, on the device this backup was saved on. Bringing it back counts them from that day on this device too: ${want.leftWords}, until ${want.until}. At its next sync, every device connected to this Google Drive counts them from that day too.`;
+      ok('Google Drive linked: an earlier start’s line adds that every connected device counts from that day too, at its next sync', synced && line === words, JSON.stringify({ synced, line, words }));
+      await choose(pa, '.se-imp-merge');
+      const carried = await until(() => D.json().freeDaysFrom === T10, 15000);
+      ok('…after Merge this device counts from the file’s day, and its sync carries the start to Google Drive', (await lic(pa)).first === T10 && carried && await noField(pa), JSON.stringify({ first: (await lic(pa)).first, drive: D.json().freeDaysFrom }));
+      const B = await dev('B', noon(1));
+      const bFirst = await until(async () => (await lic(B.page)).first === T10, 15000);
+      ok('…and another device connected to the same Google Drive counts from it after its sync', bFirst, JSON.stringify(await lic(B.page)));
+
+      // A daily copy names no one device: its start is the earliest of every device on that Drive.
+      const wk = D.named(weekdayName())[0], T20 = noon(20);
+      wk.body = JSON.stringify({ ...JSON.parse(wk.body), freeDaysFrom: T20 }, null, 2);
+      await clearOfNoon();
+      const want20 = await expect(pa, T20);
+      await openBackups(pa);
+      await pa.click('.sheet[aria-label="Backups"] .se-bk-drive-restore');
+      await pa.waitForSelector('.sheet[aria-label="Bring back a daily copy"] .se-bk-copy', { timeout: 10000 });
+      const today = await pa.evaluate(() => new Date().toLocaleDateString('en-GB', { weekday: 'long' }));
+      await pa.locator('.sheet[aria-label="Bring back a daily copy"] .se-bk-copy', { hasText: today }).click();
+      await pa.waitForSelector(BRING, { timeout: 10000 });
+      line = (await pa.locator(`${BRING} .se-imp-days`).count()) ? await pa.locator(`${BRING} .se-imp-days`).innerText() : '';
+      const copyWords = `Your free days for the working roles started earlier, on ${want20.from}, on a device connected to this Google Drive. Bringing it back counts them from that day on this device too: ${want20.leftWords}, until ${want20.until}. At its next sync, every device connected to this Google Drive counts them from that day too.`;
+      ok('a daily copy carrying an earlier start: the line says it started on a device connected to this Google Drive', line === copyWords, JSON.stringify({ line, copyWords }));
+      await choose(pa, '.se-imp-merge');
+      ok('…and Merge takes it, as from a backup file', (await lic(pa)).first === T20 && await until(() => D.json().freeDaysFrom === T20, 15000), JSON.stringify({ first: (await lic(pa)).first, drive: D.json().freeDaysFrom }));
+      await closeSheets(pa);
+
+      // A start that ends the free days: the warning says every connected device goes read-only too. Cancel takes nothing.
+      await backups(pa);
+      const T40 = noon(40);
+      line = await bring(pa, await fileOf(pa, { freeDaysFrom: T40 }));
+      await pa.click(`${BRING} .btn.ghost:has-text("Cancel")`); await pa.waitForSelector(BRING, { state: 'detached' }); await sleep(300);
+      ok('Google Drive linked, a start 40 days back: the warning says the working roles become read-only here and on every connected device at its next sync; Cancel takes nothing', line === `⚠ Your free days for the working roles started on ${(await expect(pa, T40)).from} on the device this backup was saved on, so they are over. Bringing it back makes the working roles read-only on this device, and on every device connected to this Google Drive at its next sync, until there is a licence. Audiophile stays free, for personal use, not for work.` && (await lic(pa)).first === T20, line);
+    }
   } catch (e) { ok('backup days crashed', false, e.stack); }
+  for (const d of drives) { errors.push(...d.errors); await d.ctx.close().catch(() => {}); }
   ok('no errors in the console', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();
 })().catch(e => { console.log('FAIL backup days crashed — ' + e.message); process.exit(1); });

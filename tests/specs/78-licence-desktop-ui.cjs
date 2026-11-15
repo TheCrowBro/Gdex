@@ -48,8 +48,9 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
 (async () => {
   const browser = await chromium.launch();
   const errors = [];
-  const open = async ({ start, wait = 0, seed = {}, url = BASE, live = false } = {}) => {
-    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+  // tz: the browser's time zone (Playwright's timezoneId); init: a script run after the stand-in bridge is in place.
+  const open = async ({ start, wait = 0, seed = {}, url = BASE, live = false, tz = undefined, init = null } = {}) => {
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block', ...(tz ? { timezoneId: tz } : {}) });
     const asked = [];
     ctx.on('request', r => { const p = new URL(r.url()).pathname; if (/^\/licence\/|^\/buy$/.test(p)) asked.push(p); });
     if (live) await ctx.route('**/js/licence-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: "export const LICENCE_SITES = ['localhost', '127.0.0.1'];\n" }));
@@ -63,6 +64,7 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document, { childList: true, subtree: true });
     }, seed);
     if (start) await ctx.addInitScript(bridge(start, wait));
+    if (init) await ctx.addInitScript(init);
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
@@ -200,7 +202,7 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
         const earlier = T - 6 * DAY;
         const line = await bring(page, earlier);
         await pickIt(page, '.se-imp-merge');
-        ok('…bringing back an earlier start: the chooser says so, and Merge hands exactly that start to licence.adopt', /^Your free days for the working roles started earlier on the device this backup was saved on, on .+\. Bringing it back counts them from that day on this device too: \d+ days left, until .+\.$/.test(line) && same(await adopts(page), [earlier]) && (await state(page)).first === earlier, JSON.stringify({ line, adopts: await adopts(page) }));
+        ok('…bringing back an earlier start: the chooser says so, and Merge hands exactly that start to licence.adopt', /^Your free days for the working roles started earlier, on .+, on the device this backup was saved on\. Bringing it back counts them from that day on this device too: \d+ days left, until .+\.$/.test(line) && same(await adopts(page), [earlier]) && (await state(page)).first === earlier, JSON.stringify({ line, adopts: await adopts(page) }));
         const line2 = await bring(page, earlier - 2 * DAY);
         await page.click(`${BRING} .btn.ghost:has-text("Cancel")`); await page.waitForSelector(BRING, { state: 'detached' }); await sleep(300);
         ok('…Cancel after the line: nothing is handed to licence.adopt', /started earlier/.test(line2) && same(await adopts(page), [earlier]), JSON.stringify(await adopts(page)));
@@ -228,6 +230,30 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
         const line = await bring(page, Date.now() - 9 * DAY);
         await pickIt(page, '.se-imp-merge');
         ok('…the desktop’s switch off (enabled: false): a saved backup is the database with no start, an earlier start in a file shows no line and licence.adopt is never asked', !('freeDaysFrom' in file) && same(file, db) && line === '' && same(await adopts(page), []) && asked.length === 0, JSON.stringify({ field: file.freeDaysFrom, line, adopts: await adopts(page), asked }));
+        await ctx.close();
+      }
+      {
+        // The desktop app's last day is a UTC date (desktop/licence.cjs), so the line's "until" is too: in Auckland a start
+        // at noon UTC is already the next day, and the line must still name the day the app shows once it is taken.
+        const T = Date.now() - 4 * DAY, earlier = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 12, 12);
+        const { ctx, page } = await open({ start: trialAt(T), tz: 'Pacific/Auckland', seed: { 'tourbook-role': 'producer', ...agreed } });
+        await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(300);
+        await backups(page);
+        const line = await bring(page, earlier);
+        await pickIt(page, '.se-imp-merge');
+        const shown = await page.evaluate(() => import('./js/licence-state.js').then(L => ({ until: L.endsWords(L.licenceNow()), ends: L.licenceNow().trialEnds })));
+        ok('…in a time zone ahead of UTC, the line’s last day is the one the desktop app shows once the start is taken (its UTC day)', !!shown.until && line.endsWith(`, until ${shown.until}.`) && shown.ends === new Date(earlier + 30 * DAY).toISOString().slice(0, 10) && same(await adopts(page), [earlier]), JSON.stringify({ line, shown }));
+        await ctx.close();
+      }
+      {
+        // A bridge that cannot take a start (no licence.adopt): no line, since nothing would change.
+        const T = Date.now() - 4 * DAY;
+        const { ctx, page } = await open({ start: trialAt(T), init: 'delete window.tourbookDesktop.licence.adopt;', seed: { 'tourbook-role': 'producer', ...agreed } });
+        await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(300);
+        await backups(page);
+        const line = await bring(page, Date.now() - 12 * DAY);
+        await pickIt(page, '.se-imp-merge');
+        ok('…a bridge without licence.adopt: no line, and the computer’s start is as it was', line === '' && (await state(page)).first === T, JSON.stringify({ line, st: await state(page) }));
         await ctx.close();
       }
     }

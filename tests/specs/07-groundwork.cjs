@@ -652,7 +652,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     await browser.close();
 
     /* ---------------- the licence as every module asks it ---------------- */
-    const NAMES = ['LICENCE_EVENT', 'licenceNow', 'licenceOn', 'licenceReady', 'mayOpen', 'mayWork', 'mayPickRole', 'gateWork', 'workMark', 'canWrite', 'startFreeDays', 'freeDaysFrom', 'adoptFreeDaysFrom', 'freeDaysWith', 'refreshLicence', 'serverTime', 'setLicenceState', 'onLicenceChange', 'initLicenceSource', 'roleBadge', 'sectionMark', 'FREE_KEEPS_WORK'];
+    const NAMES = ['LICENCE_EVENT', 'licenceNow', 'licenceOn', 'licenceReady', 'mayOpen', 'mayWork', 'mayPickRole', 'gateWork', 'workMark', 'canWrite', 'startFreeDays', 'freeDaysFrom', 'adoptFreeDaysFrom', 'freeDaysWith', 'termsFirst', 'refreshLicence', 'serverTime', 'setLicenceState', 'onLicenceChange', 'initLicenceSource', 'roleBadge', 'sectionMark', 'FREE_KEEPS_WORK'];
     {
       const { browser, ctx, page, errors } = await open({ sample: true });
       const asked = []; let requests = 0;
@@ -671,6 +671,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
           open: r.SECTIONS.every(id => L.mayOpen(id) === 'open'), work: L.mayWork(), pick: roleIds.every(id => L.mayPickRole(id) === 'open'),
           called, mark: L.workMark(), write: L.canWrite(), start: await L.startFreeDays(), from: L.freeDaysFrom(),
           earlier, with: L.freeDaysWith(earlier), adopted: L.licenceOn() ? null : await L.adoptFreeDaysFrom(earlier),
+          termsFirst: await L.termsFirst('people'), termsSheet: !!document.querySelector('.lic-terms-sheet'),
           badges: roleIds.every(id => L.roleBadge(id) === ''), marks: r.SECTIONS.every(id => L.sectionMark(id) === null),
           sites: c.LICENCE_SITES, licence: localStorage.getItem('tourbook-licence'), terms: localStorage.getItem('tourbook-terms'),
         };
@@ -680,6 +681,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
         ok('licences off: the mode is off and every answer is open (sections, work, roles, the gate calls through at once, the store gate allows)', L.mode === 'off' && L.on === false && L.ready && L.open && L.work === 'open' && L.pick && L.called === 1 && L.mark === null && L.write === true, JSON.stringify(L));
         ok('…nothing is started, nothing is marked, no badge', L.start === false && L.from === 0 && L.badges && L.marks, JSON.stringify(L));
         ok('…an earlier start from a backup file or Drive says nothing (freeDaysWith null) and is not taken', L.with === null && L.adopted === false && L.licence === null, JSON.stringify([L.with, L.adopted]));
+        ok('…and a working section asks no terms first (termsFirst true, no sheet)', L.termsFirst === true && !L.termsSheet, JSON.stringify([L.termsFirst, L.termsSheet]));
         ok('…the site is not a licence site, and nothing about a licence is kept on the device', same(L.sites, []) && L.licence === null && L.terms === null, JSON.stringify(L));
         ok('…and in a whole visit, every section opened, not one request goes to /licence/ or /buy', asked.length === 0 && requests > 20, `${requests} requests; ${asked.join(' | ')}`);
       } else {

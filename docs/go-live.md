@@ -110,8 +110,10 @@ are on, one more thing for the lawyer to look at). Later the same day, with your
 free days (Answered, below), section 3 gained one point: "A backup file carries the day the free days started on the
 device it was saved on. Bringing it back on a device counts that device’s free days from that day, or from the device’s
 own start if that was earlier." Nothing else in the terms changed that day. The date stayed 15 November 2026 and
-`TERMS_VERSION` `'2026-11-15'`: no device could have agreed to the morning's words (the one-time terms sheet asks no one
-while licences are off), so nobody needs asking again (`js/terms.js`). The privacy
+`TERMS_VERSION` `'2026-11-15'`: the day's first words went live with Google Drive at 09:54 UTC, but no device could have
+agreed to them (the one-time terms sheet asks no one while licences are off), so nobody needs asking again
+(`js/terms.js`). Both versions are dated 15 November 2026, though section 18 says each version is dated at the top:
+another point for the lawyer. The privacy
 policy is dated the same day: its section 7 now says Google’s sign-in script runs only once you tap Connect Google
 Drive…, as its section 3 says, rather than once you connect; and its sections 2 and 3 say what a backup file carries
 about the free days. Tell the developer anything to change.
@@ -368,10 +370,15 @@ Answered:
   roles' free days started on the device it was saved on, as Google Drive's copy does. Bringing it back counts this
   device's free days from the earlier of its own start and the file's (a device that has not started takes the file's),
   and before anything is brought back the chooser says so in one line when that changes the count: from which day, how
-  many days are left and until when, or that they are over. So a backup brought back in a private window keeps its free
-  days' start. While licences are off nothing is written into a file and nothing is taken from one. A plain backup is a
-  text file anyone can edit, so this stops the easy way round the free days, not a determined one. The terms (section 3)
-  and the privacy policy (sections 2 and 3) say so.
+  many days are left and until when, or that they are over; with Google Drive linked it adds that every connected
+  device counts from that day too at its next sync. So a backup brought back in a private window keeps its free days'
+  start. While licences are off nothing is written into a file and nothing is taken from one. During your emergency
+  pause a start in a file brought back is still taken, as Google Drive's is, and the line says what it will mean once
+  the pause ends; a backup saved during a pause carries none. An Audiophile whose free days started this way agrees to
+  the terms before using a working section, as after any start. A plain backup is a text file anyone can edit, so this
+  stops the easy way round the free days, not a determined one; and a backup you give someone else carries your start,
+  so their free days on that device count from it (the line tells them first). The terms (section 3) and the privacy
+  policy (sections 2 and 3) say so.
 
 Still open (the build goes ahead with its default meanwhile):
 
