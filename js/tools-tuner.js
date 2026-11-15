@@ -234,7 +234,7 @@ export function tuner(panel) {
   panel.append(
     h('div', { class: 'tl-card tl-tuner-card' }, display, err, h('div', { class: 'actions center' }, startBtn)),
     a4Box, toneBox,
-    h('p', { class: 'muted small tl-foot' }, 'The microphone is only listened to while the tuner is open. Nothing is recorded or sent anywhere.'));
+    h('p', { class: 'muted small tl-foot' }, 'Tourbook listens only while the tuner is open. Nothing is recorded or sent anywhere.'));
   paintA4(); paintTone(); paint(); paintButtons();
   // Listen straight away when the microphone is already allowed; otherwise wait for a tap (no surprise prompts).
   micPermission().then(s => { if (alive && s === 'granted' && !mic && !starting) start(); });
@@ -247,7 +247,7 @@ export function tuner(panel) {
 }
 
 export const TUNER_STEPS = [
-  { target: ['.tl-tuner'], title: 'The tuner', text: 'Play one string or note at a time. The big letter is the nearest note with its octave; the needle shows how far off you are, in cents. Green and “In tune” means within 5 cents.' },
+  { target: ['.tl-tuner'], title: 'The tuner', text: 'Play one string or note at a time. The big letter is the nearest note with its octave; the needle shows how far off you are, in cents. Green and “In tune” mean within 5 cents.' },
   { target: ['#tl-tuner-start'], title: 'Microphone', text: 'Tourbook listens only while the tuner is open, and asks your permission the first time. Nothing is recorded.' },
   { target: ['#tl-a4'], title: 'Concert pitch', text: 'Tuning to a piano or an orchestra at 442? Change A4 here. It is saved on this device.' },
   { target: ['.tl-tone'], title: 'Reference tone', text: 'Pick a string or any note and play it to tune by ear. Rich adds overtones so low notes are audible on a phone speaker.' },

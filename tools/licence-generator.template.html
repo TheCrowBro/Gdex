@@ -136,7 +136,7 @@ const SITE = 'https://tourbook.crowmade.app';
   // The email to send with a code you made: Tourbook's steps, the website's only when the code holds an email address.
   const letter = (row, lic, comp) => [
     `Hi${row.name ? ' ' + row.name.split(' ')[0] : ''},`,
-    `Here is your Tourbook licence${comp ? ', with my compliments' : ''}. It covers every role on up to ${lic.seats} of your devices (computers with the desktop app; signing in on the website doesn’t use one)${row.expires ? ', until ' + row.expires : ''}.`,
+    `Here is your Tourbook licence${comp ? ', with my compliments' : ''}. It covers every role on up to ${lic.seats} of your devices: computers with the desktop app (signing in on the website doesn’t use one)${row.expires ? ', until ' + row.expires : ''}.`,
     row.code,
     ...(row.email ? [`On the website (${SITE}): Settings → About & licence → Sign in, with ${row.email}. Tourbook emails you a 6-digit code to type in.`] : []),
     `In the desktop app: download Tourbook from ${SITE}/download.html, open it, go to Settings → About & licence → Enter licence code, and paste the code.`,

@@ -95,7 +95,7 @@ export function rulesEditor(v) {
   };
   const node = h('div', { class: 'field wide vn-rules-edit' },
     h('span', { class: 'vn-rules-title' }, 'House rules'),
-    h('small', { class: 'muted' }, 'Tap what you know: Allowed or Not allowed, Yes or No. Tap it again to clear it. Rules you leave alone stay off the card.'),
+    h('small', { class: 'muted' }, 'Tap what you know, and tap again to clear it. Rules left alone stay off the card.'),
     RULE_GROUPS.map(([group, label]) => h('fieldset', { class: 'vn-rules-group' }, h('legend', null, label),
       HOUSE_RULES.filter(r => r.group === group).map(r => (r.kind === 'pick' ? pick(r) : pair(r))))));
   const read = () => Object.fromEntries(HOUSE_RULES.filter(r => r.id in state).map(r => [r.id, state[r.id]]));

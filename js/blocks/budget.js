@@ -104,13 +104,13 @@ export default {
       lines.length
         ? h('div', { class: 'mn-cost-list' }, ...lines.map(c => h('button', { class: 'mn-cost', type: 'button', 'data-fk': 'cost-' + c.id, 'aria-label': `${c.cat}${c.desc ? ': ' + c.desc : ''}, ${fmtMoney(num(c.amount))}. Edit`, onclick: () => editCost(b.id, c) },
           h('span', { class: 'mn-cost-text' }, h('span', { class: 'mn-cost-cat' }, c.cat || 'Other'), c.desc && h('span', null, c.desc)), h('b', null, fmtMoney(num(c.amount))))))
-        : h('p', { class: 'muted small' }, 'What this booking costs you: travel, fuel, the van, a hotel, per diems, hire, crew and players. Only you see it: costs never go on a quote, invoice or day sheet.'),
+        : h('p', { class: 'muted small' }, 'What this booking costs you, from travel to crew. Only you see costs: they never go on a quote, invoice or day sheet.'),
       h('div', { class: 'actions' },
         h('button', { class: 'btn ghost small', type: 'button', id: 'mn-cost-add', onclick: () => editCost(b.id, null) }, '+ Add a cost'),
         ideas.length > 0 && h('button', { class: 'btn ghost small', type: 'button', id: 'mn-cost-suggest', 'aria-label': `Add costs from the booking (${ideas.length} to pick from)`, onclick: () => pickSuggestions(b.id) }, '+ From the booking')));
   },
   tutorial: [
-    { title: 'Costs', text: 'What the booking costs you, against what it brings in: the expected profit before the day. On a show, the settlement takes these off the night too.', target: ['#blk-budget'] },
-    { title: 'Add costs', text: 'Add travel, fuel, the van, a hotel, per diems or hire, or take the crew and players on the booking at their rates.', target: ['#mn-cost-add'] },
+    { title: 'Costs', text: 'Costs against income: your expected profit before the day. On a show, the settlement takes them off the night too.', target: ['#blk-budget'] },
+    { title: 'Add costs', text: 'Add each cost, or take the crew and players on the booking at their rates.', target: ['#mn-cost-add'] },
   ],
 };

@@ -131,7 +131,7 @@ export default {
     const sym = ctx.sym || currency();
     if (!hasDeal(b)) {
       return h('div', { class: 'sh-block sh-deal' },
-        h('div', { class: 'empty' }, h('p', null, 'No deal yet. Add what the promoter offered (a guarantee, a door split or both) and the ticket price: Tourbook works out what the night pays at different crowds.'),
+        h('div', { class: 'empty' }, h('p', null, 'No deal yet. Add the promoter’s offer and the ticket price to see what the night pays at different crowds.'),
           h('button', { type: 'button', class: 'btn primary', id: 'sh-deal-add', onclick: () => editDeal(b) }, '+ Add the deal')));
     }
     const d = b.deal, m = n => money(n, sym);
@@ -170,7 +170,7 @@ export default {
 sheetTutorial(FORM_TITLE, [
   { title: 'Kind of deal', text: 'Guarantee: a flat fee. Door split: a % of the door after the promoter’s costs. Versus: the guarantee or the %, whichever is more. Plus: the guarantee, and a % of what the door makes past break-even.', target: ['#f-0-type'] },
   { title: 'Guarantee and %', text: 'Fill in what applies to your deal; the rest can stay blank.', target: ['#f-1-fee', '#f-2-pct'] },
-  { title: 'Tickets and room', text: 'The ticket price and how many the room holds give the “what it pays” table.', target: ['#f-3-ticketPrice', '#f-4-capacity'] },
+  { title: 'Tickets and room', text: 'The ticket price and how many the room holds give the “What it pays” table.', target: ['#f-3-ticketPrice', '#f-4-capacity'] },
   { title: 'Promoter costs', text: 'What comes off the door before a split. Get the number agreed before the night.', target: ['#f-5-expenses'] },
   { title: 'Deposit', text: 'How much, by when, and whether it has arrived. A late deposit shows a warning on the show.', target: ['#f-6-deposit'] },
 ]);

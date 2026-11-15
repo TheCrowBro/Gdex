@@ -39,7 +39,7 @@ export async function micPermission() {
 }
 
 export async function getMic() {
-  if (!window.isSecureContext) throw new AudioProblem('insecure', 'The microphone only works when Tourbook is opened from its secure (https://) address or installed on your device. Open it from there and try again.');
+  if (!window.isSecureContext) throw new AudioProblem('insecure', 'The microphone needs Tourbook installed or opened from its secure (https://) address. Open it there and try again.');
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new AudioProblem('unsupported', 'This browser can’t use the microphone. Try an up-to-date Chrome, Safari, Firefox or Edge.');
   const gen = generation;
   let stream;

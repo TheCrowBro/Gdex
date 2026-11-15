@@ -189,7 +189,7 @@ export async function connectDrive() {
   fire();
   await sync();
   if (adapter === a && (S.status === 'error' || S.status === 'needs-permission')) {
-    const msg = S.error || 'The sign-in didn’t finish. Tap Connect to try again.';
+    const msg = S.error || 'The sign-in didn’t finish. Try again.';
     await disconnectDrive();
     throw fail(msg);
   }
@@ -243,7 +243,7 @@ export async function disconnectDrive() {
 export async function deleteDriveCopy() {
   const a = adapter;
   if (!a) return 0;
-  if (!(await a.ready(false))) { setStatus('needs-permission'); throw fail('Sign in to Google Drive again first (Sign in again, above), then delete.'); }
+  if (!(await a.ready(false))) { setStatus('needs-permission'); throw fail('Tap Sign in again above, then delete.'); }
   clearTimeout(timer); timer = 0;
   while (syncing) await syncing.catch(() => {});
   if (adapter !== a) return 0;

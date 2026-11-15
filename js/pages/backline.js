@@ -52,7 +52,7 @@ const peopleSorted = () => [...db.people].sort((a, b) => groupRank(a) - groupRan
 const locations = () => [...new Set(db.gear.map(g => String(g.location || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const MAKES = ['Fender', 'Gibson', 'Gretsch', 'Ibanez', 'PRS', 'Rickenbacker', 'Martin', 'Taylor', 'Yamaha', 'Roland', 'Korg', 'Nord', 'Moog', 'Arturia', 'Novation', 'Marshall', 'Vox', 'Orange', 'Ampeg', 'Mesa/Boogie', 'Kemper', 'Line 6', 'Fractal', 'Boss', 'Electro-Harmonix', 'Strymon', 'Pearl', 'Ludwig', 'DW', 'Tama', 'Sonor', 'Zildjian', 'Sabian', 'Meinl', 'Shure', 'Sennheiser', 'Audio-Technica', 'Neumann', 'AKG', 'Radial', 'Universal Audio', 'Focusrite', 'RME', 'Apple', 'Ableton', 'Mackie', 'QSC', 'Behringer', 'Midas', 'Allen & Heath', 'Pelican', 'SKB', 'Gator'];
 const makes = () => [...new Set([...db.gear.map(g => String(g.make || '').trim()).filter(Boolean), ...MAKES])];
-const PLACE_HINT = 'e.g. Rehearsal room, Van, Maya’s flat, Flight case 2, At the repair shop';
+const PLACE_HINT = 'e.g. Van, Rehearsal room, Flight case 2';
 
 const matchOwner = g => !S.owner || (S.owner === 'band' ? !ownerOf(g) : g.owner === S.owner && !!ownerOf(g));
 // Exported: the search at the top of every page finds an item by the same words.
@@ -297,7 +297,7 @@ function openGearNow(id) {
       h('section', { class: 'bl-bookings' },
         h('h3', null, `Coming up (${next.length})`),
         next.length ? h('div', { class: 'bl-rows' }, next.map(b => bookingRow(b, g, close)))
-          : h('p', { class: 'muted small' }, 'Not on any booking coming up. Pick it in a booking’s Line-up box, or put it in a stage pack.'),
+          : h('p', { class: 'muted small' }, 'Not on any booking coming up. Pick it in a booking’s Line-up & gear box, or add it to a stage pack.'),
         past.length > 0 && [h('h3', null, `Before (${past.length})`), h('div', { class: 'bl-rows' }, past.slice(0, 5).map(b => bookingRow(b, g, close))),
           past.length > 5 && h('p', { class: 'muted small' }, `and ${plural(past.length - 5, 'more booking')}.`)])));
   };
@@ -399,7 +399,7 @@ function editKitNow(k = {}, onSaved) {
     fields: [
       { key: 'name', label: 'Pack name', required: true, placeholder: 'e.g. Club show, Festival fly-in, Acoustic duo' },
       { key: 'items', qtyKey: 'qty', label: 'Backline in this pack', type: 'checks', options, empty: 'Add backline items first, then group them into packs.',
-        hint: 'Tick what goes. Use − and + for more than one of something you own several of.' },
+        hint: 'Tick what goes. Where you own several, − and + set how many.' },
       { key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Spares and things to buy or hire: strings, sticks, batteries, gaffer tape…' },
     ],
     onSave: v => {
@@ -556,12 +556,12 @@ function printPack(k) {
 /* ------------------------------- walkthroughs ------------------------------- */
 const ITEM_STEPS = [
   { title: 'Your backline', text: 'Every guitar, amp, mic, DI and cable the band owns, with make, model, serial, value and whose it is. + Add logs an item.', target: ['.bl-head'] },
-  { title: 'Items and stage packs', text: 'Items is everything you own. Stage packs are named sets of it for the gigs you play most, like a club show or a festival fly-in.', target: ['.bl-seg'] },
-  { title: 'What it is worth', text: 'How many pieces, their total replacement value, and how many are on a show, session or rehearsal coming up.', target: ['.bl-stats'] },
-  { title: 'Inventory', text: 'Print or save the list with serials and values: for your insurer, and for customs or a carnet when you tour abroad. CSV opens in a spreadsheet.', target: ['.bl-docs'] },
+  { title: 'Items and stage packs', text: 'Items is everything you own. Stage packs are named sets of it for the gigs you play most.', target: ['.bl-seg'] },
+  { title: 'What it is worth', text: 'How many pieces, their total replacement value, and how many are booked ahead.', target: ['.bl-stats'] },
+  { title: 'Inventory', text: 'Print or save the list with serials and values for your insurer, customs or a carnet. CSV opens in a spreadsheet.', target: ['.bl-docs'] },
   { title: 'Whose is it?', text: 'Show one person’s gear, or what the band owns together.', target: ['.bl-owners'] },
   { title: 'Find something', text: 'Search by name, make, model, serial number or where it is.', target: ['#bl-search'] },
-  { title: 'An item', text: 'Tap one for its details and the bookings it is on, with a warning when the same piece is needed in two places on one day.', target: ['.bl-card'] },
+  { title: 'An item', text: 'Tap one for its details and bookings, with a warning if it’s needed in two places on one day.', target: ['.bl-card'] },
 ];
 // For a producer, a manager and Jack of Trades: a step on the folds by band (or, before any item is for one, on how to get
 // them), and the cards' step opens a fold first. Every other role's walkthrough is as it was.
@@ -569,24 +569,24 @@ function itemSteps() {
   if (!gearByBand()) return ITEM_STEPS;
   const folds = foldsOn(db.gear), w = actWord(), money = moneyShown();
   const fold = folds
-    ? { title: `By ${w}`, text: `Your gear in a fold per ${w}, A to Z, then ${noBand()} last. Each heading says how many items ${money ? 'there are, their total value (each item’s value times how many) and your investment: the value of what you paid for yourself' : 'there are'}. Tap a heading to drop its gear down or fold it away. An item’s ✎ Edit sets the ${w} it is for and who paid.`, target: ['.bl-band-head'] }
-    : { title: `By ${w}`, text: `Pick the ${w} an item is for (For ${w}) and who paid for it when you add or edit it, and this page folds your gear by ${w}${money ? ', with what it is worth and your investment: the value of what you paid for yourself' : ''}.`, target: ['#bl-add'] };
+    ? { title: `By ${w}`, text: `Your gear in a fold per ${w}, A to Z, then ${noBand()} last. Each heading says how many items ${money ? 'there are, their total value and your investment (the value of what you paid for yourself)' : 'there are'}. Tap a heading to open or close it. An item’s ✎ Edit sets its ${w} and who paid.`, target: ['.bl-band-head'] }
+    : { title: `By ${w}`, text: `Fill in For ${w} and Paid by when you add or edit an item, and this page folds your gear by ${w}${money ? ', with what it is worth and your investment (the value of what you paid for yourself)' : ''}.`, target: ['#bl-add'] };
   return ITEM_STEPS.flatMap(s => {
     if (s.title === 'An item') return [fold, folds ? { ...s, before: openFirstFold } : s];
     if (folds && s.title === 'Whose is it?') return [{ ...s, text: s.text + ' The folds with a match open.' }];
-    if (folds && s.title === 'Find something') return [{ ...s, text: `Search by name, make, model, serial number, where it is or the ${w} it is for. The folds with a match open; clear the search and they are as they were.` }];
+    if (folds && s.title === 'Find something') return [{ ...s, text: `Search by name, make, model, serial number, place or ${w}. The folds with a match open; clear the search and they are as they were.` }];
     return [s];
   });
 }
 const PACK_STEPS = [
   { title: 'Stage packs', text: 'A saved set of backline for a kind of gig. + New pack makes one from your items, with how many of each.', target: ['.bl-head'] },
-  { title: 'A pack', text: 'What is in it by category, how many pieces and what they are worth. 🖨 prints a packing list to tick off at load-in and load-out, ⧉ copies it, ✎ edits it.', target: ['.bl-pack'] },
+  { title: 'A pack', text: 'What is in it by category, how many pieces and what they are worth. 🖨 prints a packing list to tick off at load-in and load-out, ⧉ copies the pack and ✎ edits it.', target: ['.bl-pack'] },
   { title: 'Back to the items', text: 'Items lists every piece on its own.', target: ['.bl-seg'] },
 ];
 const ITEM_SHEET_STEPS = [
   { title: 'The details', text: 'Make, model, serial, value and whose it is. Tap the owner to open their card.', target: ['.bl-kv'] },
   { title: 'Edit or move it', text: 'Edit changes anything, or deletes the item. Move says where it is right now: the van, the rehearsal room, the repair shop.', target: ['.bl-sheet-actions'] },
-  { title: 'Where it is booked', text: 'The shows, sessions and rehearsals it is on. Tap one to open it. A warning shows when the same piece is needed in two places on one day, or a booking needs more than you own.', target: ['.bl-bookings'] },
+  { title: 'Where it is booked', text: 'The shows, sessions and rehearsals it is on: tap one to open it. A warning flags a same-day clash, or a booking that needs more than you own.', target: ['.bl-bookings'] },
 ];
 const FORM_STEPS = [
   { title: 'What it is', text: 'A short name you would call it on stage, and its category for the lists.', target: ['[data-key=name]'] },
