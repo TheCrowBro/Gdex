@@ -829,7 +829,7 @@ buttons, one control: ← → move the focus between them, round from the last t
   booking over several days sits there; three days with nothing on are their names, to tap; an empty Day has no step.
   After Coming up come "House rules" (what the chip's green, amber and red mean, what "· 1 more" counts, where the full
   rules are) and "Overlapping sets", each only when a chip or an overlap note is on screen. The welcome tour's Venues
-  stop says, in every role that has one, that a venue holds house rules that show on every show there. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
+  stop says, in every role that has one, that a venue holds house rules that appear on every show there. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
   shorter than two lines puts its name and time on one line, and a narrow one drops the kind's icon and the word
   before the time ("Doors"), which a screen reader still gets.
 * **What a block says.** A block or pill is too small for the overlap note and the house-rules chip: a hidden span
@@ -1081,8 +1081,8 @@ look and behave the same. Everything lives in one block of `pages/songs.js` ("fo
   (`.sg-acts`), and a chip picked there hides no song. + Song starts with no act.
 * **The form.** `editSong` has "Album or release" (`input[data-key=album]`) straight after Act, with a `datalist` of
   the albums already typed for the act picked, A to Z, which follows the Act box as it changes (`albumHelper`); its hint
-  is in the role's words ("The artist’s albums already typed are offered. Leave it empty for a single or a song not out
-  yet: it goes under Singles & unreleased."). It shows what is stored when that is text, else nothing, and a save
+  is in the role's words ("The artist’s albums are suggested. Leave it empty for a single or unreleased song: it goes
+  under Singles & unreleased."). It shows what is stored when that is text, else nothing, and a save
   stores the box with its spaces tidied (`''` when empty). The song's sheet shows it as a fact of its own row, "Album".
 * **What it is not.** Nothing printed or sent changes: the press kit, the printed setlist (`stageDoc`), its text and
   the split sheet carry no album. The setlist editor's song picker keeps its groups by act.

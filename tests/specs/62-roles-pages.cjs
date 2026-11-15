@@ -185,12 +185,12 @@ const splitWords = (page, sel) => page.evaluate(s => {
     const vc = await tourCards(page);
     if (off) {
       const acts = rid === 'scout' ? 'acts' : 'bands', seen = rid === 'scout' ? 'shows' : 'gigs';
-      ok(`${who}: People’s empty page names the managers, agents, promoters and label contacts, not the players you hire`, /^Add the managers, agents, promoters and label contacts you deal with/.test(pe) && pe.includes(`the ${acts} they’re with`) && !/session players|crew you hire|who’s free/.test(pe), pe);
+      ok(`${who}: People’s empty page names the managers, agents, promoters and label contacts, not the players you hire`, /^Add the managers, agents, promoters and label contacts you deal with/.test(pe) && pe.includes(`the ${acts} they’re with`) && !/session players|\bcrew\b|who’s free/.test(pe), pe);
       ok(`${who}: …and so does the first card of its walkthrough`, !!pc[0] && pc[0].title === 'People' && /^The managers, agents, promoters and label contacts you deal with/.test(pc[0].text) && !/session players|who’s free/.test(pc[0].text), JSON.stringify(pc[0]));
-      ok(`${who}: Venues’ empty page speaks of the rooms you go to`, /^Save the rooms you go to/.test(ve) && ve.includes(`the ${seen} you’ve been to there`) && !/play and record|the set would run/.test(ve), ve);
+      ok(`${who}: Venues’ empty page speaks of the rooms you go to`, /^Save the rooms you go to/.test(ve) && ve.includes(`the ${seen} you’ve been to there`) && !/play and record|set would run/.test(ve), ve);
       ok(`${who}: …and its walkthrough starts with “The rooms you go to”`, !!vc[0] && vc[0].title === 'The rooms you go to' && !/play and record/.test(vc[0].text), JSON.stringify(vc[0]));
     } else {
-      ok('everything: People’s empty page is as it was', /^Add your band, the session players and crew you hire/.test(pe) && /ask who’s free in a tap/.test(pe), pe);
+      ok('everything: People’s empty page is as it was', /^Add your band, session players, crew, promoters and agents\./.test(pe) && /ask who’s free in a tap/.test(pe), pe);
       ok('everything: Venues’ empty page and walkthrough are as they were', /^Save the clubs, halls, studios and rehearsal rooms you play and record in/.test(ve) && !!vc[0] && vc[0].title === 'Places you play and record', `${ve} / ${JSON.stringify(vc[0])}`);
     }
     // With the sample: rates on the cards and the person's sheet only for a role with money.

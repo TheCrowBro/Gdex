@@ -714,7 +714,7 @@ function bookingSteps(b) {
   const said = scoreOn(b) ? model.seenAnswer(b) : null;
   const base = [
     { title: 'The booking', text: 'The date, times, venue with directions, act and contact. Press and hold this card for three seconds to delete the booking.', target: ['.bk-hero'] },
-    { title: 'Status', text: moneyShown() ? 'Tap to change it. A cancelled booking stays in your records, out of clashes and money.' : 'Tap to change it. A cancelled booking stays in your records, out of clashes.', target: ['.bk-status'] },
+    { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records, out of clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records, out of clashes.', target: ['.bk-status'] },
     { title: 'Times', text: 'Off stage is worked out from the set time and length. A time marked +1 is after midnight.', target: ['.bk-times'] },
     { title: 'House rules', text: 'What this venue allows and doesn’t. The rules apply to every show there; edit the venue to change them.', target: ['.bk-hero .vn-rules'] },
     said != null && said !== 'no' && { title: 'Score this show', text: 'Logs the night on the act’s card with the date and venue filled in: add a score out of 100 and notes. The score then shows here; Edit changes it.' + (said === '' && model.showOver(b) ? ' If you missed it, Didn’t go says so and Tourbook stops asking.' : ''), target: ['.bk-score'] },

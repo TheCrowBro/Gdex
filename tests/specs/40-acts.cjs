@@ -300,7 +300,7 @@ const printed = async (page, click) => {
   await sleep(200);
   const after = await page.evaluate(() => import('./js/store.js').then(s => ({ act: !!s.byId('acts', 's-owls'), songs: s.db.songs.filter(x => x.actId === 's-owls').length, sets: s.db.setlists.filter(x => x.actId === 's-owls').length,
     bookings: s.db.bookings.filter(b => b.actId === 's-owls').length, song1: (s.byId('songs', 's-song1') || {}).actId, show1: (s.byId('bookings', 's-show1') || {}).actId })));
-  ok('Delete asks first, saying what is kept', /Its \d+ bookings, 8 songs and 1 setlist stay/.test(dialogs[dialogs.length - 1] || ''), dialogs[dialogs.length - 1]);
+  ok('Delete asks first, saying what is kept', /Its \d+ bookings, 8 songs and 1 setlist will stay, without an act\./.test(dialogs[dialogs.length - 1] || ''), dialogs[dialogs.length - 1]);
   ok('deleting an act removes it', !after.act && (await page.locator('.ac-card[data-id="s-owls"]').count()) === 0);
   ok('its songs, setlists and bookings stay, with no act', after.songs === 0 && after.sets === 0 && after.bookings === 0 && after.song1 === '' && after.show1 === '', JSON.stringify(after));
 

@@ -569,7 +569,7 @@ function itemSteps() {
   if (!gearByBand()) return ITEM_STEPS;
   const folds = foldsOn(db.gear), w = actWord(), money = moneyShown();
   const fold = folds
-    ? { title: `By ${w}`, text: `Your gear in a fold per ${w}, A to Z, then ${noBand()} last. Each heading says how many items ${money ? 'there are, their total value and your investment (the value of what you paid for yourself)' : 'there are'}. Tap a heading to open or close it. An item’s ✎ Edit sets its ${w} and who paid.`, target: ['.bl-band-head'] }
+    ? { title: `By ${w}`, text: `Your gear in a fold per ${w}, A to Z, then ${noBand()} last. Each heading says how many items ${money ? 'there are, their total value (each item’s value times how many) and your investment (the value of what you paid for yourself)' : 'there are'}. Tap a heading to open or close it. An item’s ✎ Edit sets its ${w} and who paid.`, target: ['.bl-band-head'] }
     : { title: `By ${w}`, text: `Fill in For ${w} and Paid by when you add or edit an item, and this page folds your gear by ${w}${money ? ', with what it is worth and your investment (the value of what you paid for yourself)' : ''}.`, target: ['#bl-add'] };
   return ITEM_STEPS.flatMap(s => {
     if (s.title === 'An item') return [fold, folds ? { ...s, before: openFirstFold } : s];

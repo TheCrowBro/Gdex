@@ -327,7 +327,7 @@ if (require.main === module) (async () => {
   const linkedText = await card.innerText();
   ok('the card names the account and says it is up to date', /Connected to Google Drive/.test(linkedText) && /Signed in as Gee Test · gee@example\.com/.test(linkedText) && /Up to date \(just now\)/.test(linkedText), linkedText.replace(/\s+/g, ' '));
   ok('…with today’s copy and the buttons', /Today’s copy: saved at/.test(linkedText) && ['Sync now', 'Bring back a daily copy…', 'Disconnect', 'Delete Tourbook’s copy from Google Drive…'].every(t => linkedText.includes(t)) && !linkedText.includes('Sign in again'));
-  ok('…and says what Disconnect does and how to take Tourbook’s access away', /Disconnect stops syncing on this device\. Both copies stay: this device’s and the one in your Drive\. To take Tourbook’s access away completely, remove Tourbook in your Google Account under third-party connections\./.test(linkedText));
+  ok('…and says what Disconnect does and how to take Tourbook’s access away', /Disconnect stops syncing on this device\. Both copies stay, here and in your Drive\. To end Tourbook’s access completely, remove it in your Google Account under third-party connections\./.test(linkedText));
   ok('the backups status counts Google Drive as a backup', /Last backup just now \(Google Drive\)/.test(await pa.locator(`${sheetOf('Backups')} .se-bk-status`).innerText()));
   ok('the account is kept as the next sign-in’s hint, the token for its hour', await pa.evaluate(() => localStorage.getItem('tourbook-google-email') === 'gee@example.com' && JSON.parse(localStorage.getItem('tourbook-google-tokens')).exp > Date.now() + 50 * 60000));
   // the Backups sheet's walkthrough shows the Drive card, second
@@ -519,7 +519,7 @@ if (require.main === module) (async () => {
     ok('a backup file holding a record deleted here since: the chooser names it, with Also bring back, not ticked', (await fileBox.count()) === 1 && !(await fileBox.isChecked()) && /Also bring back the 1 record deleted on this device since this backup: “Keep me”\./.test(fileChooser) && !/Keeps everything on both/.test(fileChooser), fileChooser);
     await pk.click(`${sheetOf('Bring back a backup')} .se-imp-merge`);
     await sleep(400);
-    ok('…and Merge without it keeps the deletion and says so, rather than “already had all of it”', !(await data(pk)).bookings.some(b => b.id === 'keep-me') && /Merged\. Nothing changed: the 1 record in that backup deleted on this device since stays deleted\./.test(await toasts(pk)) && !/already had all of it/.test(await toasts(pk)), await toasts(pk));
+    ok('…and Merge without it keeps the deletion and says so, rather than “already had all of it”', !(await data(pk)).bookings.some(b => b.id === 'keep-me') && /Merged\. Nothing changed: 1 record deleted here since that backup stays deleted\./.test(await toasts(pk)) && !/already had all of it/.test(await toasts(pk)), await toasts(pk));
     // the daily copy: ticked
     await pk.click(`${sheetOf('Backups')} .se-bk-drive-restore`);
     await pk.waitForSelector(`${sheetOf('Bring back a daily copy')} .se-bk-copy`, { timeout: 10000 });
@@ -764,7 +764,7 @@ if (require.main === module) (async () => {
     D3.ahead = 7 * 60e3; // Google 7 minutes ahead: this device's clock is slow
     await change('t-clock1', 'Clock Hall');
     const slow = await clockLine();
-    ok('a clock 7 minutes slow: the card says so in plain words, what it can lose, and to let the clock set itself', slow === '⚠ This device’s clock is about 7 minutes behind Google’s. Tourbook keeps the newest change of each record when it syncs, so with a slow clock what you change or delete here can be undone. Set this device’s date and time to set themselves automatically.', slow);
+    ok('a clock 7 minutes slow: the card says so in plain words, what it can lose, and to let the clock set itself', slow === '⚠ This device’s clock is about 7 minutes behind Google’s, so a sync can undo what you change or delete here. Turn on automatic date and time.', slow);
     ok('…in the warning colour, under the line that says how the sync went, and read out as it appears', await pc.evaluate(() => {
       const p = document.querySelector('.sheet .se-bk-drive .se-bk-drive-clock'), t = document.createElement('span'); t.style.color = 'var(--danger)'; document.body.append(t);
       const want = getComputedStyle(t).color; t.remove();
@@ -773,7 +773,7 @@ if (require.main === module) (async () => {
     D3.ahead = -3 * 3600e3; // Google 3 hours behind: this device's clock is fast
     await change('t-clock2', 'Clock Tower');
     const fast = await clockLine();
-    ok('a clock 3 hours fast: it says ahead, and what the other devices can lose', fast === '⚠ This device’s clock is about 3 hours ahead of Google’s. Tourbook keeps the newest change of each record when it syncs, so with a fast clock what you change on your other devices can be undone. Set this device’s date and time to set themselves automatically.', fast);
+    ok('a clock 3 hours fast: it says ahead, and what the other devices can lose', fast === '⚠ This device’s clock is about 3 hours ahead of Google’s, so a sync can undo what you change on your other devices. Turn on automatic date and time.', fast);
     D3.ahead = 45e3; // within two minutes: nothing to say
     await change('t-clock3', 'Clock Inn');
     ok('within two minutes of Google’s time the line goes', (await clockLine()) === '');
@@ -783,7 +783,7 @@ if (require.main === module) (async () => {
     const w = D3.writes('C3');
     await syncOn(pc); await sleep(200);
     const byHeader = await clockLine();
-    ok('a sync that writes nothing reads Google’s time from its answers’ Date header: 10 minutes behind', D3.writes('C3') === w && /^⚠ This device’s clock is about 10 minutes behind Google’s\./.test(byHeader), byHeader);
+    ok('a sync that writes nothing reads Google’s time from its answers’ Date header: 10 minutes behind', D3.writes('C3') === w && /^⚠ This device’s clock is about 10 minutes behind Google’s,/.test(byHeader), byHeader);
     await closeSheets(pc);
     await C3.ctx.close();
   }

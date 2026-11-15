@@ -512,7 +512,7 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     await page.click('.ac-view .back-btn');
     await page.waitForSelector('.ac-card');
     steps = await tour();
-    ok('the list’s walkthrough says a search finds an earlier name, and what the line under a name is', /a name it had before/.test((steps.find(s => s[0] === 'Search') || [])[1] || '') && steps.some(s => s[2].startsWith('.ac-card') && /“formerly …” under a name/.test(s[1])), JSON.stringify(steps.map(s => s[1])));
+    ok('the list’s walkthrough says a search finds an earlier name, and what the line under a name is', /by name, earlier name,/.test((steps.find(s => s[0] === 'Search') || [])[1] || '') && steps.some(s => s[2].startsWith('.ac-card') && /“formerly …” under a name/.test(s[1])), JSON.stringify(steps.map(s => s[1])));
     await openAct(page, 'f-act');
     form = await editForm(page);
     const sheetSteps = title => page.evaluate(t => import('./js/tour.js').then(m => { const s = m.sheetSteps(t); return (typeof s === 'function' ? s() : s || []).map(x => [x.title, x.text, (x.target || []).join(',')]); }), title);
