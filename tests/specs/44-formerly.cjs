@@ -439,9 +439,14 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     /* the booking form: the act can be picked by its old name too */
     await openB(page, 'b-3');
     await page.click('.bk-edit');
-    await page.waitForSelector('.sheet select[data-key="actId"]');
-    const opts = await page.$$eval('.sheet select[data-key="actId"] option', os => os.map(o => o.textContent));
-    ok('the booking form lists the act with its earlier name, and the others as they were', opts.includes('Owl Parliament (formerly The Night Owls)') && opts.includes('Able') && !opts.some(o => /undefined/.test(o)), opts.join(' | '));
+    await page.waitForSelector('.sheet input[data-key="actId"]');
+    await page.click('.sheet input[data-key="actId"] + .cb-all'); await sleep(100);
+    const opts = await page.$$eval('.sheet [id$="-actId-list"] .cb-opt', os => os.map(o => [o.querySelector('.cb-name').textContent, o.querySelector('.cb-sub') ? o.querySelector('.cb-sub').textContent : '']));
+    ok('the booking form lists the act with its earlier name, and the others as they were', opts.some(o => o[0] === 'Owl Parliament' && o[1] === 'formerly The Night Owls') && opts.some(o => o[0] === 'Able' && o[1] === '') && !opts.some(o => /undefined/.test(o.join(' '))), JSON.stringify(opts));
+    await page.fill('.sheet input[data-key="actId"]', 'night owls'); await sleep(100);
+    const byOld = await page.$$eval('.sheet [id$="-actId-list"] .cb-opt', os => os.map(o => o.textContent));
+    ok('…and typing the earlier name lists the act', byOld.some(t => /^Owl Parliament/.test(t) && /formerly The Night Owls/.test(t)), byOld.join(' | '));
+    await page.keyboard.press('Escape'); await sleep(100); // the list closes first
     await page.keyboard.press('Escape'); await sleep(200);
 
     /* the Earlier names in the act form: correct a day, take one away, add one by hand */

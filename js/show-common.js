@@ -105,7 +105,7 @@ export function docHead(b, kicker) {
   const p = db.profile || {}, v = venueOf(b);
   return [
     h('div', { class: 'cs-head' },
-      h('div', null, h('div', { class: 'cs-brand' }, p.business || p.name || actName(b.actId) || 'Tourbook'), h('div', { class: 'cs-kicker' }, kicker)),
+      h('div', null, h('div', { class: 'cs-brand' }, p.business || p.name || actName(b.actId) || b.client || 'Tourbook'), h('div', { class: 'cs-kicker' }, kicker)),
       h('div', { class: 'cs-when' }, b.date && h('b', null, fmtLong(b.date)), [v.name, v.address].filter(Boolean).join(', '))),
     h('h2', null, bookingTitle(b)),
   ];

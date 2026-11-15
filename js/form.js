@@ -2,11 +2,13 @@
 import { h, sheet, groupBy, toast } from './util.js';
 import { parseMapLink, geocode } from './map.js';
 import { canChange } from './store.js';
+import { comboBox } from './combo.js';
 
 /*
  fields: [{ key, label, type, options, required, placeholder, list, rows, columns, empty, hint }]
  types: text tel email url number date time textarea select checks rows place matrix
  rows: columns [{ key, label, type, list }]: list gives that column's boxes suggestions; the column names show above the rows.
+ combo: items() [{ id, name, names, sub, group }], textKey (where the typed name goes when it is no record), words { many }, placeholder: js/combo.js
  confirmDelete: the question asked before onDelete (a string, or a function returning one); 'Delete this permanently?' by default.
  onReady(formEl): called once the form is on screen, to wire fields to each other (every control carries data-key; its
    wrapper is the closest .field), e.g. hiding the typed venue boxes while a saved venue is picked.
@@ -119,6 +121,13 @@ export function openForm({ title, fields, values = {}, onSave, onDelete, saveLab
       draw();
       control = h('div', null, f.columns.length > 1 && h('div', { class: 'muted small rows-legend', 'aria-hidden': 'true' }, f.columns.map(c => c.label).join(' · ')), list, ...lists.filter(Boolean), h('button', { type: 'button', class: 'btn ghost small', onclick: () => { rows.push({}); draw(); } }, '+ Add'));
       readers.push(() => [f.key, rows.filter(r => Object.values(r).some(v => String(v || '').trim()))]);
+    } else if (f.type === 'combo') {
+      // A box to type a name in, with the saved records that match listed under it (js/combo.js): f.key gets the id of the
+      // record it stands for ('' for none), f.textKey the name as typed when it stands for none.
+      const box = comboBox({ id, key: f.key, items: f.items, value: val, text: values[f.textKey], words: f.words, placeholder: f.placeholder });
+      control = box.node;
+      readers.push(() => [f.key, box.id()]);
+      if (f.textKey) readers.push(() => [f.textKey, box.id() ? '' : box.text()]);
     } else {
       let listEl;
       if (f.list) listEl = h('datalist', { id: id + '-l' }, f.list.map(o => h('option', { value: o })));

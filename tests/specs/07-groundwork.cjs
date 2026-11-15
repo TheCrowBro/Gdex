@@ -9,7 +9,7 @@
 // Chromium), the owner's two switches still off in the repository, the licence code format made Tourbook's, the test
 // server keeping off the desktop app's ports, and, with licences off, every answer "open" and nothing asked of a
 // licence server.
-const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
+const { open, ok, sleep, go, topSheet, typePick } = require('../helpers.cjs');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -148,7 +148,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   rec = await edit(f => f.locator('[data-key="date"]').fill('2031-05-14'));
   ok('…and with another date drops it: the show is asked about again', rec.date === '2031-05-14' && !('went' in rec), JSON.stringify({ d: rec.date, w: rec.went }));
   await store(page, s => s.patch('bookings', 'w-no', { went: 'no' }));
-  rec = await edit(f => f.locator('select[id$="-actId"]').selectOption('s-owls'));
+  rec = await edit(f => typePick(f, 'actId', 'night', 'The Night Owls'));
   ok('…and so does another act', rec.actId === 's-owls' && !('went' in rec), JSON.stringify({ a: rec.actId, w: rec.went }));
   // Deleting the act takes it off the show, as an edit to another act does: the show has no act to be asked about,
   // and its page has nothing that could take a “Didn’t go” back.

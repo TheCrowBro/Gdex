@@ -151,7 +151,7 @@ function render(root) {
     const rows = [['Date', 'Act', 'Venue', 'Status', 'Deal', 'Tickets', 'Ticket price', 'Gross', 'Fee', 'Merch', 'Costs', 'Profit', 'Received on the night', 'Settled', 'Fee currency']];
     for (const b of shows) {
       const s = settle(b), has = hasSettlement(b), c = has ? mine() : incomeCur(b); // a fee not settled yet may be an invoice's, abroad
-      rows.push([b.date || '', tx(actName(b.actId)), tx(venueOf(b).name), statusLabel(b.status), tx(dealSummary(b.deal)), has ? s.tickets : '', money2(s.price), has ? money2(s.gross) : '', money2(has ? s.fee : bookingIncome(b)), has ? money2(s.merch) : '', money2(s.costs), has ? money2(s.profit) : '', s.received == null ? '' : money2(s.received), isSettled(b) ? 'yes' : 'no', tx(c.code || c.sym)]);
+      rows.push([b.date || '', tx(actName(b.actId) || b.client || ''), tx(venueOf(b).name), statusLabel(b.status), tx(dealSummary(b.deal)), has ? s.tickets : '', money2(s.price), has ? money2(s.gross) : '', money2(has ? s.fee : bookingIncome(b)), has ? money2(s.merch) : '', money2(s.costs), has ? money2(s.profit) : '', s.received == null ? '' : money2(s.received), isSettled(b) ? 'yes' : 'no', tx(c.code || c.sym)]);
     }
     if (await saveFile('﻿' + csv(rows), `tourbook-shows-${Y}.csv`, 'text/csv')) toast(`${plural(shows.length, 'show')} exported`);
   };

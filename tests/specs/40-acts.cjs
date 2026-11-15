@@ -106,9 +106,9 @@ const printed = async (page, click) => {
 
   /* book a show for the act */
   await page.click('#ac-book');
-  await page.waitForSelector('.sheet select[data-key="actId"]', { timeout: 15000 });
-  const preset = await page.evaluate(() => { const sel = [...document.querySelectorAll('.sheet select[data-key="actId"]')].pop(); return { value: sel.value, text: sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '' }; });
-  ok('+ Book a show opens the new show form with this act picked', preset.text === 'The Test Pilots', JSON.stringify(preset));
+  await page.waitForSelector('.sheet input[data-key="actId"]', { timeout: 15000 });
+  const preset = await page.evaluate(() => import('./js/store.js').then(s => { const box = [...document.querySelectorAll('.sheet input[data-key="actId"]')].pop(), a = s.db.acts.find(x => x.name === 'The Test Pilots'); return { text: box.value, id: box.dataset.id, want: a && a.id }; }));
+  ok('+ Book a show opens the new show form with this act picked', preset.text === 'The Test Pilots' && !!preset.id && preset.id === preset.want, JSON.stringify(preset));
   await page.keyboard.press('Escape'); await sleep(300);
   await go(page, 'acts');
   await page.waitForSelector('.ac-view .ac-title');

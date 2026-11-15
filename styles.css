@@ -220,6 +220,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } .field { display: grid; gap: 4px; align-content: start; } .field.wide, .form-actions { grid-column: 1 / -1; } .field > label { font-size: .8rem; color: var(--muted); font-weight: 600; }
 @media (max-width: 480px) { .form { grid-template-columns: 1fr; } }
 .field textarea { resize: vertical; }
+/* The type-and-pick box (js/combo.js): its list is in the form's flow, so a sheet never clips it. */
+.cb { display: grid; gap: 4px; }
+.cb-row { position: relative; }
+.cb-row input { padding-right: calc(var(--hit) + 4px); }
+.cb-all { position: absolute; right: 0; top: 0; width: var(--hit); height: 100%; border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer; border-radius: 0 10px 10px 0; }
+.cb-list { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); overflow: auto; overscroll-behavior: contain; max-height: calc(var(--hit) * 5.5); }
+.cb-list[hidden] { display: none; }
+.cb-opt { display: flex; flex-direction: column; justify-content: center; min-height: var(--hit); padding: 6px 10px; border-radius: 8px; cursor: pointer; overflow-wrap: anywhere; }
+.cb-opt:hover { background: var(--bg2); }
+.cb-opt[aria-selected="true"] { background: var(--bg2); box-shadow: inset 3px 0 0 var(--accent); }
+.cb-name { font-weight: 600; }
+.cb-sub, .cb-state { font-size: .85rem; color: color-mix(in srgb, var(--muted) 70%, var(--text)); }
+.cb-state:empty { display: none; }
+.cb-yes { color: var(--ok); }
 .rows { display: grid; gap: 6px; margin-bottom: 6px; } .row-edit { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
 .checks { display: grid; gap: 6px; max-height: 240px; overflow: auto; padding: 4px; border: 1px solid var(--line); border-radius: 10px; }
 fieldset { border: 0; margin: 0; padding: 0; } legend { font-size: .75rem; color: var(--accent); font-weight: 700; padding: 4px 0; }

@@ -71,6 +71,7 @@ Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` before `npm ci` unless you need the deskto
 | `js/pages/*.js` | One module per section. |
 | `js/bookings-cal.js`, `js/bookings-kit.js` | The calendar's views (drawn for `pages/bookings.js`), and the helpers the two share. |
 | `js/acts-ask.js`, `js/venues-rules.js`, `js/acts-sample.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn; an act's Sample work (its link on the act form, its QR code on the act's card). |
+| `js/combo.js` | The type-and-pick box: the booking form's band and venue boxes (`js/form.js` type `combo`; "The band and venue boxes" below). |
 | `js/search.js`, `js/search-dates.js` | The search: the box at the top of every page (in the section menu's bar), the `/` key and the results it opens over the page; the dates it reads. |
 | `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `js/licence-config.js`, `js/licence-keys.js`, `js/tax.js`, `css/licence.css` | The licence (below): the state every module asks, its sheets, panel and bar, the website's talk with the licence server, the sign-in's signature check, the one-time terms sheet, the owner's switch, the public keys (generated), the price with tax. |
 | `js/drive.js`, `js/sync.js`, `js/cloud-config.js`, `js/kv.js` | Google Drive (below): Google's sign-in and the Drive files, keeping this device and Drive the same, the owner's Google client id; the IndexedDB store both the backup file and the licence use. |
@@ -326,7 +327,7 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 `bookings`:
 ```js
 { id, kind: 'show'|'session'|'rehearsal'|'other', status, title,   // title optional: model.bookingTitle(b) fills it in
-  actId, client,                       // which act (acts id); client = free text for a session's artist not in Acts
+  actId, client,                       // which act (acts id); client = the act's name as typed when it is none of the acts, on any kind ('' with actId)
   date, endDate,                       // endDate only for multi-day (festival weekend, a block of studio days)
   venueId, venueName, address,         // venue from Venues, or typed name/address
   // show times ('HH:MM'): loadIn, soundcheck, doors, setTime, curfew; setLength (minutes)
@@ -490,6 +491,8 @@ The owner's words (15 Nov 2026): "Quote's and invoices should let you choose you
 Constants: `KINDS`, `STATUSES`, `statusesFor`, `statusLabel`, `statusTone`, `kindLabel`, `kindIcon`, `SHOW_TIMES`,
 `SESSION_TIMES`, `timesFor`, `PEOPLE_GROUPS`, `ROLES`, `GEAR_CATS`, `VENUE_KINDS`, `RATE_UNITS`, `SONG_STATUS`,
 `NOTES`, `KEYS`, `SPLIT_ROLES`, `DEAL_TYPES`, `MAIN_GENRES`, `NO_GENRE`, `NO_ALBUM`.
+Names as the search and the booking form's boxes compare them: `fold(s)` (no capitals, no accents) and `actNames(a)`
+(every name an act is known by, the name now first); `js/search.js` exports the same two functions.
 Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `seenEntryFor(a, b)`, `actShowsOn(actId, iso)`, `onlyShowOn(actId, iso)`, `actUpcoming(a)`, `bookingTitle(b)`, `actName(id)`, `venueOf(b)`, `firstTime(b)`, `lastDate(b)`, `coversDay(b, iso)`, `fmtDur(sec)`,
 `parseDur(text)`, `fmtMin(min)`, `addMinutes('HH:MM', min)`, `minutesBetween(a, b)`, `setlistLength(list)`,
 `itemTitle(item)`, `fmtMoney(n, sym?)`, `currency()`, `dealPays(deal, gross)`, `dealSummary(deal)`, `dealBest(deal)`,
@@ -625,7 +628,7 @@ the question's sheet): the second would land on the button the first one put in 
 its "Didn’t go · Change" row for anyone, asked or not (someone who has since turned the question off, or become a
 band): the calendar still says "Didn’t go", and the row is where that is taken back. When such a person presses
 Change the row goes, and the focus moves to the act's chip above it. Such a show with no act says "Pick the act you saw to score this show." with a button that opens
-its form on the act, but only for a role with `pages.bookings.score`: anyone who has the row only because they are
+its form on the act (or, when its band was typed and is none of the acts, "+ Add to Bands": "The band and venue boxes" below), but only for a role with `pages.bookings.score`: anyone who has the row only because they are
 asked gets no row on a show with no act. A show at a saved venue with house rules shows them in full under the venue
 checks (`rulesFull(venue, { where: 'show' })`). The header's left edge is the act's colour (`.card.bk-hero`), its
 status drops under the name where the name would be squeezed, and its Details button carries `data-fk`, so it gets
@@ -680,7 +683,7 @@ may call it.
 | `pages/bookings.js` `openBooking(id, { box })` | bookings | Go to Bookings and show that booking's page. Returns a promise. `box`: a box to open there and bring into view, with the focus on its heading (`'money'`: the search opens an invoice or a quote this way); one under More boxes opens the fold too. |
 | `js/bookings-cal.js` `calendarView(ctx)` / `calendarSteps(ctx)` | calendar | The page while no booking is open (every view, with Coming up under it) / its walkthrough as drawn now. `ctx` is built once in `pages/bookings.js`: `{ S, go, showBooking, newBooking, holdToDelete, exportCalendar, passes, filtersOn, root }`. The calendar never imports the page. |
 | `js/bookings-cal.js` `bookingCard(b)` | calendar | Coming up's card for a list outside the calendar (the search): drawn by the same code, without press-and-hold to delete or its title. Its own tap would open the booking inside the calendar's page, so the list it goes in takes the click in the capture phase. A card for a booking that is over says nothing where Coming up says "On now". |
-| `js/search.js` `initSearch(bar)` / `openSearch()` / `searchKinds()` / `actNames(a)` / `fold(s)` / `searchReady()` / `searchFor(q)` / `searchAll(q)` / `searchStats()` | search | Fill `#srch-bar` with the box and wire the `/` key (`app.js`, once) / jump into the box (its words selected) / the kinds the person may see, in tab order: **the one place that decides them** (Money only with `moneyShown()`; a working section's kinds only while it opens, `mayOpen`) / every name an act is known by: its name now, then its earlier names, the latest first (`model.earlierNames`; the one place the search reads a band's names) / text as the search compares it (no capitals, no accents) / for checks: a promise once the songs and the studio log (loaded with their sections) are searched too, what the bookings tab finds, what every tab finds, and how long it took (below). |
+| `js/search.js` `initSearch(bar)` / `openSearch()` / `searchKinds()` / `actNames(a)` / `fold(s)` (both are `js/model.js`'s, exported again here) / `searchReady()` / `searchFor(q)` / `searchAll(q)` / `searchStats()` | search | Fill `#srch-bar` with the box and wire the `/` key (`app.js`, once) / jump into the box (its words selected) / the kinds the person may see, in tab order: **the one place that decides them** (Money only with `moneyShown()`; a working section's kinds only while it opens, `mayOpen`) / every name an act is known by: its name now, then its earlier names, the latest first (`model.earlierNames`; the one place the search reads a band's names) / text as the search compares it (no capitals, no accents) / for checks: a promise once the songs and the studio log (loaded with their sections) are searched too, what the bookings tab finds, what every tab finds, and how long it took (below). |
 | `js/search-dates.js` `readDate(words, today, order)` / `dateOrder(locale)` | search | Pure: the first date in the words typed (`{ date: { from, to, start, len, words } \| null, rest }`), with today and the order of a day and a month given / that order in the device's language (`'dm'` or `'md'`). |
 | `pages/acts.js` `openActCard(id)` / `actSearchText(a)` (its words include the act's main genre: "rock" finds a doom folk band set to Rock by hand); `pages/venues.js` `venueText(v)` / `venueMatches(v, q)`; `pages/people.js` `personText(p)`; `pages/backline.js` `gearText(g)` (with every name of the act the item is for); `pages/songs.js` `songText(s)`; `js/setlist.js` `setlistWords(list)`; `pages/sessions.js` `logWords(l)` / `logDate(l)` | each section | The acts list with the act's card dropped open and the focus on it (`openSeen(id, null)`) / the words each section's own search reads (the acts list's, Venues' with the house rules, People's, Backline's, Songs', the Studio log's), which the search at the top of every page reads too, so the two never disagree; a setlist's words (its name, act, songs and notes) / a log's day. |
 | `js/blocks/money.js` `statusPill(b, kind, doc)` | money | A quote's or an invoice's status as its box says it (Draft, Sent, Part paid, Paid, Overdue…), for the search's Money tab. |
@@ -691,6 +694,10 @@ may call it.
 | `js/acts-ask.js` `askAtOpen(ids)` / `askPref()` | acts | The "Did you see them?" sheet for the shows still waiting among `ids` (nothing when the person is not asked, none is left, or its sheet is already up: there are never two); it opens its sheet before it returns. `app.js` calls it at open and again after hours in the background / the control for Settings → Your role. It imports `pages/acts.js` (`logSighting`) and `acts-docs.js`, so Settings loads the acts page's code with it; `pages/acts.js` must not import it. |
 | `js/venues-rules.js` `rulesChip(b)` / `venueChip(v)` / `rulesFull(v, { where })` / `rulesEditor(v)` | venues | A show's house-rules chip, or `null` / the same for a venue / the full rules (`where: 'venue' \| 'show'`), or `null` / the House rules part of the venue form: `{ node, read() }`. It draws what `model.js` returns and imports `util.js` and `model.js` only. |
 | `pages/bookings.js` `newBooking(preset)` | bookings | Open the new-booking form, prefilled (`{ kind, actId, venueId, date, setlistId }`). |
+| `pages/bookings.js` `showWord()` | bookings | The role's word for a show: the singular of its name for Bookings when it has one of its own (Gigs: gig; Shows: show), else show. |
+| `pages/acts.js` `addActNamed(name)` / `eatSecondClick()` | acts | An act made from a name typed elsewhere (a booking's band box, a gig's score row): what the act form saves for a new act with only a name, in the next colour no other act uses; the stored record, or `null` when the licence refused it / for a moment after an answer that closes a sheet and saves the form under it, the second click of a double click is stopped before it reaches anything ("New name?", "Add to your lists?"). |
+| `pages/venues.js` `addVenueNamed({ name, address, kind })` | venues | A place made from a name typed in a booking's form: its name, the address typed with it and its kind, with the house-rules fields the venue form always stores (`rules: {}`); the stored record, or `null` when refused. |
+| `js/combo.js` `comboBox(opts)` / `rankMatches(items, typed)` / `exactOf(items, typed, keep)` / `boxKey(s)` | core | The type-and-pick box (`form.js` type `combo` makes one) / the items matching what is typed, best first / the item the text is exactly, or `null` / a name as the box compares it ("The band and venue boxes" below). |
 | `pages/acts.js` `openAct(id)` / `editAct(a, onSaved)` / `printRider(actId)` | acts | View sheet / edit form / print the tech rider. |
 | `pages/acts.js` `openSeen(actId, seenId)` | acts | Go to the acts list with that act's card dropped open, the time seen in view and the focus on its Edit button (the search opens a time seen this way). Resolves with the entry's row once drawn, or `null` when the act or the entry is gone. |
 | `pages/acts.js` `logSighting(a, entry)` | acts | Add (no `entry.id`) or edit a time seen, prefilled (`{ date, venueId, where, bookingId }`): Score this show uses it. Every save links the entry to the act's show on its date (the one it came from while that still fits, else the act's only show that day, or the one at the venue picked); a new entry on a night whose show is already in the log asks first, and OK updates that entry instead. |
@@ -843,6 +850,64 @@ buttons, one control: ← → move the focus between them, round from the last t
   was pressed goes with the booking, so the draw that follows puts the focus on the view's heading
   (`[data-view-head]`).
 
+### The band and venue boxes (`js/combo.js`, `pages/bookings.js`)
+
+The owner (15 Nov 2026): "When adding a show. You should be able to type into the band name or venue bar. If a name of
+either exists it'll show to be selected. If no band exists then you should be able to type in the name and venue
+yourself. Doing so should ask if you want to add one, the other, or both to your lists." The booking form (every kind
+that has an act or a venue box, every role) has two type-and-pick boxes, `form.js` type `combo`:
+
+* **Hooks.** `input[role=combobox][data-key=actId]` and `[data-key=venueId]` (labelled by the form's `<label for>`:
+  Act, Band, Artist; Venue, Studio, Room, Where), `aria-autocomplete="list"`, `aria-expanded`, `aria-controls` naming
+  its list, `aria-describedby` naming its line, no spell-check or autocorrect. `data-id` is the id of the record the text
+  stands for (`''` for none) and `data-was` the text it opened with. In `div.cb`: `div.cb-row` (the box and ▾,
+  `button.cb-all[tabindex=-1]` "All your bands"), `ul.cb-list[role=listbox]` "Your bands" of `li.cb-opt[role=option]`
+  (`#<box id>-o<n>`, `data-id`, `aria-label` the name then ", " and its second line: `span.cb-name`, `span.cb-sub`),
+  `small.cb-state` (the line under the box) and a polite live region `#<box id>-live` (the count). The words follow the
+  role (`actWord()`: bands, artists, acts; venues for every place).
+* **Matching.** `boxKey` (`model.fold`, spaces tidied): no capitals or accents count. A name ranks 0 when it is what was
+  typed, 1 when it starts with it, 2 when every word typed starts a word of it, 3 when every word typed is inside it;
+  an act's earlier names count (`model.actNames`), and a match by an earlier name says `formerly <it>` under the name.
+  Best rank first, then the name now before an earlier one, then (venues) the kinds that fit the booking before the
+  rest (a studio for a session), then A to Z; at most 50. ▾ and ↓ in an empty box list them all, in the given order.
+  A venue's second line is its kind when it does not fit the booking, and the first line of its address.
+* **Exact.** At every keystroke (`exactOf`) the text that is exactly one of a record's names (same rules) is that
+  record, picked or not: the one picked in this form while it still fits, else the first whose name now is, else the
+  first with an earlier name that is. Opening a booking never relinks it: an old booking whose typed name is exactly
+  a saved one opens unlinked, keeping its typed address, until the box is typed in. `combochange` (bubbling, `detail:
+  { id }`) fires whenever `data-id` changes; the venue box's sync hides the Address box while a saved venue is the one,
+  shows its address in `.bk-venue-note`, and fills an empty contact from it.
+* **Keys and taps.** ↓ ↑ move the active option (`aria-activedescendant`, `aria-selected` on it alone; ↑ from the first
+  leaves none; Alt+↑ closes); Enter picks it (with the list open and none active it only closes the list; closed, it
+  sends the form; a held Enter's repeats do nothing); Escape closes an open list and leaves the sheet; Tab picks the
+  active option and moves on. A tap or click on an option picks it without taking the focus from the box; by touch the
+  box then has `inputmode="none"` (the phone's keyboard goes down) until the next press or key on it. The list is in
+  the form's flow, never a floating layer; its height is what fits above a phone's keyboard (`visualViewport`) and the
+  form's Save bar, two to five and a half rows, the sheet's body scrolled up first when two would not fit.
+* **The line.** `✓ In your bands` (`, as <name now>` when typed by an earlier name); `Not in your bands yet. You’ll be
+  asked whether to add it.` for a name typed in this form that is none of them; `Typed, not picked from your bands.`
+  for the name the booking was saved with.
+* **The question.** On Add or Save, a band or venue typed that is no record and is new in this form (`typedNew`: not
+  `data-was`, so an edit that keeps the names it was saved with asks nothing) is asked about before the save, the way
+  the act form's "New name?" is: the sheet's body hears the submit in the capture phase and holds it; an answer sends
+  it again (`form.requestSubmit()`), and that one saves. The sheet "Add to your lists?" (`div.bk-add`: `#bk-add-q`,
+  `#bk-add-why`, which describe the dialog, `div.bk-add-answers`, `#bk-add-back`): both new, `#bk-add-both` Add both,
+  `#bk-add-act` Just the band, `#bk-add-venue` Just the venue, `#bk-add-none` Neither; one new, `#bk-add-yes` Yes, add it,
+  `#bk-add-no` No, keep it as typed. The booking is saved whatever the answer; ✕, Escape and Back to the form save
+  nothing and put the focus back in the first new box. No answer takes the focus, so a held Enter answers nothing (nor
+  asks again), and a double click answers once. `addTyped` makes what was asked for (`acts.js` `addActNamed`, `venues.js` `addVenueNamed`: a venue for a
+  show, a studio for a session, a rehearsal room for a rehearsal, with the address typed) and links the booking to it.
+  A role that is read-only is not asked: `form.js` gives it the licence's sheet, and nothing is stored.
+* **What a typed band is.** `booking.client`, on any kind, `''` whenever `actId` is set (`tidy`); a typed venue is
+  `venueName` and `address` with `venueId` `''`, as always. A typed band reads everywhere a booking's band reads
+  (`bookingTitle`, `overlapText`, a square's name, the booking's act row, the search, the day sheet, calendar files,
+  the shows' spreadsheet, a printed show document's head, Duplicate, backups, Google Drive's merge, `normalise`). It is
+  not an act: it is not scored, filtered by the act chips, asked about ("Did you see them?"), or counted under its name
+  in Money. For a role that scores its shows (the Audiophile), a gig over with a typed band that is none of the acts has
+  "<name> isn’t in your bands yet. Add them to score this show." and `#bk-score-add` "+ Add to Bands" on its score row,
+  which makes the act and links the gig (the focus then on ★ Score); with a saved act of exactly that name the row
+  stays "Pick the band".
+
 ### When Tourbook opens
 
 `js/app.js` works out, as it boots, the shows that were waiting for "Did you see them?" (`waitingShows(now, { holds:
@@ -960,8 +1025,8 @@ Every record goes on using the current name, so lists and search stay in one pie
 * **Search.** Every search that finds things by an act's name matches its earlier names too: the search at the top
   of every page (`js/search.js`, below: every booking and time seen of the band, the band itself, its members, its
   songs, its setlists, its take logs and its invoices, by any name it has had), the acts list, People, Songs, the
-  Studio log and the two song pickers (a setlist's + Songs, the metronome's song tempo); the booking form lists an act
-  as `Owl Parliament (formerly The Night Owls)`.
+  Studio log and the two song pickers (a setlist's + Songs, the metronome's song tempo); the booking form's band box lists an act
+  by any name it has had, with `formerly The Night Owls` under its name when the earlier name is what matched.
 * **Never outside Tourbook.** Documents, calendar files and spreadsheets call `actName` / `bookingTitle` / `a.name`,
   which are the current name; `44-formerly` checks each of them. A document made before the change keeps the
   words it was made with (an invoice's lines are stored text), as does a booking's own typed title.
@@ -1610,7 +1675,10 @@ venue's map or Find from address is used, and its update checks once installed (
 * `form.js` `openForm({ title, fields, values, onSave(values), onDelete, saveLabel, confirmDelete, onReady(formEl) })`. Field `type`s: `text` (default),
   `tel`, `email`, `url`, `number` (`min`, `step`), `date`, `time`, `textarea` (`rows`), `select` (`options`: values or
   `[value, label]`), `checks` (`options: [{ value, label, group, hint }]`, returns an array), `rows` (`columns: [{ key,
-  label, type, list }]`, returns an array of objects with string values), `place` (lat/lon with lookup; key `geo`).
+  label, type, list }]`, returns an array of objects with string values), `place` (lat/lon with lookup; key `geo`),
+  `combo` (a box to type a name in, with the saved records that match listed under it: `items()` `[{ id, name, names,
+  sub, group }]`, `textKey` (the key that gets the name as typed when it is none of them; `key` gets the record's id, `''`
+  for none), `words: { many }` and `placeholder`; `js/combo.js`, "The band and venue boxes" below).
   `list: [...]` gives a text box suggestions. `required`, `placeholder`, `hint`.
 * `map.js`: `hasGeo(geo)`, `miniMap(venue)`, `mapButtons(venue)`, `directionsUrl(venue)`, `geocode(address)`.
 * `qr.js`: `qrSvg(text)` → a Promise of the SVG markup (UTF-8; put it in with `h('div', { class: 'qr', html: await qrSvg(t) })`).
@@ -1672,6 +1740,8 @@ backline, take, comp, stems, split sheet.
   prints a PASS or FAIL line. End every spec with `ok('no errors in the console', errors.length === 0, …)` and
   `await browser.close()`, and wrap the whole spec in `(async () => { … })().catch(e => { console.log('FAIL … crashed — ' + e.message); process.exit(1); })`.
 * `open({ touch: true })` emulates a touch screen (`page.touchscreen.tap`; the mouse still works).
+* `typePick(scope, key, text, name)` (`tests/helpers.cjs`) types in the booking form's band or venue box and taps the
+  option named `name` (`null`: leaves the text as typed).
 * `open()` marks the welcome tour done, dismisses the role card and turns "Did you see them?" off (`tourbook-ask-seen`
   `'off'`, set again on every load), so no sheet opens over a spec's own work. A spec about the question opens with
   `open({ ask: true })`, which leaves the key alone; it seeds its shows, then reloads.
@@ -1700,6 +1770,7 @@ backline, take, comp, stems, split sheet.
   | `06-roles`, `43-ask`, `47-genres`, `70-settings` | their own contexts take `licenceLeg` |
   | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
+  | `14-typed-names` | its read-only check (free days over: Add brings the licence's sheet, no question) runs only in the on leg |
   | `90-drive` | its own contexts take the same seed |
   | `09-from-gdex` | seeds Gdex's keys, which the copy brings over: in the on leg also Gdex's free days under way, and checks that what it brings only ever moves the start of the free days earlier, never later, and that free days over under Gdex stay over |
   | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92`, `93` | set their own state, or none: the same in both legs |
@@ -1711,7 +1782,8 @@ backline, take, comp, stems, split sheet.
   contracts under the calendar, the question, the menus and house rules), `08-sheets` (core: a sheet's dim backdrop,
   tapped with a finger and clicked), `09-from-gdex` (core: the one-time copy from Gdex's names, and the old name nowhere
   else), `10-bookings`, `11-order` (same-day order and
-  the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `26-currency` (the
+  the overlap note), `12-roles-bookings`, `13-calendar`, `14-typed-names` (the band and venue boxes and "Add to your
+  lists?"), `15-show`, `20-daysheet`, `25-money`, `26-currency` (the
   currency by country: the chooser, the region first, what was stored before, a document's own, totals per currency),
   `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
@@ -1735,13 +1807,13 @@ backline, take, comp, stems, split sheet.
 
 Only edit files you own. Core files (`index.html`, `styles.css`, `js/app.js`, `js/store.js`, `js/model.js`,
 `js/util.js`, `js/form.js`, `js/deck.js`, `js/a11y.js`, `js/roles.js`, `js/role-pick.js`, `js/tour.js`, `js/tutorials.js`, `js/print.js`, `js/blocks/index.js`,
-`js/bookings-kit.js`, `sw.js`, `tools/`, `tests/lib.mjs`, `tests/run.mjs`, `tests/helpers.cjs`, `tests/specs/00-smoke.cjs`,
+`js/bookings-kit.js`, `js/combo.js`, `sw.js`, `tools/`, `tests/lib.mjs`, `tests/run.mjs`, `tests/helpers.cjs`, `tests/specs/00-smoke.cjs`,
 `tests/specs/07-groundwork.cjs`, `tests/specs/08-sheets.cjs`, `js/from-gdex.js`, `tests/specs/09-from-gdex.cjs`) belong to the integrator: if you
 need a change there, describe it in your report instead.
 
 | Feature | Files |
 |---|---|
-| bookings | `js/pages/bookings.js`, `js/bookings-cal.js` (the calendar's views), `js/blocks/advance.js`, `js/blocks/lineup.js`, `js/blocks/notes.js`, `js/ics.js`, `css/bookings.css`, `tests/specs/10-bookings.cjs`, `tests/specs/11-order.cjs`, `tests/specs/12-roles-bookings.cjs`, `tests/specs/13-calendar.cjs` |
+| bookings | `js/pages/bookings.js`, `js/bookings-cal.js` (the calendar's views), `js/blocks/advance.js`, `js/blocks/lineup.js`, `js/blocks/notes.js`, `js/ics.js`, `css/bookings.css`, `tests/specs/10-bookings.cjs`, `tests/specs/11-order.cjs`, `tests/specs/12-roles-bookings.cjs`, `tests/specs/13-calendar.cjs`, `tests/specs/14-typed-names.cjs` |
 | show | `js/blocks/deal.js`, `js/blocks/running.js`, `js/blocks/guests.js`, `js/blocks/settlement.js`, `css/show.css`, `tests/specs/15-show.cjs` |
 | daysheet | `js/daysheet.js`, `js/blocks/daysheet.js`, `daysheet.html`, `js/daysheet-page.js`, `css/daysheet.css`, `tests/specs/20-daysheet.cjs` |
 | money | `js/money.js`, `js/money-currency.js` (the currency, chosen by country), `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs`, `tests/specs/26-currency.cjs` |

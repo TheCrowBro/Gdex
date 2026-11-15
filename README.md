@@ -173,7 +173,9 @@ found somewhere, in any order; capitals and accents don't matter.
 ## Your first show
 
 1. **Bookings → + New → Show.** Pick the act and the venue, the date, and the times: load-in, soundcheck, doors, on
-   stage and the curfew.
+   stage and the curfew. Type in the act and venue boxes: yours show in a list under the box to pick (capitals and
+   accents don't matter, and a band's earlier names count). A name that isn't saved is kept as typed, and Tourbook asks
+   whether to add it to your lists.
 2. **Deal & fee:** a guarantee, a door split, or a guarantee versus a percentage. Tourbook shows what it pays at a quarter,
    half, three quarters and a full house.
 3. **Advance checklist:** tick it off as you advance the show, or tap **Email the promoter** for an advance email that

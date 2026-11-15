@@ -25,6 +25,12 @@ import { formerlyLine } from '../bookings-kit.js'; // "formerly The Night Owls" 
 // changes to the ones already here come with the working roles. workMark() is null whenever none of that applies
 // (licences off, a working role in use, a licence or free days running), and then everything is as it always was.
 import { workMark, gateWork, mayWork } from '../licence-state.js';
+// The band and venue boxes take typing (the owner, 15 Nov 2026): the saved names that match are listed to pick, and a
+// name that is in no list is asked about before the save ("Add to your lists?").
+import { boxKey, exactOf } from '../combo.js';
+import { canChangeQuietly } from '../store.js';
+import { addActNamed, eatSecondClick } from './acts.js';
+import { addVenueNamed } from './venues.js';
 
 /* ------------------------------- words ------------------------------- */
 const NOUN = { show: 'show', session: 'studio session', rehearsal: 'rehearsal', other: 'diary entry' };
@@ -186,13 +192,15 @@ function chooseKind(preset = {}) {
   setTimeout(() => document.querySelector('.bk-kinds .bk-kind')?.focus(), 60);
 }
 
-// Venues for a kind of booking: the fitting kind first (studios for a session), the rest after with their kind named.
-function venueOptions(kind) {
-  const want = { show: ['venue', 'festival'], session: ['studio'], rehearsal: ['rehearsal'], other: [] }[kind] || [];
-  const fits = v => want.includes(v.kind || 'venue');
-  const list = sortByName(db.venues).sort((a, b) => Number(fits(b)) - Number(fits(a)));
-  return [['', 'Not in my venues'], ...list.map(v => [v.id, (v.name || 'Unnamed venue') + (want.length && !fits(v) ? ` · ${model.venueKindLabel(v.kind)}` : '')])];
-}
+// The places to pick for a kind of booking: the fitting kind first (studios for a session), then the rest, each with
+// its kind named and the first line of its address, which tells two of the same name apart.
+const FITS = { show: ['venue', 'festival'], session: ['studio'], rehearsal: ['rehearsal'], other: [] };
+const venueItems = kind => { const want = FITS[kind] || [], fits = v => !want.length || want.includes(v.kind || 'venue');
+  return sortByName(db.venues).map(v => ({ id: v.id, name: v.name || 'Unnamed venue', names: v.name ? [v.name] : [], group: fits(v) ? 0 : 1,
+    sub: [fits(v) ? '' : model.venueKindLabel(v.kind), String(v.address || '').split('\n')[0].trim()].filter(Boolean).join(' · ') }))
+    .sort((a, b) => a.group - b.group); };
+// The acts to pick: every name each is known by (model.actNames), the earlier one under it.
+const actItems = () => sortByName(db.acts).map(a => ({ id: a.id, name: a.name || 'Unnamed act', names: model.actNames(a), group: 0, sub: model.formerName(a) ? `formerly ${model.formerName(a)}` : '' }));
 
 // A section's name, and when it is not on the role's menu, where to find it (wireForm adds a button there).
 const pageHint = (id, fallback) => {
@@ -208,13 +216,14 @@ function fieldsFor(kind, cur = '') {
   const joins = kind !== 'other' && blockShown('lineup') ? 'Its members are added to the line-up when the line-up is empty.' : '';
   // A role that scores the shows it goes to scores the act picked here (Score this show on the booking).
   const scores = kind === 'show' && pageOpt('bookings', 'score', false) ? `The ${word} you’re going to see. On the night or after, Score this show logs your score on their card.` : '';
-  const act = (label = capital(word)) => ({ key: 'actId', label, type: 'select', options: [['', `Not in my ${word}s`], ...acts.map(a => [a.id, (a.name || 'Unnamed act') + (model.formerName(a) ? ` (formerly ${model.formerName(a)})` : '')])], hint: noActs || scores || joins }); // an act that changed its name can be picked by the old one too
+  // A box to type the act in, its saved acts listed under it as it is typed (by any name each has had); a name that is
+  // none of them is kept as typed (client) and asked about on Add or Save.
+  const act = (label = capital(word)) => ({ key: 'actId', textKey: 'client', label, type: 'combo', items: actItems, words: { many: word + 's' }, placeholder: kind === 'session' ? 'Who the session is for' : 'Type a name', hint: noActs || scores || joins });
   const status = { key: 'status', label: 'Status', type: 'select', options: statusChoices(kind, cur).map(([id, label]) => [id, label]) };
   const date = { key: 'date', label: 'Date', type: 'date', required: true };
   const endDate = { key: 'endDate', label: 'Last day (more than one day)', type: 'date', hint: 'Leave blank for a single day.' };
-  const venue = (label, nameLabel, ph) => [
-    { key: 'venueId', label, type: 'select', options: venueOptions(kind), hint: db.venues.length ? '' : `Save venues, studios and rooms on the ${sectionName('venues', 'Venues')} page to pick them here.${pageHint('venues', 'Venues')}` },
-    { key: 'venueName', label: nameLabel, placeholder: ph },
+  const venue = (label, ph) => [
+    { key: 'venueId', textKey: 'venueName', label, type: 'combo', items: () => venueItems(kind), words: { many: 'venues' }, placeholder: ph, hint: db.venues.length ? '' : `Save venues, studios and rooms on the ${sectionName('venues', 'Venues')} page to pick them here.${pageHint('venues', 'Venues')}` },
     { key: 'address', label: 'Address', type: 'textarea', rows: 2 },
   ];
   const t = (key, label) => ({ key, label, type: 'time' });
@@ -225,15 +234,15 @@ function fieldsFor(kind, cur = '') {
     { key: 'contactPhone', label: 'Phone', type: 'tel' },
     { key: 'contactEmail', label: 'Email', type: 'email' },
   ];
-  if (kind === 'show') return [act(), status, date, endDate, ...venue('Venue', 'Venue name', 'e.g. The Moth Club'),
+  if (kind === 'show') return [act(), status, date, endDate, ...venue('Venue', 'e.g. The Moth Club'),
     t('loadIn', 'Load-in'), t('soundcheck', 'Soundcheck'), t('doors', 'Doors'), t('setTime', 'On stage'),
     { key: 'setLength', label: 'Set length (minutes)', type: 'number', min: 0, placeholder: 'e.g. 45' }, t('curfew', 'Curfew'), title, ...contact];
-  if (kind === 'session') return [act(), { key: 'client', label: 'Artist or client', placeholder: 'Who the session is for' }, status, date, endDate,
-    ...venue('Studio', 'Studio name', 'e.g. Echo Chamber Studios'), t('start', 'Start'), t('end', 'Finish'),
+  if (kind === 'session') return [act(), status, date, endDate,
+    ...venue('Studio', 'e.g. Echo Chamber Studios'), t('start', 'Start'), t('end', 'Finish'),
     { key: 'rate', label: 'Rate', type: 'number', min: 0, step: 'any', placeholder: '0' }, { key: 'rateUnit', label: 'Per', type: 'select', options: model.RATE_UNITS }, title, ...contact];
-  if (kind === 'rehearsal') return [act(), status, date, ...venue('Room', 'Room name', 'e.g. Basement Rehearsal Rooms'), t('start', 'Start'), t('end', 'Finish'), title];
+  if (kind === 'rehearsal') return [act(), status, date, ...venue('Room', 'e.g. Basement Rehearsal Rooms'), t('start', 'Start'), t('end', 'Finish'), title];
   return [{ key: 'title', label: 'What', required: true, placeholder: 'e.g. Radio session, photo shoot, label meeting' }, status, date, endDate, t('start', 'Start'), t('end', 'Finish'),
-    ...venue('Where', 'Place', 'e.g. BBC Maida Vale'), act(`${capital(word)} (optional)`),
+    ...venue('Where', 'e.g. BBC Maida Vale'), act(`${capital(word)} (optional)`),
     // Nothing about money for a free Audiophile without the working roles (the owner's answer 1): its fee stays as it is.
     !showsOnly() && { key: 'fee', label: 'Fee', type: 'number', min: 0, step: 'any', placeholder: '0' }].filter(Boolean);
 }
@@ -246,11 +255,28 @@ function editBookingNow(b, { focus = '' } = {}) {
   const c = b.contact || {};
   const values = { ...b, kind, contactName: c.name || '', contactRole: c.role || '', contactPhone: c.phone || '', contactEmail: c.email || '' };
   if (!model.statusesFor(kind).some(s => s[0] === values.status)) values.status = model.statusesFor(kind)[0][0];
+  let adding = null, asking = false; // the answer to "Add to your lists?" while its save runs ({ act, venue }); a question up
   openForm({
     title: `${isNew ? 'New' : 'Edit'} ${NOUN[kind]}`,
     values, fields: fieldsFor(kind, values.status), saveLabel: isNew ? 'Add' : 'Save',
+    // A band or venue typed that is in no list, and new to this booking, is asked about before the save (the act form's
+    // "New name?" does the same): the sheet's body hears the submit first and holds it; an answer sends it again, and that
+    // one saves. A read-only role is not asked: form.js gives it the licence's sheet.
+    onReady: form => form.parentNode.addEventListener('submit', e => {
+      if (e.target !== form || adding || !canChangeQuietly()) return;
+      const fresh = typedNew(form);
+      if (!fresh.act && !fresh.venue) return;
+      e.preventDefault(); e.stopPropagation();
+      if (asking) return; // one question at a time: a held or repeated Enter in the form under it asks nothing more
+      asking = true;
+      askAdd(fresh, kind, {
+        answer: want => { asking = false; adding = want; try { form.requestSubmit(); } finally { adding = null; } },
+        back: () => { asking = false; if (form.isConnected) form.querySelector(`[data-key="${fresh.act ? 'actId' : 'venueId'}"]`)?.focus(); },
+      });
+    }, true),
     onSave: v => {
       const rec = tidy(v, kind);
+      if (adding) addTyped(rec, kind, adding); // the band and venue typed, made and linked first when the answer asked for them
       const before = (b.id && byId('bookings', b.id)) || b;
       if (rec.status !== before.status) withStatus(rec, rec.status, settledNow(before)); // a status picked here does what the status pill does
       // A show moved to another date, or given another act, is asked about again ("Did you see them?").
@@ -281,7 +307,7 @@ function tidy(v, kind) {
   // A saved venue brings its own name and address (and keeps them up to date); typed ones are for anywhere else.
   if (out.venueId && byId('venues', out.venueId)) { out.venueName = ''; out.address = ''; } else { out.venueId = ''; out.venueName = str(out.venueName); out.address = str(out.address); }
   if (out.actId && !byId('acts', out.actId)) out.actId = '';
-  if (out.actId && kind === 'session') out.client = '';
+  out.client = out.actId ? '' : str(out.client); // the act as typed when it is none of the acts, on any kind
   for (const k of ['setLength', 'rate', 'fee']) {
     if (out[k] === '' || out[k] == null || !Number.isFinite(Number(out[k]))) delete out[k];
     else out[k] = k === 'setLength' ? Math.max(0, Math.round(Number(out[k]))) : Math.max(0, Number(out[k]));
@@ -293,9 +319,22 @@ function tidy(v, kind) {
   if (act && !(out.people || []).length && blockShown('lineup')) out.people = (act.members || []).filter(id => byId('people', id));
   return out;
 }
+// What was typed in the band and venue boxes that is no saved record and is new in this form: an edit that keeps the
+// name it was saved with asks nothing (so a "Neither" stays answered).
+function typedNew(form) {
+  const one = key => { const el = form.querySelector(`input[data-key="${key}"]`); const t = el && !el.dataset.id ? el.value.trim().replace(/\s+/g, ' ') : '';
+    return t && boxKey(t) !== boxKey(el.dataset.was || '') ? t : ''; };
+  return { act: one('actId'), venue: one('venueId') };
+}
+// The kind of place a venue added from a booking is: a studio for a session, a room for a rehearsal.
+const PLACE_KIND = { show: 'venue', session: 'studio', rehearsal: 'rehearsal', other: 'other' };
+function addTyped(rec, kind, want) {
+  if (want.act && rec.client && !rec.actId) { const a = addActNamed(rec.client); if (a) { rec.actId = a.id; rec.client = ''; } }
+  if (want.venue && rec.venueName && !rec.venueId) { const v = addVenueNamed({ name: rec.venueName, address: rec.address, kind: PLACE_KIND[kind] || 'venue' }); if (v) { rec.venueId = v.id; rec.venueName = ''; rec.address = ''; } }
+}
 
-// The form is one schema for every case: a saved venue hides the boxes for typing a venue, and picking an act for a
-// session hides the box for an artist who is not in Acts.
+// The form is one schema for every case: a saved venue hides the box for its address; the band and venue boxes say
+// themselves whether what is typed is saved.
 function wireForm(kind) {
   const forms = document.querySelectorAll('.sheet form.form'), form = forms[forms.length - 1];
   if (!form) return;
@@ -306,20 +345,19 @@ function wireForm(kind) {
     const note = h('small', { class: 'muted bk-venue-note' });
     venueSel.closest('.field').append(note);
     const sync = fill => {
-      const v = byId('venues', venueSel.value);
+      const v = byId('venues', venueSel.dataset.id);
       for (const f of [fieldOf('venueName'), fieldOf('address')]) if (f) f.hidden = !!v;
-      note.textContent = v ? (v.address ? `📍 ${String(v.address).split('\n')[0]}` : 'No address saved for this venue yet.') : 'Type the name and address below.';
+      note.textContent = v ? (v.address ? `📍 ${String(v.address).split('\n')[0]}` : 'No address saved for this venue yet.') : '';
+      note.hidden = !v; // with no saved venue, the box's own line says the rest
       // A venue's own contact fills an empty contact.
       if (fill && v) {
         const [n, ph, em] = ['contactName', 'contactPhone', 'contactEmail'].map(ctl);
         if (n && ph && em && !n.value && !ph.value && !em.value) { n.value = v.contact || ''; ph.value = v.phone || ''; em.value = v.email || ''; }
       }
     };
-    venueSel.addEventListener('change', () => sync(true));
+    venueSel.addEventListener('combochange', () => sync(true));
     sync(false);
   }
-  const actSel = ctl('actId'), client = kind === 'session' ? fieldOf('client') : null;
-  if (actSel && client) { const sync = () => { client.hidden = !!actSel.value; }; actSel.addEventListener('change', sync); sync(); }
   // A hint that sends people to Acts or Venues while that section is a bonus track gets a button that goes there,
   // closing the form, as long as nothing has been typed in it. After that only the words stay, so nothing typed is lost.
   const goes = [['actId', 'acts', 'Acts', !db.acts.length], ['venueId', 'venues', 'Venues', !db.venues.length]]
@@ -340,6 +378,34 @@ function wireForm(kind) {
     form.addEventListener('change', typed);
   }
 }
+
+// "Add to your lists?": asked over the booking form when the band or the venue typed is in no list (typedNew). The
+// answers say which to add (answer({ act, venue })); the booking is saved whatever the answer, with what was not added
+// kept as typed. ✕, Escape and Back to the form save nothing and put the focus back in the form (back()). No answer
+// takes the focus (the sheet takes it), so the Enter that sent the form, held or repeated, answers nothing.
+const ADD_TITLE = 'Add to your lists?';
+function askAdd(fresh, kind, { answer, back }) {
+  const word = actWord(), noun = kind === 'show' ? showWord() : NOUN[kind] || 'booking', both = !!(fresh.act && fresh.venue);
+  let done = false, close = () => {};
+  const btn = (id, text, want, primary = false) => h('button', { type: 'button', class: `btn ${primary ? 'primary' : 'ghost'}`, id,
+    onclick: e => { if (e.detail > 1) return; done = true; close(); eatSecondClick(); answer(want); } }, text);
+  const body = h('div', { class: 'stack bk-add' },
+    h('p', { class: 'bk-add-q', id: 'bk-add-q' }, both ? `“${fresh.act}” and “${fresh.venue}” aren’t in your lists yet. Add them?`
+      : fresh.act ? `“${fresh.act}” isn’t in your ${word}s yet. Add it?` : `“${fresh.venue}” isn’t in your venues yet. Add it?`),
+    h('p', { class: 'small muted', id: 'bk-add-why' }, both ? `Once added, they’re there to pick next time. Whatever you choose, the ${noun} keeps both names.`
+      : `Once added, it’s there to pick next time. Whatever you choose, the ${noun} keeps the name.`),
+    h('div', { class: 'bk-add-answers' }, both
+      ? [btn('bk-add-both', 'Add both', { act: true, venue: true }, true), btn('bk-add-act', `Just the ${word}`, { act: true, venue: false }),
+        btn('bk-add-venue', 'Just the venue', { act: false, venue: true }), btn('bk-add-none', 'Neither', { act: false, venue: false })]
+      : [btn('bk-add-yes', 'Yes, add it', { act: !!fresh.act, venue: !!fresh.venue }, true), btn('bk-add-no', 'No, keep it as typed', { act: false, venue: false })]),
+    h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost small', id: 'bk-add-back', onclick: e => { if (e.detail < 2) close(); } }, 'Back to the form')));
+  let el = null;
+  ({ el, close } = sheet(ADD_TITLE, body, { onClose: () => { if (!done) back(); } }));
+  el.setAttribute('aria-describedby', 'bk-add-q bk-add-why');
+}
+// The role's word for a show: the singular of its name for Bookings when it has one of its own (Gigs: gig; Shows:
+// show), else show.
+export const showWord = () => { const w = sectionName('bookings', 'Bookings').toLowerCase().replace(/s$/, ''); return w === 'booking' ? 'show' : w; };
 
 /* ------------------------------- status, duplicate, delete ------------------------------- */
 const settledNow = x => !!(x && (x.status === 'settled' || (x.settlement && x.settlement.settledAt)));
@@ -590,6 +656,13 @@ function scoreRow(b) {
   const act = actOf(b);
   if (!act) {
     const word = actWord();
+    // A band typed on the show and never added: it can be added from here, and then scored.
+    if (b.client && !exactOf(actItems(), b.client)) {
+      return h('div', { class: 'bk-score bk-score-noact bk-score-typed' },
+        h('span', { class: 'bk-score-text' }, `${b.client} isn’t in your ${word}s yet. Add them to score this show.`),
+        h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-add', 'aria-label': `Add ${b.client} to your ${word}s`,
+          onclick: scoreTap(b, 'bk-score-add', () => addScoreAct(b.id)) }, `+ Add to ${sectionName('acts', 'Acts')}`));
+    }
     return h('div', { class: 'bk-score bk-score-noact' },
       h('span', { class: 'bk-score-text' }, `Pick the ${word} you saw to score this show.`),
       h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-act', onclick: scoreTap(b, 'bk-score-act', () => editBooking(byId('bookings', b.id) || b, { focus: 'actId' })) },
@@ -614,6 +687,15 @@ function scoreRow(b) {
     h('span', { 'aria-hidden': 'true' }, '★ '), `Score ${name}`),
     model.showOver(b) && h('button', { type: 'button', class: 'btn ghost small', id: 'bk-score-no', 'aria-label': `I didn’t go to see ${name}`,
       onclick: scoreTap(b, 'bk-score-no', () => { model.markWent(b.id, true); haptic(); announce(`${name}: marked Didn’t go`); }) }, 'Didn’t go'));
+}
+
+// "+ Add to Bands" on a show whose band was typed: the act made from the name, and the show linked to it.
+function addScoreAct(id) {
+  const cur = byId('bookings', id);
+  if (!cur || cur.actId || !cur.client || !canChange({ form: false })) return;
+  const a = addActNamed(cur.client);
+  if (!a) return;
+  if (upsert('bookings', { ...cur, actId: a.id, client: '' })) toast(`${a.name} is in your ${actWord()}s now.`);
 }
 
 function hero(b) {
@@ -719,7 +801,8 @@ function bookingSteps(b) {
     { title: 'House rules', text: 'What this venue allows and what it does not. The rules belong to the venue and apply to every show there; change them by editing the venue.', target: ['.bk-hero .vn-rules'] },
     said != null && said !== 'no' && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.' + (said === '' && model.showOver(b) ? ' If you missed it, Didn’t go says so and Tourbook stops asking.' : ''), target: ['.bk-score'] },
     said === 'no' && { title: 'Didn’t go', text: 'You said you missed this show, so it is not counted as seen. Change takes that answer back.', target: ['.bk-score'] },
-    scoreable(b) && !actOf(b) && scoresShows() && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
+    scoreable(b) && !actOf(b) && scoresShows() && !(b.client && !exactOf(actItems(), b.client)) && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
+    scoreable(b) && !actOf(b) && scoresShows() && b.client && !exactOf(actItems(), b.client) && { title: 'Score this show', text: `Add them to your ${actWord()}s, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },
     { title: 'The boxes', text: 'Everything else about the booking, one box each: tap a box to open it. Boxes you open stay open.', target: ['.bk-blocks'] },
@@ -732,9 +815,9 @@ function bookingSteps(b) {
 }
 
 const formSteps = kind => () => [
-  kind !== 'other' && { title: `The ${actWord()}`, text: blockShown('lineup') ? 'Who is playing. Its members join the line-up when it is empty.' : 'Who is playing.', target: ['select[id$="-actId"]'] },
+  kind !== 'other' && { title: `The ${actWord()}`, text: (blockShown('lineup') ? 'Who is playing. Its members join the line-up when it is empty.' : 'Who is playing.') + ' ' + `Type a few letters to find one of your ${actWord()}s and pick it, or type a new name.`, target: ['[data-key="actId"]'] },
   { title: 'Date', text: 'The day, and a last day for a festival weekend or a block of studio days.', target: ['[data-key="date"]'] },
-  { title: 'Where', text: 'Pick a saved venue, or choose “Not in my venues” and type the name and address.', target: ['select[id$="-venueId"]', '[data-key="venueName"]'] },
+  { title: 'Where', text: 'Type a few letters to find a saved venue and pick it, or type a new one and its address.', target: ['[data-key="venueId"]'] },
   kind === 'show' && { title: 'Times', text: 'Load-in, soundcheck, doors, on stage and curfew. The set length works out when you are off stage.', target: ['[data-key="loadIn"]'] },
   kind === 'session' && { title: 'Rate', text: 'What the session costs: per hour, per day, per song or a flat fee.', target: ['[data-key="rate"]'] },
   kind !== 'rehearsal' && kind !== 'other' && { title: 'Contact', text: 'The promoter, agent or studio contact. Their phone and email give you call, text and email buttons on the booking.', target: ['[data-key="contactName"]'] },
@@ -743,4 +826,5 @@ for (const [kind] of model.KINDS) { sheetTutorial(`New ${NOUN[kind]}`, formSteps
 sheetTutorial('What are you booking?', () => [{ title: 'Pick a kind', text: moneyShown() ? 'Each kind has its own form and boxes: a show has a deal and a guest list, a session a rate and takes.' : 'Each kind has its own form and boxes. The one you add most is first.', target: ['.bk-kinds'] }]);
 sheetTutorial('Booking status', () => [{ title: 'Status', text: moneyShown() ? 'Tap one to set it. Hold and offer show hollow on the calendar; cancelled leaves clashes and money.' : 'Tap one to set it. Hold and offer show hollow on the calendar; a cancelled one stays in your records, out of clashes.', target: ['.bk-status-list'] }]);
 sheetTutorial('Duplicate booking', () => [{ title: 'New date', text: moneyShown() ? 'The copy goes on this date, on hold, with the same act, venue, times, people and gear.' : 'The copy goes on this date, confirmed, with the same act, venue, times and notes.', target: ['#bk-dup-date'] }]);
+sheetTutorial(ADD_TITLE, [{ title: 'Add to your lists', text: 'Added, a name goes on its list, ready to pick next time you type it. A name you don’t add stays on the booking as typed. Back to the form, or ✕, saves nothing.', target: ['.bk-add-answers'] }]);
 sheetTutorial('Delete this booking?', [{ title: 'Delete', text: 'Deleting cannot be undone. Keep it closes this without changing anything.', target: ['.btn.danger'] }]);

@@ -365,3 +365,8 @@ html[data-text=xlarge] .bk-calview .cal-nav { flex-wrap: wrap; justify-content: 
 html[data-text=xlarge] .bk-calview .cal-title { order: -1; flex-basis: 100%; }
 @media (max-width: 359px) { .bk-calview .cal-nav { flex-wrap: wrap; justify-content: space-between; } .bk-calview .cal-title { order: -1; flex-basis: 100%; } }
 @media (max-width: 479px) { .bk-dayview .cal-nav { flex-wrap: wrap; justify-content: space-between; } .bk-dayview .cal-title { order: -1; flex-basis: 100%; } }
+
+/* "Add to your lists?" (askAdd): the question, then its answers one under the other, full width. */
+.bk-add-q { margin: 0; font-weight: 600; }
+.bk-add-answers { display: grid; gap: 8px; }
+.bk-add-answers .btn { width: 100%; }

@@ -208,7 +208,7 @@ async function logFromCard(page, id, score) {
     ok('producer: …and the act’s tour says so', (await page.evaluate(() => import('./js/pages/acts.js').then(m => m.acts.tutorial().find(s => s.title === 'Coming up').text))).includes('book a new session'));
     await page.click('#ac-book');
     await page.waitForSelector('.sheet[aria-label="New studio session"]');
-    ok('producer: it starts a studio session for that artist', (await topSheet(page).locator('select[data-key=actId]').inputValue()) === 's-sablea');
+    ok('producer: it starts a studio session for that artist', (await topSheet(page).locator('input[data-key=actId]').getAttribute('data-id')) === 's-sablea');
     await page.keyboard.press('Escape');
     await sleep(200);
     await role(page, 'manager');
@@ -445,7 +445,7 @@ async function logFromCard(page, id, score) {
     ok('scout: …and its tour says so', (await page.evaluate(() => import('./js/pages/acts.js').then(m => m.acts.tutorial().find(s => s.title === 'Coming up').text))) === 'Their shows on your calendar from today on. Tap one to open it, or add a show of theirs you’re going to.');
     await page.click('#ac-book');
     await page.waitForSelector('.sheet[aria-label="New show"]');
-    ok('scout: + Add a show starts a show for that act', (await topSheet(page).locator('select[data-key=actId]').inputValue()) === 't-quiet');
+    ok('scout: + Add a show starts a show for that act', (await topSheet(page).locator('input[data-key=actId]').getAttribute('data-id')) === 't-quiet');
     await page.keyboard.press('Escape');
     await page.waitForSelector('.sheet', { state: 'detached' });
     await role(page, 'all');

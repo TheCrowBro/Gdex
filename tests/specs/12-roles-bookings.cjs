@@ -7,7 +7,7 @@
 // words for someone going to shows. The score row keeps the focus, and says what to do when the show has no act yet.
 // The act filter chip, the solo artist's hint, the Studio log's focus after Start a take log, and the booking page at
 // 320px with extra-large text.
-const { open, ok, sleep, go, toMonth } = require('../helpers.cjs');
+const { open, ok, sleep, go, toMonth, typePick } = require('../helpers.cjs');
 
 const setRole = async (page, id) => { await page.evaluate(x => import('./js/roles.js').then(m => m.setRole(x)), id); await sleep(400); };
 const openB = async (page, id) => { await page.evaluate(x => import('./js/pages/bookings.js').then(m => m.openBooking(x)), id); await page.waitForSelector('.bk-page'); await sleep(350); };
@@ -170,8 +170,8 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   ok('…and a walkthrough step', (await steps(page)).includes('Score this show') && /Pick the act you saw/.test(await stepText(page, 'Score this show')));
   await page.focus('#bk-score-act'); await page.keyboard.press('Enter');
   await sheetNamed(page, 'Edit show').waitFor(); await sleep(150);
-  ok('the button opens the show’s form with the focus on the act', await page.evaluate(() => document.activeElement && document.activeElement.matches('.sheet select[data-key=actId]')));
-  await page.selectOption('.sheet select[data-key=actId]', 's-owls');
+  ok('the button opens the show’s form with the focus on the act', await page.evaluate(() => document.activeElement && document.activeElement.matches('.sheet input[data-key=actId]')));
+  await typePick(sheetNamed(page, 'Edit show'), 'actId', 'owl', 'The Night Owls');
   await page.locator('.sheet button[type=submit]').click(); await sleep(500);
   ok('with the act picked, ★ Score The Night Owls is there, with the focus on it', /Score The Night Owls/.test(await page.locator('#bk-score').textContent()) && (await focused(page)) === 'bk-score', await focused(page));
   await page.evaluate(id => import('./js/store.js').then(s => s.patch('bookings', id, { actId: '' })), noAct); await sleep(300);
@@ -214,12 +214,12 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await form.waitFor();
   ok('a scout’s new show starts confirmed', (await form.locator('select[data-key=status]').inputValue()) === 'confirmed');
   ok('…with no Paid / settled to pick', JSON.stringify(await form.locator('select[data-key=status] option').allTextContents()) === JSON.stringify(['Hold', 'Offer in', 'Confirmed', 'Advanced', 'Done', 'Cancelled']));
-  ok('…and the act box says the act is the one that gets scored', /The act you’re going to see\. On the night or after, Score this show logs your score on their card\./.test(await form.locator('select[id$="-actId"]').locator('xpath=..').innerText()));
-  ok('…its act box is labelled Act, with “Not in my acts”', (await form.locator('label[for$="-actId"]').innerText()).trim() === 'Act' && (await form.locator('select[id$="-actId"] option').first().innerText()) === 'Not in my acts');
-  ok('…and no hint that the members join the line-up', !/line-up/.test(await form.locator('select[id$="-actId"]').locator('xpath=..').innerText()));
-  await form.locator('select[id$="-actId"]').selectOption('s-owls');
+  ok('…and the act box says the act is the one that gets scored', /The act you’re going to see\. On the night or after, Score this show logs your score on their card\./.test(await form.locator('input[id$="-actId"]').locator('xpath=ancestor::div[contains(@class,"field")][1]').innerText()));
+  ok('…its act box is labelled Act, a box to type in whose list is “Your acts”', (await form.locator('label[for$="-actId"]').innerText()).trim() === 'Act' && (await form.locator('input[id$="-actId"]').getAttribute('role')) === 'combobox' && (await form.locator('ul[id$="-actId-list"]').getAttribute('aria-label')) === 'Your acts' && !/Not in my/.test(await form.innerText()));
+  ok('…and no hint that the members join the line-up', !/line-up/.test(await form.locator('input[id$="-actId"]').locator('xpath=ancestor::div[contains(@class,"field")][1]').innerText()));
+  await typePick(form, 'actId', 'owl', 'The Night Owls');
   await form.locator('[data-key=date]').fill(dayIso(9));
-  await form.locator('select[id$="-venueId"]').selectOption('s-harbour');
+  await typePick(form, 'venueId', 'harb', 'Harbour Hall');
   await form.locator('button[type=submit]').click();
   await page.waitForSelector('.bk-page .bk-hero'); await sleep(300);
   const made = await page.evaluate(d => import('./js/store.js').then(s => JSON.parse(JSON.stringify(s.db.bookings.find(b => b.date === d && b.venueId === 's-harbour' && b.actId === 's-owls')))), dayIso(9));
@@ -382,9 +382,9 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     ok(`${r.id}: the kinds in its order, with its words or the usual ones`, JSON.stringify(order) === JSON.stringify(r.kinds) && help.every((t, i) => t === ((r.kindHelp || {})[order[i]] || DEF[order[i]])), order.join(','));
     await page.click('.bk-kind[data-kind="show"]');
     await sheetNamed(page, 'New show').waitFor();
-    const label = (await page.locator('.sheet label[for$="-actId"]').innerText()).trim(), none = await page.locator('.sheet select[id$="-actId"] option').first().innerText();
-    ok(`${r.id}: the act box is labelled ${words[r.id][0]}, with “Not in my ${words[r.id][1]}”`, label === words[r.id][0] && none === `Not in my ${words[r.id][1]}`, `${label} / ${none}`);
-    ok(`${r.id}: the field key is still actId`, (await page.locator('.sheet select[data-key=actId]').count()) === 1);
+    const label = (await page.locator('.sheet label[for$="-actId"]').innerText()).trim(), none = await page.locator('.sheet ul[id$="-actId-list"]').getAttribute('aria-label');
+    ok(`${r.id}: the act box is labelled ${words[r.id][0]}, its list “Your ${words[r.id][1]}”`, label === words[r.id][0] && none === `Your ${words[r.id][1]}`, `${label} / ${none}`);
+    ok(`${r.id}: the field key is still actId`, (await page.locator('.sheet input[data-key=actId]').count()) === 1);
     await page.keyboard.press('Escape'); await sleep(150);
   }
 
@@ -458,7 +458,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     await page.evaluate(() => import('./js/roles.js').then(m => { m.ROLES.find(r => r.id === 'scout').sections = ['bookings', 'acts', 'people', 'venues']; m.setRole('solo'); })); await sleep(400);
     await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.newBooking({ kind: 'show' })));
     await sheetNamed(page, 'New show').waitFor();
-    text = await page.locator('.sheet select[id$="-actId"]').locator('xpath=..').innerText();
+    text = await page.locator('.sheet input[id$="-actId"]').locator('xpath=ancestor::div[contains(@class,"field")][1]').innerText();
     ok('solo: the hint says to add yourself on the My act page', /Add yourself on the My act page to pick it here\./.test(text) && !/bands and artists/.test(text), text.replace(/\n/g, ' / '));
     await page.keyboard.press('Escape'); await sleep(150);
     for (const [r, words, btn] of [['scout', 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.', '+ Add a show'], ['audiophile', 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.', '+ Add a show'], ['all', 'Nothing coming up. Add a show, a studio session or a rehearsal, or tap a date on the calendar.', '+ New booking']]) {

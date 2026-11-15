@@ -104,14 +104,11 @@ function placeholder(input) {
 // Every name an act is known by: the one it has now, then the ones it had before, the latest first (item 7's earlier
 // names, read through model.earlierNames, which cleans whatever is stored). This is the one place the search reads a
 // band's names, so a band is found by any name it has had, on its bookings and in its log alike.
-export const actNames = a => (a && typeof a === 'object' ? [a.name, ...model.earlierNames(a).map(n => n.name).reverse()] : [])
-  .map(n => clean(n)).filter((n, i, all) => n && all.indexOf(n) === i);
+export const actNames = model.actNames; // js/model.js: the booking form's band box reads them too
 
 // Words as the search compares them: no capitals, no accents (Motörhead is found by "motorhead"), the letters that
 // have no accent to drop written out (ø, ß, æ…), and curly quotes straight.
-const LETTERS = { ø: 'o', ß: 'ss', æ: 'ae', œ: 'oe', đ: 'd', ð: 'd', ł: 'l', þ: 'th', ı: 'i' };
-export const fold = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-  .replace(/[øßæœđðłþı]/g, c => LETTERS[c]).replace(/[‘’ʼ`´]/g, "'").replace(/[“”]/g, '"');
+export const fold = model.fold; // js/model.js: the booking form's band and venue boxes compare names with it too
 // The words typed, each without the punctuation around it ("Wolfe," is wolfe; "AC/DC" and "Guns N' Roses" keep theirs).
 const wordsOf = q => fold(q).split(/\s+/).map(w => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')).filter(Boolean);
 const clean = s => String(s ?? '').replace(/\s+/g, ' ').trim();

@@ -257,6 +257,16 @@ export const earlierNames = a => cleanFormer(a && a.formerNames, nameNow(a));
 export const earlierSpans = a => { let from = ''; return earlierNames(a).map(n => { const row = { ...n, from: n.until ? from : '' }; from = n.until || from; return row; }); };
 // The latest earlier name ("formerly The Night Owls" under the name on the act's card and page), or ''.
 export const formerName = a => { const list = earlierNames(a); return list.length ? list[list.length - 1].name : ''; };
+// Every name an act is known by: the one it has now, then the ones it had before, the latest first (item 7's earlier
+// names, read through earlierNames, which cleans whatever is stored), each with its spaces tidied. The search
+// (js/search.js) and the booking form's band box (js/combo.js) read a band's names through it, so both find a band by
+// any name it has had.
+export const actNames = a => (a && typeof a === 'object' ? [a.name, ...earlierNames(a).map(n => n.name).reverse()] : []).map(n => String(n ?? '').replace(/\s+/g, ' ').trim()).filter((n, i, all) => n && all.indexOf(n) === i);
+// Words as the search compares them: no capitals, no accents (Motörhead is found by "motorhead"), the letters that
+// have no accent to drop written out (ø, ß, æ…), and curly quotes straight.
+const LETTERS = { ø: 'o', ß: 'ss', æ: 'ae', œ: 'oe', đ: 'd', ð: 'd', ł: 'l', þ: 'th', ı: 'i' };
+export const fold = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/[øßæœđðłþı]/g, c => LETTERS[c]).replace(/[‘’ʼ`´]/g, "'").replace(/[“”]/g, '"');
 // The day the act's current name began (the day its latest dated earlier name stopped), or ''.
 export const nameSince = a => { const dated = earlierNames(a).filter(n => n.until); return dated.length ? dated[dated.length - 1].until : ''; };
 // The name the act had on a day: the earlier name still in use then, else the name it has now.

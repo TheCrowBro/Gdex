@@ -60,4 +60,12 @@ const toMonth = async page => {
   await page.evaluate(() => { const b = document.querySelector('.bk-page .back-btn'); if (b) b.click(); }); await sleep(200);
   await page.evaluate(() => { const b = document.getElementById('bk-view-month') || document.querySelector('.bk-dayview .back-btn'); if (b) b.click(); }); await sleep(250);
 };
-module.exports = { open, ok, sleep, go, topSheet, toMonth, BASE, licenceLeg, licenceAt };
+// The booking form's band or venue box (js/combo.js): types `text`, then taps the option whose name is `name`; with
+// name null, leaves the text as typed (Tab).
+async function typePick(scope, key, text, name = text) {
+  const box = scope.locator(`input[role=combobox][data-key="${key}"]`); await box.fill(text);
+  if (!name) return box.press('Tab');
+  const list = `#${await box.getAttribute('id')}-list`; // an option's aria-label is its name, then ", " and its second line
+  await scope.locator(`${list} .cb-opt[aria-label="${name}"], ${list} .cb-opt[aria-label^="${name}, "]`).first().click();
+}
+module.exports = { open, ok, sleep, go, topSheet, toMonth, BASE, licenceLeg, licenceAt, typePick };

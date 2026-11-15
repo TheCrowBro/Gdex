@@ -312,6 +312,10 @@ export function editVenue(v = {}, onSaved) {
   });
 }
 
+// A place made from a name typed in a booking's form: its name, the address typed with it and its kind, with the three
+// house-rules fields the venue form always stores (so the sample never takes it for one of its own). Null when refused.
+export const addVenueNamed = ({ name, address = '', kind = 'venue' }) => upsert('venues', { name: String(name || '').trim() || 'Unnamed venue', kind, address: String(address || '').trim(), geo: null, rules: {}, rulesNote: '', rulesTone: '', rateUnit: 'hour' });
+
 // After a delete the venue's sheet closes, and what opened it (its card, a show's Details) goes with the venue: once
 // the page is drawn again, a focus left nowhere goes to the page's heading that takes it (a show's title) or the page.
 const keepFocusOnPage = () => setTimeout(() => {

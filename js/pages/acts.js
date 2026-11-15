@@ -88,6 +88,12 @@ export const openActCard = id => openSeen(id, null);
 // name, the genre and its main genre ("rock" finds a doom folk band set to Rock by hand), the members' names and the notes.
 export const actSearchText = a => [a.name, a.genre, mainGenreOf(a).id && mainGenreOf(a).label, ...membersOf(a).map(p => p.name), ...earlierNames(a).map(n => n.name), a.notes].filter(Boolean).join(' ').toLowerCase();
 
+// The next colour no other act uses, for a new act.
+const freshColor = () => { const used = new Set(db.acts.map(x => x.color)); return (ACT_COLORS.find(([c]) => c && !used.has(c)) || ACT_COLORS[1])[0]; };
+// An act made from a name typed elsewhere (a booking's band box, a gig's score row): what the act form saves for a new
+// act with only a name. The stored record, or null when the licence refused it.
+export const addActNamed = name => upsert('acts', { name: String(name || '').trim() || 'Untitled act', genre: '', color: freshColor(), bio: '', links: '', email: '', phone: '', notes: '', members: [], inputList: [], stagePlot: [], riderTech: '', riderHospitality: '' });
+
 // The act's form. A new act gets the next colour no other act uses. onSaved(record) after a save.
 const FORM_KEYS = ['name', 'genre', 'color', 'bio', 'links', 'email', 'phone', 'notes'];
 export function editAct(a = {}, onSaved) {
@@ -95,8 +101,7 @@ export function editAct(a = {}, onSaved) {
   const isNew = !cur.id;
   const colors = ACT_COLORS.slice();
   if (cur.color && !colors.some(c => c[0] === cur.color)) colors.push([cur.color, 'Its own colour']);
-  const used = new Set(db.acts.map(x => x.color));
-  const fresh = (ACT_COLORS.find(([c]) => c && !used.has(c)) || ACT_COLORS[1])[0];
+  const fresh = freshColor();
   let names = null, pick = null; // the form's Earlier names (names.read()); the answer to "New name?" while its save runs
   openForm({
     title: isNew ? 'New act' : 'Edit act',
@@ -208,7 +213,7 @@ const RENAME = 'New name?';
 // An answer closes the question and saves the form under it at once, so the second click of a double click on it would
 // land on the page under both sheets. For a moment after an answer, a click that is the second of a double click is
 // stopped before it reaches anything.
-const eatSecondClick = () => {
+export const eatSecondClick = () => {
   const types = ['mousedown', 'mouseup', 'click', 'dblclick'], stop = e => { if (e.detail > 1) { e.stopPropagation(); e.preventDefault(); } };
   types.forEach(t => window.addEventListener(t, stop, true));
   setTimeout(() => types.forEach(t => window.removeEventListener(t, stop, true)), 600);
