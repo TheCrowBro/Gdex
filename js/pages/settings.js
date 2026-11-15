@@ -60,8 +60,9 @@ function arrive(inPlace = false) {
   if (inPlace && midTask()) return;
   if (left === null || !(Date.now() - left < FOLD_AFTER_MS)) fold();
 }
-// A sheet up, or the focus in a box being typed in (not a button or a switch) inside an open section.
-const TYPED = 'input:not([type=button],[type=submit],[type=reset],[type=checkbox],[type=radio],[type=range],[type=color],[type=file],[type=image]), textarea, select';
+// A sheet up, or the focus in a box being typed in (not a button or a switch) inside an open section. A select is not
+// one: its choice is saved as it is made (Your currency), so nothing is left unsaved.
+const TYPED = 'input:not([type=button],[type=submit],[type=reset],[type=checkbox],[type=radio],[type=range],[type=color],[type=file],[type=image]), textarea';
 function midTask() {
   if (document.querySelector('.sheet-back')) return true;
   const a = document.activeElement;
@@ -149,7 +150,7 @@ export function editProfile() {
       { key: 'location', label: 'Based in', placeholder: 'City' },
       { key: 'address', label: 'Postal address', type: 'textarea', rows: 3, hint: 'For invoices: some clients need it there to pay.' },
       // The same chooser as Quotes & invoices (js/money-currency.js), drawn into the form's select by onReady.
-      { key: 'currency', label: 'Currency', type: 'select', options: [], hint: 'Pick your country. Its currency is used for every fee, deal, settlement, quote and invoice.' },
+      { key: 'currency', label: 'Currency', type: 'select', options: [], hint: 'Pick your country. Its currency is used for every fee, deal and settlement, and for your quotes and invoices (one for work abroad can have its own).' },
       { key: 'bio', label: 'Short bio', type: 'textarea', rows: 3, hint: 'A line or two about you.' },
     ],
     // The currency changes only when another country is picked: what was stored (a symbol typed by hand) stays.
@@ -314,7 +315,9 @@ export function removeSample() {
   const n = before - sampleCount(); // some go with others (a booking's clock shifts), so count what is gone
   // The sample's stand-in name, if it is still the one loadSample filled in.
   const p = store.db.profile;
-  if (p.name === 'Sample Producer' && p.business === 'Sample Sound') update(d => { d.profile = { ...d.profile, name: '', business: '', role: d.profile.role === 'Producer' ? '' : d.profile.role, updatedAt: 0 }; }); // a cleared stand-in never wins a merge with a real profile
+  // A cleared stand-in never wins a merge with a real profile. One with no time stays without; one a currency pick gave
+  // a time gets a newer one, so a merge with that stamped stand-in (another device, Drive, a backup) keeps it cleared.
+  if (p.name === 'Sample Producer' && p.business === 'Sample Sound') update(d => { d.profile = { ...d.profile, name: '', business: '', role: d.profile.role === 'Producer' ? '' : d.profile.role, updatedAt: Number(d.profile.updatedAt) > 0 ? Date.now() : 0 }; });
   return n;
 }
 function askRemove() {
@@ -513,5 +516,5 @@ sheetTutorial('Your details', [
   { title: 'Who you are', text: 'Your name, and your business, band or project name, as they should read on day sheets and invoices.', target: ['[data-key="name"]'] },
   { title: 'How to reach you', text: 'Phone, email and website go on your contact card and on your documents.', target: ['[data-key="phone"]'] },
   { title: 'Postal address', text: 'For invoices: some clients need it there before they can pay.', target: ['[data-key="address"]'] },
-  { title: 'Currency', text: 'Pick your country: its currency is used for every fee, deal, settlement, quote and invoice. The country this device is set to comes first.', target: ['[data-key="currency"]'] },
+  { title: 'Currency', text: 'Pick your country: its currency is used for every fee, deal and settlement, and for your quotes and invoices (one for work abroad can have its own). The country this device is set to comes first.', target: ['[data-key="currency"]'] },
 ]);

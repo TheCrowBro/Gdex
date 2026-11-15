@@ -33,10 +33,13 @@ export const fmtShort = s => parseISO(s).toLocaleDateString(undefined, { weekday
 export const fmtTime = d => d instanceof Date && !isNaN(d) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
 export const daysUntil = s => Math.round((parseISO(s) - parseISO(todayISO())) / 864e5);
 
+// A currency symbol as it goes before an amount: one that ends in a letter (CHF, kr, zł, R) takes a no-break space, as
+// Intl writes them ("CHF 1,250"); $, £, €, ¥, ₹ and R$ stay against the number.
+export const symText = sym => sym + (/\p{L}$/u.test(sym) ? '\u00a0' : '');
 export function money(n, sym = '$') {
   const v = Number(n);
   if (!isFinite(v)) return '—';
-  return sym + v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return symText(sym) + v.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 export function groupBy(arr, keyFn) {
@@ -182,7 +185,7 @@ export const personRate = c => (hasUnit(c) ? { amount: Number(c.rate), hourly: c
   : c && typeof c === 'object' && (c.rate === '' || c.rate == null) && (c.rateUnit === 'day' || c.rateUnit === 'hour') ? { amount: '', hourly: c.rateUnit === 'hour' } // a unit chosen, no amount yet: the line is still an hours line
   : parseRate(c && typeof c === 'object' ? c.rate : c));
 // The rate as shown on a card: "$450/day", "$55/hour"; an older typed rate is shown as it was typed.
-export const rateText = (c, sym = '$') => { if (!hasUnit(c)) return String((c && typeof c === 'object' ? c.rate : c) ?? '').trim(); const n = Number(c.rate); return `${sym}${Number.isInteger(n) ? n : n.toFixed(2)}/${c.rateUnit}`; };
+export const rateText = (c, sym = '$') => { if (!hasUnit(c)) return String((c && typeof c === 'object' ? c.rate : c) ?? '').trim(); const n = Number(c.rate); return `${symText(sym)}${Number.isInteger(n) ? n : n.toFixed(2)}/${c.rateUnit}`; };
 // Saving the form of an older record that held a typed rate: a blank amount keeps the typed text as it was; an amount
 // replaces it, and anything the text said beyond an amount and a unit ("$500/day, OT $60/hr") goes into the notes.
 const PLAIN_RATE = /^[^\d]{0,3}\d[\d.,\s]*(?:k\b)?\s*(?:\/|per\b|an?\b|each\b)?\s*(?:hours?|hrs?|h|days?|d|hourly|daily)?\s*\.?$/i;

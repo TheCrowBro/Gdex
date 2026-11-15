@@ -113,7 +113,10 @@ own start if that was earlier." Nothing else in the terms changed that day. The 
 `TERMS_VERSION` `'2026-11-15'`: the day's first words went live with Google Drive at 09:54 UTC, but no device could have
 agreed to them (the one-time terms sheet asks no one while licences are off), so nobody needs asking again
 (`js/terms.js`). Both versions are dated 15 November 2026, though section 18 says each version is dated at the top:
-another point for the lawyer. The privacy
+another point for the lawyer. Since 15 November Tourbook no longer loads the sample (your item 2: Settings offers only
+Remove the sample…, and only while sample records are on a device), but the terms were not reworded for it: at the next
+change to the terms, section 3's "or load the sample" should go (Remove the sample… is the only sample change left, and a
+read-only role can't make it either), and section 4's "(Settings → Sample data)" should be looked at. The privacy
 policy is dated the same day: its section 7 now says Google’s sign-in script runs only once you tap Connect Google
 Drive…, as its section 3 says, rather than once you connect; and its sections 2 and 3 say what a backup file carries
 about the free days. Tell the developer anything to change.

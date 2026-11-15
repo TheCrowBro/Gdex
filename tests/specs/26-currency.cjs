@@ -6,8 +6,8 @@
 // the same list: an invoice picked into euros has € on it and its Pay buttons, link and bank QR in EUR (Venmo, Cash App
 // and Monzo only in their own currency, a card page with {amount} only in yours); a quote in euros becomes an invoice in
 // euros; the Money page and the search never add two currencies together or show one as another. What was stored
-// before reads as it did ('$', 'kr' with SEK, 'kr' alone as the device's krone, a symbol typed by hand, a document from
-// before), sync, backups and the store keep the new fields, and a merge never parts a symbol from its code nor lets a
+// before reads as it did ('$', 'kr' with SEK, 'kr' alone as the device's krone, never written into a document, a symbol
+// typed by hand, a document from before, kept in its currency when yours becomes another), sync, backups and the store keep the new fields, and a merge never parts a symbol from its code nor lets a
 // currency picked on a new device wipe the billing settings of another. Other devices: de-DE (a fresh device's tour and
 // a merge), nb-NO and da-DK ('kr'), en-US, en-AU, en-CA (a Canadian invoicing in US dollars), and in the licence leg a
 // role read-only.
@@ -96,7 +96,7 @@ async function searchMoney(page, q) {
     return { pick: await chosen(page), money: await fmt(page, 1250), code: await run(page, () => import('./js/money.js').then(m => m.currencyCode())) };
   };
   let old = await as('kr', 'SEK');
-  ok('a stored kr with SEK reads as Sweden, kr and SEK, as before', old.pick.value === 'SE' && old.pick.label === 'Sweden — kr SEK' && old.money === 'kr1,250' && old.code === 'SEK', JSON.stringify(old));
+  ok('a stored kr with SEK reads as Sweden, kr and SEK, as before', old.pick.value === 'SE' && old.pick.label === 'Sweden — kr SEK' && old.money === 'kr\u00a01,250' && old.code === 'SEK', JSON.stringify(old));
   old = await as('kr', 'NOK');
   ok('…and kr with NOK as Norway', old.pick.value === 'NO' && old.code === 'NOK', JSON.stringify(old));
   old = await as('kr', '');
@@ -107,6 +107,10 @@ async function searchMoney(page, q) {
   ok('an older A$ keeps its symbol, with its code', old.pick.value === 'keep' && old.pick.label === 'Other — A$ AUD' && old.money === 'A$1,250' && old.code === 'AUD', JSON.stringify(old));
   old = await as('€', '');
   ok('the euro with no country (and a device outside the eurozone) reads as the euro', old.pick.value === 'keep' && old.pick.label === 'Euro — € EUR' && old.code === 'EUR', JSON.stringify(old));
+  // A symbol that ends in a letter (CHF, kr, zł, F CFA) is kept off the number by a no-break space, as Intl writes it,
+  // in the app and on the documents clients get; $, £, €, R$ stay against it.
+  const gaps = await run(page, () => Promise.all([import('./js/model.js'), import('./js/money-doc.js')]).then(([m, md]) => [m.fmtMoney(1250, 'CHF'), m.fmtMoney(-80, 'zł'), md.fmtDoc(9000, 'kr'), md.fmtDoc(5, 'F CFA'), m.fmtMoney(1250, '£'), m.fmtMoney(1250, 'R$'), md.fmtDoc(1250, '€'), md.fmtDoc(-3, '$')]));
+  ok('an amount in CHF, kr, zł or F CFA has a no-break space after the symbol (CHF 1,250); in $, £, €, R$ none', JSON.stringify(gaps) === JSON.stringify(['CHF\u00a01,250', '−zł\u00a080', 'kr\u00a09,000.00', 'F CFA\u00a05.00', '£1,250', 'R$1,250', '€1,250.00', '-$3.00']), JSON.stringify(gaps));
   // Your details saved without picking another country changes nothing stored.
   await as('Fr.', '');
   await go(page, 'settings');
@@ -249,6 +253,13 @@ async function searchMoney(page, q) {
   await page.waitForSelector('#blk-budget .mn-costs');
   const costs = await page.locator('#blk-budget .mn-costs').innerText();
   ok('the costs box shows the income in euros and works out no profit across currencies', /€400/.test(costs) && !/expected profit/.test(costs) && (await page.locator('.mn-cost-abroad').count()) === 1, costs.replace(/\n/g, ' '));
+  // A cancelled booking brings nothing in, whatever its invoice's currency: the box shows the loss, in yours.
+  await run(page, ([Y]) => import('./js/store.js').then(s => s.upsert('bookings', { id: 'c-off', kind: 'other', status: 'cancelled', date: `${Y}-01-07`, title: 'Called off, Ghent', fee: 400, budget: [{ id: 'k1', cat: 'Travel', desc: 'Flights', amount: 200 }], invoice: { number: 'X-9', status: 'sent', issued: `${Y}-01-07`, lines: [{ id: 'l', desc: 'Fee', qty: 1, price: 400 }], payments: [], currency: '€', code: 'EUR', country: 'BE', sentAt: Date.now() } })), [Y]);
+  await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('c-off', { box: 'budget' })));
+  await page.waitForSelector('#blk-budget .mn-costs'); await sleep(300);
+  const off = await page.locator('#blk-budget .mn-cost-stats').innerText();
+  ok('a cancelled booking with its invoice in euros: £0 income and the loss in pounds (−£200), no word about two currencies', /£0\s*income \(cancelled\)/.test(off) && /−£200\s*expected profit/.test(off) && (await page.locator('.mn-cost-abroad').count()) === 0, off.replace(/\n/g, ' '));
+  await run(page, () => import('./js/store.js').then(s => s.remove('bookings', 'c-off')));
 
   /* ---------------- paid, overdue and the shows' spreadsheet, per currency ---------------- */
   // Two shows invoiced, one in pounds and one in euros, each part paid today and past its due date.
@@ -278,6 +289,23 @@ async function searchMoney(page, q) {
   ok('a document in dollars from someone in pounds names USD by its total, for the client abroad', usd.showCode === true && usd.clean === true && /Total \(USD\): \$900\.00/.test(usd.text), usd.text.split('\n').filter(l => /Total/.test(l)).join(' | '));
   ok('…and in the email to the client', /Wedding, Bath: \$900\.00 USD/.test(usd.mail), usd.mail.slice(0, 200));
 
+  /* ---------------- a quote's deposit note follows its currency ---------------- */
+  await run(page, ([later]) => import('./js/store.js').then(s => s.upsert('bookings', { id: 'c-dep', kind: 'show', status: 'confirmed', date: later, title: 'Lille, Aéronef', deal: { type: 'guarantee', fee: 1200, deposit: 300, depositPaid: false, depositDue: later } })), [later]);
+  await openBox(page, 'c-dep');
+  await page.click('#mn-tab-quote'); await sleep(150);
+  await page.click('#mn-make-quote'); await sleep(250);
+  await page.click('#mn-edit-quote');
+  await page.waitForSelector('#mn-ed-currency');
+  const dep = { start: await page.inputValue('#mn-ed-notes') };
+  await page.selectOption('#mn-ed-currency', 'CH'); await sleep(100);
+  dep.ch = await page.inputValue('#mn-ed-notes');
+  await page.selectOption('#mn-ed-currency', 'FR'); await sleep(100);
+  dep.fr = await page.inputValue('#mn-ed-notes');
+  await saveEditor(page);
+  dep.text = await run(page, () => Promise.all([import('./js/store.js'), import('./js/money.js'), import('./js/money-doc.js')]).then(([s, m, md]) => md.docText(m.snapshot(s.byId('bookings', 'c-dep'), 'quote'))));
+  ok('a quote put into euros in its editor: the deposit note Tourbook wrote follows its currency (CHF 300.00, then €300.00), and the client reads €300.00', /^Deposit: £300\.00 by /.test(dep.start) && /^Deposit: CHF\u00a0300\.00 by /.test(dep.ch) && /^Deposit: €300\.00 by /.test(dep.fr) && /Total: €1,200\.00/.test(dep.text) && /Deposit: €300\.00 by /.test(dep.text) && !/Deposit: £/.test(dep.text), JSON.stringify(dep));
+  await run(page, () => import('./js/store.js').then(s => s.remove('bookings', 'c-dep')));
+
   /* ---------------- a document from before ---------------- */
   const before = await run(page, () => Promise.all([import('./js/store.js'), import('./js/money.js'), import('./js/money-currency.js')]).then(([s, m, c]) => {
     s.upsert('bookings', { id: 'c-old', kind: 'other', status: 'done', date: '2026-01-02', title: 'Old', fee: 50, invoice: { number: 'OLD-1', status: 'sent', issued: '2026-01-02', lines: [{ id: 'l', desc: 'Fee', qty: 1, price: 50 }], payments: [] } });
@@ -285,6 +313,22 @@ async function searchMoney(page, q) {
     return { sym: snap.currency, code: snap.code, cur: c.docCur(b.invoice), stored: 'currency' in b.invoice };
   }));
   ok('a document from before has no currency of its own and is in yours', before.sym === '£' && before.code === 'GBP' && before.cur.sym === '£' && !before.stored, JSON.stringify(before));
+  // …until yours becomes another currency: then a document sent before keeps the one it went out in (stamped on it, with
+  // a new time on its booking so every device takes it in), and a payment recorded later keeps it; a draft still follows.
+  const moved = await run(page, () => Promise.all([import('./js/store.js'), import('./js/money.js'), import('./js/money-currency.js')]).then(([s, m, c]) => {
+    const asBefore = () => s.update(d => { d.profile = { ...d.profile, currency: '£', currencyCode: '', currencyCountry: '' }; d.billing = { ...d.billing, currencyCode: '' }; d.bookings.find(x => x.id === 'c-old').updatedAt = 1000; }); // yours as the live version kept it
+    s.upsert('bookings', { id: 'c-old-draft', kind: 'other', status: 'confirmed', date: '2026-12-02', title: 'Old draft', fee: 20, invoice: { number: 'OLD-2', status: 'draft', issued: '2026-01-02', lines: [{ id: 'l', desc: 'Fee', qty: 1, price: 20 }], payments: [] } });
+    asBefore(); c.setMine(c.choiceFor('GB')); // the same pound, its code stored now: nothing to keep
+    const same = { stamped: 'currency' in s.byId('bookings', 'c-old').invoice, time: s.byId('bookings', 'c-old').updatedAt };
+    asBefore(); c.setMine(c.choiceFor('DE')); // you move: yours becomes the euro
+    const b = s.byId('bookings', 'c-old'), inv = b.invoice;
+    m.saveDoc('c-old', 'invoice', { ...inv, payments: [{ id: 'p', date: '2026-01-03', amount: 50, method: 'Bank transfer' }] }); // the UK client pays
+    const after = s.byId('bookings', 'c-old').invoice, cur = c.docCur(after);
+    const out = { same, stored: [inv.currency, inv.code], time: b.updatedAt, paid: [after.currency, after.status, `${cur.sym} ${cur.code}`], draft: c.docCur(s.byId('bookings', 'c-old-draft').invoice).code };
+    c.setMine(c.choiceFor('GB')); s.remove('bookings', 'c-old-draft');
+    return out;
+  }));
+  ok('picking another country with the same £ stamps nothing; picking Germany (from £ with no code) keeps a document sent before in £ (read as GBP), with a new time; a payment then keeps £; a draft follows (EUR)', !moved.same.stamped && moved.same.time === 1000 && JSON.stringify(moved.stored) === '["£",""]' && moved.time > 1000 && JSON.stringify(moved.paid) === '["£","paid","£ GBP"]' && moved.draft === 'EUR', JSON.stringify(moved));
   const oldLink = await run(page, () => import('./js/money-doc.js').then(md => md.cleanSnapshot({ kind: 'invoice', number: 'X-1', currency: '£', code: 'GBP' }).own));
   ok('a client link made before has no “own” flag and counts as in the sender’s currency, as it was', oldLink === true);
 
@@ -400,11 +444,11 @@ async function searchMoney(page, q) {
       m.saveDoc('k-1', 'invoice', { ...s.byId('bookings', 'k-1').invoice, status: 'sent' });
       const inv = s.byId('bookings', 'k-1').invoice; return [inv.currency, inv.code];
     }), [Y]);
-    ok(`${locale}: a stored kr with no code reads as ${name} (${code}), and an invoice sent is stamped ${code}`, p.value === cc && p.label === `${name} — kr ${code}` && JSON.stringify(stored) === JSON.stringify(['kr', code]), JSON.stringify([p, stored]));
+    ok(`${locale}: a stored kr with no code reads as ${name} (${code}); an invoice sent keeps kr with no code (the device's guess is never written)`, p.value === cc && p.label === `${name} — kr ${code}` && JSON.stringify(stored) === JSON.stringify(['kr', '']), JSON.stringify([p, stored]));
     const text = await run(x.page, cc => Promise.all([import('./js/store.js'), import('./js/money.js'), import('./js/money-doc.js'), import('./js/money-currency.js')]).then(([s, m, md, c]) => { c.setMine(c.choiceFor(cc)); return md.docText(m.snapshot(s.byId('bookings', 'k-1'), 'invoice')); }), cc);
     await go(x.page, 'money'); await x.page.waitForSelector('.mn-stats');
     const earned = await stat('earned', x.page);
-    ok(`${locale}: after picking ${name}, the Money page has one line (kr900) and the invoice names no SEK`, earned === 'kr900' && !/SEK|\(NOK\)|\(DKK\)/.test(text), JSON.stringify([earned, text.split('\n').filter(l => /Total/.test(l))]));
+    ok(`${locale}: after picking ${name}, the Money page has one line (kr 900) and the invoice names no SEK`, earned === 'kr\u00a0900' && !/SEK|\(NOK\)|\(DKK\)/.test(text), JSON.stringify([earned, text.split('\n').filter(l => /Total/.test(l))]));
     await x.ctx.close();
   }
   // Elsewhere 'kr' alone is still Sweden, and '$' alone is still the US dollar, even in Australia.
@@ -419,6 +463,39 @@ async function searchMoney(page, q) {
     const p2 = await chosen(au.page);
     await au.ctx.close();
     ok('en-US: kr alone reads as Sweden; en-AU: $ alone is still United States $ USD (Australia only suggested)', p1.value === 'SE' && p1.label === 'Sweden — kr SEK' && p2.value === 'US' && p2.label === 'United States — $ USD', JSON.stringify([p1, p2]));
+  }
+  // One person's data on a Norwegian phone and an English laptop, 'kr' with no code: each device guesses its own krone
+  // (NOK, SEK), but the guess is never written, so each has one total and an invoice sent on either is in yours on both.
+  {
+    const no = await openIn('nb-NO', { browser, errors });
+    await run(no.page, ([Y]) => Promise.all([import('./js/store.js'), import('./js/money.js')]).then(([s, m]) => {
+      s.update(d => { d.profile = { ...d.profile, currency: 'kr' }; });
+      s.upsert('bookings', { id: 'k-1', kind: 'other', status: 'done', date: `${Y}-01-03`, title: 'Bryllup', fee: 900 });
+      m.createDoc('k-1', 'invoice'); m.saveDoc('k-1', 'invoice', { ...s.byId('bookings', 'k-1').invoice, status: 'sent' });
+    }), [Y]);
+    const phone = await dbNow(no.page);
+    const en = await openIn('en-GB', { browser, errors });
+    const lap = await run(en.page, ([data, Y]) => Promise.all([import('./js/store.js'), import('./js/money.js'), import('./js/money-currency.js')]).then(([s, m, c]) => {
+      s.replaceAll(data);
+      s.upsert('bookings', { id: 'k-2', kind: 'other', status: 'done', date: `${Y}-01-04`, title: 'Fest', fee: 500 });
+      m.createDoc('k-2', 'invoice'); m.saveDoc('k-2', 'invoice', { ...s.byId('bookings', 'k-2').invoice, status: 'sent' });
+      return { mine: c.mine().code, k1: s.byId('bookings', 'k-1').invoice.code, k2: [s.byId('bookings', 'k-2').invoice.currency, s.byId('bookings', 'k-2').invoice.code] };
+    }), [phone, Y]);
+    await go(en.page, 'money'); await en.page.waitForSelector('.mn-stats');
+    lap.earned = await stat('earned', en.page);
+    const laptop = await dbNow(en.page);
+    await en.ctx.close();
+    const back = await run(no.page, data => Promise.all([import('./js/store.js'), import('./js/money.js'), import('./js/money-currency.js')]).then(([s, m, c]) => {
+      s.adopt(s.mergeDb(s.db, data));
+      const snap = m.snapshot(s.byId('bookings', 'k-2'), 'invoice');
+      return { mine: c.mine().code, code: snap.code, own: snap.own, showCode: snap.showCode };
+    }), laptop);
+    await go(no.page, 'bookings'); await go(no.page, 'money'); await no.page.waitForSelector('.mn-stats');
+    back.earned = await stat('earned', no.page);
+    const both = await fmt(no.page, 1400);
+    await no.ctx.close();
+    ok('the same kr on a Norwegian phone (NOK) and an English laptop (SEK): neither invoice stores a code, and each device has one total, kr 1,400', lap.mine === 'SEK' && lap.k1 === '' && JSON.stringify(lap.k2) === '["kr",""]' && lap.earned === 'kr\u00a01,400' && back.mine === 'NOK' && back.earned === both && !/NOK|SEK/.test(back.earned), JSON.stringify({ lap, back, both }));
+    ok('…and back on the phone the laptop’s invoice is in yours: no code by its total, the payment page kept', back.code === 'NOK' && back.own === true && back.showCode === false, JSON.stringify(back));
   }
   // A Canadian ($ CAD) whose only invoice is in US dollars: every amount of it names USD, so it is never read as CAD.
   {

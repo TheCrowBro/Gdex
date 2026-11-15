@@ -7,10 +7,11 @@
 // A document: { number, status, issued, due, lines: [{ id, desc, qty, unit, price }], taxRate, taxName, notes,
 //   payments: [{ id, date, amount, method }], currency, code, country, sentAt, acceptedAt, paidAt, createdAt, updatedAt }.
 // currency, code and country are its own currency (js/money-currency.js): picked in its editor, or yours, kept from the
-// moment it is sent, so a document that went to a client never changes currency. A draft with none is in yours, as is a
-// document from before.
+// moment it is sent (yours with no code stored is kept as its symbol alone, and read as yours while that is your
+// symbol), so a document that went to a client never changes currency. A draft with none is in yours, as is a document
+// from before until yours becomes another currency (applyMine then stamps it with the one it went out in).
 // Quote statuses: draft, sent, accepted, declined. Invoice statuses: draft, sent, paid, void.
-import { h, sheet, toast, uid, todayISO, parseISO, ymd, fmtLong } from './util.js';
+import { h, sheet, toast, uid, todayISO, parseISO, ymd, fmtLong, symText } from './util.js';
 import { db, byId, update, canChange } from './store.js';
 import { openForm } from './form.js';
 import { bookingTitle, actName, venueOf, fmtMoney, currency, settle, dealPays, daysSpan, markCheck, lastDate } from './model.js';
@@ -20,7 +21,7 @@ import { printElement, docPage, saveFile, fileName } from './print.js';
 import { shareBase } from './version.js';
 import { KINDS, calc, renderDoc, docText, docTitle, statusLabel, fmtDoc, docAmount, dateText, qtyText, isPaidDoc } from './money-doc.js';
 import { codeFor } from './money-pay.js';
-import { mine, docCur, docFields, codeNeeded, sameCur, currencySelect, myCurrencySelect, picked, curLabel } from './money-currency.js';
+import { mine, mineFields, docCur, docFields, codeNeeded, sameCur, currencySelect, myCurrencySelect, picked, curLabel } from './money-currency.js';
 export { KINDS, statusLabel, calc, qtyText };
 // The QR maker and the link packer load only when a document with a bank QR is drawn or a link is made.
 const qrSvg = (text, opts) => import('./qr.js').then(m => m.qrSvg(text, opts));
@@ -85,8 +86,9 @@ export function saveDoc(bookingId, kind, next) {
   if (!b) { toast('That booking has been deleted.'); return false; }
   const prev = docOf(b, kind) || {}, now = Date.now(), doc = { ...next, updatedAt: now };
   if (doc.status !== 'draft' && !doc.sentAt) doc.sentAt = now;
-  // Sent (or past it) with no currency of its own: it keeps the one it went out in, yours now.
-  if (doc.status !== 'draft' && !(typeof doc.currency === 'string' && doc.currency.trim())) Object.assign(doc, docFields(mine()));
+  // Sent (or past it) with no currency of its own: it keeps the one it went out in, yours now (its code only when one is
+  // stored: a device's guess for 'kr' or '¥' is never written).
+  if (doc.status !== 'draft' && !(typeof doc.currency === 'string' && doc.currency.trim())) Object.assign(doc, mineFields());
   if (kind === 'quote' && doc.status === 'accepted' && !doc.acceptedAt) doc.acceptedAt = now;
   // An invoice whose payments already cover it (the deposit and the night's takings came in) is paid, not just sent.
   if (kind === 'invoice' && doc.status === 'sent' && Array.isArray(doc.payments) && doc.payments.length && calc({ ...doc, status: 'sent' }).total > 0 && calc({ ...doc, status: 'sent' }).due <= 0.005) doc.status = 'paid';
@@ -180,7 +182,7 @@ export function createDoc(bookingId, kind, source = 'booking') {
   if (source === 'quote' && docOf(b, 'quote')) {
     const q = docOf(b, 'quote');
     lines = q.lines.map(l => ({ ...l, id: uid() })); taxRate = num(q.taxRate); taxName = q.taxName || taxName;
-    if (typeof q.currency === 'string' && q.currency.trim()) cur = docCur(q); // the invoice is in the quote's own currency
+    if (typeof q.currency === 'string' && q.currency.trim()) cur = { sym: q.currency, code: q.code, country: q.country }; // the invoice is in the quote's own currency, as stored
     payments = suggestLines(b, kind).payments; // a deposit already paid comes off the invoice
   } else if (source === 'booking') ({ lines, payments, notes } = suggestLines(b, kind));
   let doc = null;
@@ -359,8 +361,14 @@ export function openEditor(bookingId, kind) {
   const taxName = h('input', { id: 'mn-ed-taxname', type: 'text', value: doc.taxName || billing().taxName || 'Tax', placeholder: 'VAT, GST, sales tax…', autocomplete: 'off' });
   const taxRate = h('input', { id: 'mn-ed-taxrate', type: 'number', min: 0, max: 100, step: 'any', inputMode: 'decimal', value: doc.taxRate ?? '' });
   // Its currency, from the same list as yours (for work abroad): the prices, the totals, the Pay buttons and the bank QR
-  // follow it. Saved only when another one is picked.
-  const curSel = currencySelect(w.cur, { id: 'mn-ed-currency', prefer: [mine().country], suggest: [mine().country], onchange: c => { w.cur = c || docCur(doc); drawLines(); drawTotals(); } });
+  // follow it, and so does the deposit note Tourbook wrote (suggestLines), while it still starts as written. Saved only
+  // when another one is picked.
+  const curSel = currencySelect(w.cur, { id: 'mn-ed-currency', prefer: [mine().country], suggest: [mine().country], onchange: c => {
+    const was = 'Deposit: ' + symText(w.cur.sym);
+    w.cur = c || docCur(doc);
+    if (notes.value.startsWith(was) && /^\d/.test(notes.value.slice(was.length))) notes.value = 'Deposit: ' + symText(w.cur.sym) + notes.value.slice(was.length);
+    drawLines(); drawTotals();
+  } });
   const notes = h('textarea', { id: 'mn-ed-notes', rows: 3, placeholder: kind === 'quote' ? 'What is included, how long it is valid, the deposit…' : 'Thanks, payment terms, anything the client should know…' }, doc.notes || '');
   const linesBox = h('div', { class: 'mn-lines' }), totals = h('div', { class: 'mn-ed-totals', 'aria-live': 'polite' });
   const unitList = h('datalist', { id: 'mn-units' }, UNITS.map(u => h('option', { value: u })));

@@ -308,7 +308,8 @@ export function mergeDb(local, remote) {
   // A profile someone filled in always beats an empty one or the sample's stand-in, whatever their times; between two
   // filled-in profiles the newer wins. An empty one and the sample's stand-in carry no time of their own (the sample
   // and Remove the sample leave it as it was), so between those two the stand-in stays while the sample does: on
-  // every device alike, and gone everywhere once the sample is removed.
+  // every device alike, and gone everywhere once the sample is removed. Picking a currency gives either one a time;
+  // then the newer wins, and Remove the sample gives the cleared one a newer time still, so it is gone everywhere too.
   const empty = p => !p || !['name', 'business', 'role', 'phone', 'email', 'website', 'address', 'location', 'bio'].some(k => String(p[k] || '').trim());
   const standIn = p => empty(p) || (p.name === SAMPLE_PROFILE.name && p.business === SAMPLE_PROFILE.business);
   const [pa, pb] = [a.profile, b.profile];
