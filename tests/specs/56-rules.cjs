@@ -594,13 +594,14 @@ const all = []; // every console error of every browser below
     await sleep(200);
     await go(page, 'settings'); await page.waitForSelector('#se-sample');
     if (!(await page.$eval('#se-sample', d => d.open))) { await page.evaluate(() => document.getElementById('se-sample-sum').scrollIntoView({ block: 'center' })); await page.click('#se-sample-sum'); await sleep(200); }
-    await page.evaluate(() => document.getElementById('se-sample-load').scrollIntoView({ block: 'center' })); await sleep(80);
-    ok('Settings offers to load the sample again', (await page.locator('#se-sample-load').innerText()) === 'Load it again');
+    // Settings no longer loads the sample: it is loaded again here as the tests' fixture (store.loadSample()), as a
+    // device that loaded it before house rules existed had it.
+    ok('Settings offers no way to load the sample again, only to remove it', (await page.locator('#se-sample-load').count()) === 0 && (await page.locator('#se-sample-remove').count()) === 1);
     // How many sample records Remove the sample… says the person changed: its question read, then answered No.
     const changedSaid = () => page.evaluate(() => { const real = window.confirm; let said = ''; window.confirm = m => { said = m; return false; }; try { document.getElementById('se-sample-remove').click(); } finally { window.confirm = real; } return said; })
       .then(m => ({ said: m, n: Number((/ (\d+) of them changed after loading/.exec(m) || [0, 0])[1]) }));
     const changedBefore = await changedSaid();
-    await page.click('#se-sample-load'); await sleep(400);
+    await page.evaluate(() => window.__s.loadSample()); await sleep(400);
     const changedAfter = await changedSaid();
     ok('…and loading it again counts as no change of the person’s when Remove the sample… asks (the rules are the sample’s own)', /^Remove the \d+ sample records\?/.test(changedAfter.said) && changedAfter.n === changedBefore.n, `${changedBefore.said} → ${changedAfter.said}`);
     const again = await rec(page, 'venues', 's-lantern'), fresh = await rec(page, 'venues', 's-harbour');

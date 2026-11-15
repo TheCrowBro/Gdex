@@ -260,7 +260,7 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   role after its free days); `upsert` and `patch` return `null` then, `remove` `false`. Every caller that uses the
   returned record stops on `null` (a form stays open with what was typed: `form.js` asks `canChange()` before it closes).
   `canChange()` asks the gate as a form would (the read-only sheet explains, and says what was typed stays in the form);
-  `canChange({ form: false })` for a change asked with no form (Load the sample, bringing a backup back), whose
+  `canChange({ form: false })` for a change asked with no form (bringing a backup back), whose
   read-only sheet says only that nothing was changed; `canChangeQuietly()` for a side effect
   that is skipped without a word when refused (a day sheet marked sent). `setGate(fn)` is the licence's alone.
 * **Google Drive's seams.** `afterWrite(fn)` runs after `update`, `replaceAll` and `mergeIn`, never after
@@ -278,7 +278,15 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 * Numbers typed in forms arrive as numbers from `type: 'number'` fields but as **strings** from `rows` columns:
   convert with `Number()` before sums.
 * `loadSample()` fills a realistic sample (ids start with `s-`: act `s-owls`, show `s-show1`, past show `s-past`,
-  session `s-sess1`, setlist `s-clubset`, venue `s-lantern`…). Tests use it.
+  session `s-sess1`, setlist `s-clubset`, venue `s-lantern`…; each record marked `sample: true`). It is the tests'
+  fixture (`open({ sample: true })` in `tests/helpers.cjs`, or `store.loadSample()` in the page): keep it and its data.
+  Nothing in the app offers it any more (the owner, 15 November 2026: "Remove the sample data setting"). A device that
+  loaded it before is not left with records it cannot clear: while any sample record is on it, Settings has a Sample
+  data section (`#se-sample`, between Help and About, with its walkthrough step) whose one button, `#se-sample-remove`
+  "Remove the sample…", asks first and then removes every sample record in one go (`removeSample()` in
+  `pages/settings.js`, through `store.remove`, so the licence's gate refuses it for a read-only role as any change);
+  once none is left the section and its step are gone. No text in the app offers to load the sample (`70-settings`
+  checks).
 * **The order of a day is the order the bands play.** `nightMin('HH:MM')` is minutes on the *night clock* (a time
   before 06:00 belongs to the night before: +1440; `null` when it is not a time); `playField(b)` is the time a booking
   sorts by (a show: `setTime`, else `doors`, `soundcheck`, `loadIn`; anything else: `start`), `playTime(b)` that time,
