@@ -12,7 +12,8 @@ developer runs.
 
 1. **You read the terms and the privacy policy** (`terms.html`, `privacy.html`; the preview has them) and say what to
    change. They go live with this launch: who provides Tourbook, the contact address, the law, the courts, the liability
-   cap and the refund are copied unchanged from Vdex's (question 2 below), and their date is the day they were written.
+   cap and the refund are copied unchanged from Vdex's (the contact address is support@crowmade.app, your answer under
+   Questions for you, below), and their date is the day they were written.
    Before licences are switched on (9(d)), a lawyer you choose reads them too.
 2. **You check the address is free.** In Cloudflare, the crowmade.app zone → **DNS → Records**: no record named `tourbook`;
    and under **Workers & Pages** no Worker or Pages project uses tourbook.crowmade.app. A publish from GitHub runs Wrangler
@@ -101,12 +102,21 @@ the terms gained your rule that the Audiophile is for personal use, not for work
 section 3 and section 12, and the one-time terms sheet's first line): the date stayed 14 November 2026 and `TERMS_VERSION`
 `'2026-11-14'`, since no device had agreed to the earlier words. On 15 November 2026, after the terms were published,
 Google Drive was switched on (step 6): section 7 lost its sentence "Google Drive works once Tourbook’s Google sign-in is
-switched on; until then Tourbook says Google Drive isn’t set up yet.", and nothing else in the terms changed. Since the
+switched on; until then Tourbook says Google Drive isn’t set up yet.", and nothing else changed then. Since the
 terms had been published the day before, their date moved to 15 November 2026 and `TERMS_VERSION` to `'2026-11-15'`
 (`docs/developers.md`, the legal pages; while licences are off the one-time terms sheet asks no one, so nobody is asked
 again now; section 18’s “Tourbook shows you the new terms the next time you use a working role” works only once licences
-are on, one more thing for the lawyer to look at). The privacy policy is dated the same day: its section 7 now says Google’s sign-in script runs only once you
-tap Connect Google Drive…, as its section 3 says, rather than once you connect. Tell the developer anything to change.
+are on, one more thing for the lawyer to look at). Later the same day, with your answer that backups should carry the
+free days (Answered, below), section 3 gained one point: "A backup file carries the day the free days started on the
+device it was saved on. Bringing it back on a device counts that device’s free days from that day, or from the device’s
+own start if that was earlier." Nothing else in the terms changed that day. The date stayed 15 November 2026 and
+`TERMS_VERSION` `'2026-11-15'`: the day's first words went live with Google Drive at 09:54 UTC, but no device could have
+agreed to them (the one-time terms sheet asks no one while licences are off), so nobody needs asking again
+(`js/terms.js`). Both versions are dated 15 November 2026, though section 18 says each version is dated at the top:
+another point for the lawyer. The privacy
+policy is dated the same day: its section 7 now says Google’s sign-in script runs only once you tap Connect Google
+Drive…, as its section 3 says, rather than once you connect; and its sections 2 and 3 say what a backup file carries
+about the free days. Tell the developer anything to change.
 **Before licences are switched on (9(d)), a lawyer you choose reads the terms and the privacy policy** (you said you
 would find one); the developer makes the changes they ask for, dated the day they are made (with `TERMS_VERSION`).
 
@@ -151,8 +161,8 @@ purchase becomes a lasting licence. Steps: `docs/licence-server.md`, Part 4.
 In the Resend account Vdex uses: the sending domain tourbook.crowmade.app verified beside vdex.crowmade.app (Resend's
 free plan allows 3 domains, so no paid plan; the two share its 100 free emails a day), an API key with sending access for
 that domain → `RESEND_API_KEY`. The emails come from `Tourbook <licences@tourbook.crowmade.app>`, `MAIL_FROM`'s default,
-so `MAIL_FROM` stays unset. Add `REPLY_TO` before the shop opens (9(b)): the contact address, support@crowmade.app until
-you answer question 2 below. The terms (section 3) tell buyers they can reply to the email their licence came in, and
+so `MAIL_FROM` stays unset. Add `REPLY_TO` before the shop opens (9(b)): support@crowmade.app, the contact address (your
+answer, under Answered below). The terms (section 3) tell buyers they can reply to the email their licence came in, and
 without `REPLY_TO` a reply would go to licences@tourbook.crowmade.app, which has no inbox set up. Steps:
 `docs/licence-server.md`, Part 5.
 
@@ -219,7 +229,7 @@ role is free, nothing about licences shows.
 
 **(b) The shop.** In Cloudflare, on the Worker **tourbook**: the shop key (step 3), Stripe's settings (step 4), Resend's
 (step 5), `REPLY_TO` included. Check `/buy`, a test purchase, the thank-you page, the email, that a reply to the email
-reaches the contact address, and a refund (`docs/licence-server.md`, Part 7).
+reaches the contact address (support@crowmade.app), and a refund (`docs/licence-server.md`, Part 7).
 
 **(c) `WEB_SIGN_IN = on`** (a Text variable on the Worker tourbook). Nothing changes on the website yet.
 
@@ -336,7 +346,7 @@ Answered:
   terms and the privacy policy. Resend's free plan has allowed 3 verified domains since August 2026, so
   tourbook.crowmade.app is a second domain on the same Resend account as Vdex, sharing its 100 free emails a day (Tourbook
   sends at most 30 sign-in emails a day); no paid plan is needed, and Tourbook's key is made for its own domain only.
-  Where replies go (`REPLY_TO`) follows the contact address (question 2).
+  Replies go to support@crowmade.app (`REPLY_TO`), the contact address (below).
 - **Where the website is published from:** GitHub, like Vdex: the workflow **Publish Tourbook** on `main`, with the
   Cloudflare token in the protected Environment `tourbook-live` (step 2). You chose it on 14 November 2026 ("Like Vdex,
   from GitHub"), over publishing from your own computer, which stays possible (below step 7). GitHub shows no required
@@ -349,14 +359,28 @@ Answered:
   every role from the next publish.
 - **A lawyer:** "I'll find a lawyer": a lawyer you choose reads the terms and the privacy policy before licences are
   switched on (step 1 and 9(d)).
+- **The contact address:** support@crowmade.app, the same as Vdex's and crowmade.app's (15 November 2026: "Yes for the
+  support email since all of them live on the same site"), in the terms, the privacy policy and the emails. The pages
+  already said it, so they did not change. Replies to the licence and sign-in emails go there too: `REPLY_TO` is set to
+  support@crowmade.app with the other shop settings before the shop opens (step 5, 9(b)). crowmade.app's mail goes
+  through Cloudflare Email Routing (its MX records are route1–3.mx.cloudflare.net), so check that its routing rules send
+  support@crowmade.app to an inbox you read; 9(b)'s test reply shows it does.
+- **Backup files and the free days:** "Backups should carry the free days" (15 November 2026). Once licences are on, a
+  backup file (a plain one, a locked one inside its encryption, and the copy kept in a file) carries the day the working
+  roles' free days started on the device it was saved on, as Google Drive's copy does. Bringing it back counts this
+  device's free days from the earlier of its own start and the file's (a device that has not started takes the file's),
+  and before anything is brought back the chooser says so in one line when that changes the count: from which day, how
+  many days are left and until when, or that they are over; with Google Drive linked it adds that every connected
+  device counts from that day too at its next sync. So a backup brought back in a private window keeps its free days'
+  start. While licences are off nothing is written into a file and nothing is taken from one. During your emergency
+  pause a start in a file brought back is still taken, as Google Drive's is, and the line says what it will mean once
+  the pause ends; a backup saved during a pause carries none. An Audiophile whose free days started this way agrees to
+  the terms before using a working section, as after any start. A plain backup is a text file anyone can edit, so this
+  stops the easy way round the free days, not a determined one; and a backup you give someone else carries your start,
+  so their free days on that device count from it (the line tells them first). The terms (section 3) and the privacy
+  policy (sections 2 and 3) say so.
 
-Still open (the build goes ahead with these defaults meanwhile):
+Still open (the build goes ahead with its default meanwhile):
 
 1. **Code signing:** the Apple and Windows signing you have for Vdex, for Tourbook too (no new fee), or unsigned at first?
    *Default: the workflow signs only when the secrets exist.*
-2. **The contact address** in Tourbook's terms, privacy page and emails, and so where replies to the emails go
-   (`REPLY_TO`): the same as Vdex's? *Default: copied from Vdex's terms (support@crowmade.app), and `REPLY_TO` set to
-   it.*
-3. **Backup files and the free days:** someone can save a backup file, open Tourbook in a private window (fresh free days)
-   and bring the backup back there. Accept that, or make a backup file carry the free-days start too? *Default: accept
-   it.*

@@ -2,13 +2,15 @@
 // desktop/licence.cjs answers there): off while the desktop's switch is, the free days started through the bridge when
 // a working role is picked, Enter licence code (a full licence moved from another computer), Release this computer,
 // Buy through the bridge, the menu drawn from the last answer kept before the bridge answers, Google Drive's earliest
-// start handed to the bridge, and no request to a licence server from the page. Then the desktop's files opened in a
+// start handed to the bridge, backup files carrying the bridge's start and an earlier one in a file handed to it on Merge
+// (never on Cancel, never while off), and no request to a licence server from the page. Then the desktop's files opened in a
 // web browser (a page on one of the desktop's ports without the bridge): nothing paid opens there (the build spec [S-42]).
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const BASE = process.env.TOURBOOK_URL || 'http://localhost:8124/';
 const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const DAY = 864e5;
 const TERMS_V = (() => { try { return (/TERMS_VERSION = '([^']*)'/.exec(fs.readFileSync(path.join(process.env.TOURBOOK_ROOT || path.join(__dirname, '..', '..'), 'js', 'terms.js'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
 
@@ -46,8 +48,9 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
 (async () => {
   const browser = await chromium.launch();
   const errors = [];
-  const open = async ({ start, wait = 0, seed = {}, url = BASE, live = false } = {}) => {
-    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' });
+  // tz: the browser's time zone (Playwright's timezoneId); init: a script run after the stand-in bridge is in place.
+  const open = async ({ start, wait = 0, seed = {}, url = BASE, live = false, tz = undefined, init = null } = {}) => {
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block', ...(tz ? { timezoneId: tz } : {}) });
     const asked = [];
     ctx.on('request', r => { const p = new URL(r.url()).pathname; if (/^\/licence\/|^\/buy$/.test(p)) asked.push(p); });
     if (live) await ctx.route('**/js/licence-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: "export const LICENCE_SITES = ['localhost', '127.0.0.1'];\n" }));
@@ -61,6 +64,7 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('toast')) window.__toasts.push(n.textContent); }))).observe(document, { childList: true, subtree: true });
     }, seed);
     if (start) await ctx.addInitScript(bridge(start, wait));
+    if (init) await ctx.addInitScript(init);
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
@@ -169,6 +173,89 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       await page.reload(); await page.waitForSelector('#deck .dk-next'); await sleep(1500);
       ok('no request to /licence/ or /buy from the desktop app’s page, in the whole visit', asked.length === 0, asked.join(' '));
       await ctx.close();
+    }
+
+    /* ---------------- backup files carry the bridge's start (the owner, 15 November 2026) ---------------- */
+    {
+      const trialAt = first => ({ ...UNSTARTED, mode: 'trial', started: true, first, trialLeft: 30 - Math.floor((Date.now() - first) / DAY), trialEnds: new Date(first + 30 * DAY).toISOString().slice(0, 10) });
+      const backups = async page => {
+        await go(page, 'settings'); await page.waitForSelector('#se-backups');
+        await page.evaluate(() => { const d = document.getElementById('se-backups'); d.open = true; d.scrollIntoView({ block: 'start' }); }); await sleep(300);
+      };
+      const saved = async page => { const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.click('#page .se-bk-save')]); return JSON.parse(fs.readFileSync(await dl.path(), 'utf8')); };
+      const BRING = '.sheet[aria-label="Bring back a backup"]';
+      const bring = async (page, from) => {
+        const body = await page.evaluate(from => import('./js/store.js').then(s => JSON.stringify({ ...JSON.parse(s.exportJSON()), freeDaysFrom: from })), from);
+        await page.setInputFiles('#page .se-bk-input', { name: 'tourbook-backup-2026-11-01.json', mimeType: 'application/json', buffer: Buffer.from(body) });
+        await page.waitForSelector(BRING, { timeout: 15000 });
+        return (await page.locator(`${BRING} .se-imp-days`).count()) ? page.locator(`${BRING} .se-imp-days`).innerText() : '';
+      };
+      const pickIt = async (page, sel) => { await page.click(`${BRING} ${sel}`); await page.waitForSelector(BRING, { state: 'detached', timeout: 10000 }); await sleep(500); };
+      const adopts = page => page.evaluate(() => window.__lic.calls.filter(c => c[0] === 'adopt').map(c => c[1]));
+      {
+        const T = Date.now() - 4 * DAY;
+        const { ctx, page } = await open({ start: trialAt(T), seed: { 'tourbook-role': 'producer', ...agreed } });
+        await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(300);
+        await backups(page);
+        const file = await saved(page);
+        ok('the desktop app: a saved backup carries the bridge’s start, as its last key', file.freeDaysFrom === T && Object.keys(file).pop() === 'freeDaysFrom', JSON.stringify(file.freeDaysFrom));
+        const earlier = T - 6 * DAY;
+        const line = await bring(page, earlier);
+        await pickIt(page, '.se-imp-merge');
+        ok('…bringing back an earlier start: the chooser says so, and Merge hands exactly that start to licence.adopt', /^Your free days for the working roles started earlier, on .+, on the device this backup was saved on\. Bringing it back counts them from that day on this device too: \d+ days left, until .+\.$/.test(line) && same(await adopts(page), [earlier]) && (await state(page)).first === earlier, JSON.stringify({ line, adopts: await adopts(page) }));
+        const line2 = await bring(page, earlier - 2 * DAY);
+        await page.click(`${BRING} .btn.ghost:has-text("Cancel")`); await page.waitForSelector(BRING, { state: 'detached' }); await sleep(300);
+        ok('…Cancel after the line: nothing is handed to licence.adopt', /started earlier/.test(line2) && same(await adopts(page), [earlier]), JSON.stringify(await adopts(page)));
+        const line3 = await bring(page, earlier + DAY);
+        await pickIt(page, '.se-imp-merge');
+        ok('…a later start than the computer’s: no line, and licence.adopt is not asked', line3 === '' && same(await adopts(page), [earlier]), JSON.stringify({ line3, adopts: await adopts(page) }));
+        await ctx.close();
+      }
+      {
+        const licensed = { ...UNSTARTED, mode: 'licensed', canEdit: true, started: true, first: Date.now() - DAY, trialLeft: 29, licence: { name: 'Jo Desk', email: 'jo@example.com', comp: false, ref: '2:4242', seats: 3 } };
+        const { ctx, page } = await open({ start: licensed, seed: { 'tourbook-role': 'producer', ...agreed } });
+        await sleep(800); await backups(page);
+        const earlier = Date.now() - 9 * DAY;
+        const line = await bring(page, earlier);
+        await pickIt(page, '.se-imp-merge');
+        ok('…licensed: no line (nothing the person would notice changes), but the earlier start is still handed to licence.adopt', line === '' && same(await adopts(page), [earlier]), JSON.stringify({ line, adopts: await adopts(page) }));
+        await ctx.close();
+      }
+      {
+        const { ctx, page, asked } = await open({ start: OFF, seed: { 'tourbook-role': 'producer' } });
+        await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(300);
+        await backups(page);
+        const file = await saved(page);
+        const db = await page.evaluate(() => import('./js/store.js').then(s => JSON.parse(s.exportJSON())));
+        const line = await bring(page, Date.now() - 9 * DAY);
+        await pickIt(page, '.se-imp-merge');
+        ok('…the desktop’s switch off (enabled: false): a saved backup is the database with no start, an earlier start in a file shows no line and licence.adopt is never asked', !('freeDaysFrom' in file) && same(file, db) && line === '' && same(await adopts(page), []) && asked.length === 0, JSON.stringify({ field: file.freeDaysFrom, line, adopts: await adopts(page), asked }));
+        await ctx.close();
+      }
+      {
+        // The desktop app's last day is a UTC date (desktop/licence.cjs), so the line's "until" is too: in Auckland a start
+        // at noon UTC is already the next day, and the line must still name the day the app shows once it is taken.
+        const T = Date.now() - 4 * DAY, earlier = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 12, 12);
+        const { ctx, page } = await open({ start: trialAt(T), tz: 'Pacific/Auckland', seed: { 'tourbook-role': 'producer', ...agreed } });
+        await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(300);
+        await backups(page);
+        const line = await bring(page, earlier);
+        await pickIt(page, '.se-imp-merge');
+        const shown = await page.evaluate(() => import('./js/licence-state.js').then(L => ({ until: L.endsWords(L.licenceNow()), ends: L.licenceNow().trialEnds })));
+        ok('…in a time zone ahead of UTC, the line’s last day is the one the desktop app shows once the start is taken (its UTC day)', !!shown.until && line.endsWith(`, until ${shown.until}.`) && shown.ends === new Date(earlier + 30 * DAY).toISOString().slice(0, 10) && same(await adopts(page), [earlier]), JSON.stringify({ line, shown }));
+        await ctx.close();
+      }
+      {
+        // A bridge that cannot take a start (no licence.adopt): no line, since nothing would change.
+        const T = Date.now() - 4 * DAY;
+        const { ctx, page } = await open({ start: trialAt(T), init: 'delete window.tourbookDesktop.licence.adopt;', seed: { 'tourbook-role': 'producer', ...agreed } });
+        await page.evaluate(() => import('./js/store.js').then(s => s.loadSample())); await sleep(300);
+        await backups(page);
+        const line = await bring(page, Date.now() - 12 * DAY);
+        await pickIt(page, '.se-imp-merge');
+        ok('…a bridge without licence.adopt: no line, and the computer’s start is as it was', line === '' && (await state(page)).first === T, JSON.stringify({ line, st: await state(page) }));
+        await ctx.close();
+      }
     }
 
     /* ---------------- the menu from the last answer kept, before the bridge answers ---------------- */

@@ -107,9 +107,9 @@ free days, and the start of the 14 days below, when `licence.json` is deleted).
 Off while `desktop/licence-on.json` is `{ "on": false }` **or** `desktop/licence-keys.json` has no key 1: the state is
 `off`, every role can change things, and nothing is asked of the licence server. There is no "early user" free for good,
 as Vdex has: a later version with licences on starts everyone at "free days not started" (`unstarted`). The free days
-start when the page asks (`licence.start()`: a working role or section used for the first time), and an earlier start
-on the same Google Drive is taken with `licence.adopt(t)`. A device clock more than a day out reads as `clock`
-(read-only) until it is right or the licence server's time puts the record right.
+start when the page asks (`licence.start()`: a working role or section used for the first time), and an earlier start,
+from the same Google Drive or from a backup file brought back, is taken with `licence.adopt(t)`. A device clock more
+than a day out reads as `clock` (read-only) until it is right or the licence server's time puts the record right.
 
 A code entered while the licence server cannot be reached is `pending`: it works for 14 days, then is read-only once a
 check made after them has failed. Those 14 days come **once per computer** (`graceFrom`): Remove the code keeps their

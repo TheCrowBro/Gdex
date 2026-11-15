@@ -4,8 +4,10 @@
 // it), optionally locked with a passphrase; a copy kept in a file in a synced folder (Chrome or Edge on a computer),
 // written a moment after every change; how recent the last copy is; and an occasional reminder. The ☁ button at the
 // top opens openBackupSheet() and shows the worse of Drive's and the file copy's states; Settings → Backups shows
-// backupPanel().
-import { h, sheet, toast, announce, todayISO, nodes, fmtTime } from './util.js';
+// backupPanel(). Once licences are on, a whole-database file carries the day the working roles' free days started here,
+// as Google Drive's copy does, and bringing one back counts this device's free days from the earlier of the two
+// (the owner, 15 November 2026: "Backups should carry the free days").
+import { h, sheet, toast, announce, todayISO, nodes, fmtTime, ymd } from './util.js';
 import * as store from './store.js';
 import { saveFile } from './print.js';
 import { sheetTutorial } from './tour.js';
@@ -13,6 +15,7 @@ import * as C from './crypto.js';
 import { kv } from './kv.js';
 import * as drive from './sync.js';
 import { loadGIS, WORDS as DRIVE_WORDS } from './drive.js';
+import { freeDaysFrom, adoptFreeDaysFrom, freeDaysWith, endsWords, onLicenceChange } from './licence-state.js';
 
 const ls = {
   get: k => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -111,8 +114,13 @@ async function save(text, name) {
   changed();
   return true;
 }
+// A whole-database file (Save a backup, the locked one inside its encryption, the copy kept in a file) carries the day
+// the working roles' free days started here, as Google Drive's copy does (js/sync.js): the database's own keys, then
+// freeDaysFrom. While licences are off or paused, or before the days start, there is none: the file is exactly
+// store.exportJSON(), as before.
+const fileText = () => { const from = freeDaysFrom(); return from > 0 ? JSON.stringify({ ...store.db, freeDaysFrom: from }, null, 2) : store.exportJSON(); };
 // Everything in one file: tourbook-backup-YYYY-MM-DD.json.
-export const exportBackup = () => save(store.exportJSON(), `tourbook-backup-${fileDate()}.json`);
+export const exportBackup = () => save(fileText(), `tourbook-backup-${fileDate()}.json`);
 
 // The same, locked with a passphrase (AES-GCM, the key made from the passphrase with PBKDF2).
 const canLock = () => !!(window.crypto && crypto.subtle && window.isSecureContext !== false);
@@ -127,7 +135,7 @@ export async function exportLocked() {
   if (!pass) return false;
   const salt = C.bytes(16), iter = C.PBKDF2_ITERATIONS;
   let box;
-  try { box = await C.encrypt(await C.pbkdf2Key(pass, salt, iter), store.exportJSON()); } catch (e) { toast('The backup could not be locked: ' + (e.message || e)); return false; }
+  try { box = await C.encrypt(await C.pbkdf2Key(pass, salt, iter), fileText()); } catch (e) { toast('The backup could not be locked: ' + (e.message || e)); return false; }
   const text = JSON.stringify({ tourbook: 'encrypted-backup', v: 1, exported: new Date().toISOString(), kdf: { salt: C.toB64(salt), iter }, iv: box.iv, ct: box.ct });
   return save(text, `tourbook-backup-${fileDate()}.locked.json`);
 }
@@ -218,10 +226,38 @@ function merge(data, { revive = false, what = 'backup' } = {}) {
 // A record's name, to say which ones were deleted here since a backup.
 const nameOf = (c, r) => String(r.title || r.name || r.type || r.date || (NAMES[c] || [c])[0]).trim() || (NAMES[c] || [c])[0];
 
+// The free days' start a file carries comes out before anything else looks at it, as js/sync.js takes it out of Drive's
+// copies. Only a file Tourbook saved under its own name carries one (app 'tourbook': fileText above, and Drive's
+// copies); anything else's is dropped unread. [the data without it, the start or undefined]
+const takeFreeDays = d => { const { freeDaysFrom: from, ...rest } = d; return [rest, d.app === 'tourbook' ? from : undefined]; };
+// The chooser's line when bringing the file back changes this device's free days (freeDaysWith: licences on, an
+// earlier start, the count or the last day moved): from which day, how many are left and until when, or that they are
+// over. Dates in the words of the toast that says the free days started ("Dec 3"). what: 'backup' or 'copy'. A daily
+// copy carries the earliest start of every device on that Drive, so it names no one device. With Drive linked the next
+// sync carries the start to every connected device (js/sync.js), so the line says so.
+const dayWords = iso => endsWords({ trialEnds: iso });
+function daysLine(d, what, linked) {
+  if (!d) return null;
+  const from = dayWords(ymd(new Date(d.first))), left = d.trialLeft === 1 ? '1 day left' : `${d.trialLeft} days left`, until = dayWords(d.trialEnds);
+  const where = what === 'copy' ? 'on a device connected to this Google Drive' : `on the device this ${what} was saved on`;
+  const all = linked ? ' At its next sync, every device connected to this Google Drive counts them from that day too.' : '';
+  const over = !(d.trialLeft > 0);
+  const text = over
+    ? `⚠ Your free days for the working roles started on ${from} ${where}, so they are over. Bringing it back makes the working roles read-only on this device${linked ? ', and on every device connected to this Google Drive at its next sync,' : ''} until there is a licence. Audiophile stays free, for personal use, not for work.`
+    : d.started
+      ? `Your free days for the working roles started earlier, on ${from}, ${where}. Bringing it back counts them from that day on this device too: ${left}, until ${until}.${all}`
+      : `Your free days for the working roles started on ${from} ${where}. Bringing it back starts them on this device from that day: ${left}, until ${until}.${all}`;
+  return h('p', { class: 'small se-imp-days' + (over ? ' warn' : '') }, text);
+}
+
 // The chooser for a backup file and for a daily copy from Google Drive (copy: true). With Drive linked (drive: true),
 // Replace reaches every connected device: the restored records are stamped now and everything the backup lacks gets a
-// tombstone (store.replaceAll everywhere), so the next syncs follow it instead of bringing the old ones back.
-function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
+// tombstone (store.replaceAll everywhere), so the next syncs follow it instead of bringing the old ones back. The free
+// days' start the file carries is taken (adoptFreeDaysFrom: only an earlier one, only where licences are live, during
+// the owner's pause too, as Google Drive's is) once the file has really been brought back: never on Cancel, a refused
+// change or Drive unread.
+function chooseHow(raw, name, { drive: linked = false, copy = false } = {}) {
+  const [data, from] = takeFreeDays(raw);
   return new Promise(resolve => {
     let done = false;
     const finish = v => { if (!done) { done = true; resolve(v); } };
@@ -265,6 +301,7 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
         const msg = `${copy ? 'Daily copy' : 'Backup'} brought back: ${plural(nFile, 'record')}.${linked ? ' Every device connected to this Google Drive follows at its next sync.' : ''}`;
         toast(msg); announce(msg);
       } else merge(data, { revive: !!(revive && revive.checked), what });
+      if (from !== undefined) adoptFreeDaysFrom(from).catch(e => console.error(e)); // the data first: a bridge that fails never holds it up
     };
     const reviveLine = revive && h('label', { class: 'check se-imp-revive' }, revive,
       h('span', { class: 'small' }, `Also bring back the ${plural(dead.length, 'record')} deleted on this device since this ${what}: ${names}.`));
@@ -274,6 +311,7 @@ function chooseHow(data, name, { drive: linked = false, copy = false } = {}) {
         at > 0 && h('div', { class: 'small muted' }, 'Up to date as of ' + new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })),
         h('p', { class: 'small se-imp-counts' }, h('b', null, copy ? 'In the copy: ' : 'In the file: '), countText(inFile)),
         h('p', { class: 'small muted' }, h('b', null, 'On this device now: '), countText(here))),
+      daysLine(freeDaysWith(from), what, linked),
       nHere
         ? [reviveLine,
           h('button', { type: 'button', class: 'btn primary se-imp-merge', onclick: () => go('merge') }, 'Merge into this device'),
@@ -322,7 +360,7 @@ async function writeNow() {
     if (!(await permitted(handle, false))) { if (FILE.handle === handle) setStatus('needs-permission'); return false; }
     setStatus('saving');
     const w = await handle.createWritable();
-    try { await w.write(store.exportJSON()); await w.close(); } catch (e) { try { await w.abort(); } catch { /* already closed */ } throw e; }
+    try { await w.write(fileText()); await w.close(); } catch (e) { try { await w.abort(); } catch { /* already closed */ } throw e; }
     if (FILE.handle !== handle) return false; // stopped while it was writing
     ls.set(KEY.file, Date.now()); FILE.fails = 0;
     setStatus('saved');
@@ -344,6 +382,10 @@ async function writeNow() {
 // Leaving the app writes at once.
 let seenRev = store.revision();
 store.subscribe(() => { const r = store.revision(); if (r === seenRev) return; seenRev = r; if (FILE.handle) schedule(); });
+// So is the free days' start when it changes with no change to the data (they started, or an earlier start was taken):
+// the file then carries it as a backup saved now would. While licences are off it stays 0 and nothing is written.
+let filedFrom = freeDaysFrom();
+onLicenceChange(() => { const f = freeDaysFrom(); if (f === filedFrom) return; filedFrom = f; if (FILE.handle) schedule(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && FILE.handle && timer) writeNow(); });
 
 // Pick a file and start keeping a copy in it. Resolves true when the first copy is written.
@@ -674,6 +716,7 @@ export const backupSteps = STEPS;
 sheetTutorial('Backups', STEPS);
 sheetTutorial('Bring back a backup', [
   { title: 'What is in the file', text: 'How many bookings, songs, people and so on the backup holds, next to what is on this device now.', target: ['.se-imp-file'] },
+  { title: 'Your free days', text: 'Bringing the backup back changes this device’s free days for the working roles. This line says from which day they are counted, how many days are left and until when, or that they are over.', target: ['.se-imp-days'] },
   { title: 'Merge', text: 'Keeps everything here and adds what the backup has that this device lacks. Where the same record is in both, the one changed last wins. Records deleted here since the backup stay deleted, unless you tick Also bring back (ticked for a daily copy).', target: ['.se-imp-merge'] },
   { title: 'Replace', text: 'Makes this device exactly like the file. Anything added here since the backup is lost, so Tourbook asks first.', target: ['.se-imp-replace'] },
 ]);

@@ -547,7 +547,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     ok('afterWrite fires after update, replaceAll and mergeIn, never after adopt, and stops when unsubscribed', hooks.update === 1 && hooks.replaceAll === 2 && hooks.mergeIn === 3 && hooks.adopt === 3 && hooks.unhooked === 3, JSON.stringify(hooks));
     ok('adopt keeps the copy’s own times, saves it, redraws with the reason \'sync\', passes a refusing gate, and drops freeDaysFrom', hooks.adoptedAt === 12345 && hooks.saved === 12345 && hooks.adoptedAct === 777 && same(hooks.reasons, ['sync']) && hooks.noField, JSON.stringify(hooks));
     const norm = await store(page, s => { const n = s.normalise({ app: 'tourbook', freeDaysFrom: 1, acts: [{ id: 'a1', name: 'A' }] }); return { has: 'freeDaysFrom' in n, acts: n.acts.length }; });
-    ok('normalise drops the Drive copy’s freeDaysFrom: it never enters the database or a backup', norm.has === false && norm.acts === 1, JSON.stringify(norm));
+    ok('normalise drops freeDaysFrom (the free days’ start a Drive copy or a backup file carries beside the database): it never enters the database', norm.has === false && norm.acts === 1, JSON.stringify(norm));
 
     // Replace: plainly, the backup's own times and no tombstones; everywhere (Drive linked), every device follows.
     const repl = await page.evaluate(() => import('./js/store.js').then(s => {
@@ -652,7 +652,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
     await browser.close();
 
     /* ---------------- the licence as every module asks it ---------------- */
-    const NAMES = ['LICENCE_EVENT', 'licenceNow', 'licenceOn', 'licenceReady', 'mayOpen', 'mayWork', 'mayPickRole', 'gateWork', 'workMark', 'canWrite', 'startFreeDays', 'freeDaysFrom', 'adoptFreeDaysFrom', 'refreshLicence', 'serverTime', 'setLicenceState', 'onLicenceChange', 'initLicenceSource', 'roleBadge', 'sectionMark', 'FREE_KEEPS_WORK'];
+    const NAMES = ['LICENCE_EVENT', 'licenceNow', 'licenceOn', 'licenceReady', 'mayOpen', 'mayWork', 'mayPickRole', 'gateWork', 'workMark', 'canWrite', 'startFreeDays', 'freeDaysFrom', 'adoptFreeDaysFrom', 'freeDaysWith', 'termsFirst', 'refreshLicence', 'serverTime', 'setLicenceState', 'onLicenceChange', 'initLicenceSource', 'roleBadge', 'sectionMark', 'FREE_KEEPS_WORK'];
     {
       const { browser, ctx, page, errors } = await open({ sample: true });
       const asked = []; let requests = 0;
@@ -664,11 +664,14 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       const L = await page.evaluate(names => Promise.all([import('./js/licence-state.js'), import('./js/roles.js'), import('./js/licence-config.js')]).then(async ([L, r, c]) => {
         const roleIds = [...r.ROLES.map(x => x.id), 'all'];
         let called = 0; L.gateWork(() => { called++; });
+        const earlier = Date.now() - 5 * 864e5; // a start a backup file could carry
         return {
           missing: names.filter(n => !(n in L)), event: L.LICENCE_EVENT, keeps: L.FREE_KEEPS_WORK,
           mode: L.licenceNow().mode, on: L.licenceOn(), ready: await L.licenceReady().then(() => true),
           open: r.SECTIONS.every(id => L.mayOpen(id) === 'open'), work: L.mayWork(), pick: roleIds.every(id => L.mayPickRole(id) === 'open'),
           called, mark: L.workMark(), write: L.canWrite(), start: await L.startFreeDays(), from: L.freeDaysFrom(),
+          earlier, with: L.freeDaysWith(earlier), adopted: L.licenceOn() ? null : await L.adoptFreeDaysFrom(earlier),
+          termsFirst: await L.termsFirst('people'), termsSheet: !!document.querySelector('.lic-terms-sheet'),
           badges: roleIds.every(id => L.roleBadge(id) === ''), marks: r.SECTIONS.every(id => L.sectionMark(id) === null),
           sites: c.LICENCE_SITES, licence: localStorage.getItem('tourbook-licence'), terms: localStorage.getItem('tourbook-terms'),
         };
@@ -677,6 +680,8 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
       if (LEG === 'off') {
         ok('licences off: the mode is off and every answer is open (sections, work, roles, the gate calls through at once, the store gate allows)', L.mode === 'off' && L.on === false && L.ready && L.open && L.work === 'open' && L.pick && L.called === 1 && L.mark === null && L.write === true, JSON.stringify(L));
         ok('…nothing is started, nothing is marked, no badge', L.start === false && L.from === 0 && L.badges && L.marks, JSON.stringify(L));
+        ok('…an earlier start from a backup file or Drive says nothing (freeDaysWith null) and is not taken', L.with === null && L.adopted === false && L.licence === null, JSON.stringify([L.with, L.adopted]));
+        ok('…and a working section asks no terms first (termsFirst true, no sheet)', L.termsFirst === true && !L.termsSheet, JSON.stringify([L.termsFirst, L.termsSheet]));
         ok('…the site is not a licence site, and nothing about a licence is kept on the device', same(L.sites, []) && L.licence === null && L.terms === null, JSON.stringify(L));
         ok('…and in a whole visit, every section opened, not one request goes to /licence/ or /buy', asked.length === 0 && requests > 20, `${requests} requests; ${asked.join(' | ')}`);
       } else {
@@ -684,6 +689,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
         // under way and the terms agreed before the first page (the build spec [S-34]).
         const seeded = JSON.parse(L.licence || 'null');
         ok('licence leg: this host is a licence site, and the free days are under way with the terms agreed', same(L.sites, ['localhost', '127.0.0.1']) && !!seeded && seeded.on === true && seeded.first > 0 && seeded.seen >= seeded.first && !!L.terms, JSON.stringify([L.sites, L.licence, L.terms]));
+        ok('…an earlier start from a backup file would count the free days from it: freeDaysWith says from which day and how many are left', !!L.with && L.with.started === true && L.with.first === L.earlier && L.with.trialLeft === 25 && /^\d{4}-\d{2}-\d{2}$/.test(L.with.trialEnds), JSON.stringify(L.with));
         ok('…and the test server answers the status as on and the price, as JSON', await page.evaluate(() => Promise.all([fetch('/licence/web/status').then(r => r.json()), fetch('/licence/price').then(r => r.json())]).then(([st, pr]) => st.on === true && pr.price === '20.00' && pr.currency === 'USD')));
       }
       ok('no errors in the console (the licence as every module asks it)', errors.length === 0, errors.slice(0, 5).join(' | '));

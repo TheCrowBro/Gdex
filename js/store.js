@@ -35,7 +35,7 @@ export function normalise(raw) {
   out.deleted = Object.fromEntries(Object.entries(raw && raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {}).filter(([, t]) => Date.now() - t < 180 * 864e5));
   for (const k of ['templates', 'billing', 'priceList']) out[k] = raw && raw[k] && typeof raw[k] === 'object' ? raw[k] : b[k];
   out.app = 'tourbook';
-  delete out.freeDaysFrom; // the Drive copy's earliest free day (js/sync.js): never part of the database
+  delete out.freeDaysFrom; // the free days' start a Drive copy or a backup file carries (js/sync.js, js/backup.js): never part of the database
   return out;
 }
 

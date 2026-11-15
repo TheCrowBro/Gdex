@@ -10,7 +10,7 @@ import { initUpdates } from './update.js';
 import { bookings, dayTurned } from './pages/bookings.js';
 import { roleChosen, menuSections, offMenu, startSection, sectionName, askSeen, moneyShown, roleId, roleNeedsLicence } from './roles.js';
 // The licence (decisions §9): whether a section opens, starts the free days or is offered; switched off, everything opens.
-import { LICENCE_EVENT, licenceOn, licenceNow, mayOpen, sectionMark, startFreeDays, toastStarted, canWrite, refreshLicence, initLicenceSource, firstRunSettled, termsDeclined } from './licence-state.js';
+import { LICENCE_EVENT, licenceOn, licenceNow, mayOpen, sectionMark, startFreeDays, toastStarted, canWrite, refreshLicence, initLicenceSource, firstRunSettled, termsDeclined, termsFirst } from './licence-state.js';
 import { waitingShows, comingUp, tonightShows, showEnd } from './model.js';
 import { actWord } from './roles.js'; // the menu's count of acts says the role's word: 7 bands, 7 artists, 7 acts
 
@@ -150,13 +150,16 @@ show(start);
 // Jump to a section by id ('venues'). Resolves true once it is drawn, false when it was not opened (an unknown id, or
 // one the licence keeps closed: the licence is offered instead). A section that is not on the role's menu comes onto
 // the record as the bonus track. A paid section an Audiophile opens before the free days have started starts them (the
-// terms sheet first, the first time), with a toast: there is no question first (the build spec [S-4], [S-30]).
+// terms sheet first, the first time), with a toast: there is no question first (the build spec [S-4], [S-30]). Once
+// they have started without the terms sheet (taken from Google Drive or a backup file), it comes first (termsFirst).
 window.logiGo = async id => {
   if (typeof id === 'string' && tabOf(id)) {
     const may = mayOpen(id);
     if (may === 'locked') { refuse(id); return false; }
     // Not started after all: it opens when it may now (the licence server paused it as it was asked), else not.
     if (may === 'start') { if (await startFreeDays()) toastStarted(); else if (mayOpen(id) !== 'open') return false; }
+    // Only a refusal stops it: the terms sheet closed without agreeing.
+    else if ((await termsFirst(id)) === false) return false;
   }
   let i = typeof id === 'number' ? id : tabs.findIndex(t => t.id === id);
   if (i < 0 && typeof id === 'string' && tabOf(id)) {

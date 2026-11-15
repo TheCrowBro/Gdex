@@ -8,7 +8,8 @@ import { h, sheet } from './util.js';
 
 export const TERMS_SHEET = true;
 // The terms' date. A second change on the same day adds a count ('2026-11-15.2') once a device could have agreed to the
-// first; before that (nothing published, and the sheet asks only while licences are on: termsDue below) the date stays
+// first; before that the date stays. A device agrees only through the one-time sheet, which asks only while licences
+// are on (termsDue below), so while every published build has them off the date stays, even after a publish
 // (docs/developers.md, the legal pages).
 export const TERMS_VERSION = '2026-11-15';
 const KEY = 'tourbook-terms';

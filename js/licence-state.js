@@ -229,11 +229,24 @@ export function canWrite() {
 }
 
 const workOpen = () => !licenceOn() || roleNeedsLicence(roleId()) || FREE_KEEPS_WORK || mayWork() === 'open';
+// A free role's working section, box or record on a device whose free days started without the terms sheet (an earlier
+// start taken from Google Drive or from a backup file brought back, which never ask it) or whose terms changed since:
+// the sheet comes first, as before a start here ([S-37]). A working role in use is asked by startFreeDays instead.
+const termsFirstDue = () => { const s = licenceNow(); return s.mode !== 'off' && s.mode !== 'away' && s.started && !roleNeedsLicence(roleId()) && termsDue(true); };
+// Resolves false only when the sheet was closed without agreeing (nothing opens then; it is asked again next time).
+// id: a section, which counts only when it is a working one (js/app.js's logiGo).
+export async function termsFirst(id = '') {
+  if ((id && !sectionNeedsLicence(id)) || !termsFirstDue()) return true;
+  if (!(await askTerms())) return false;
+  termsAgreed();
+  return true;
+}
 // The one line of [S-3]: a working box or a paid record reached from a free section. fn runs at once while it is
-// open; on 'start' once the free days have started (the terms sheet first if due); on 'locked' the licence is offered.
-// kind: the booking's kind when what was tapped is a studio session or a rehearsal itself, so the offer speaks of it.
+// open (once the terms are agreed, when termsFirst asks them); on 'start' once the free days have started (the terms
+// sheet first if due); on 'locked' the licence is offered. kind: the booking's kind when what was tapped is a studio
+// session or a rehearsal itself, so the offer speaks of it.
 export function gateWork(fn, kind = '') {
-  if (workOpen()) { fn(); return; }
+  if (workOpen()) { if (termsFirstDue()) termsFirst().then(ok => { if (ok) fn(); }).catch(e => console.error(e)); else fn(); return; }
   // Not started after all: open anyway when it has opened meanwhile (the licence server paused it as it was asked).
   if (mayWork() === 'start') { startFreeDays().then(ok => { if (ok) toastStarted(); if (ok || workOpen()) fn(); }).catch(e => console.error(e)); return; }
   import('./licence.js').then(m => (licenceNow().mode === 'away' ? m.awaySheet() : m.offerSection('work', kind))).catch(e => console.error(e));
@@ -336,11 +349,16 @@ export function startFreeDays() {
 // The terms, agreed from the read-only sheet after a Not now: this visit's refusal is over.
 export function termsAgreed() { declined = false; fire(); }
 
+// This device's start, for Google Drive's copies (js/sync.js) and the backup files (js/backup.js); 0 while licences are
+// off or paused, or before the free days start, so nothing is written then.
 export const freeDaysFrom = () => { const s = licenceNow(); return s.started && num(s.first) > 0 ? num(s.first) : 0; };
-// Google Drive's earliest start of any device on it ([S-39], js/sync.js): an earlier start is taken; never the terms sheet.
+// A start carried by a copy or a file counts only when it is a plausible time: from 2026 on, and at most a day ahead of
+// this device's clock ([S-39]; js/sync.js checks Google Drive's copies the same way, desktop/licence.cjs its adopt).
+const plausibleStart = t => typeof t === 'number' && Number.isFinite(t) && t >= EARLIEST && t <= Date.now() + DAY;
+// An earlier start from Google Drive (the earliest of any device on it, [S-39], js/sync.js) or from a backup file brought
+// back (js/backup.js) is taken; never the terms sheet.
 export async function adoptFreeDaysFrom(t) {
-  const now = Date.now();
-  if (typeof t !== 'number' || !Number.isFinite(t) || t < EARLIEST || t > now + DAY) return false;
+  if (!plausibleStart(t)) return false;
   if (bridge()) {
     const st = licenceNow();
     if (st.mode === 'off' || typeof bridge().adopt !== 'function' || (st.started && !(t < num(st.first)))) return false;
@@ -353,6 +371,26 @@ export async function adoptFreeDaysFrom(t) {
   if (num(s.first) > 0 && !(t < num(s.first))) return false;
   changeLicence(x => { x.first = t; x.seen = Math.max(num(x.seen), t); });
   return true;
+}
+// What taking start t would do here, said before a backup file is brought back (js/backup.js's chooser): null when it
+// would change nothing the person would notice (licences off or away; a licence that works; the days already over or
+// the clock wrong; a desktop bridge that cannot take it; t not plausible, or not earlier than this device's own start;
+// the same days left and the same last day), else { first: t, started (whether they had started here), trialLeft,
+// trialEnds } as they would then be. The days are counted as the state counts them, from the latest time seen (which
+// taking t moves on to t at least). During the owner's pause a start is still taken (adoptFreeDaysFrom, as Google
+// Drive's is) and counts once the pause ends, so the answer is the state as it will be then.
+export function freeDaysWith(t) {
+  const now = Date.now(), raw = bridge() ? null : read();
+  const s = raw && liveSite() && paused(raw, now) ? webState({ ...raw, on: true }, now) : licenceNow();
+  if (!plausibleStart(t) || s.mode === 'off' || s.mode === 'away' || hasLicence(s) || !s.canEdit) return null;
+  if ((bridge() && typeof bridge().adopt !== 'function') || (s.started && !(t < num(s.first)))) return null;
+  const at = Math.max(now, raw ? num(raw.seen) : 0, t);
+  // The last day as each state gives it: the website's a local day, the desktop app's a UTC one (desktop/licence.cjs).
+  const left = x => Math.max(0, TRIAL_DAYS - Math.floor((at - x) / DAY));
+  const ends = x => (bridge() ? new Date(x + TRIAL_DAYS * DAY).toISOString().slice(0, 10) : localDay(x + TRIAL_DAYS * DAY));
+  // A start a few hours earlier can move the last day without changing the days left, so both are compared.
+  if (s.started && left(t) === left(num(s.first)) && ends(t) === ends(num(s.first))) return null;
+  return { first: t, started: !!s.started, trialLeft: left(t), trialEnds: ends(t) };
 }
 
 // The licence server's time (the Date header of a JSON answer) corrects a device clock that was wound on ([S-38]).

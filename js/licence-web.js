@@ -3,7 +3,8 @@
 // sends nothing. The server's contract is the build spec §3.9.
 //   status      whether the owner has paused the licence (only a fresh JSON { on: false } pauses; no answer is "on"),
 //               asked at most every 6 hours and only while it matters: a working role in use, the free days started,
-//               or a sign-in (an Audiophile who never used a working role sends nothing)
+//               or a sign-in (an Audiophile whose free days have not started, by its own use or from a Drive copy
+//               or a backup file, sends nothing)
 //   sign-in     the email address the licence was bought with: the server emails a 6-digit code, and this browser keeps
 //               the signed token it gets back (js/licence-state.js checks its signature)
 //   check       the sign-in confirmed about once a day; a refund or a cancellation signs it out

@@ -195,8 +195,11 @@ licences@vdex.crowmade.app (your answer, decisions §21); Resend delivers them, 
 name it. That is the Worker's `MAIL_FROM` default, so there is nothing to set for the sender. Resend's free plan has
 allowed 3 verified domains since 25 August 2026 (resend.com/changelog/three-domains-on-the-free-tier; the plan today:
 resend.com/pricing), so tourbook.crowmade.app is a second domain on the same Resend account as Vdex, sharing its 100
-free emails a day: no paid plan is needed. Where replies go (`REPLY_TO`) follows the contact address, still an open
-question (`docs/go-live.md`, question 2): support@crowmade.app until it is answered.
+free emails a day: no paid plan is needed. Replies go to support@crowmade.app, the contact address the terms and the
+privacy policy give, as Vdex's and crowmade.app's do (your answer, decisions §23; `docs/go-live.md`, Answered): that is
+`REPLY_TO`, step 4. crowmade.app's mail goes through Cloudflare Email Routing (its MX records are
+route1–3.mx.cloudflare.net), so a reply reaches whatever inbox its routing rules send support@crowmade.app to; Part 7
+checks one does.
 
 1. Sign in at https://resend.com (or sign up).
 2. **Domains → Add domain** → `tourbook.crowmade.app` → **Sign in to Cloudflare** and allow it, so Resend adds its records
@@ -204,10 +207,10 @@ question (`docs/go-live.md`, question 2): support@crowmade.app until it is answe
    Never send Tourbook's email from a domain Vdex sends from: a Resend key made for it can send email as Vdex.)
 3. **API Keys → Create API key** → name "Tourbook licences", permission **Sending access**, domain `tourbook.crowmade.app` →
    copy the value starting `re_` and add it in Cloudflare as `RESEND_API_KEY`.
-4. Add `REPLY_TO` in Cloudflare before the shop opens: the contact address, support@crowmade.app until you answer
-   `docs/go-live.md`'s question 2. The terms (section 3) tell buyers they can cancel by replying to the email their
-   licence came in; without `REPLY_TO` a reply goes to licences@tourbook.crowmade.app, which has no inbox set up. Leave
-   `MAIL_FROM` unset: its default is the sender above.
+4. Add `REPLY_TO` in Cloudflare before the shop opens: support@crowmade.app, the contact address. The terms
+   (section 3) tell buyers they can cancel by replying to the email their licence came in; without `REPLY_TO` a reply
+   goes to licences@tourbook.crowmade.app, which has no inbox set up. Leave `MAIL_FROM` unset: its default is the
+   sender above.
 
 Without Resend, buyers still see their code on the thank-you page, but the website's sign-in stays paused (it works by
 emailing a code).
@@ -223,7 +226,7 @@ Do Parts 1 to 5 first, try the shop (Part 7), and have a lawyer you choose read 
    in `js/licence-config.js` (`docs/go-live.md`, step 9(d)), published by the publish workflow, which checks the public
    keys are built in first. From then on, every browser at tourbook.crowmade.app has the licence: a working role there has
    30 free days from the first time it is used on that browser, then needs a licence. An Audiophile who never uses a
-   working role sends nothing to the licence server.
+   working role, and brings in no free days from a backup file or Google Drive, sends nothing to the licence server.
 3. **Try it:** in a private browser window open https://tourbook.crowmade.app, pick a working role, then Settings → About &
    licence → **Sign in**, with a licence that is live: for example a free code you made for your own email address
    (Part 8; the generator links it). A refunded or cancelled purchase, test or not, cannot sign in.
@@ -246,8 +249,8 @@ it.
 1. Open https://tourbook.crowmade.app/buy: it goes to your payment page (until `BUY_URL` is set it says the licence is not
    on sale yet).
 2. Buy a licence yourself. Check the thank-you page shows a code, the email arrives, a reply to it reaches the contact
-   address (`REPLY_TO`, Part 5), and (once the desktop app is released, `docs/desktop.md`) **Enter licence code**
-   activates it.
+   address, support@crowmade.app (`REPLY_TO`, Part 5), and (once the desktop app is released, `docs/desktop.md`)
+   **Enter licence code** activates it.
 3. Refund yourself in Stripe. The code is cancelled within a minute: the generator's **Look up** says CANCELLED (refund),
    the thank-you page now says the order was refunded (and shows no code), and the website signs out at its next daily
    check. Stripe keeps its fee on a refund.
@@ -311,7 +314,7 @@ developer straight away.
 | `STRIPE_SECRET_KEY` (Secret) | Stripe restricted key, Part 4 | the thank-you page, the Stripe lookup | no codes; the website's licence paused |
 | `STRIPE_WEBHOOK_SECRET` (Secret) | Stripe webhook, Part 4 | emails, refunds, disputes | webhooks refused |
 | `RESEND_API_KEY` (Secret) | Resend, Part 5 | emails, the website's sign-in | codes only on the thank-you page; the website's licence paused |
-| `REPLY_TO` (Secret or Text) | the contact address (go-live question 2; support@crowmade.app until then), Part 5, before the shop opens | replies to the emails (the terms tell buyers they can reply) | no reply address: replies go to the sender, which has no inbox set up |
+| `REPLY_TO` (Secret or Text) | `support@crowmade.app`, the contact address, Part 5, before the shop opens | replies to the emails (the terms tell buyers they can reply) | no reply address: replies go to the sender, which has no inbox set up |
 | `MAIL_FROM` (optional) | leave it unset, Part 5 | the sender | `Tourbook <licences@tourbook.crowmade.app>` |
 | `WEB_SIGN_IN` (Text) | `on`, Part 6 | the website's licence | the website's licence paused: every role open |
 | `SIGN_IN_EMAILS_PER_DAY` (optional) | a number | more than 30 sign-in emails a day, on a paid Resend plan | 30 |
