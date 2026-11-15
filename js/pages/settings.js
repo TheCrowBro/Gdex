@@ -1,6 +1,7 @@
 // Settings: everything that isn't a record, in twirl-down sections that each say where they stand on their closed
 // line: your role (which sets the section menu), your details (with the way to My card, the contact card as a big QR code, and the card as a .vcf file), quotes & invoices, backups, display &
-// accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here.
+// accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here, until
+// Settings is shown again 3 minutes or more after it was left ("open sections", below).
 // A role without money (scout, audiophile: moneyShown() false) has no Quotes & invoices section, and its details
 // are not said to go on quotes and invoices; the section comes back with a role that uses money.
 import { h, toast, announce, safeUrl, telUrl, nodes } from '../util.js';
@@ -29,9 +30,48 @@ const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const S = { erase: '', behind: null, busy: false }; // what is typed in the erase box (and what Drive lacks) survives the redraw after every change
 
 /* ------------------------------- open sections ------------------------------- */
-const OPEN_KEY = 'tourbook-settings-open';
+// Which sections are open is remembered (tourbook-settings-open) while the person comes and goes, not for good (the
+// owner, 15 Nov 2026: "Leaving the settings page should close the settings twirl downs after a few minutes."). The
+// moment Settings goes off screen (another section, or Tourbook in the background or closed while on it) is noted, in
+// memory and, while a section is open, in tourbook-settings-left. When Settings is on screen again (gone to, Tourbook
+// back in front on it, or after a reload) FOLD_AFTER_MS or more after that, every section is closed and the list
+// cleared; sooner, they stay as they were. While Settings stays on screen nothing closes, and no timer runs: the time
+// is only compared as Settings is shown. A first showing with no time noted (a list kept by an earlier version, a
+// crash) counts as long ago.
+const OPEN_KEY = 'tourbook-settings-open', LEFT_KEY = 'tourbook-settings-left';
+const FOLD_AFTER_MS = 3 * 60 * 1000;
 const OPEN = (() => { try { const a = JSON.parse(localStorage.getItem(OPEN_KEY)); return new Set(Array.isArray(a) ? a : []); } catch { return new Set(); } })();
-const saveOpen = () => { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...OPEN])); } catch { /* private mode */ } };
+const saveOpen = () => { try { if (OPEN.size) localStorage.setItem(OPEN_KEY, JSON.stringify([...OPEN])); else localStorage.removeItem(OPEN_KEY); } catch { /* private mode */ } };
+// on: Settings is on screen (drawn, and Tourbook in front). left: when it last went off screen, this visit. keep: the
+// section openSettingsSection is opening, which stays open when the others close. erased: after Erase this device,
+// nothing is noted again before the page reloads.
+const SEEN = { on: false, left: null, keep: null, erased: false };
+function arrive() {
+  if (SEEN.on) return;
+  SEEN.on = true;
+  let left = SEEN.left; SEEN.left = null;
+  try { const t = localStorage.getItem(LEFT_KEY); if (left === null && t !== null) left = Number(t); localStorage.removeItem(LEFT_KEY); } catch { /* blocked storage: the time in memory */ }
+  if (left === null || !(Date.now() - left < FOLD_AFTER_MS)) fold();
+}
+function leave() {
+  if (!SEEN.on) return;
+  SEEN.on = false;
+  if (SEEN.erased) return;
+  SEEN.left = Date.now();
+  try { if (OPEN.size) localStorage.setItem(LEFT_KEY, String(SEEN.left)); else localStorage.removeItem(LEFT_KEY); } catch { /* blocked storage: the time in memory */ }
+}
+// Every section closed, but the one being opened. On Tourbook's return the page is already drawn: its sections close
+// in place, and a focus inside one goes to its title.
+function fold() {
+  for (const id of OPEN) if (id !== SEEN.keep) OPEN.delete(id);
+  saveOpen();
+  for (const d of document.querySelectorAll('#page details.se-sec[open]')) {
+    if (d.dataset.s === SEEN.keep) continue;
+    const sum = d.querySelector(':scope > summary'), a = document.activeElement;
+    if (sum && a && a !== sum && d.contains(a)) sum.focus({ preventScroll: true });
+    d.open = false;
+  }
+}
 
 // One twirl-down: icon, title, a line saying where it stands, and its body. onOpen runs when it is (or opens) open.
 function section(id, icon, title, sub, body, onOpen) {
@@ -53,9 +93,11 @@ function section(id, icon, title, sub, body, onOpen) {
 }
 
 // From any page: go to Settings and open a section ('profile', 'billing', 'backups'…). Resolves once it is on screen.
+// When Settings was left 3 minutes or more ago, the others are closed as it shows.
 export async function openSettingsSection(id) {
   OPEN.add(id); saveOpen();
-  await window.logiGo('settings');
+  SEEN.keep = id;
+  try { await window.logiGo('settings'); } finally { SEEN.keep = null; }
   await new Promise(r => setTimeout(r, 60));
   const d = document.getElementById('se-' + id);
   if (!d) return false;
@@ -336,7 +378,8 @@ async function eraseDevice() {
   S.erase = ''; S.behind = null;
   try { await beforeErase(); } catch { /* nothing linked */ } // first, so the empty database is never written over the copy
   store.eraseAll();
-  try { localStorage.removeItem(OPEN_KEY); } catch { /* ignore */ }
+  SEEN.erased = true; // the reload that follows does not note when Settings was left
+  try { localStorage.removeItem(OPEN_KEY); localStorage.removeItem(LEFT_KEY); } catch { /* ignore */ }
   toast('Everything on this device was erased');
   setTimeout(() => location.reload(), 400);
 }
@@ -395,7 +438,14 @@ const SECTIONS = [
 export const settings = {
   id: 'settings', label: 'Settings', icon: '⚙️',
   render(root) {
+    // Settings shown (gone to, or drawn again): its sections close first when it was left 3 minutes or more ago. Drawn
+    // while Tourbook is in the background, it is shown when Tourbook comes back.
+    if (document.visibilityState !== 'hidden') arrive();
     const done = [];
+    const sight = () => (document.visibilityState === 'hidden' ? leave() : arrive());
+    const kept = e => { if (e.persisted && document.visibilityState !== 'hidden') arrive(); }; // the page the browser kept, brought back
+    document.addEventListener('visibilitychange', sight); window.addEventListener('pagehide', leave); window.addEventListener('pageshow', kept);
+    done.push(() => { document.removeEventListener('visibilitychange', sight); window.removeEventListener('pagehide', leave); window.removeEventListener('pageshow', kept); });
     const profile = profileBody();
     const display = displayPanel();
     const up = updatePanel();
@@ -428,7 +478,7 @@ export const settings = {
       h('div', { class: 'se-list' }, Object.values(sec).filter(Boolean).map(s => s.el)));
     return () => {
       done.forEach(f => { try { f(); } catch { /* already gone */ } });
-      if (window.logiPage && window.logiPage() !== 'settings') { S.erase = ''; S.behind = null; } // leaving Settings disarms the erase button
+      if (window.logiPage && window.logiPage() !== 'settings') { S.erase = ''; S.behind = null; leave(); } // leaving Settings disarms the erase button, and its time is noted
     };
   },
   tutorial: () => [

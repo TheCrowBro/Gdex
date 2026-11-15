@@ -195,7 +195,8 @@ Kept in `localStorage` on the device, never in the database, so backups do not c
 | `tourbook-licence-cache` | The desktop app only: the bridge's last licence state, to draw the menu before the bridge answers. | cleared |
 | `tourbook-drive`, `tourbook-drive-file`, `tourbook-google-tokens`, `tourbook-google-email`, `tourbook-drive-who`, `tourbook-sync-at`, `tourbook-backup-cloud` | Google Drive (`js/drive.js`, `js/sync.js`): linked, the file id of `tourbook-db.json`, the hour's token (`drive.appdata` only), the account's address (Google's `login_hint` only), "Name · address" for Signed in as, the last good sync, the last daily copy. | cleared, after Drive is disconnected |
 
-`tourbook-tour`, `tourbook-role-nudged`, `tourbook-settings-open`, `tourbook-tool-pick` and the like are cleared too.
+`tourbook-tour`, `tourbook-role-nudged`, `tourbook-settings-open` and `tourbook-settings-left` (Settings' open sections, and
+when Settings was left: "Settings' sections" below), `tourbook-tool-pick` and the like are cleared too.
 
 ### From Gdex: the one-time copy (`js/from-gdex.js`, `js/kv.js`; decisions §19)
 
@@ -1314,6 +1315,33 @@ no kind for it). The card is Settings' own: `vcard()`, `hasCard()`, `qrFor()`, `
   line leaves out My card and Settings, which every menu has.
 * **With the licence** (item 9): My card is free in every role, the free Audiophile too; it is never gated.
 
+### Settings' sections: closed again after 3 minutes away (`js/pages/settings.js`)
+
+Settings is a list of twirl-downs (`details.twirl.se-sec#se-<id>[data-s=<id>]`, the title `summary#se-<id>-sum`), each saying
+where it stands on its closed line. Which are open is kept in `tourbook-settings-open` (a JSON list of ids, removed when
+none is open), so they stay open while the person comes and goes, but not for good (the owner, 15 Nov 2026: "Leaving
+the settings page should close the settings twirl downs after a few minutes."):
+
+* **Off screen.** Settings is on screen while it is the open section and Tourbook is in front. The moment it goes off
+  screen is noted, in memory and, while a section is open, in `tourbook-settings-left` (milliseconds): another section
+  (the page's cleanup, `logiPage()` no longer `settings`), `visibilitychange` to hidden, or `pagehide` (Tourbook closed or
+  loaded again, or a page the browser keeps).
+* **On screen again.** Settings' `render` (gone to, after a reload too; a redraw while it is on screen does not count),
+  `visibilitychange` back to visible, or `pageshow` (persisted). `FOLD_AFTER_MS` (3 minutes) or more after the moment
+  noted, every section is closed and the list removed: before they are drawn, or in place when the page is already
+  drawn (Tourbook back in front), a focus inside one going to its title. Sooner, they stay as they were. Either way
+  the moment noted is let go. A first showing with no moment noted (a list kept by an earlier version, a crash) counts
+  as long ago.
+* **Nothing runs meanwhile.** While Settings stays on screen nothing closes, however long; no timer is set, the times are
+  only compared as Settings shows (`arrive()`, `leave()`, `fold()`).
+* **`openSettingsSection(id)`**, from any page: goes to Settings and opens `id`, under the section menu with the focus on
+  its title; when the others close (3 minutes or more away), `id` stays open.
+* **Erase this device** removes both keys, and the reload after it notes nothing.
+
+`71-settings-folds` checks it with Playwright's clock: back within 3 minutes, after 3, through more than one section,
+in the background on Settings (a focus inside), a page the browser kept, a reload either side of 3 minutes, a list with
+no time, `openSettingsSection` either side of 3 minutes, and Erase.
+
 ## The licence (`js/licence-state.js`, `js/licence.js`, `js/licence-web.js`; decisions §9)
 
 The Audiophile is free for good, for personal use: the terms say it is not for work, which needs a working role (decisions
@@ -1583,7 +1611,8 @@ backline, take, comp, stems, split sheet.
   and the songs list in folds), `49-my-card`, `50-backline`, `50-sample-qr` (an act's sample work: the model's
   reading of the link, the form, the card's code, Show big, Share link, every role, 320 px), `51-band-gear` (each
   band's gear in a fold, with your investment: the model's sums, the form, the folds, every role, 320 px), `55-venues`,
-  `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`; the licence's `75-licence-off`,
+  `56-rules`, `60-tools`, `62-roles-pages`, `65-insurance`, `70-settings`, `71-settings-folds` (Settings' sections closed
+  again after 3 minutes away); the licence's `75-licence-off`,
   `76-licence-roles`, `77-licence-web`, `78-licence-desktop-ui`, `79-licence-e2e` (the real Worker under the real page,
   and the real desktop licence against it); the server's `80-licence-codes`, `81-licence-worker`, `82-site-publish`,
   `83-legal-pages`; the desktop's `85-desktop-licence`, `86-download-page` and `tests/desktop.mjs` (Electron under
@@ -1614,7 +1643,7 @@ need a change there, describe it in your report instead.
 | people | `js/pages/people.js`, `js/pages/insurance.js`, `css/people.css`, `tests/specs/45-people.cjs`, `tests/specs/65-insurance.cjs` |
 | backline | `js/pages/backline.js`, `js/pages/venues.js`, `js/venues-rules.js` (house rules), `css/backline.css`, `tests/specs/50-backline.cjs`, `tests/specs/51-band-gear.cjs`, `tests/specs/55-venues.cjs`, `tests/specs/56-rules.cjs` |
 | tools | `js/pages/tools.js`, `js/audio.js`, `css/tools.css`, `tests/specs/60-tools.cjs`, `tests/specs/62-roles-pages.cjs` (with songs, people, money) |
-| settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs` |
+| settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs`, `tests/specs/71-settings-folds.cjs` |
 | search | `js/search.js`, `css/search.css`, `tests/specs/46-search.cjs` |
 | card | `js/pages/card.js`, `css/card.css`, `tests/specs/49-my-card.cjs` |
 | licence | `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `css/licence.css`, and the licence's lines in the pages it gates; `tests/specs/75`–`79`. Nobody but the owner's publish changes `js/licence-config.js` or `desktop/licence-on.json`. |
