@@ -208,7 +208,7 @@ and quotes. Every word must match, in any order; capitals and accents don't matt
   device: an Audiophile who does neither sends it nothing.
 - **Save a backup now and then:** tap ☁ at the top → **Save a backup**. Keep the file somewhere safe. To move to a new
   phone or computer, open Tourbook there and import the file. In Chrome or Edge on a computer, Tourbook can also
-  keep a copy in your Dropbox, Google Drive, OneDrive or iCloud Drive folder.
+  keep a copy in a file in your Dropbox, Google Drive, OneDrive or iCloud Drive folder.
 - **Links you send** (a day sheet, an invoice) carry the document inside the link itself, so no server sees them. Send
   them only to the people they are for.
 
@@ -224,7 +224,7 @@ and quotes. Every word must match, in any order; capitals and accents don't matt
   keys, Stripe link, Google project, desktop app id, port and download bucket.
 - The licence server (`cloudflare/`) and the desktop app (`desktop/`) are built and tested, but switched off. Google Drive
   is switched on in the repository (Tourbook's own Google sign-in client, since 15 November 2026; see `docs/drive.md`).
-  It reaches tourbook.crowmade.app with the next publish and the desktop app with its first release.
+  It is live at tourbook.crowmade.app and reaches the desktop app with its first release.
   [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing more is published without
   the owner's go-ahead. `TOURBOOK_LICENCE=on node tests/run.mjs` runs the tests with the licence live;
   `npm ci --prefix cloudflare` first lets the licence server's tests run.

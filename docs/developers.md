@@ -1091,8 +1091,8 @@ look and behave the same. Everything lives in one block of `pages/songs.js` ("fo
   (`.sg-acts`), and a chip picked there hides no song. + Song starts with no act.
 * **The form.** `editSong` has "Album or release" (`input[data-key=album]`) straight after Act, with a `datalist` of
   the albums already typed for the act picked, A to Z, which follows the Act box as it changes (`albumHelper`); its hint
-  is in the role's words ("The artist’s albums are suggested. Leave it empty for a single or unreleased song: it goes
-  under Singles & unreleased."). It shows what is stored when that is text, else nothing, and a save
+  is in the role's words ("The artist’s albums typed so far are suggested. Leave it empty for a single or an unreleased
+  song: it goes under Singles & unreleased."). It shows what is stored when that is text, else nothing, and a save
   stores the box with its spaces tidied (`''` when empty). The song's sheet shows it as a fact of its own row, "Album".
 * **What it is not.** Nothing printed or sent changes: the press kit, the printed setlist (`stageDoc`), its text and
   the split sheet carry no album. The setlist editor's song picker keeps its groups by act.
@@ -1525,7 +1525,7 @@ contract is in `docs/licence-server.md` (for the developer).
 
 ## Google Drive (`js/drive.js`, `js/sync.js`; `docs/drive.md`)
 
-* Free for every role, licence or not. On in the repository since 15 November 2026 (the website from its next publish,
+* Free for every role, licence or not. On in the repository since 15 November 2026 (on the website since that day's publish,
   the desktop app from its first release): the owner's client id (Tourbook's own Google Cloud project Tourbook) is in
   `js/cloud-config.js` (`CLOUD_APPS.google`), and `90-drive` checks the repository carries exactly it and that the app
   opened with that file asks Google with it. A build with it empty says "Not set up yet" in the Backups panel's Drive

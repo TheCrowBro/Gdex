@@ -382,7 +382,7 @@ function editSongNow(s = {}, onSaved) {
       { key: 'actId', label: 'Act', type: 'select', options: [['', 'No act'], ...acts.map(a => [a.id, a.name || 'Untitled act'])] },
       // The albums already typed for the act picked above are offered as suggestions (albumHelper keeps them to that act).
       { key: 'album', label: 'Album or release', list: albumNames(src.actId && byId('acts', src.actId) ? src.actId : NO_ACT), placeholder: 'e.g. Harbour Lights EP',
-        hint: `The ${actWord()}’s albums are suggested. Leave it empty for a single or unreleased song: it goes under ${NO_ALBUM}.` },
+        hint: `The ${actWord()}’s albums typed so far are suggested. Leave it empty for a single or an unreleased song: it goes under ${NO_ALBUM}.` },
       { key: 'key', label: 'Key', type: 'select', options: keyOpts },
       { key: 'bpm', label: 'Tempo (BPM)', type: 'number', min: 0, step: 'any', placeholder: 'e.g. 120' },
       { key: 'duration', label: 'Length', placeholder: '3:45', hint: 'Minutes and seconds, like 3:45' },

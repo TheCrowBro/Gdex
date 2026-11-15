@@ -235,7 +235,7 @@ export function openVenue(id) {
           site && h('a', { class: 'btn ghost small', href: site, target: '_blank', rel: 'noopener noreferrer' }, '🌐 Website'))),
       h('section', { class: 'vn-details' }, h('h3', null, 'Details'),
         details.length ? h('dl', { class: 'vn-kv' }, details.map(([k, x]) => [h('dt', null, k), h('dd', null, x)]))
-          : h('p', { class: 'muted small' }, 'Nothing noted yet. Edit adds the capacity, stage, PA, curfew, load-in and parking.')),
+          : h('p', { class: 'muted small' }, 'Nothing noted yet. ✎ Edit adds the capacity, stage, PA, curfew, load-in and parking.')),
       // What the place allows in. They are the venue's: every show here carries them, whoever plays.
       h('section', { class: 'vn-rules-sec' }, h('h3', null, 'House rules'),
         rulesFull(v) || h('p', { class: 'muted small' }, 'No house rules noted yet. ✎ Edit adds them.')),
@@ -341,7 +341,7 @@ const SHEET_STEPS = () => [
 const FORM_STEPS = () => [
   { title: 'The place', text: 'Its name, what kind of place it is, and the address.', target: ['[data-key=name]'] },
   { title: 'On the map', text: 'Find it from the address, paste a map link, or use where you are now. The map and directions use it.', target: ['.place'] },
-  { title: 'Curfew and limits', text: moneyShown() ? 'Shows here warn you if a set would run past curfew or the deal counts on more people than the place holds.' : 'Shows here warn you when the set would run past the curfew. The noise limit is there for the sound meter.', target: ['[data-key=curfew]', '[data-key=capacity]'] },
+  { title: 'Curfew and limits', text: moneyShown() ? 'Shows here warn you if a set would run past curfew or the deal counts on more people than the place holds.' : 'Shows here warn you if a set would run past curfew. The noise limit is there for the sound meter.', target: ['[data-key=curfew]', '[data-key=capacity]'] },
   { title: 'House rules', text: 'Tap what you know and type anything unusual. They appear on every show here in green, amber or red. How strict sets the colour by hand.', target: ['.vn-rules-edit .vn-rule', '.vn-rules-edit'] }, // one rule with its two buttons: the whole block is taller than a phone, and the card would be cut short over its middle
 ];
 sheetTutorial('Add venue', FORM_STEPS);

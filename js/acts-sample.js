@@ -140,7 +140,7 @@ export const sampleStep = () => (sampleShown() ? { title: 'Sample work', target:
   text: `Drop a card open for a QR code of your sample work for the ${actWord()}. Show big fills the screen with it; Share link sends the link. Add the link in the ${actWord()}’s ✎ Edit; until then, the code holds the ${actWord()}’s first link.` } : null);
 // The act form's step (after Links).
 export const sampleFormStep = () => (sampleShown() ? { title: 'Sample work', target: ['input[data-key=sampleWork]'],
-  text: `A page of your work with this ${actWord()} to share. Its QR code is on the ${actWord()}’s card in ${sectionName('acts', 'Acts')}; without one, the card uses the first link above.` } : null);
+  text: `A page of your work with this ${actWord()}, to share. Its QR code is on the ${actWord()}’s card in ${sectionName('acts', 'Acts')}; with no link here, the card uses the first link above.` } : null);
 sheetTutorial('Sample work', () => [
   { title: 'Show it big', text: `Hold the phone up: whoever scans the code opens your sample work, or the ${actWord()}’s first link if there is none yet. Turn the brightness up in a dark room.`, target: ['.ac-qr-full'] },
 ]);

@@ -5,7 +5,7 @@
 The first launch is Tourbook itself at **https://tourbook.crowmade.app**, installable and working offline, with its terms,
 privacy and download pages, and the licence server's addresses switched off: every role free, nothing asked, Google
 Drive saying "Not set up yet" (as it did on the live site at the first publish, 14 November 2026, and the one after it;
-Google Drive was switched on in the repository on 15 November 2026, step 6, and comes with the next publish), the
+Google Drive was switched on in the repository on 15 November 2026, step 6, and went live with that day's publish), the
 download page saying the desktop app is coming, `/buy` saying the licence is not on sale yet. Nothing goes on the
 internet until you say **"publish"**; each step below happens only with your go-ahead, in this order. You approve; the
 developer runs.
@@ -69,15 +69,15 @@ into it, which the guard refuses) and `node tools/stamp-build.mjs --dev` (never 
   keeps working offline and stops updating until Tourbook is published again.
 
 After this launch, the rest of the list stays as below, each part with its own go-ahead: the licence (steps 3 to 5,
-then 9(b) to 9(d)), Google Drive (step 6, done on 15 November 2026: it goes live with the next publish), and the
+then 9(b) to 9(d)), Google Drive (step 6, done on 15 November 2026: live since that day's publish), and the
 desktop app (steps 7 and 8, then 9(e); the download page gets its links at the first desktop release, `docs/desktop.md`).
 
 ## The whole list
 
 Tourbook's licence for the working roles, its licence server and the desktop app are built and tested, and **switched
-off**. Google Drive is built, tested and switched on (step 6, 15 November 2026): the website has it from its next
-publish, the desktop app from its first release. Nothing is published, deployed, uploaded or released until you have
-done the steps below and said **"publish"**. Each step in part 9 happens only with your go-ahead, one at a time.
+off**. Google Drive is built, tested and switched on (step 6, 15 November 2026): the website has had it since that
+day's publish, the desktop app gets it with its first release. Nothing is published, deployed, uploaded or released
+until you have done the steps below and said **"publish"**. Each step in part 9 happens only with your go-ahead, one at a time.
 
 The guides each step points to:
 
@@ -184,7 +184,7 @@ download page offer Google Drive to every role. The client id,
 `CLOUD_APPS.google` (spec 90 checks the repository carries exactly it). With it, the terms' section 7 lost its sentence
 "Google Drive works once Tourbook’s Google sign-in is switched on; until then Tourbook says Google Drive isn’t set up yet."
 (step 1 says how the date moved), and the download page lost its "once Tourbook’s Google sign-in is switched on" too.
-Until the next publish, the live site's Google Drive card still says "Not set up yet". The desktop app carries its own
+The live site has carried it since that day's publish (79e11eb). The desktop app carries its own
 copy of the id, so it has Google Drive from its first release (none is out yet). **Try it once for real after the first
 publish** with the id in: connect Google Drive on tourbook.crowmade.app, and in the desktop app after its first release
 (`docs/drive.md`).
@@ -358,8 +358,8 @@ Answered:
   2026) was started this way.
 - **Google Drive:** Tourbook's own Google Cloud project, Tourbook (not a second client in Vdex's project), with one Web
   application client for `https://tourbook.crowmade.app` and `http://localhost:47861` and the one scope `drive.appdata`.
-  You made it and gave its id on 15 November 2026 (step 6); it is in `js/cloud-config.js`, and Google Drive is free for
-  every role from the next publish.
+  You made it and gave its id on 15 November 2026 (step 6); it is in `js/cloud-config.js`, and Google Drive has been free for
+  every role on the website since that day's publish.
 - **A lawyer:** "I'll find a lawyer": a lawyer you choose reads the terms and the privacy policy before licences are
   switched on (step 1 and 9(d)).
 - **The contact address:** support@crowmade.app, the same as Vdex's and crowmade.app's (15 November 2026: "Yes for the

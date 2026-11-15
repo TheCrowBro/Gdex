@@ -84,7 +84,7 @@ function googlePage(res, nonce, { client, scope, hint, key }) {
 <script nonce="${sn}">
 const C = ${cfg}, t = document.getElementById('t'), go = document.getElementById('go');
 const send = r => fetch('/__tourbook/google?n=' + encodeURIComponent(C.nonce), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Tourbook-Key': C.key }, body: JSON.stringify(r) })
-  .then(x => { go.hidden = true; if (!x.ok) { t.textContent = 'This sign-in has expired, or a newer one has taken over. Go back to Tourbook and tap Connect again. You can close this tab.'; return; } t.textContent = r.error ? 'Sign-in not finished. Go back to Tourbook and tap Connect to try again. You can close this tab.' : 'Done. Go back to Tourbook; you can close this tab.'; })
+  .then(x => { go.hidden = true; if (!x.ok) { t.textContent = 'This sign-in has expired, or a newer one has taken over. Go back to Tourbook and try again. You can close this tab.'; return; } t.textContent = r.error ? 'Sign-in not finished. Go back to Tourbook and try again. You can close this tab.' : 'Done. Go back to Tourbook; you can close this tab.'; })
   .catch(() => { t.textContent = 'Tourbook has closed, or this sign-in has expired. Open Tourbook and try again.'; });
 const ready = () => { go.disabled = false; go.onclick = () => google.accounts.oauth2.initTokenClient({ client_id: C.client, scope: C.scope, callback: r => send(r), error_callback: e => send({ error: e.type || 'failed' }) }).requestAccessToken(C.hint ? { prompt: '', login_hint: C.hint } : { prompt: '' }); };
 window.google && google.accounts ? ready() : addEventListener('load', ready);

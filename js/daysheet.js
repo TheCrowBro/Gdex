@@ -336,7 +336,7 @@ export function openDaySheet(bookingId, opts) {
 /* ------------------------------- walkthrough ------------------------------- */
 sheetTutorial('Day sheet', [
   { title: 'The day sheet', text: 'Everything the band and crew need on the day, built from the booking. It never shows the deal, fees, ticket price, settlement or budget.', target: ['.ds-preview'] },
-  { title: 'Sent or not', text: 'Whether the band has it, here and on the booking. It warns you if the sheet changes after it’s sent.', target: ['.ds-status'] },
+  { title: 'Sent or not', text: 'Whether the band has it, shown here and on the booking. It warns you if the sheet changes after it’s sent.', target: ['.ds-status'] },
   { title: 'Send it', text: 'Share the link, email everyone on the booking, print, copy as text or save as a web page. Each ticks “Day sheet sent to the band” on a show’s checklist.', target: ['.ds-actions'] },
   { title: 'QR code & link', text: 'At the venue, let the band scan the code off your phone. Open the band’s page to see exactly what they see, with Add to calendar.', target: ['.ds-link > summary'] },
   { title: 'What goes on it', text: 'Choose whether guest names and your booking notes go on it. Tourbook remembers your choice on this device.', target: ['.ds-parts > summary'] },

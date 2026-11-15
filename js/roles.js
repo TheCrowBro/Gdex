@@ -105,7 +105,7 @@ export const ROLES = [
     sections: ['bookings', 'acts', 'venues', 'tools'], start: 'bookings', names: { acts: 'Bands', bookings: 'Gigs' },
     newKind: 'show', kinds: ['show', 'other', 'session', 'rehearsal'], hide: HIDE_ALL, money: false,
     kindHelp: { show: 'A gig you’re going to (an in-store or a listening session too): the band, the venue, doors and set time. Score it on the night or after.', other: 'A record fair or anything else in the diary.', session: 'A studio visit or a playback.', rehearsal: 'An open rehearsal or soundcheck.' },
-    welcome: 'Tourbook is set up for a gig-goer who listens closely: bands you’ve seen, scored out of 100 each time, gigs coming up, the rooms you go to and a sound level meter. This takes about a minute. Tap Skip any time.',
+    welcome: 'Tourbook is set up for a gig-goer who listens closely: bands you’ve seen with a score out of 100 each time, gigs coming up, the rooms you go to and a sound level meter. This takes about a minute. Tap Skip any time.',
     tour: [
       { id: 'bookings', text: 'The gigs you’re going to, by month, week or day: the band, the venue, doors and set time. After a gig Tourbook asks if you saw them; Yes takes your score out of 100 for the band’s card.' },
       { id: 'acts', text: 'The bands you’ve seen, latest first. Each time, log a score out of 100 with notes on the set and the sound. The card keeps your average, your latest score and their next dates.' },

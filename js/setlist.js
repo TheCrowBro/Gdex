@@ -592,7 +592,7 @@ sheetTutorial('Edit setlist', [
   { target: ['.sg-items .sg-start'], title: 'Running clock', text: 'When each item starts, from 0:00 with the gaps. Marked key changes and retunes help you plan the talk and guitar swaps.' },
   { target: ['.sg-items .sg-seg'], title: 'Segue', text: 'Tap to go straight into the next item with no gap; the running time drops by the gap.' },
   { target: ['.sg-add'], title: 'Add', text: 'Songs from your library (several at once), set breaks such as SET 2, and anything else that takes time, like a drum solo.' },
-  { target: ['.sg-ed-foot'], title: 'Print, copy, duplicate', text: 'Print the big stage copy, copy the text for the band chat, duplicate it for another night, or delete it.' },
+  { target: ['.sg-ed-foot'], title: 'Print, copy, duplicate', text: 'Print the big stage copy, copy it as text for the band chat, duplicate it for another night, or delete it.' },
 ]);
 const ITEM_STEPS = [
   { target: ['.sg-item-form'], title: 'This item', text: 'A song’s length in this set (empty: the song’s own) or a free item’s title and length, a note for the band, segue and encore.' },

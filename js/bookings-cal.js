@@ -537,4 +537,4 @@ export function calendarSteps(ctx) {
 }
 // Whether the calendar as drawn now shows a line of that kind (a house-rules chip, an overlap note) anywhere.
 const onScreen = sel => [...document.querySelectorAll('.bk-calview ' + sel)].some(el => el.getClientRects().length > 0);
-const RULES_HELP = 'The coloured line on a show is its venue’s house rules: green when nothing is restricted, amber when something is (an age limit, cash only, a written rule), red when phones or all cameras are not allowed. It names the main rule; “·\u00a01\u00a0more” counts the others. The show’s page and the venue’s page have them in full.';
+const RULES_HELP = 'The coloured line on a show is its venue’s house rules: green when nothing is restricted, amber when something is (an age limit, cash only, a written rule), red when phones are not allowed, or no cameras are. It names the main rule; “·\u00a01\u00a0more” counts the others. The show’s page and the venue’s page have them in full.';

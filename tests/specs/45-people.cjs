@@ -85,6 +85,8 @@ const sheetFor = (page, title) => page.locator(`.sheet[aria-label="${title}"]`);
   /* ---------- search ---------- */
   await page.fill('#pp-search', 'promoter');
   ok('search finds a role', JSON.stringify(await names(page)) === JSON.stringify(['Rosa Lind']), (await names(page)).join());
+  // The export button names what it saves: one person is “this one”, never “these 1”.
+  ok('one person shown: the export button says “this one”', (await page.textContent('#pp-export')) === '⤓ Save this one as a contact (.vcf)', await page.textContent('#pp-export'));
   ok('the search box keeps the focus while typing', await page.evaluate(() => document.activeElement && document.activeElement.id === 'pp-search'));
   await page.fill('#pp-search', 'northline');
   ok('search finds a company', JSON.stringify(await names(page)) === JSON.stringify(['Ivy Chen']), (await names(page)).join());
@@ -94,6 +96,7 @@ const sheetFor = (page, title) => page.locator(`.sheet[aria-label="${title}"]`);
   ok('no match says so and offers to show everyone', (await page.locator('.pp-page .empty').innerText()).includes('No one matches') && await page.locator('#pp-clear').isVisible());
   await page.click('#pp-clear');
   ok('Show everyone clears the search', (await page.locator('.pp-card').count()) === 11 && (await page.inputValue('#pp-search')) === '');
+  ok('…and with nothing filtered the export button saves everyone', (await page.textContent('#pp-export')) === '⤓ Save everyone as contacts (.vcf)', await page.textContent('#pp-export'));
 
   /* ---------- the person sheet ---------- */
   // A booking with no act and no venue, past midnight, on the same day as Maya's show: a clash.
@@ -262,6 +265,7 @@ const sheetFor = (page, title) => page.locator(`.sheet[aria-label="${title}"]`);
 
   /* ---------- export ---------- */
   await page.click('#pp-g-band');
+  ok('the Band filter: the export button counts the people it saves', (await page.textContent('#pp-export')) === '⤓ Save these 4 as contacts (.vcf)', await page.textContent('#pp-export'));
   const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.click('#pp-export')]);
   const many = fs.readFileSync(await dl2.path(), 'utf8');
   ok('the filtered people save as one contacts file', (many.match(/BEGIN:VCARD/g) || []).length === 4 && dl2.suggestedFilename() === 'Tourbook contacts - Band members.vcf', dl2.suggestedFilename());

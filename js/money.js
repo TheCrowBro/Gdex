@@ -549,7 +549,7 @@ export function billingPanel() {
   return h('div', { class: 'stack mn-billing' },
     // Your currency, by country: the symbol on every amount and the code for payment links and the bank QR, together.
     h('div', { class: 'field mn-bl-cur' }, h('label', { for: 'mn-bl-currency' }, 'Your currency'), myCurrencySelect('mn-bl-currency'),
-      h('small', { class: 'muted' }, 'Pick your country. Its currency is used for every fee, deal, settlement, quote, invoice and payment link. A quote or invoice for work abroad can have its own.')),
+      h('small', { class: 'muted' }, 'Pick your country. Its currency is used for every fee, deal and settlement, and for your quotes, invoices and payment links (one for work abroad can have its own).')),
     h('p', { class: 'small muted' }, 'Your name, business, address, phone and email on quotes and invoices come from your profile.'),
     h('h4', { class: 'mn-bl-head' }, 'Numbering'),
     h('div', { class: 'mn-pair' },

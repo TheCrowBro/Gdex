@@ -769,7 +769,7 @@ const actSteps = () => {
       { title: 'Coming up', text: moneyShown() ? `This act’s bookings from today on. Tap one to open it, or book a new ${book()[1]} for the act.` : 'Their shows on your calendar from today on. Tap one to open it, or add a show of theirs you’re going to.', target: ['#ac-coming'] },
       { title: 'Members', text: 'People from the People section. Add someone already there or a new person; ✕ takes them out of the act (they stay in People).', target: ['#ac-members'] },
       { title: 'Songs & setlists', text: 'How many songs and setlists the act has. Tap to open Songs.', target: ['#ac-songs'] },
-      !!was && { title: 'Earlier names', text: 'Every name the act had before, the latest first, with the days it changed. Earlier bookings and scores show the name it had then. ✎ Edit changes them.', target: ['#ac-names'] },
+      !!was && { title: 'Earlier names', text: 'Every name the act had before, the latest first, with the days it changed. Earlier bookings and scores show the name it had then. ✎ Edit changes the names and days.', target: ['#ac-names'] },
     ] : []),
     ...(has('epk') ? [
       { title: 'Press kit', text: 'A one-page press kit from the act’s details: bio, links, line-up, confirmed shows and contact. Print it, or save it as a web page to send.', target: ['.ac-epk'], before: () => setTab('epk') },

@@ -366,7 +366,7 @@ function aboutLine() {
 // in its own window on this computer and looks for new versions at its download address (desktop/updater.cjs).
 function whereWords() {
   const desk = !!window.tourbookDesktop;
-  return `Everything you enter stays ${desk ? 'in this app, on this computer' : 'in this browser, on this device'}. Your bookings, contacts and fees are never sent to a Tourbook server. If you connect Google Drive, Tourbook also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Tourbook’s licence server at tourbook.crowmade.app only ever hears about your licence, and only once you use a working role, or a backup file or Google Drive brings in free days started on another device.' : ''}${desk ? ' The desktop app also looks for new versions at tourbook-download.crowmade.app.' : ''} A backup file keeps it all safe and moves it to another device.`;
+  return `Everything you enter stays ${desk ? 'in this app, on this computer' : 'in this browser, on this device'}. Your bookings, contacts and fees are never sent to a Tourbook server. If you connect Google Drive, Tourbook also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Tourbook’s licence server at tourbook.crowmade.app only ever hears about your licence, and only once you use a working role, or once a backup file or Google Drive brings in free days started on another device.' : ''}${desk ? ' The desktop app also looks for new versions at tourbook-download.crowmade.app.' : ''} A backup file keeps it all safe and moves it to another device.`;
 }
 function aboutBody(up, done) {
   let size = 0; try { size = new Blob([store.serialize()]).size; } catch { /* ignore */ }

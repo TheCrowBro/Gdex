@@ -83,7 +83,7 @@ function docView(b, kind, doc) {
       h('button', { class: 'btn ghost small', type: 'button', id: `mn-print-${kind}`, onclick: () => printDoc(b.id, kind) }, '🖨 Print'),
       h('button', { class: 'btn ghost small', type: 'button', id: `mn-web-${kind}`, 'aria-label': 'Save as a web page', title: 'Save as a web page (to attach to an email)', onclick: () => saveWebPage(b.id, kind) }, '💾 Web page'),
       h('button', { class: 'btn ghost small', type: 'button', id: `mn-copy-${kind}`, onclick: () => copyText(b.id, kind) }, '📋 Copy text')),
-    !email && h('p', { class: 'small muted' }, 'Add the contact’s email and “Email the client” is addressed for you.'));
+    !email && h('p', { class: 'small muted' }, `Add the contact’s email and “${isInv && isOverdue(b) ? 'Send a reminder' : 'Email the client'}” is addressed for you.`));
 }
 
 export default {

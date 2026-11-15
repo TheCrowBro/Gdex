@@ -194,7 +194,7 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
   const box = form.locator('input[data-key=album]');
   const offered = () => box.evaluate(i => [...document.getElementById(i.getAttribute('list')).options].map(o => o.value));
   const hint = await box.evaluate(i => i.closest('.field').querySelector('small').textContent);
-  ok('…its hint, in the role’s words', hint === 'The act’s albums are suggested. Leave it empty for a single or unreleased song: it goes under Singles & unreleased.', hint);
+  ok('…its hint, in the role’s words', hint === 'The act’s albums typed so far are suggested. Leave it empty for a single or an unreleased song: it goes under Singles & unreleased.', hint);
   const o1 = await offered();
   await form.locator('select[data-key=actId]').selectOption('s-owls');
   const o2 = await offered();
@@ -296,7 +296,7 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
     ok(`${id}: ${id === 'manager' ? 'Songs as a bonus track' : 'Songs on its menu'}, in folds, its words for songs with no ${w} (“No ${w}”), in the walkthrough and in the form’s hint`,
       onMenu === (id !== 'manager') && (await page.textContent('#sg-act-none .sg-fold-name')) === `No ${w}` && (await spoken(page, '#sg-act-none')) === `No ${w}, 2 songs`
       && !!st && st[0] === `By ${w} and album` && st[1].startsWith(`Each ${w}’s songs fold under its name, A to Z. Songs with no ${w} come last, under No ${w}.`)
-      && h === `The ${w}’s albums are suggested. Leave it empty for a single or unreleased song: it goes under Singles & unreleased.`,
+      && h === `The ${w}’s albums typed so far are suggested. Leave it empty for a single or an unreleased song: it goes under Singles & unreleased.`,
       JSON.stringify({ onMenu, name: await page.textContent('#sg-act-none .sg-fold-name'), st: st && st[1].slice(0, 70), h }));
   }
   ok('no errors in the console (every role)', errors.length === 0, errors.slice(0, 5).join(' | '));
