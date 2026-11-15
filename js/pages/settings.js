@@ -1,8 +1,9 @@
 // Settings: everything that isn't a record, in twirl-down sections that each say where they stand on their closed
 // line: your role (which sets the section menu), your details (with the way to My card, the contact card as a big QR code, and the card as a .vcf file), quotes & invoices, backups, display &
 // accessibility, help, about, and erasing this device. Which sections are open is remembered here. Settings no longer
-// offers the sample (the owner took Sample data off, 15 November 2026): a device that loaded it before has a Sample data
-// section only while sample records are on it, to remove them in one go.
+// offers the sample (the owner took Sample data off, 15 November 2026): a device with sample records on it (loaded there
+// before, or brought in by a backup or Google Drive) has a Sample data section only while they are on it, to remove them
+// in one go.
 // A role without money (scout, audiophile: moneyShown() false) has no Quotes & invoices section, and its details
 // are not said to go on quotes and invoices; the section comes back with a role that uses money.
 import { h, toast, announce, safeUrl, telUrl, nodes } from '../util.js';
@@ -235,8 +236,9 @@ const licenceBit = () => {
   return s.started ? ` · ${plural(s.trialLeft, 'free day')} left` : '';
 };
 const roleSummary = () => { const r = role(); return (roleChosen() ? `${r.label} · ${plural(menuSections(r).length, 'section')} on the menu` : 'Not chosen: every section is on the menu') + licenceBit(); };
-// Settings no longer loads the sample (store.loadSample() stays as the tests' fixture). A device that loaded it before
-// keeps a way to remove it: the Sample data section, drawn only while a sample record is on the device.
+// Settings no longer loads the sample (store.loadSample() stays as the tests' fixture). A device with sample records on it
+// (loaded there before, or brought in by a backup or Google Drive) keeps a way to remove them: the Sample data section,
+// drawn only while a sample record is on the device.
 const sampleCount = () => store.COLLECTIONS.reduce((n, c) => n + db[c].filter(r => r && r.sample).length, 0);
 // Every sample record goes through store.remove, so anything of yours that pointed at one (a booking for the sample
 // act, at a sample venue, with a sample song) is unlinked instead of left pointing at nothing. Returns how many went.
@@ -252,13 +254,14 @@ export function removeSample() {
   return n;
 }
 function askRemove() {
+  if (!store.canChange({ form: false })) return; // a read-only role: the licence's sheet says why, and no question is asked
   const all = store.COLLECTIONS.flatMap(c => db[c].filter(r => r && r.sample));
   if (!all.length) return toast('There is no sample to remove');
   const edited = all.filter(r => Number(r.updatedAt) > Number(r.createdAt) + 2000).length;
   if (!confirm(`Remove the ${plural(all.length, 'sample record')}?${edited ? ` ${edited} of them changed after loading, and those changes go too.` : ''} Your own records stay; anything of yours linked to a sample act, venue, song or person is unlinked.`)) return;
   const next = document.querySelector('#se-sample + .se-sec > summary'); // the section that takes its place
   const n = removeSample();
-  if (!n) return; // refused (a read-only role): the licence's sheet says why
+  if (!n) return; // nothing went (refused): say nothing about a removal
   toast(`Sample removed: ${plural(n, 'record')}`);
   announce('Sample removed');
   // With the last sample record gone the section goes too: the focus goes to the section now in its place, after the redraw.
@@ -266,7 +269,7 @@ function askRemove() {
 }
 function sampleBody() {
   return [
-    h('p', { class: 'small muted' }, 'These records came with the sample loaded on this device before. They come out in one go; your own records stay.'),
+    h('p', { class: 'small muted' }, 'These are the sample’s records: a sample band and a few weeks of bookings, marked as the sample. They come out in one go; your own records stay.'),
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn danger', id: 'se-sample-remove', onclick: askRemove }, 'Remove the sample…')),
   ];
 }
@@ -384,7 +387,7 @@ const SECTIONS = [
   ['backups', 'Backups', 'Save a backup file, bring one back, keep a copy in a file in a synced folder, or connect Google Drive to share Tourbook between your devices with a dated copy each day.'],
   ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
   ['help', 'Help', 'A walkthrough for any page, and the welcome tour.'],
-  ['sample', 'Sample data', 'The records of the sample loaded on this device before: remove them in one go, and this section goes with them. Your own records stay.'],
+  ['sample', 'Sample data', 'The sample’s records: remove them in one go, and this section goes with them. Your own records stay.'],
   ['about', () => (licenceOn() ? 'About & licence' : 'About'), () => (licenceOn() ? 'The version and updates, your licence, privacy and terms, and where your data is kept.' : 'The version and updates, privacy, and where your data is kept.')],
   ['erase', 'Erase this device', 'Wipes everything Tourbook keeps on this device. You type ERASE first, so it can’t happen by accident.'],
 ];
