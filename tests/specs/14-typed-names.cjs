@@ -294,7 +294,7 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   await page.evaluate(id => import('./js/pages/bookings.js').then(m => m.openBooking(id)), PAST); await page.waitForSelector('.bk-page .bk-hero'); await sleep(250);
   ok('a past gig with a band typed: “The Moths isn’t in your bands yet. Add them to score this show.” and “+ Add to Bands”', (await page.locator('.bk-score-typed .bk-score-text').innerText()) === 'The Moths isn’t in your bands yet. Add them to score this show.' && (await page.locator('#bk-score-add').innerText()) === '+ Add to Bands' && (await page.locator('#bk-score-add').getAttribute('aria-label')) === 'Add The Moths to your bands');
   const step = await page.evaluate(() => import('./js/pages/bookings.js').then(m => (m.bookings.tutorial().find(s => s.title === 'Score this show') || {}).text || ''));
-  ok('…and its walkthrough step says to add them', step === 'Add them to your bands, and Score this show shows here: it logs the night on their card.', step);
+  ok('…and its walkthrough step says to add them', step === 'Add them to your bands, then score the night here. It goes on their card.', step);
   await page.click('#bk-score-add'); await sleep(500);
   const moths = await actNamed(page, 'The Moths'); rec = await store(page, (s, id) => s.byId('bookings', id), PAST);
   ok('a tap makes the band and links the gig', moths && rec.actId === moths.id && rec.client === '');
