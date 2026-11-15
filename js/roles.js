@@ -115,9 +115,9 @@ export const ROLES = [
     pages: { bookings: { open: { show: ['notes'], other: ['notes'], session: ['notes'], rehearsal: ['notes'] }, score: true }, acts: { sampleWork: false, order: 'recent', tabs: ['about'], empty: 'Add a band you’ve seen or want to see. Each time you see them, log a score out of 100 with notes on the set and the sound; the card keeps your average, your latest score and their next dates.' }, tools: { tool: 'meter' } } },
 ];
 // Jack of Trades (Master of None): every section, as Tourbook has always been. It is where Tourbook is before a role is chosen,
-// and a profile anyone can pick: the last card in the first-run question and in Settings → Your role. Its id stays 'all'
-// (what is stored under tourbook-role), and EVERYTHING stays its name in the code. sub: a line read under the name on its
-// card (and with it, by a screen reader); only this profile has one.
+// and a profile anyone can pick: the first card in the first-run question and in Settings → Your role (js/role-pick.js
+// CARDS), over the six roles. Its id stays 'all' (what is stored under tourbook-role), and EVERYTHING stays its name in
+// the code. sub: a line read under the name on its card (and with it, by a screen reader); only this profile has one.
 export const EVERYTHING = { id: 'all', label: 'Jack of Trades', sub: 'Master of None', icon: '🧰', what: '', blurb: 'A bit of all of it: every section on the menu, and every box on a booking’s page.', sections: SECTIONS.slice(), start: 'bookings', names: {}, newKind: 'show', hide: [], money: true, pages: {} };
 // The licence (decisions §9): the Audiophile is free for ever; every other role, Jack of Trades included, needs a licence
 // after 30 free days. FREE_SECTIONS are the Audiophile's own sections (07-groundwork checks they match its menu), My card

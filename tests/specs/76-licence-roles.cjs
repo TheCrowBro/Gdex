@@ -104,9 +104,12 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       ok('the picker says which roles are free and which have 30 free days', badges.audiophile === 'Free' && ['producer', 'manager', 'band', 'solo', 'scout', 'all'].every(id => badges[id] === '30 days free, then a licence'), JSON.stringify(badges));
       ok('…and the first-run words say so, the Audiophile for personal use, not for work (decisions §21)', /Audiophile is free, for personal use, not for work\. The other roles, Jack of Trades included, are free for 30 days on this device, then need a licence: 20 USD once plus any tax where you live, for up to 3 of your devices\./.test(await page.textContent('.rp-intro')), await page.textContent('.rp-intro'));
       ok('…and so does the Audiophile’s own card, where it is picked', /\. For personal use, not for work\.$/.test(await page.textContent('.rp-ask .rp-card[data-role="audiophile"] .rp-blurb')), await page.textContent('.rp-ask .rp-card[data-role="audiophile"] .rp-blurb'));
-      // Jack of Trades (item 16) is the seventh card, last; its badge is on that card, as on the others. The old "Not sure? Show
-      // me everything" button is gone, and nothing on the question, the licence's sentence included, says Everything.
-      ok('…Jack of Trades is the last card and carries its badge on the card; no Show me everything button, no Everything in the words', (await page.$$eval('.rp-ask .rp-card', bs => bs.map(b => b.dataset.role).join())) === 'producer,manager,band,solo,scout,audiophile,all'
+      await page.waitForFunction(() => document.activeElement && document.activeElement.classList.contains('rp-card'), null, { timeout: 2000 }).catch(() => {});
+      // Jack of Trades (item 16) is the first card, at the top of the list (the owner, 15 Nov 2026), and takes the focus; its
+      // badge is on that card, as on the others. The old "Not sure? Show me everything" button is gone, and nothing on the
+      // question, the licence's sentence included, says Everything.
+      ok('…Jack of Trades is the first card, with the focus, and carries its badge on the card; no Show me everything button, no Everything in the words', (await page.$$eval('.rp-ask .rp-card', bs => bs.map(b => b.dataset.role).join())) === 'all,producer,manager,band,solo,scout,audiophile'
+        && await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.role === 'all' && a === document.querySelector('.rp-ask .rp-card'); })
         && (await page.textContent('.rp-ask .rp-card[data-role="all"] .rp-licence')) === '30 days free, then a licence' && (await page.locator('.rp-ask .rp-all').count()) === 0 && !/everything/i.test(await page.textContent('.rp-ask')), await page.textContent('.rp-ask'));
       await page.click('.rp-ask .rp-card[data-role="audiophile"]');
       await page.waitForSelector('.tour-card');

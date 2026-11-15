@@ -12,6 +12,9 @@ const NAMES = { bookings: 'Bookings', acts: 'Acts', people: 'People', songs: 'So
 const nameIn = (r, id) => (r.names && r.names[id]) || NAMES[id] || id;
 // The role's menu as words: "Bookings · Studio log · Songs …" (My card and Settings, last on every menu, are left out).
 export const menuText = r => menuSections(r).filter(id => id !== 'settings' && id !== 'card').map(id => nameIn(r, id)).join(' · ');
+// The cards, in the order both lists show them: Jack of Trades (every section) at the top, then the six roles in their
+// own order (the owner, 15 Nov 2026).
+const CARDS = [EVERYTHING, ...ROLES];
 
 function card(r, { on = false, radio = false, onPick }) {
   return h('button', {
@@ -56,8 +59,8 @@ window.addEventListener('tourbook-prefs', () => {
 // Once the role card has gone, the page takes the focus (#page), so the next Tab carries on from there.
 const focusPage = () => document.getElementById('page')?.focus({ preventScroll: true });
 
-// The first open: six roles, and Jack of Trades (every section) last. Picking one opens its start section (the calendar); then(…)
-// runs the welcome tour. Closing it without a pick is an answer too: Tourbook stays Jack of Trades (no role is saved), and the role card
+// The first open: Jack of Trades (every section) first, then the six roles; the first card takes the focus. Picking one
+// opens its start section (the calendar); then(…) runs the welcome tour. Closing it without a pick is an answer too: Tourbook stays Jack of Trades (no role is saved), and the role card
 // is never offered (tourbook-role-nudged). While Jack of Trades cannot be picked (licences live, the free days over, no licence),
 // closing it leaves the Audiophile instead, as Carry on free does: only the Audiophile works then (the lead's decision 1).
 export function askRole({ then = () => {}, title = 'Who’s using Tourbook?' } = {}) {
@@ -71,7 +74,7 @@ export function askRole({ then = () => {}, title = 'Who’s using Tourbook?' } =
   };
   const body = h('div', { class: 'stack rp-ask' },
     h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Tourbook puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.${licenceIntro()}`),
-    h('div', { class: 'list rp-list', role: 'group', 'aria-label': 'Roles' }, [...ROLES, EVERYTHING].map(r => card(r, { onPick: pick }))));
+    h('div', { class: 'list rp-list', role: 'group', 'aria-label': 'Roles' }, CARDS.map(r => card(r, { onPick: pick }))));
   const unpicked = () => {
     nudged();
     if (mayPickRole(EVERYTHING.id) !== 'locked') { then(); return; }
@@ -100,8 +103,8 @@ export function nudgeRole(anchor) {
   window.addEventListener('tourbook-role', () => { if (card.isConnected) done(); }, { once: true });
 }
 
-// Settings → Your role: the six roles and Jack of Trades as one choice; what is on the menu, and the bonus tracks. A choice
-// redraws the page (the app does, on tourbook-role), and the redrawn card keeps the focus. Its words follow the section
+// Settings → Your role: Jack of Trades and the six roles as one choice, in the same order; what is on the menu, and the
+// bonus tracks. A choice redraws the page (the app does, on tourbook-role), and the redrawn card keeps the focus. Its words follow the section
 // menu (record player, tape deck or digital player).
 export function rolePanel() {
   const el = h('div', { class: 'stack rp-panel' });
@@ -110,7 +113,7 @@ export function rolePanel() {
     // nodes(): a line that does not apply (no bonus tracks, money on) is left out, not written as the word "null"
     el.replaceChildren(...nodes(
       h('p', { class: 'small muted rp-about' }, aboutText()),
-      h('div', { class: 'list rp-list', role: 'radiogroup', 'aria-label': 'Your role' }, [...ROLES, EVERYTHING].map(x => card(x, { on: x.id === cur, radio: true, onPick: async id => {
+      h('div', { class: 'list rp-list', role: 'radiogroup', 'aria-label': 'Your role' }, CARDS.map(x => card(x, { on: x.id === cur, radio: true, onPick: async id => {
         if (id === roleId() && roleChosen()) return;
         if (!(await mayPick(id))) return; // offered a licence (or the terms not agreed): the role stays as it was
         haptic(); setRole(id); toast(`${roleOf(id).label}: the menu is set up for it. Nothing was deleted.`); announce(settled(roleOf(id)));
