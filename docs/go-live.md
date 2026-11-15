@@ -12,7 +12,8 @@ developer runs.
 
 1. **You read the terms and the privacy policy** (`terms.html`, `privacy.html`; the preview has them) and say what to
    change. They go live with this launch: who provides Tourbook, the contact address, the law, the courts, the liability
-   cap and the refund are copied unchanged from Vdex's (question 2 below), and their date is the day they were written.
+   cap and the refund are copied unchanged from Vdex's (the contact address is support@crowmade.app, your answer under
+   Questions for you, below), and their date is the day they were written.
    Before licences are switched on (9(d)), a lawyer you choose reads them too.
 2. **You check the address is free.** In Cloudflare, the crowmade.app zone → **DNS → Records**: no record named `tourbook`;
    and under **Workers & Pages** no Worker or Pages project uses tourbook.crowmade.app. A publish from GitHub runs Wrangler
@@ -158,8 +159,8 @@ purchase becomes a lasting licence. Steps: `docs/licence-server.md`, Part 4.
 In the Resend account Vdex uses: the sending domain tourbook.crowmade.app verified beside vdex.crowmade.app (Resend's
 free plan allows 3 domains, so no paid plan; the two share its 100 free emails a day), an API key with sending access for
 that domain → `RESEND_API_KEY`. The emails come from `Tourbook <licences@tourbook.crowmade.app>`, `MAIL_FROM`'s default,
-so `MAIL_FROM` stays unset. Add `REPLY_TO` before the shop opens (9(b)): the contact address, support@crowmade.app until
-you answer question 2 below. The terms (section 3) tell buyers they can reply to the email their licence came in, and
+so `MAIL_FROM` stays unset. Add `REPLY_TO` before the shop opens (9(b)): support@crowmade.app, the contact address (your
+answer, under Answered below). The terms (section 3) tell buyers they can reply to the email their licence came in, and
 without `REPLY_TO` a reply would go to licences@tourbook.crowmade.app, which has no inbox set up. Steps:
 `docs/licence-server.md`, Part 5.
 
@@ -226,7 +227,7 @@ role is free, nothing about licences shows.
 
 **(b) The shop.** In Cloudflare, on the Worker **tourbook**: the shop key (step 3), Stripe's settings (step 4), Resend's
 (step 5), `REPLY_TO` included. Check `/buy`, a test purchase, the thank-you page, the email, that a reply to the email
-reaches the contact address, and a refund (`docs/licence-server.md`, Part 7).
+reaches the contact address (support@crowmade.app), and a refund (`docs/licence-server.md`, Part 7).
 
 **(c) `WEB_SIGN_IN = on`** (a Text variable on the Worker tourbook). Nothing changes on the website yet.
 
@@ -343,7 +344,7 @@ Answered:
   terms and the privacy policy. Resend's free plan has allowed 3 verified domains since August 2026, so
   tourbook.crowmade.app is a second domain on the same Resend account as Vdex, sharing its 100 free emails a day (Tourbook
   sends at most 30 sign-in emails a day); no paid plan is needed, and Tourbook's key is made for its own domain only.
-  Where replies go (`REPLY_TO`) follows the contact address (question 2).
+  Replies go to support@crowmade.app (`REPLY_TO`), the contact address (below).
 - **Where the website is published from:** GitHub, like Vdex: the workflow **Publish Tourbook** on `main`, with the
   Cloudflare token in the protected Environment `tourbook-live` (step 2). You chose it on 14 November 2026 ("Like Vdex,
   from GitHub"), over publishing from your own computer, which stays possible (below step 7). GitHub shows no required
@@ -356,6 +357,12 @@ Answered:
   every role from the next publish.
 - **A lawyer:** "I'll find a lawyer": a lawyer you choose reads the terms and the privacy policy before licences are
   switched on (step 1 and 9(d)).
+- **The contact address:** support@crowmade.app, the same as Vdex's and crowmade.app's (15 November 2026: "Yes for the
+  support email since all of them live on the same site"), in the terms, the privacy policy and the emails. The pages
+  already said it, so they did not change. Replies to the licence and sign-in emails go there too: `REPLY_TO` is set to
+  support@crowmade.app with the other shop settings before the shop opens (step 5, 9(b)). crowmade.app's mail goes
+  through Cloudflare Email Routing (its MX records are route1–3.mx.cloudflare.net), so check that its routing rules send
+  support@crowmade.app to an inbox you read; 9(b)'s test reply shows it does.
 - **Backup files and the free days:** "Backups should carry the free days" (15 November 2026). Once licences are on, a
   backup file (a plain one, a locked one inside its encryption, and the copy kept in a file) carries the day the working
   roles' free days started on the device it was saved on, as Google Drive's copy does. Bringing it back counts this
@@ -366,10 +373,7 @@ Answered:
   text file anyone can edit, so this stops the easy way round the free days, not a determined one. The terms (section 3)
   and the privacy policy (sections 2 and 3) say so.
 
-Still open (the build goes ahead with these defaults meanwhile):
+Still open (the build goes ahead with its default meanwhile):
 
 1. **Code signing:** the Apple and Windows signing you have for Vdex, for Tourbook too (no new fee), or unsigned at first?
    *Default: the workflow signs only when the secrets exist.*
-2. **The contact address** in Tourbook's terms, privacy page and emails, and so where replies to the emails go
-   (`REPLY_TO`): the same as Vdex's? *Default: copied from Vdex's terms (support@crowmade.app), and `REPLY_TO` set to
-   it.*

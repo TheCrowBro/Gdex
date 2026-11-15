@@ -31,6 +31,7 @@
 //   RESEND_API_KEY         Resend, to email codes (without it the code is only shown after paying, and the website's
 //                          sign-in stays off)
 //   MAIL_FROM, REPLY_TO    the email's sender (default "Tourbook <licences@tourbook.crowmade.app>") and where replies go
+//                          (support@crowmade.app, the contact address: docs/licence-server.md, Part 5)
 //   WEB_SIGN_IN            "on" lets the website ask for a licence once licences are live in its build
 //                          (js/licence-config.js); anything else pauses it, and every role opens again within hours
 //   SIGN_IN_EMAILS_PER_DAY a higher daily cap on sign-in emails, on a paid Resend plan (default 30)
