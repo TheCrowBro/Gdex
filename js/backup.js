@@ -716,7 +716,7 @@ export const backupSteps = STEPS;
 sheetTutorial('Backups', STEPS);
 sheetTutorial('Bring back a backup', [
   { title: 'What is in the file', text: 'How many bookings, songs, people and so on the backup holds, next to what is on this device now.', target: ['.se-imp-file'] },
-  { title: 'Your free days', text: 'Bringing the backup back changes this device’s free days for the working roles. This line says from which day they are counted, how many days are left and until when, or that they are over.', target: ['.se-imp-days'] },
+  { title: 'Your free days', text: 'Bringing the backup back changes this device’s free days for the working roles. This line says when they started, how many are left and until when, or that they are over.', target: ['.se-imp-days'] },
   { title: 'Merge', text: 'Keeps everything here and adds what the backup has that this device lacks. Where the same record is in both, the one changed last wins. Records deleted here since the backup stay deleted, unless you tick Also bring back (ticked for a daily copy).', target: ['.se-imp-merge'] },
   { title: 'Replace', text: 'Makes this device exactly like the file. Anything added here since the backup is lost, so Tourbook asks first.', target: ['.se-imp-replace'] },
 ]);

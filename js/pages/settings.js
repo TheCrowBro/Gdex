@@ -333,7 +333,7 @@ function askRemove() {
 }
 function sampleBody() {
   return [
-    h('p', { class: 'small muted' }, 'These are the sample’s records: a sample band and a few weeks of bookings, marked as the sample. They come out in one go; your own records stay.'),
+    h('p', { class: 'small muted' }, 'The sample’s records: a band and a few weeks of bookings. They come out in one go; your own records stay.'),
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn danger', id: 'se-sample-remove', onclick: askRemove }, 'Remove the sample…')),
   ];
 }
@@ -513,5 +513,5 @@ sheetTutorial('Your details', [
   { title: 'Who you are', text: 'Your name, and your business, band or project name, as they should read on day sheets and invoices.', target: ['[data-key="name"]'] },
   { title: 'How to reach you', text: 'Phone, email and website go on your contact card and on your documents.', target: ['[data-key="phone"]'] },
   { title: 'Postal address', text: 'For invoices: some clients need it there before they can pay.', target: ['[data-key="address"]'] },
-  { title: 'Currency', text: 'Pick your country: its currency is used for every fee, deal, settlement, quote and invoice. The country this device is set to comes first.', target: ['[data-key="currency"]'] },
+  { title: 'Currency', text: 'Pick your country: its currency is used for every fee, deal, settlement, quote and invoice. This device’s country comes first.', target: ['[data-key="currency"]'] },
 ]);

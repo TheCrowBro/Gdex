@@ -111,15 +111,15 @@ form has the two boxes, and the item's sheet says what they hold; the figures sh
 Money in and out stays on the Money page, and the inventory, stage packs and everything printed are as they were. Search
 finds an item by its band's name too.
 
-**Your currency, chosen by country.** At the top of **Settings → Quotes & invoices** (and in Your details and the welcome
-tour) one list holds every country with its currency, "United Kingdom — £ GBP", A to Z, with the country your device is
-set to first. Picking one sets the symbol on every amount and the code your Pay buttons and bank QR code use, together.
-Each quote and invoice has its own **Currency** in its editor, from the same list and starting as yours, for work
-abroad: an invoice in euros has € on it and asks for euros with its Pay buttons and bank QR code (Venmo, Cash App and
-Monzo, which take only dollars or pounds, open without the amount, and a card page with {amount} is left off), and once
-sent a document keeps its currency whatever you change yours to. The Money page never
-adds two currencies together: it shows a total for each ("£900 GBP + €400 EUR"). A new device starts in US dollars until
-you pick, and a currency typed by hand in an older version stays as it is until you pick a country.
+**Your currency, chosen by country.** Pick your country at the top of **Settings → Quotes & invoices** (or in Your
+details or the welcome tour) from a list of every country with its currency ("United Kingdom — £ GBP"), your device's
+country first. That sets the symbol on every amount and the code your Pay buttons and bank QR code use. For work abroad,
+each quote and invoice has its own **Currency** in its editor, starting as yours: an invoice in euros shows € and asks
+for euros with its Pay buttons and bank QR code. Venmo and Cash App (US dollars only) and Monzo (pounds only) then open
+without the amount, and a card payment page with {amount} is left off. Once sent, a document keeps its currency even if
+you change yours. The Money page never adds two currencies together: it shows a total for each ("£900 GBP + €400 EUR").
+A new device starts in US dollars until you pick a country; a currency typed by hand in an older version stays as it is
+until then.
 
 ## The calendar
 
@@ -204,8 +204,8 @@ and quotes. Every word must match, in any order; capitals and accents don't matt
   dated copy for each of the last 7 days and each of the last 12 months, in your own Drive, in a hidden Tourbook
   folder that only Tourbook can open. It is free, whatever your role. Nothing goes to a Tourbook server.
 - **The licence**, once it is switched on, is all that Tourbook's own server (tourbook.crowmade.app) ever hears about, and
-  only once you use a working role, or a backup file or Google Drive brings in free days started on another device: an
-  Audiophile who does neither sends it nothing.
+  only once you use a working role, or once a backup file or Google Drive brings in free days started on another
+  device: an Audiophile who does neither sends it nothing.
 - **Save a backup now and then:** tap ☁ at the top → **Save a backup**. Keep the file somewhere safe. To move to a new
   phone or computer, open Tourbook there and import the file. In Chrome or Edge on a computer, Tourbook can also
   keep a copy in your Dropbox, Google Drive, OneDrive or iCloud Drive folder.

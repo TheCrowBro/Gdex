@@ -418,7 +418,7 @@ export function openEditor(bookingId, kind) {
   };
   const box = h('form', { class: 'stack mn-editor', novalidate: true, onsubmit: e => { e.preventDefault(); save(); } },
     h('div', { class: 'mn-pair' }, field('mn-ed-number', `${K.label} number`, number), field('mn-ed-status', 'Status', status), field('mn-ed-issued', 'Date', issued), field('mn-ed-due', K.dueLabel, due)),
-    h('div', { class: 'field wide mn-ed-cur' }, h('label', { for: 'mn-ed-currency' }, 'Currency'), curSel, h('small', { class: 'muted' }, `Yours is ${curLabel(mine())}. For work abroad, pick the client’s: the Pay buttons and the bank QR code use it.`)),
+    h('div', { class: 'field wide mn-ed-cur' }, h('label', { for: 'mn-ed-currency' }, 'Currency'), curSel, h('small', { class: 'muted' }, `Yours is ${curLabel(mine())}. For work abroad, pick the client’s: the prices, Pay buttons and bank QR code follow it.`)),
     h('h4', { class: 'mn-ed-head' }, 'Lines'),
     unitList, linesBox,
     h('div', { class: 'actions mn-ed-add' },
@@ -541,7 +541,7 @@ export function billingPanel() {
   return h('div', { class: 'stack mn-billing' },
     // Your currency, by country: the symbol on every amount and the code for payment links and the bank QR, together.
     h('div', { class: 'field mn-bl-cur' }, h('label', { for: 'mn-bl-currency' }, 'Your currency'), myCurrencySelect('mn-bl-currency'),
-      h('small', { class: 'muted' }, 'Pick your country. Its currency is on every fee, deal, settlement, quote and invoice, and payment links use it. A quote or an invoice for work abroad can have its own.')),
+      h('small', { class: 'muted' }, 'Pick your country. Its currency is used for every fee, deal, settlement, quote, invoice and payment link. A quote or invoice for work abroad can have its own.')),
     h('p', { class: 'small muted' }, 'Your name, business, address, phone and email on quotes and invoices come from your profile.'),
     h('h4', { class: 'mn-bl-head' }, 'Numbering'),
     h('div', { class: 'mn-pair' },
@@ -571,7 +571,7 @@ export function billingPanel() {
 /* ------------------------------- walkthroughs for the sheets ------------------------------- */
 const editorSteps = kind => [
   { title: `${KINDS[kind].label} number and dates`, text: 'Numbers come from Settings and are never reused. The status changes as you send the document and get paid.', target: ['#mn-ed-number'] },
-  { title: 'Currency', text: 'Yours to start with. For work abroad, pick the client’s country: the prices, the Pay buttons and the bank QR code follow it. Once sent, it keeps its currency.', target: ['#mn-ed-currency'] },
+  { title: 'Currency', text: 'It starts as yours. For work abroad, pick the client’s country: the prices, Pay buttons and bank QR code follow it. Once sent, the document keeps its currency even if you change yours.', target: ['#mn-ed-currency'] },
   { title: 'Lines', text: 'What you charge for: description, quantity, unit and price each. Amounts add up as you type.', target: ['.mn-lines'] },
   { title: 'Add more', text: 'Add a blank line, or pick from your price list: the hours, days and songs fill in from the booking.', target: ['.mn-ed-add'] },
   { title: 'Tax', text: 'The tax name and rate go on the document. Leave the rate at 0 if you don’t charge it.', target: ['.mn-ed-tax'] },
