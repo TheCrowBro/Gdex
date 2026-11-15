@@ -1,4 +1,4 @@
-// Roles: the first-run question (producer, manager, band, solo artist, scout, audiophile, or Jack of Trades), each role's
+// Roles: the first-run question (Jack of Trades first, then producer, manager, band, solo artist, scout, audiophile), each role's
 // section menu (the calendar first, and where Tourbook opens every time, whatever was open last), the welcome tour that
 // follows it, Settings → Your role to swap, bonus tracks for the sections off the menu (on the sleeve or the track list,
 // as a tab on the digital player, and from any link), the booking boxes a role hides, and that nothing is lost.
@@ -22,7 +22,9 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.waitForSelector('.sheet[aria-label="Who’s using Tourbook?"]', { timeout: 8000 });
     const R = await roles(page);
     const cards = await page.$$eval('.rp-ask .rp-card', bs => bs.map(b => b.dataset.role));
-    ok('the first open asks who is using Tourbook, with the six roles and Jack of Trades last', JSON.stringify(cards) === JSON.stringify(['producer', 'manager', 'band', 'solo', 'scout', 'audiophile', 'all']), cards.join(','));
+    // Jack of Trades at the top of the list, then the six roles in their own order (the owner, 15 Nov 2026).
+    ok('the first open asks who is using Tourbook, with Jack of Trades first and then the six roles', JSON.stringify(cards) === JSON.stringify(['all', 'producer', 'manager', 'band', 'solo', 'scout', 'audiophile']), cards.join(','));
+    ok('…Jack of Trades is the first card in the list, on top: above every other card on the screen', await page.$eval('.rp-ask .rp-list', l => { const cs = [...l.querySelectorAll('.rp-card')], top = cs[0].getBoundingClientRect(); return l.firstElementChild === cs[0] && cs[0].dataset.role === 'all' && cs.slice(1).every(c => c.getBoundingClientRect().top >= top.bottom - 1); }));
     // Jack of Trades (id 'all', every section) is a full card like the others: its name, the sub name under it, its icon, its blurb, its menu
     const jack = await page.$eval('.rp-ask .rp-card[data-role="all"]', c => {
       const box = sel => { const e = c.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, text: e.textContent }; };
@@ -47,7 +49,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     // The Audiophile is for personal use, not for work (the owner, decisions §21; terms.html section 3): its card says so
     // where the role is picked, with licences on or off.
     ok('the Audiophile’s card says it is for personal use, not for work', /\. For personal use, not for work\.$/.test(await page.textContent('.rp-ask .rp-card[data-role="audiophile"] .rp-blurb')), await page.textContent('.rp-ask .rp-card[data-role="audiophile"] .rp-blurb'));
-    ok('the first role has the focus', await page.evaluate(() => document.activeElement && document.activeElement.dataset.role === 'producer'));
+    ok('the first card, Jack of Trades, has the focus', await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.role === 'all' && a === document.querySelector('.rp-ask .rp-card'); }), await page.evaluate(() => (document.activeElement || {}).dataset?.role || (document.activeElement || {}).tagName));
     ok('the welcome tour waits for the answer', (await page.locator('.tour-card').count()) === 0);
     await page.click('.rp-card[data-role="producer"]');
     await page.waitForSelector('.tour-card');
@@ -136,7 +138,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     ok(`Jack of Trades${label}: Settings → Your role’s line names it`, /Jack of Trades · 12 sections on the menu/.test(await page.textContent('#se-role summary')), await page.textContent('#se-role summary'));
     await page.evaluate(() => { document.getElementById('se-role').open = true; });
     await page.waitForSelector('#se-role .rp-card');
-    ok(`Jack of Trades${label}: …where it is the checked card, last, with its sub name`, (await page.$$eval('#se-role .rp-card', bs => bs.map(b => b.dataset.role + ':' + b.getAttribute('aria-checked')))).join(',') === 'producer:false,manager:false,band:false,solo:false,scout:false,audiophile:false,all:true' && (await page.textContent('#se-role .rp-card[data-role="all"] .rp-sub')) === 'Master of None');
+    ok(`Jack of Trades${label}: …where it is the checked card, first, with its sub name`, (await page.$$eval('#se-role .rp-card', bs => bs.map(b => b.dataset.role + ':' + b.getAttribute('aria-checked')))).join(',') === 'all:true,producer:false,manager:false,band:false,solo:false,scout:false,audiophile:false' && (await page.textContent('#se-role .rp-card[data-role="all"] .rp-sub')) === 'Master of None');
     ok(`Settings → Your role${label}: the Audiophile’s card says it is for personal use, not for work`, /\. For personal use, not for work\.$/.test(await page.textContent('#se-role .rp-card[data-role="audiophile"] .rp-blurb')));
     ok(`no errors in the console (Jack of Trades${label})`, errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();
@@ -220,8 +222,9 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
     await page.focus('#rp-nudge-go');
     await page.keyboard.press('Enter');
     await page.waitForSelector('.rp-ask');
-    ok('Choose my role asks the question, with Jack of Trades as the seventh card', (await page.locator('.rp-ask .rp-card').count()) === 7 && (await page.getAttribute('.rp-ask .rp-card:last-child', 'data-role')) === 'all');
+    ok('Choose my role asks the question, with Jack of Trades as the first of the seven cards, then the six roles', (await page.$$eval('.rp-ask .rp-card', bs => bs.map(b => b.dataset.role).join())) === 'all,producer,manager,band,solo,scout,audiophile' && (await page.getAttribute('.rp-ask .rp-card:first-child', 'data-role')) === 'all');
     await sleep(150);
+    ok('…and the focus is on that first card, Jack of Trades', await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.role === 'all' && a === document.querySelector('.rp-ask .rp-card'); }), await page.evaluate(() => (document.activeElement || {}).dataset?.role || (document.activeElement || {}).tagName));
     await page.focus('.rp-card[data-role="audiophile"]');
     await page.keyboard.press('Enter');
     await sleep(700);
@@ -477,7 +480,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   await page.click('#se-role summary');
   await page.waitForSelector('#se-role .rp-card');
   const radios = await page.$$eval('#se-role .rp-card', bs => bs.map(b => [b.dataset.role, b.getAttribute('role'), b.getAttribute('aria-checked')]));
-  ok('it lists the six roles and Jack of Trades, last, as one choice (Jack of Trades checked while none is chosen)', radios.length === 7 && radios.every(r => r[1] === 'radio') && radios[6][0] === 'all' && radios.find(r => r[0] === 'all')[2] === 'true', JSON.stringify(radios));
+  ok('it lists Jack of Trades first and then the six roles, as one choice (Jack of Trades checked while none is chosen)', radios.map(r => r[0]).join() === 'all,producer,manager,band,solo,scout,audiophile' && radios.every(r => r[1] === 'radio') && radios[0][0] === 'all' && radios.find(r => r[0] === 'all')[2] === 'true' && radios.filter(r => r[2] === 'true').length === 1, JSON.stringify(radios));
   ok('…its card has the sub name under the name, and a screen reader hears “Jack of Trades, Master of None”', (await page.textContent('#se-role .rp-card[data-role="all"] .rp-sub')) === 'Master of None' && (await page.locator('#se-role .rp-sub').count()) === 1
     && (await page.getByRole('radio', { name: /^Jack of Trades ?, Master of None A bit of all of it/ }).count()) === 1 && (await page.$eval('#se-role .rp-card[data-role="all"]', c => c.querySelector('.rp-sub').getBoundingClientRect().top >= c.querySelector('.rp-name').getBoundingClientRect().bottom - 1)));
   ok('…and Your role says Everything nowhere', !/everything/i.test(await page.textContent('#se-role')), await page.textContent('#se-role'));

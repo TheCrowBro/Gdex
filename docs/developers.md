@@ -106,8 +106,9 @@ off the menu as the bonus track.
 
 ## Roles (`js/roles.js`, `js/role-pick.js`)
 
-The first open asks who is using Tourbook: producer, manager, band, solo artist, scout or audiophile, or Jack of Trades
-(Master of None: every section), the seventh card, listed last (`askRole` in `js/role-pick.js`, then the welcome tour
+The first open asks who is using Tourbook: Jack of Trades (Master of None: every section), the first card, which takes the
+focus, then producer, manager, band, solo artist, scout or audiophile (`CARDS` in `js/role-pick.js`, the order of both
+lists; `askRole`, then the welcome tour
 for that role, `startTour(0, { first: true })`, which ends on the calendar however it ends, so "Did you see them?" is
 asked there; taken again later, from ?, Aa or Settings, the
 tour ends on the section it was started from: `runTour(steps, { onEnd })`). Settings → Your role swaps it (`rolePanel`). A

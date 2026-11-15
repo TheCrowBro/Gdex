@@ -31,19 +31,19 @@ may rename on GitHub; nothing here depends on the repository's name.
 
 ## Set up for the way you work
 
-The first time Tourbook opens it asks who's using it: **producer, manager, band, solo artist, scout or audiophile**, or
-**Jack of Trades** (Master of None: a bit of all of it). Each gets its own menu and pages. Whoever you are, Tourbook opens
+The first time Tourbook opens it asks who's using it: **Jack of Trades** (Master of None: a bit of all of it), or
+**producer, manager, band, solo artist, scout or audiophile**. Each gets its own menu and pages. Whoever you are, Tourbook opens
 on the calendar every time, and the calendar is the first track on every menu:
 
 | Role | Menu (Side A, then Side B) | What changes |
 |---|---|---|
+| 🧰 Jack of Trades (Master of None) | Bookings · Acts · People · Songs · Studio log · Backline · Venues · Money · Tools · Insurance | Every section on the menu and every box on a booking's page, as Tourbook has always been. Close the question without picking and this is what you get. |
 | 🎛️ Producer | Bookings · Studio log · Songs · Artists · Backline · Money · People · Venues · Tools | + New starts a studio session; a session opens with the clock and take log; Tools opens on tap tempo. |
 | 💼 Manager | Bookings · Roster · Backline · Money · People · Venues · Insurance | A show opens with the deal and the advance checklist; new people start as industry contacts. |
 | 🥁 Band | Bookings · Songs · Backline · Tools · Bands · Money · People · Venues | A show opens with the running order and setlist; Songs opens on your setlists. |
 | 🎤 Solo artist | Bookings · Songs · Money · My act · Venues · People · Tools | A show opens with the deal and setlist; private gigs (weddings, parties) are shows too. |
 | 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Tourbook asks if you saw them and takes your score; no fees or settlements. |
 | 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Tourbook asks if you saw them and takes your score; Tools opens on the sound meter; no fees. Free, for personal use, not for work. |
-| 🧰 Jack of Trades (Master of None) | Bookings · Acts · People · Songs · Studio log · Backline · Venues · Money · Tools · Insurance | Every section on the menu and every box on a booking's page, as Tourbook has always been. Close the question without picking and this is what you get. |
 
 Every menu ends with **My card** and **Settings**, whoever you are. Nothing is ever deleted or out of reach: the
 sections a role doesn't use are **bonus tracks** on the sleeve (tap the record), and the booking boxes it doesn't use
