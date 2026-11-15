@@ -115,9 +115,10 @@ finds an item by its band's name too.
 tour) one list holds every country with its currency, "United Kingdom — £ GBP", A to Z, with the country your device is
 set to first. Picking one sets the symbol on every amount and the code your Pay buttons and bank QR code use, together.
 Each quote and invoice has its own **Currency** in its editor, from the same list and starting as yours, for work
-abroad: an invoice in euros has € on it and asks for euros with its Pay buttons and bank QR code, and once sent a
-document keeps its currency whatever you change yours to. The Money page never
-adds two currencies together: it shows a total for each ("£900 GBP, €400 EUR"). A new device starts in US dollars until
+abroad: an invoice in euros has € on it and asks for euros with its Pay buttons and bank QR code (Venmo, Cash App and
+Monzo, which take only dollars or pounds, open without the amount, and a card page with {amount} is left off), and once
+sent a document keeps its currency whatever you change yours to. The Money page never
+adds two currencies together: it shows a total for each ("£900 GBP + €400 EUR"). A new device starts in US dollars until
 you pick, and a currency typed by hand in an older version stays as it is until you pick a country.
 
 ## The calendar

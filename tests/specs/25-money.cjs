@@ -182,7 +182,8 @@ async function submitTop(page) { await topSheet(page).locator('button[type=submi
   const pp = pays.find(p => p[0] === 'paypal'), vm = pays.find(p => p[0] === 'venmo');
   ok('a PayPal button with the amount', pp && pp[1] === 'https://paypal.me/nightowls/170.00USD', JSON.stringify(pays));
   const mz = pays.find(p => p[0] === 'monzo');
-  ok('a Monzo button with the amount and the reference', mz && mz[1] === 'https://monzo.me/nightowls/170.00?d=GIG-0007', mz && mz[1]);
+  // Monzo takes pounds only: on this invoice in US dollars it opens with the reference and no amount (26-currency checks one in pounds).
+  ok('a Monzo button with the reference, and no amount in dollars', mz && mz[1] === 'https://monzo.me/nightowls?d=GIG-0007', mz && mz[1]);
   ok('a Venmo button with the amount and the invoice number', vm && vm[1] === 'https://venmo.com/owls?txn=pay&amount=170.00&note=GIG-0007', vm && vm[1]);
   ok('a payment link that is not https is left out', pays.every(p => /^https:/.test(p[1])));
   ok('bank details are on the invoice', /IBAN: DE89/.test(await client.locator('.pay-sec').innerText()));

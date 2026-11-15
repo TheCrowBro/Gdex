@@ -21,19 +21,24 @@ const isHttps = s => /^https:\/\/[^\s]+$/i.test(clean(s));
 // The payment details a document carries (a copy of the billing settings): every field optional.
 export const PAY_FIELDS = ['accountName', 'bankName', 'sortCode', 'accountNumber', 'iban', 'bic', 'paypal', 'venmo', 'cashapp', 'revolut', 'payLink', 'payLinkLabel', 'note'];
 
-// The Pay buttons for a balance: [{ id, label, href }]. ctx = { amount, code, reference }.
-export function payButtons(pay = {}, { amount = 0, code = 'USD', reference = '' } = {}) {
-  const amt = amountStr(amount), out = [], ref = clean(reference), some = Number(amount) > 0;
+// The Pay buttons for a balance: [{ id, label, href }]. ctx = { amount, code, reference, own }: code is the document's
+// currency, own whether it is the sender's own. The amount goes in only where the service takes it in that currency:
+// PayPal with the code; Venmo and Cash App in US dollars only, Monzo in pounds only (in another currency their button
+// opens with no amount, the reference kept, as the bank QR leaves out an amount not in euros); a payment page is set up
+// in the sender's currency, so one with {amount} is filled in only on a document in it, and left off one in another.
+export function payButtons(pay = {}, { amount = 0, code = 'USD', reference = '', own = true } = {}) {
+  const amt = amountStr(amount), out = [], ref = clean(reference), some = Number(amount) > 0, usd = some && code === 'USD', gbp = some && code === 'GBP';
   const add = (id, label, href) => { if (href) out.push({ id, label, href }); };
   if (handle(pay.paypal)) add('paypal', 'Pay with PayPal', `https://paypal.me/${esc(handle(pay.paypal))}` + (some ? `/${amt}${code}` : ''));
-  if (handle(pay.venmo)) add('venmo', 'Pay with Venmo', `https://venmo.com/${esc(handle(pay.venmo))}?txn=pay` + (some ? `&amount=${amt}` : '') + (ref ? `&note=${esc(ref)}` : ''));
-  if (handle(pay.cashapp)) add('cashapp', 'Pay with Cash App', `https://cash.app/$${esc(handle(pay.cashapp))}` + (some ? `/${amt}` : ''));
+  if (handle(pay.venmo)) add('venmo', 'Pay with Venmo', `https://venmo.com/${esc(handle(pay.venmo))}?txn=pay` + (usd ? `&amount=${amt}` : '') + (ref ? `&note=${esc(ref)}` : ''));
+  if (handle(pay.cashapp)) add('cashapp', 'Pay with Cash App', `https://cash.app/$${esc(handle(pay.cashapp))}` + (usd ? `/${amt}` : ''));
   const rv = clean(pay.revolut);
   if (handle(rv)) {
-    if (/monzo\.me/i.test(rv)) add('monzo', 'Pay with Monzo', `https://monzo.me/${esc(handle(rv))}` + (some ? `/${amt}` : '') + (ref ? `?d=${esc(ref)}` : ''));
+    if (/monzo\.me/i.test(rv)) add('monzo', 'Pay with Monzo', `https://monzo.me/${esc(handle(rv))}` + (gbp ? `/${amt}` : '') + (ref ? `?d=${esc(ref)}` : ''));
     else add('revolut', 'Pay with Revolut', `https://revolut.me/${esc(handle(rv))}`);
   }
-  if (isHttps(pay.payLink)) add('link', clean(pay.payLinkLabel).slice(0, 40) || 'Pay online', clean(pay.payLink).replace(/\{amount\}/gi, amt).replace(/\{reference\}/gi, esc(ref)));
+  const link = clean(pay.payLink);
+  if (isHttps(link) && (own || !/\{amount\}/i.test(link))) add('link', clean(pay.payLinkLabel).slice(0, 40) || 'Pay online', link.replace(/\{amount\}/gi, amt).replace(/\{reference\}/gi, esc(ref)));
   return out;
 }
 

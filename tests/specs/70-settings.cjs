@@ -78,7 +78,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   await sleep(300);
   let d = await data(page);
   ok('the profile is stored', d.profile.name === 'Maya Brooks' && d.profile.business === 'Night Owls, Ltd' && d.profile.role === 'Band leader' && d.profile.address === '12 Quay Street\nHarbourtown HT1 2AB' && d.profile.website === 'nightowls.example.com', JSON.stringify(d.profile));
-  ok('the currency is picked by country: its symbol, code and country are stored together', d.profile.currency === '£' && d.billing.currencyCode === 'GBP' && d.billing.currencyCountry === 'GB', JSON.stringify([d.profile.currency, d.billing]));
+  ok('the currency is picked by country: its symbol, code and country are stored together, in the profile', d.profile.currency === '£' && d.profile.currencyCode === 'GBP' && d.profile.currencyCountry === 'GB' && !d.billing.currencyCode, JSON.stringify([d.profile, d.billing]));
   ok('the details show on the page', /Maya Brooks/.test(await text(page, '#se-profile .se-kv')) && /12 Quay Street/.test(await text(page, '#se-profile .se-kv')));
   ok('the section line shows the name and business', (await text(page, '#se-profile .se-sub')) === 'Maya Brooks · Night Owls, Ltd');
   ok('the edit button now says Edit', (await text(page, '#se-edit-profile')).includes('Edit your details'));
@@ -102,7 +102,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   await page.click(`${sheetOf('Your details')} button[type=submit]`);
   await sleep(250);
   d = await data(page);
-  ok('saving the details again keeps the currency', d.profile.currency === '£' && d.billing.currencyCode === 'GBP' && d.billing.currencyCountry === 'GB', JSON.stringify([d.profile.currency, d.billing]));
+  ok('saving the details again keeps the currency', d.profile.currency === '£' && d.profile.currencyCode === 'GBP' && d.profile.currencyCountry === 'GB', JSON.stringify(d.profile));
 
   // Sample data
   await openSec(page, 'sample');

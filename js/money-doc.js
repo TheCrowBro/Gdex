@@ -38,7 +38,8 @@ export function calc(doc = {}) {
 }
 export const isPaidDoc = snap => snap.kind === 'invoice' && snap.status !== 'void' && (snap.status === 'paid' || (calc(snap).total > 0 && calc(snap).due <= 0));
 export const docTitle = snap => `${KINDS[snap.kind].label} ${snap.number}${snap.title ? ' – ' + snap.title : ''}`;
-const payCtx = snap => ({ amount: calc(snap).due, code: snap.code || codeFor(snap.currency), reference: snap.number });
+// own: the document is in the sender's own currency (a link from before always was), so a payment page set up in it fits.
+const payCtx = snap => ({ amount: calc(snap).due, code: snap.code || codeFor(snap.currency), reference: snap.number, own: snap.own !== false });
 
 // "How to pay": Pay buttons for the balance, bank details with a QR, the person's own note, the reference to quote.
 // opts.qr(text) → Promise<svg markup>; opts.pending collects those promises (printing waits for them).
@@ -144,7 +145,7 @@ export function cleanSnapshot(raw) {
     taxRate: Math.max(0, Math.min(100, Number(fin(raw.taxRate, 100)) || 0)), taxName: str(raw.taxName, 30),
     notes: str(raw.notes, 4000),
     payments: kind === 'invoice' && Array.isArray(raw.payments) ? raw.payments.slice(0, 200).filter(p => p && typeof p === 'object').map(p => ({ date: iso(p.date), amount: Number(fin(p.amount)) || 0, method: str(p.method, 60) })) : [],
-    currency: str(raw.currency, 6) || '$', code: /^[A-Z]{3}$/.test(raw.code || '') ? raw.code : '', showCode: raw.showCode === true,
+    currency: str(raw.currency, 6) || '$', code: /^[A-Z]{3}$/.test(raw.code || '') ? raw.code : '', showCode: raw.showCode === true, own: raw.own !== false,
     email: /^[^\s@<>"]+@[^\s@<>"]+$/.test(str(raw.email, 200)) ? str(raw.email, 200) : '',
     pay,
   };

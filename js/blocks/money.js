@@ -6,7 +6,7 @@ import { h, toast, ymd } from '../util.js';
 import { byId, redraw } from '../store.js';
 import { fmtMoney } from '../model.js';
 import { dateText } from '../money-doc.js';
-import { docCur, mine, sameCur } from '../money-currency.js';
+import { docCur, docMoney, mine, sameCur } from '../money-currency.js';
 import {
   KINDS, statusLabel, calc, qtyText, docOf, docTotals, isOverdue, isPaid, suggestLines, createDoc, setStatus, recordPayment, removePayment,
   openEditor, openShareSheet, printDoc, saveWebPage, copyText, previewDoc, mailtoFor, shareLink, contactEmail,
@@ -92,13 +92,13 @@ export default {
   summary(b) {
     const inv = docOf(b, 'invoice'), q = docOf(b, 'quote');
     if (inv) {
-      const t = docTotals(inv), money = n => fmtMoney(n, docCur(inv).sym);
+      const t = docTotals(inv), money = n => docMoney(n, inv); // with its code where its symbol could be yours ('$400 USD')
       if (inv.status === 'void') return `Invoice ${inv.number} · void`;
       if (isPaid(inv)) return `Invoice ${inv.number} · paid`;
       if (inv.status === 'draft') return `Invoice ${inv.number} · draft · ${money(t.total)}`;
       return `Invoice ${inv.number} · ${money(t.due)} ${isOverdue(b) ? 'overdue' : 'due'}`;
     }
-    if (q) { const t = docTotals(q), money = n => fmtMoney(n, docCur(q).sym); return `Quote ${statusLabel('quote', q.status).toLowerCase()}${t.total ? ' · ' + money(t.total) : ''}`; }
+    if (q) { const t = docTotals(q), money = n => docMoney(n, q); return `Quote ${statusLabel('quote', q.status).toLowerCase()}${t.total ? ' · ' + money(t.total) : ''}`; }
     return '';
   },
   render(b) {

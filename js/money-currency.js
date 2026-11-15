@@ -1,10 +1,12 @@
 // The currency, chosen by country: every country with its currency (ISO 4217), the symbol and the names from the
-// browser's own Intl data (offline, no library). Picking a country sets the person's currency in one go: the symbol
-// every amount shows (db.profile.currency), the code payment links and the bank QR use (db.billing.currencyCode), and
-// the country picked (db.billing.currencyCountry), so the chooser shows it again. A quote or an invoice carries its own
-// (doc.currency, doc.code, doc.country) from the same list, for work abroad; one from before has none and is in yours.
-// What was stored before keeps working and reads as it did ('$' with no code, 'kr' with SEK, a symbol typed by hand): the
-// chooser shows it as it is ("Other — A$ AUD") until a country is picked. Sums of documents are kept per currency.
+// browser's own Intl data (offline, no library). Picking a country sets the person's currency in one go, in one record
+// (db.profile), so a merge of two devices keeps them together: the symbol every amount shows (profile.currency), the
+// code payment links and the bank QR use (profile.currencyCode), and the country picked (profile.currencyCountry), so
+// the chooser shows it again. A quote or an invoice carries its own (doc.currency, doc.code, doc.country) from the same
+// list, for work abroad; one from before has none and is in yours. What was stored before keeps working and reads as it
+// did ('$' with no code, 'kr' with SEK from the old "Currency for payment links", db.billing.currencyCode, a symbol typed
+// by hand): the chooser shows it as it is ("Other — A$ AUD") until a country is picked. Sums of documents are kept per
+// currency.
 import { h } from './util.js';
 import { db, update } from './store.js';
 import { fmtMoney } from './model.js';
@@ -79,17 +81,25 @@ export function deviceRegion() {
 }
 
 /* ------------------------------- yours, and a document's ------------------------------- */
+// The code for a symbol stored with no code: 'kr' is the device's own (NOK on NO, DKK on DK, ISK on IS), else what it
+// always was (SEK); '$' stays USD, so a new device is $ / USD wherever it is.
+const guessCode = sym => {
+  const k = codeOf(sym), dc = COUNTRY_CURRENCY[deviceRegion()];
+  return k && k !== 'USD' && dc && dc !== k && symbolFor(k) === sym && symbolFor(dc) === sym ? dc : k;
+};
 // A currency: { sym, code, country }. code is '' when the symbol was typed by hand and is not known; country '' when
-// none was picked.
+// none was picked. Yours is the profile's, all three from the one record; a profile from before has only the symbol,
+// with the code from the old "Currency for payment links" (db.billing.currencyCode) or else the one the symbol stands for.
 export function mine() {
-  const sym = (db.profile && db.profile.currency) || '$';
+  const p = db.profile && typeof db.profile === 'object' ? db.profile : {}, sym = p.currency || '$';
+  if (isCode(p.currencyCode)) return { sym, code: p.currencyCode, country: typeof p.currencyCountry === 'string' ? p.currencyCountry : '' };
   const bl = db.billing && typeof db.billing === 'object' ? db.billing : {};
-  return { sym, code: isCode(bl.currencyCode) ? bl.currencyCode : codeOf(sym), country: typeof bl.currencyCountry === 'string' ? bl.currencyCountry : '' };
+  return { sym, code: isCode(bl.currencyCode) ? bl.currencyCode : guessCode(sym), country: '' };
 }
 // A quote's or an invoice's currency: its own, else (a document from before currencies were per document) yours.
 export function docCur(doc) {
   if (!doc || typeof doc.currency !== 'string' || !doc.currency.trim()) return mine();
-  return { sym: doc.currency, code: isCode(doc.code) ? doc.code : codeOf(doc.currency), country: typeof doc.country === 'string' ? doc.country : '' };
+  return { sym: doc.currency, code: isCode(doc.code) ? doc.code : guessCode(doc.currency), country: typeof doc.country === 'string' ? doc.country : '' };
 }
 // What tells two currencies apart: the code, else (a symbol typed by hand) the symbol.
 export const curKey = c => (c && c.code) || 'sym:' + ((c && c.sym) || '$');
@@ -138,26 +148,32 @@ export function currencySelect(c, { sel = null, id, prefer = [], suggest = [], o
 // The currency picked in a chooser, or null when it was left as it was.
 export const picked = sel => (sel && sel.value !== sel.dataset.start && sel.value !== 'keep' ? choiceFor(sel.value) : null);
 
-// Sets your currency inside an update: the symbol, the code and the country, together.
+// Sets your currency inside an update: the symbol, the code and the country, together in the profile. The billing
+// settings (numbering, tax, payment details) are left alone: a currency picked on a new device never makes its empty
+// billing the newer copy in a merge with Google Drive or a backup, and the profile's merge already lets one filled in
+// beat one that holds only a currency.
 export function applyMine(d, c) {
-  const now = Date.now();
-  d.profile = { ...d.profile, currency: c.sym, updatedAt: now };
-  d.billing = { ...(d.billing && typeof d.billing === 'object' ? d.billing : {}), currencyCode: c.code || '', currencyCountry: c.country || '', updatedAt: now };
+  d.profile = { ...d.profile, currency: c.sym, currencyCode: c.code || '', currencyCountry: c.country || '', updatedAt: Date.now() };
 }
 export const setMine = c => !!c && update(d => applyMine(d, c));
 // Your chooser, for Settings → Quotes & invoices: it saves as soon as a country is picked (and goes back to what is
 // stored when the licence keeps the role read-only).
 export const myCurrencySelect = id => currencySelect(mine(), { id, onchange: (c, el) => { if (c && !setMine(c)) el.value = el.dataset.start; } });
 
-// A document's code is shown by its total when it is not in your currency and its symbol alone could be another
-// currency ('$' for US, Canadian or Australian dollars): a client abroad reads "Total (CAD)".
+// A currency whose symbol alone could be another one ('$' for US, Canadian or Australian dollars, 'kr', '¥'), or is not
+// its own (an older 'A$' for AUD): it needs its code beside an amount when it is not yours.
 let shared = null;
-export function codeNeeded(doc) {
-  const c = docCur(doc);
-  if (!c.code || c.sym === c.code || sameCur(c, mine())) return false;
+export function symShared(c) {
+  if (!c || !c.code || c.sym === c.code) return false;
   if (!shared) { shared = new Map(); for (const code of CODES) { const s = symbolFor(code); shared.set(s, (shared.get(s) || 0) + 1); } }
   return (shared.get(c.sym) || 0) > 1 || symbolFor(c.code) !== c.sym;
 }
+// A document's code is shown by its total when it is not in your currency and its symbol is shared: a client abroad
+// reads "Total (CAD)".
+export const codeNeeded = doc => { const c = docCur(doc); return !sameCur(c, mine()) && symShared(c); };
+// An amount on a document as a list shows it: in its currency, with its code when codeNeeded ("$400 USD" for someone in
+// Canadian dollars).
+export const docMoney = (n, doc) => { const c = docCur(doc); return fmtMoney(n, c.sym) + (codeNeeded(doc) ? ' ' + c.code : ''); };
 
 /* ------------------------------- sums per currency ------------------------------- */
 // Amounts in different currencies are never added together: sums().add(cur, n) keeps one total per currency, and
@@ -180,6 +196,7 @@ export function sums() {
   };
   return api;
 }
-// One sum as text: "£1,200"; several, each with its code: "£1,200 GBP + €800 EUR".
+// One sum as text: "£1,200"; several, each with its code: "£1,200 GBP + €800 EUR". One alone in a currency not yours
+// whose symbol is shared keeps its code too ("$400 USD" for someone in Canadian dollars).
 export const sumText = e => fmtMoney(e.amount, e.sym) + (e.code && e.code !== e.sym ? ' ' + e.code : '');
-export const sumsText = (list, sep = ' + ') => (list.length === 1 ? fmtMoney(list[0].amount, list[0].sym) : list.map(sumText).join(sep));
+export const sumsText = (list, sep = ' + ') => (list.length === 1 && (sameCur(list[0], mine()) || !symShared(list[0])) ? fmtMoney(list[0].amount, list[0].sym) : list.map(sumText).join(sep));

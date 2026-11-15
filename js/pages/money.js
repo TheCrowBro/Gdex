@@ -7,7 +7,7 @@
 import { h, toast, empty, todayISO, fmtShort } from '../util.js';
 import { db, update } from '../store.js';
 import { fmtMoney, bookingIncome, incomeInvoice, settle, bookingTitle, actName, venueOf, kindLabel, statusLabel, dealSummary, markCheck } from '../model.js';
-import { mine, docCur, sums, sumsText, sumText, sameCur } from '../money-currency.js';
+import { mine, docCur, docMoney, sums, sumsText, sumText, sameCur } from '../money-currency.js';
 import { docOf, docTotals, isOverdue, isPaid } from '../money.js';
 import { dateText } from '../money-doc.js';
 import { csv, saveFile } from '../print.js';
@@ -177,10 +177,10 @@ function render(root) {
     }))),
 
     section('mn-unpaid', 'Unpaid invoices', unpaidList.length ? h('div', { class: 'list' }, ...unpaidList.map(({ b, inv }) => {
-      const t = docTotals(inv), over = isOverdue(b), sym = docCur(inv).sym;
+      const t = docTotals(inv), over = isOverdue(b), money = n => docMoney(n, inv); // in its own currency, with its code where '$' could be yours
       return tap(b, h('div', { class: 'card-row' },
-        h('div', null, h('strong', null, `${inv.number} · ${bookingTitle(b)}`), h('div', { class: 'muted small' }, [inv.status === 'draft' ? 'not sent yet' : inv.due ? `due ${dateText(inv.due)}` : 'no due date', t.paid > 0 && `${fmtMoney(t.paid, sym)} paid`].filter(Boolean).join(' · '))),
-        h('div', { class: 'mn-amt' }, h('b', { class: over ? 'mn-late' : '' }, fmtMoney(t.due, sym)), h('span', { class: 'pill ' + (over ? 'mn-over' : inv.status === 'draft' ? 'st-hold' : 'st-offer') }, over ? 'Overdue' : inv.status === 'draft' ? 'Draft' : 'Sent'))));
+        h('div', null, h('strong', null, `${inv.number} · ${bookingTitle(b)}`), h('div', { class: 'muted small' }, [inv.status === 'draft' ? 'not sent yet' : inv.due ? `due ${dateText(inv.due)}` : 'no due date', t.paid > 0 && `${money(t.paid)} paid`].filter(Boolean).join(' · '))),
+        h('div', { class: 'mn-amt' }, h('b', { class: over ? 'mn-late' : '' }, money(t.due)), h('span', { class: 'pill ' + (over ? 'mn-over' : inv.status === 'draft' ? 'st-hold' : 'st-offer') }, over ? 'Overdue' : inv.status === 'draft' ? 'Draft' : 'Sent'))));
     })) : h('p', { class: 'muted small' }, invoices.length ? 'Nothing owed to you. Every invoice is paid.' : 'No invoices yet. Open a show or a session and make one in its Quote & invoice box.')),
 
     section('mn-months', `Income by month, ${Y}`,

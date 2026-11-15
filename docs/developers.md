@@ -308,7 +308,8 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 
 ### Records
 
-`db.profile`: `{ name, business, role, phone, email, website, location, address, currency, bio, updatedAt }`
+`db.profile`: `{ name, business, role, phone, email, website, location, address, currency, currencyCode, currencyCountry, bio, updatedAt }`
+(`currency`, `currencyCode`, `currencyCountry`: your currency, set together; "The currency, chosen by country" below)
 
 `bookings`:
 ```js
@@ -419,10 +420,16 @@ by `js/money.js`.
 
 The owner's words (15 Nov 2026): "Quote's and invoices should let you choose your country currency".
 
-* **Yours** is three fields: `db.profile.currency` (the symbol on every amount, `model.currency()`, `$` on a new
-  device), `db.billing.currencyCode` (the ISO 4217 code payment links and the bank QR use; `''` reads the code from the
-  symbol, `money-pay.js` `knownCode`) and `db.billing.currencyCountry` (the country picked, ISO 3166 alpha-2, so the
-  chooser shows it again; absent before this). One chooser sets them together, in one `update` (`applyMine`): at the top
+* **Yours** is three fields of the one record `db.profile`, so a merge of two devices always takes them together:
+  `currency` (the symbol on every amount, `model.currency()`, `$` on a new device), `currencyCode` (the ISO 4217 code
+  payment links and the bank QR use) and `currencyCountry` (the country picked, ISO 3166 alpha-2, so the chooser shows it
+  again); `''` until a country is picked. `mine()` reads them; for a profile from before (a symbol and no code) the code is
+  the old "Currency for payment links" (`db.billing.currencyCode`, still read, never written), else the one the symbol
+  stands for (`money-pay.js` `knownCode`; `'kr'` with no code is the device's krone or krona, NOK, DKK or ISK, else
+  SEK; `'$'` stays USD everywhere). `applyMine` never writes `db.billing`: a currency picked on a new device leaves its
+  billing untouched, so it never becomes the newer copy that would replace another device's numbering, tax and bank
+  details in a merge (and a profile holding only a currency still counts as empty there, so a filled-in one wins). One
+  chooser sets the three together, in one `update` (`applyMine`): at the top
   of Settings → Quotes & invoices (`myCurrencySelect`, saved on change), in Your details (the form's select, filled by
   `onReady`; saved with the form) and in the welcome tour's details card (saved on Next). The old "Currency for payment
   links" select is gone: there is no second setting. A role without money has no Quotes & invoices and sets it in Your
@@ -448,17 +455,23 @@ The owner's words (15 Nov 2026): "Quote's and invoices should let you choose you
   does a document from before: read it only through `docCur(doc)`. The box, the editor, payments, the snapshot
   (`currency`, `code`, and `showCode` when it is not in your currency and its symbol alone could be another, `'$'`: the
   document then says "Total (USD)", and the client's page and the email "$1,500.00 USD", `money-doc.js` `docAmount`),
-  the Pay buttons and the bank QR (the amount only in euros, as before) all use it. Its editor's walkthrough has a
-  Currency step.
+  the Pay buttons and the bank QR all use it, each only in a currency it takes: PayPal with the code, Venmo and Cash App
+  the amount in US dollars only, Monzo in pounds only (else no amount, the reference kept), the bank QR the amount in
+  euros only, as before, and a payment page with `{amount}` only on a document in your own currency (the snapshot's
+  `own`; it is left off one in another). Its editor's walkthrough has a Currency step.
 * **Never added across currencies:** `sums()` keeps one total per currency (`curKey`: the code, else the symbol) and
-  lists yours first; `sumsText` is `£1,200` for one and `£1,200 GBP + €800 EUR` for several. The Money page's stats are
+  lists yours first; `sumsText` is `£1,200` for one and `£1,200 GBP + €800 EUR` for several, and keeps the code on one
+  alone that is not yours when its symbol is shared (`symShared`: `$400 USD` for someone in Canadian dollars). A
+  document's amount in a list (the unpaid list, the box's line, the search's Money tab) is `docMoney(n, doc)`: in its
+  currency, with its code when `codeNeeded(doc)`. The Money page's stats are
   one line per currency (`.mn-cur-line`), a month's bar is drawn in yours with any other currency named beside it, an
   act's earnings and profit are per currency (merch and costs are yours), the unpaid list shows each invoice in its own,
   and both spreadsheets end with a Currency column (the shows': the fee's). What a booking brings in is in its
   invoice's currency when `model.incomeInvoice(b)` gives the invoice `bookingIncome` reads. The Costs box shows such
   income in its currency and works out no profit across currencies. The search reads a document's amounts in its own.
-* Normalise, backups, Drive's merge (each document with its booking; `billing` and `profile` each by its newer copy) and
-  the share page (`cleanSnapshot` keeps `showCode`) keep every field. Checks: `26-currency`.
+* Normalise (`blank()` has `currencyCode` and `currencyCountry` in the profile), backups, Drive's merge (each document
+  with its booking; your currency with the profile, by its rules) and the share page (`cleanSnapshot` keeps `showCode` and
+  `own`; a link from before has no `own` and counts as in the sender's currency) keep every field. Checks: `26-currency`.
 
 ## The music model (`js/model.js`)
 
@@ -678,7 +691,7 @@ may call it.
 | `js/daysheet.js` `openDaySheet(bookingId)` / `printDaySheet(bookingId)` | daysheet | Preview sheet / print. |
 | `js/money.js` `docOf(b, 'quote'|'invoice')` / `docTotals(doc)` / `isOverdue(b)` | money | The document or null / `{ net, tax, total, paid, due }` / unpaid past due. |
 | `js/money.js` `billingPanel()` / `priceListPanel()` | money | Nodes for Settings: your currency (at the top), numbering, tax, payment details; the person's price list. |
-| `js/money-currency.js` `mine()` / `docCur(doc)` / `currencySelect(cur, opts)` / `picked(sel)` / `applyMine(d, c)` / `setMine(c)` / `sums()` / `sumsText(list)` / `curLabel(c)` | money | Your currency and a document's (`{ sym, code, country }`) / the country chooser and what was picked in it / set yours inside an update, or on its own / totals kept per currency / a currency in words ("The currency, chosen by country" above). |
+| `js/money-currency.js` `mine()` / `docCur(doc)` / `currencySelect(cur, opts)` / `picked(sel)` / `applyMine(d, c)` / `setMine(c)` / `sums()` / `sumsText(list)` / `docMoney(n, doc)` / `curLabel(c)` | money | Your currency and a document's (`{ sym, code, country }`) / the country chooser and what was picked in it / set yours inside an update (in the profile), or on its own / totals kept per currency / a document's amount in a list, with its code where its symbol could be yours / a currency in words ("The currency, chosen by country" above). |
 | `js/clock.js` `initClockBar(el)` / `clockCard(b)` | studio | The strip under the section menu while a clock runs / start-stop card. |
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |

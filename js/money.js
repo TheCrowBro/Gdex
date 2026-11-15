@@ -20,7 +20,7 @@ import { printElement, docPage, saveFile, fileName } from './print.js';
 import { shareBase } from './version.js';
 import { KINDS, calc, renderDoc, docText, docTitle, statusLabel, fmtDoc, docAmount, dateText, qtyText, isPaidDoc } from './money-doc.js';
 import { codeFor } from './money-pay.js';
-import { mine, docCur, docFields, codeNeeded, currencySelect, myCurrencySelect, picked, curLabel } from './money-currency.js';
+import { mine, docCur, docFields, codeNeeded, sameCur, currencySelect, myCurrencySelect, picked, curLabel } from './money-currency.js';
 export { KINDS, statusLabel, calc, qtyText };
 // The QR maker and the link packer load only when a document with a bank QR is drawn or a link is made.
 const qrSvg = (text, opts) => import('./qr.js').then(m => m.qrSvg(text, opts));
@@ -265,7 +265,7 @@ export function snapshot(b, kind) {
     lines: doc.lines.map(({ desc, qty, unit, price }) => ({ desc: desc || '', qty: qty ?? '', unit: unit || '', price: price ?? '' })),
     taxRate: num(doc.taxRate), taxName: doc.taxName || bl.taxName || 'Tax', notes: doc.notes || '',
     payments: kind === 'invoice' ? doc.payments.map(({ date, amount, method }) => ({ date: date || '', amount: num(amount), method: method || '' })) : [],
-    currency: cur.sym, code: cur.code || codeFor(cur.sym), showCode: codeNeeded(doc), email: p.email || '',
+    currency: cur.sym, code: cur.code || codeFor(cur.sym), showCode: codeNeeded(doc), own: sameCur(cur, mine()), email: p.email || '',
     pay: kind === 'invoice' ? payInfo(bl) : {},
   };
 }
@@ -564,7 +564,7 @@ export function billingPanel() {
     h('div', { class: 'mn-pair' }, input('paypal', 'PayPal.me username', 'text', { placeholder: 'yourname' }), input('venmo', 'Venmo username', 'text', { placeholder: 'yourname' })),
     h('div', { class: 'grid2' },
       input('cashapp', 'Cash App $cashtag', 'text', { placeholder: '$yourname' }), input('revolut', 'Revolut or Monzo link', 'text', { placeholder: 'https://revolut.me/yourname' }),
-      input('payLink', 'Payment page link', 'text', { inputMode: 'url', placeholder: 'https://…', hint: 'A card payment page (Stripe, Square…). {amount} and {reference} in it are filled in.' }), input('payLinkLabel', 'Its button says', 'text', { placeholder: 'Pay by card' })),
+      input('payLink', 'Payment page link', 'text', { inputMode: 'url', placeholder: 'https://…', hint: 'A card payment page (Stripe, Square…). {amount} and {reference} in it are filled in; one with {amount} is left off an invoice in another currency.' }), input('payLinkLabel', 'Its button says', 'text', { placeholder: 'Pay by card' })),
     input('payNote', 'Payment note (on every invoice)', 'textarea', { placeholder: 'e.g. Thank you! Payment within 14 days, please.' }));
 }
 

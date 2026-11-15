@@ -210,7 +210,7 @@ function billingBody() {
   moneySlot = slot;
   const fill = m => {
     if (!m) return slot.replaceChildren(h('p', { class: 'small muted' }, 'Quotes & invoices could not be loaded. Check the connection and open Settings again.'));
-    const kids = [h('p', { class: 'small muted' }, 'How your quotes and invoices are numbered, tax, the payment details printed on them, and the prices you pick lines from.')];
+    const kids = [h('p', { class: 'small muted' }, 'Your currency, how your quotes and invoices are numbered, tax, the payment details printed on them, and the prices you pick lines from.')];
     for (const [make, head] of [[m.billingPanel, ''], [m.priceListPanel, 'Your price list']]) {
       try {
         const out = typeof make === 'function' ? make() : null, node = out && out.nodeType ? out : out && out.el && out.el.nodeType ? out.el : null;
@@ -388,7 +388,7 @@ function eraseBody() {
 const SECTIONS = [
   ['role', 'Your role', 'Producer, manager, band, solo artist, scout, audiophile or Jack of Trades: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
   ['profile', 'Your details', () => (moneyShown() ? `Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.` : `Your name and contact details: they go on day sheets. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.`)],
-  ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
+  ['billing', 'Quotes & invoices', 'Your currency, how quotes and invoices are numbered, tax, your payment details, and your price list.'],
   ['backups', 'Backups', 'Save a backup file, bring one back, keep a copy in a file in a synced folder, or connect Google Drive to share Tourbook between your devices with a dated copy each day.'],
   ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
   ['help', 'Help', 'A walkthrough for any page, and the welcome tour.'],
