@@ -48,7 +48,8 @@ Google sign-in.
    `js/cloud-config.js` as `CLOUD_APPS.google`. It is a public id, not a secret. Tourbook's:
    `41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com` (15 November 2026).
 7. **Audience → Publish app.** Until the app is published only the test users listed there can sign in, and only for
-   seven days at a time. Check it says **In production** before the website is published with the id.
+   seven days at a time. Tourbook's has said **In production** since 15 November 2026, before the website was published
+   with the id.
 8. Optional: **Branding → Verify branding**, so Google's sign-in window says "Tourbook" rather than the domain.
 
 Then:

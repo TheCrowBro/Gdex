@@ -156,17 +156,17 @@ you answer question 2 below. The terms (section 3) tell buyers they can reply to
 without `REPLY_TO` a reply would go to licences@tourbook.crowmade.app, which has no inbox set up. Steps:
 `docs/licence-server.md`, Part 5.
 
-## 6. Google (30 minutes): done on 15 November 2026 (check Publish app before the next publish)
+## 6. Google (30 minutes): done on 15 November 2026
 
 A new Google Cloud project named Tourbook; the Google Drive API; branding (name Tourbook, support email, home page, privacy and
 terms addresses, authorised domain crowmade.app); the one scope `…/auth/drive.appdata`; a Web application client with the
 JavaScript origins `https://tourbook.crowmade.app` and `http://localhost:47861`; publish the app; give the developer the
 client id (it goes in `js/cloud-config.js`). Steps: `docs/drive.md`.
 
-You did this on 15 November 2026 (Publish app was under way as the id went in). **Before the publish that carries the
-id:** in the Google Cloud project Tourbook, Google Auth platform → Audience must say **In production**. While it says
-Testing, everyone but the test users listed there gets Google’s “Access blocked” page, though the website, its terms and
-its download page offer Google Drive to every role. The client id,
+You did this on 15 November 2026, and published the Google app the same day, before the publish that carried the id
+("It is published"): Google Auth platform → Audience says **In production**. Keep it so: while it says Testing,
+everyone but the test users listed there gets Google’s “Access blocked” page, though the website, its terms and its
+download page offer Google Drive to every role. The client id,
 `41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com`, is in `js/cloud-config.js` as
 `CLOUD_APPS.google` (spec 90 checks the repository carries exactly it). With it, the terms' section 7 lost its sentence
 "Google Drive works once Tourbook’s Google sign-in is switched on; until then Tourbook says Google Drive isn’t set up yet."
