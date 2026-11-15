@@ -7,10 +7,11 @@
 // A document: { number, status, issued, due, lines: [{ id, desc, qty, unit, price }], taxRate, taxName, notes,
 //   payments: [{ id, date, amount, method }], currency, code, country, sentAt, acceptedAt, paidAt, createdAt, updatedAt }.
 // currency, code and country are its own currency (js/money-currency.js): picked in its editor, or yours, kept from the
-// moment it is sent, so a document that went to a client never changes currency. A draft with none is in yours, as is a
-// document from before.
+// moment it is sent (yours with no code stored is kept as its symbol alone, and read as yours while that is your
+// symbol), so a document that went to a client never changes currency. A draft with none is in yours, as is a document
+// from before until yours becomes another currency (applyMine then stamps it with the one it went out in).
 // Quote statuses: draft, sent, accepted, declined. Invoice statuses: draft, sent, paid, void.
-import { h, sheet, toast, uid, todayISO, parseISO, ymd, fmtLong } from './util.js';
+import { h, sheet, toast, uid, todayISO, parseISO, ymd, fmtLong, symText } from './util.js';
 import { db, byId, update, canChange } from './store.js';
 import { openForm } from './form.js';
 import { bookingTitle, actName, venueOf, fmtMoney, currency, settle, dealPays, daysSpan, markCheck, lastDate } from './model.js';
@@ -20,7 +21,7 @@ import { printElement, docPage, saveFile, fileName } from './print.js';
 import { shareBase } from './version.js';
 import { KINDS, calc, renderDoc, docText, docTitle, statusLabel, fmtDoc, docAmount, dateText, qtyText, isPaidDoc } from './money-doc.js';
 import { codeFor } from './money-pay.js';
-import { mine, docCur, docFields, codeNeeded, sameCur, currencySelect, myCurrencySelect, picked, curLabel } from './money-currency.js';
+import { mine, mineFields, docCur, docFields, codeNeeded, sameCur, currencySelect, myCurrencySelect, picked, curLabel } from './money-currency.js';
 export { KINDS, statusLabel, calc, qtyText };
 // The QR maker and the link packer load only when a document with a bank QR is drawn or a link is made.
 const qrSvg = (text, opts) => import('./qr.js').then(m => m.qrSvg(text, opts));
@@ -85,8 +86,9 @@ export function saveDoc(bookingId, kind, next) {
   if (!b) { toast('That booking has been deleted.'); return false; }
   const prev = docOf(b, kind) || {}, now = Date.now(), doc = { ...next, updatedAt: now };
   if (doc.status !== 'draft' && !doc.sentAt) doc.sentAt = now;
-  // Sent (or past it) with no currency of its own: it keeps the one it went out in, yours now.
-  if (doc.status !== 'draft' && !(typeof doc.currency === 'string' && doc.currency.trim())) Object.assign(doc, docFields(mine()));
+  // Sent (or past it) with no currency of its own: it keeps the one it went out in, yours now (its code only when one is
+  // stored: a device's guess for 'kr' or '¥' is never written).
+  if (doc.status !== 'draft' && !(typeof doc.currency === 'string' && doc.currency.trim())) Object.assign(doc, mineFields());
   if (kind === 'quote' && doc.status === 'accepted' && !doc.acceptedAt) doc.acceptedAt = now;
   // An invoice whose payments already cover it (the deposit and the night's takings came in) is paid, not just sent.
   if (kind === 'invoice' && doc.status === 'sent' && Array.isArray(doc.payments) && doc.payments.length && calc({ ...doc, status: 'sent' }).total > 0 && calc({ ...doc, status: 'sent' }).due <= 0.005) doc.status = 'paid';
@@ -135,7 +137,7 @@ export function suggestLines(b, kind) {
     const settled = num(s.tickets) > 0 || !!s.settledAt;
     const fee = settled ? night.fee : dealPays(deal, 0);
     line(`Performance${act ? ': ' + act : ''}${at}${when ? ', ' + when : ''}`, 1, 'show', fee);
-    if (settled) hint = 'The fee is what the settlement says the deal paid.';
+    if (settled) hint = 'The fee comes from the settlement.';
     else if (!(fee > 0)) hint = deal.type === 'door' ? 'A door deal has no fee until the night is settled: type the amount in.' : deal.type === 'none' ? 'The deal says no fee (a showcase or charity show).' : 'There is no fee in the deal yet: type the amount in.';
     const dep = num(deal.deposit);
     // A deposit already received comes off the invoice. When it came in is not kept, so it is dated by the latest it
@@ -180,7 +182,7 @@ export function createDoc(bookingId, kind, source = 'booking') {
   if (source === 'quote' && docOf(b, 'quote')) {
     const q = docOf(b, 'quote');
     lines = q.lines.map(l => ({ ...l, id: uid() })); taxRate = num(q.taxRate); taxName = q.taxName || taxName;
-    if (typeof q.currency === 'string' && q.currency.trim()) cur = docCur(q); // the invoice is in the quote's own currency
+    if (typeof q.currency === 'string' && q.currency.trim()) cur = { sym: q.currency, code: q.code, country: q.country }; // the invoice is in the quote's own currency, as stored
     payments = suggestLines(b, kind).payments; // a deposit already paid comes off the invoice
   } else if (source === 'booking') ({ lines, payments, notes } = suggestLines(b, kind));
   let doc = null;
@@ -316,7 +318,7 @@ export function mailtoFor(bookingId, kind, url = '') {
     ? `Hi${first ? ' ' + first : ''},\n\nA friendly reminder that invoice ${doc.number} for ${snap.title} was due on ${dateText(doc.due)}, and ${money(t.due)} is still open.`
     : `Hi${first ? ' ' + first : ''},\n\nHere is ${K.label.toLowerCase()} ${doc.number} for ${snap.title}: ${money(t.total)}${kind === 'invoice' && t.paid > 0 && t.due > 0 ? `, with ${money(t.due)} still due` : ''}${doc.due && !(kind === 'invoice' && t.due <= 0) ? `, ${K.dueLabel.toLowerCase()} ${dateText(doc.due)}` : ''}.`;
   const text = docText(snap);
-  const link = url ? `\n\nYou can see it${kind === 'invoice' && t.due > 0 ? ' and pay' : ''} here:\n${url}` : '';
+  const link = url ? `\n\nSee it${kind === 'invoice' && t.due > 0 ? ' and pay' : ''} here:\n${url}` : '';
   const body = `${intro}${link}${!url || url.length + text.length < 1800 ? '\n\n' + text : ''}\n\nThanks${sign ? ',\n' + sign : ''}`;
   return `mailto:${contactEmail(b)}?` + new URLSearchParams({ subject, body }).toString().replace(/\+/g, '%20');
 }
@@ -338,9 +340,9 @@ export async function openShareSheet(bookingId, kind) {
       navigator.share && h('button', { class: 'btn ghost', type: 'button', onclick: share }, '📤 Share…'),
       h('a', { class: 'btn ghost', href: mailtoFor(bookingId, kind, url), id: 'mn-link-email' }, email ? '✉ Email it' : '✉ Email'),
       h('a', { class: 'btn ghost', href: url, target: '_blank', rel: 'noopener', id: 'mn-link-open' }, 'Open it')),
-    !email && h('p', { class: 'small muted' }, 'No email for the contact on this booking yet: add it there and the email is addressed for you.'),
+    !email && h('p', { class: 'small muted' }, 'Add the contact’s email to the booking and the email is addressed for you.'),
     qrBox, h('p', { class: 'small muted mn-center' }, 'Scan to open it on a phone'),
-    h('p', { class: 'small muted' }, 'The link is a copy of the document as it is now. If you change it or record a payment, send a fresh link.')));
+    h('p', { class: 'small muted' }, 'The link doesn’t update. After a change or a payment, send a fresh one.')));
 }
 
 /* ------------------------------- the editor ------------------------------- */
@@ -360,8 +362,14 @@ export function openEditor(bookingId, kind) {
   const taxName = h('input', { id: 'mn-ed-taxname', type: 'text', value: doc.taxName || billing().taxName || 'Tax', placeholder: 'VAT, GST, sales tax…', autocomplete: 'off' });
   const taxRate = h('input', { id: 'mn-ed-taxrate', type: 'number', min: 0, max: 100, step: 'any', inputMode: 'decimal', value: doc.taxRate ?? '' });
   // Its currency, from the same list as yours (for work abroad): the prices, the totals, the Pay buttons and the bank QR
-  // follow it. Saved only when another one is picked.
-  const curSel = currencySelect(w.cur, { id: 'mn-ed-currency', prefer: [mine().country], suggest: [mine().country], onchange: c => { w.cur = c || docCur(doc); drawLines(); drawTotals(); } });
+  // follow it, and so does the deposit note Tourbook wrote (suggestLines), while it still starts as written. Saved only
+  // when another one is picked.
+  const curSel = currencySelect(w.cur, { id: 'mn-ed-currency', prefer: [mine().country], suggest: [mine().country], onchange: c => {
+    const was = 'Deposit: ' + symText(w.cur.sym);
+    w.cur = c || docCur(doc);
+    if (notes.value.startsWith(was) && /^\d/.test(notes.value.slice(was.length))) notes.value = 'Deposit: ' + symText(w.cur.sym) + notes.value.slice(was.length);
+    drawLines(); drawTotals();
+  } });
   const notes = h('textarea', { id: 'mn-ed-notes', rows: 3, placeholder: kind === 'quote' ? 'What is included, how long it is valid, the deposit…' : 'Thanks, payment terms, anything the client should know…' }, doc.notes || '');
   const linesBox = h('div', { class: 'mn-lines' }), totals = h('div', { class: 'mn-ed-totals', 'aria-live': 'polite' });
   const unitList = h('datalist', { id: 'mn-units' }, UNITS.map(u => h('option', { value: u })));
@@ -383,7 +391,7 @@ export function openEditor(bookingId, kind) {
         part('Qty', set('qty', h('input', { type: 'number', id: `mn-l${n}-qty`, value: l.qty, step: 'any', inputMode: 'decimal', 'aria-label': `Line ${n}: quantity` }))),
         part('Unit', set('unit', h('input', { type: 'text', id: `mn-l${n}-unit`, value: l.unit, list: 'mn-units', placeholder: 'hour, show…', 'aria-label': `Line ${n}: unit (hour, show, song…)`, autocomplete: 'off' }))),
         part(`Price (${w.cur.sym})`, set('price', h('input', { type: 'number', id: `mn-l${n}-price`, value: l.price, step: 'any', inputMode: 'decimal', 'aria-label': `Line ${n}: price each (${w.cur.sym})` }))),
-        h('div', { class: 'mn-lf mn-line-amt', 'aria-label': `Line ${n} amount` }, h('span', { 'aria-hidden': 'true' }, 'Amount'), amount)));
+        h('div', { class: 'mn-lf mn-line-amt', 'aria-label': `Line ${n}: amount` }, h('span', { 'aria-hidden': 'true' }, 'Amount'), amount)));
   };
   const drawLines = focusAt => {
     linesBox.replaceChildren(...(w.lines.length ? w.lines.map(lineRow) : [h('p', { class: 'muted small' }, 'No lines yet. Add one, or pick from your price list.')]));
@@ -415,11 +423,11 @@ export function openEditor(bookingId, kind) {
     // Read-only (the licence): the editor stays open with what was typed, and the licence's sheet says why.
     if (!canChange()) return;
     close();
-    if (saveDoc(bookingId, kind, next)) toast(reopened ? `${K.label} ${nb} saved. It is not paid in full any more: ${money(open)} still due.` : `${K.label} ${nb} saved`);
+    if (saveDoc(bookingId, kind, next)) toast(reopened ? `${K.label} ${nb} saved. No longer paid in full: ${money(open)} due.` : `${K.label} ${nb} saved`);
   };
   const box = h('form', { class: 'stack mn-editor', novalidate: true, onsubmit: e => { e.preventDefault(); save(); } },
     h('div', { class: 'mn-pair' }, field('mn-ed-number', `${K.label} number`, number), field('mn-ed-status', 'Status', status), field('mn-ed-issued', 'Date', issued), field('mn-ed-due', K.dueLabel, due)),
-    h('div', { class: 'field wide mn-ed-cur' }, h('label', { for: 'mn-ed-currency' }, 'Currency'), curSel, h('small', { class: 'muted' }, `Yours is ${curLabel(mine())}. For work abroad, pick the client’s: the Pay buttons and the bank QR code use it.`)),
+    h('div', { class: 'field wide mn-ed-cur' }, h('label', { for: 'mn-ed-currency' }, 'Currency'), curSel, h('small', { class: 'muted' }, `Yours is ${curLabel(mine())}. For work abroad, pick the client’s: the prices, Pay buttons and bank QR code follow it.`)),
     h('h4', { class: 'mn-ed-head' }, 'Lines'),
     unitList, linesBox,
     h('div', { class: 'actions mn-ed-add' },
@@ -456,7 +464,7 @@ function editPrice(item, isNew, onDone) {
     fields: [
       { key: 'desc', label: 'Line on the quote or invoice', required: true, placeholder: 'e.g. Show fee, Studio time, Mixing' },
       { key: 'price', label: `Price (${currency()})`, type: 'number', min: 0, step: 'any', hint: 'Leave it blank to fill in on each quote.' },
-      { key: 'unit', label: 'Per', list: UNITS, placeholder: 'hour, show, song…', hint: 'Hours, days and songs fill in from the booking when you pick it.' },
+      { key: 'unit', label: 'Per', list: UNITS, placeholder: 'hour, show, song…', hint: 'Hours, days and songs fill in from the booking when you pick this line.' },
     ],
     saveLabel: isNew ? 'Add' : 'Save',
     onSave: v => {
@@ -474,7 +482,7 @@ export function priceListPanel() {
   const draw = focusId => {
     const list = priceItems(), ideas = PRICE_IDEAS.filter(([desc, unit]) => !list.some(i => sameLine(i, { desc, unit })));
     wrap.replaceChildren(...[
-      h('p', { class: 'small muted' }, 'The things you charge for again and again, with your prices. Pick them into any quote or invoice with “+ From the price list”; hours, days and songs fill in from the booking.'),
+      h('p', { class: 'small muted' }, 'List your usual charges and prices. “+ From the price list” adds them to any quote or invoice, with hours, days and songs filled in from the booking.'),
       list.length ? h('div', { class: 'stack' }, ...list.map(i => h('button', { class: 'card tap price-item', type: 'button', 'data-id': i.id, 'aria-label': `${i.desc}, ${priceText(i)}. Edit`, onclick: () => editPrice(i, false, id => draw(id || 'add')) },
         h('strong', null, i.desc || '—'), h('span', { class: 'muted small' }, priceText(i)))))
         : h('p', { class: 'muted mn-prices-empty' }, 'Your price list is empty.'),
@@ -507,7 +515,7 @@ export function pickFromPriceList(b, onPick) {
       list.length ? h('div', { class: 'stack price-group' }, ...list.map(i => h('label', { class: 'check price-pick' },
         h('input', { type: 'checkbox', 'aria-label': `${i.desc}, ${priceText(i)}`, onchange: e => { if (e.target.checked) chosen.add(i.id); else chosen.delete(i.id); count(); } }),
         h('span', { class: 'price-pick-text' }, h('span', null, i.desc || '—'), h('em', null, `${priceText(i)} · ${qtyText(qtyFor(i.unit, b), i.unit)} on this booking`)))))
-        : h('p', { class: 'muted' }, 'Your price list is empty. Add the things you charge for (show fee, studio time, mixing per song…) once, and pick them into any quote or invoice.'),
+        : h('p', { class: 'muted' }, 'Your price list is empty. Add what you charge for once, then use it on any quote or invoice.'),
       h('div', { class: 'form-actions' }, list.length ? add : null, h('span', { class: 'spacer' }), edit),
     ]);
   };
@@ -532,7 +540,7 @@ export function billingPanel() {
         }
         const v = e.target.value === '' ? '' : Number(e.target.value);
         if (v === '' ? need : (!Number.isFinite(v) || (attrs.min != null && v < attrs.min) || (attrs.max != null && v > attrs.max))) {
-          toast(`${label}: enter a number${attrs.min != null ? ' from ' + attrs.min : ''}${attrs.max != null ? ' to ' + attrs.max : ' or more'}.`);
+          toast(`${label}: enter a number${attrs.min != null ? (attrs.max != null ? ' from ' : ' of ') + attrs.min : ''}${attrs.max != null ? ' to ' + attrs.max : ' or more'}.`);
           e.target.value = billing()[key] ?? ''; return;
         }
         setBilling({ [key]: whole && v !== '' ? Math.floor(v) : v });
@@ -542,7 +550,7 @@ export function billingPanel() {
   return h('div', { class: 'stack mn-billing' },
     // Your currency, by country: the symbol on every amount and the code for payment links and the bank QR, together.
     h('div', { class: 'field mn-bl-cur' }, h('label', { for: 'mn-bl-currency' }, 'Your currency'), myCurrencySelect('mn-bl-currency'),
-      h('small', { class: 'muted' }, 'Pick your country. Its currency is on every fee, deal, settlement, quote and invoice, and payment links use it. A quote or an invoice for work abroad can have its own.')),
+      h('small', { class: 'muted' }, 'Pick your country. Its currency is used for every fee, deal and settlement, and for your quotes, invoices and payment links (one for work abroad can have its own).')),
     h('p', { class: 'small muted' }, 'Your name, business, address, phone and email on quotes and invoices come from your profile.'),
     h('h4', { class: 'mn-bl-head' }, 'Numbering'),
     h('div', { class: 'mn-pair' },
@@ -554,7 +562,7 @@ export function billingPanel() {
       input('taxName', 'Tax name', 'text', { placeholder: 'VAT, GST, sales tax…' }), input('taxRate', 'Tax rate (%)', 'number', { min: 0, max: 100, step: 'any', hint: '0 if you don’t charge it.' }),
       input('dueDays', 'Invoices due after (days)', 'number', { min: 0, step: 1, whole: true }), input('validDays', 'Quotes valid for (days)', 'number', { min: 1, step: 1, whole: true })),
     h('h4', { class: 'mn-bl-head' }, 'Getting paid'),
-    h('p', { class: 'small muted' }, 'Every invoice gets a Pay button for each of these with the amount and invoice number filled in where the service allows it, and your bank details with a QR code. Leave out anything you don’t use.'),
+    h('p', { class: 'small muted' }, 'Each service you fill in adds a Pay button to your invoices, with the amount and invoice number filled in where it allows. Bank details show with a QR code.'),
     h('h5', { class: 'mn-bl-sub' }, 'Bank transfer'),
     h('div', { class: 'mn-pair' },
       input('accountName', 'Account name'), input('bankName', 'Bank'),
@@ -571,9 +579,9 @@ export function billingPanel() {
 
 /* ------------------------------- walkthroughs for the sheets ------------------------------- */
 const editorSteps = kind => [
-  { title: `${KINDS[kind].label} number and dates`, text: 'The number comes from your numbering in Settings and is used only once. The status changes as you send it and get paid.', target: ['#mn-ed-number'] },
-  { title: 'Currency', text: 'Yours to start with. For work abroad, pick the client’s country: the prices, the Pay buttons and the bank QR code follow it. Once sent, it keeps its currency.', target: ['#mn-ed-currency'] },
-  { title: 'Lines', text: 'What you charge for: a description, how many, the unit (hour, show, song…) and the price each. The amount adds up as you type.', target: ['.mn-lines'] },
+  { title: `${KINDS[kind].label} number and dates`, text: 'Numbers come from Settings and are never reused. The status changes as you send the document and get paid.', target: ['#mn-ed-number'] },
+  { title: 'Currency', text: 'It starts as yours. For work abroad, pick the client’s country: the prices, Pay buttons and bank QR code follow it. Once sent, the document keeps its currency even if you change yours.', target: ['#mn-ed-currency'] },
+  { title: 'Lines', text: 'What you charge for: description, quantity, unit and price each. Amounts add up as you type.', target: ['.mn-lines'] },
   { title: 'Add more', text: 'Add a blank line, or pick from your price list: the hours, days and songs fill in from the booking.', target: ['.mn-ed-add'] },
   { title: 'Tax', text: 'The tax name and rate go on the document. Leave the rate at 0 if you don’t charge it.', target: ['.mn-ed-tax'] },
   { title: 'Totals', text: 'The subtotal, tax and total update as you edit. Save when it looks right; Cancel leaves it as it was.', target: ['.mn-ed-totals'] },
@@ -589,9 +597,9 @@ sheetTutorial('Price list', [
   { title: 'Ideas', text: 'Tap an idea to add it, then type your price.', target: ['.mn-ideas'] },
 ]);
 sheetTutorial('Record a payment', [
-  { title: 'A payment', text: 'The date it arrived, the amount (the balance is filled in) and how it was paid. Part payments are fine: the invoice shows what is still due, and paid in full ticks the checklist.', target: ['.form'] },
+  { title: 'A payment', text: 'The date, amount (the balance is filled in) and method. Part payments are fine: the invoice shows what’s still due, and full payment ticks the checklist.', target: ['.form'] },
 ]);
 sheetTutorial('Link for the client', [
-  { title: 'The link', text: 'The whole document is inside the link. Copy it into a message, or email it.', target: ['#mn-link-text'] },
+  { title: 'The link', text: 'The whole document is inside the link.', target: ['#mn-link-text'] },
   { title: 'Send it', text: 'Copy, share or email the link. The client opens it on any phone or computer, with Pay buttons for the balance.', target: ['#mn-link-copy'] },
 ]);

@@ -78,13 +78,13 @@ function googlePage(res, nonce, { client, scope, hint, key }) {
   const cfg = JSON.stringify({ client, scope, hint: hint || '', nonce, key }).replace(/</g, '\\u003c');
   res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in to Google for Tourbook</title>
 <body style="font:17px/1.5 system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 16px;text-align:center"><h1 style="font-size:1.4rem">Sign in to Google for Tourbook</h1>
-<p id="t">Click the button, sign in and click Allow. Tourbook only uses its own private folder of your Google Drive.</p>
+<p id="t">Click the button, sign in and click Allow. Tourbook uses only its own private folder in your Google Drive.</p>
 <button id="go" style="font:inherit;font-weight:700;padding:12px 22px;border-radius:10px;border:0;background:#1a73e8;color:#fff;cursor:pointer" disabled>Continue with Google</button>
 <script nonce="${sn}" src="https://accounts.google.com/gsi/client"></script>
 <script nonce="${sn}">
 const C = ${cfg}, t = document.getElementById('t'), go = document.getElementById('go');
 const send = r => fetch('/__tourbook/google?n=' + encodeURIComponent(C.nonce), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Tourbook-Key': C.key }, body: JSON.stringify(r) })
-  .then(x => { go.hidden = true; if (!x.ok) { t.textContent = 'This sign-in has expired, or a newer one took over. Go back to Tourbook and tap Connect again. You can close this tab.'; return; } t.textContent = r.error ? 'Sign-in not finished. Go back to Tourbook and tap Connect to try again. You can close this tab.' : 'Done. Go back to Tourbook; you can close this tab.'; })
+  .then(x => { go.hidden = true; if (!x.ok) { t.textContent = 'This sign-in has expired, or a newer one has taken over. Go back to Tourbook and try again. You can close this tab.'; return; } t.textContent = r.error ? 'Sign-in not finished. Go back to Tourbook and try again. You can close this tab.' : 'Done. Go back to Tourbook; you can close this tab.'; })
   .catch(() => { t.textContent = 'Tourbook has closed, or this sign-in has expired. Open Tourbook and try again.'; });
 const ready = () => { go.disabled = false; go.onclick = () => google.accounts.oauth2.initTokenClient({ client_id: C.client, scope: C.scope, callback: r => send(r), error_callback: e => send({ error: e.type || 'failed' }) }).requestAccessToken(C.hint ? { prompt: '', login_hint: C.hint } : { prompt: '' }); };
 window.google && google.accounts ? ready() : addEventListener('load', ready);
@@ -126,7 +126,7 @@ function handler(req, res) {
     const p = u.pathname === '/__tourbook/google' && pagePending.get(u.searchParams.get('n') || '');
     if (!p) return text(res, 404, 'This sign-in has expired. Open Tourbook and try again.');
     if (req.method === 'GET') { // served once; the answer must carry the key that only this page was given
-      if (p.key) return text(res, 404, 'This sign-in page was already opened. Go back to Tourbook and try again.');
+      if (p.key) return text(res, 404, 'This sign-in page has already been opened. Go back to Tourbook and try again.');
       p.key = crypto.randomBytes(24).toString('base64url');
       return googlePage(res, u.searchParams.get('n'), { ...p.opts, key: p.key });
     }
@@ -219,8 +219,8 @@ function createWindow() {
     win.show();
     if (busy) dialog.showMessageBox(win, {
       type: 'warning', title: 'Tourbook',
-      message: `Another program is using the address Tourbook normally runs at on this computer (localhost:${DEFAULT_PORT}).`,
-      detail: `Tourbook has opened at localhost:${busy} for now, so it may look empty: your saved data stays with the usual address and comes back once that other program closes and you reopen Tourbook.`,
+      message: `Another program is using Tourbook’s usual address on this computer (localhost:${DEFAULT_PORT}).`,
+      detail: `Tourbook has opened at localhost:${busy} for now and may look empty. Your saved data comes back once the other program closes and you reopen Tourbook.`,
     });
   });
   win.on('close', () => { writeState({ bounds: win.getNormalBounds(), maximized: win.isMaximized() }); });

@@ -233,7 +233,7 @@ async function logFromCard(page, id, score) {
     ok('band: …and the band’s', /Add your band/.test(await page.textContent('.ac-page .empty p')));
     await role(page, 'all');
     text = await page.textContent('.ac-page .empty p');
-    ok('Everything: the empty list reads as it always has', text === 'An act is a band or artist you play in, manage or produce. Its card counts the times you have seen them play, with your scores out of 100 and its dates coming up; it also keeps its members, links, press kit and tech rider.', text);
+    ok('Everything: the empty list reads as it always has', text === 'An act is a band or artist you play with, manage or produce. It keeps its members, links, press kit, tech rider and dates, and your score out of 100 each time you see them.', text);
     ok('the empty list still offers + New act', (await page.textContent('#ac-new-empty')) === '+ New act');
     ok('no errors in the console (empty)', errors.length === 0, errors.slice(0, 5).join(' | '));
     await browser.close();

@@ -1,7 +1,7 @@
 // The quote or invoice document itself, drawn from a self-contained snapshot: the app's preview, the printout, the
 // saved web page, the email text and the client's page (invoice.html) all come from here, so the client sees exactly
 // what the app shows. calc() is the one money formula for documents. Pure: nothing here touches the store.
-import { h } from './util.js';
+import { h, symText } from './util.js';
 import { payButtons, bankLines, bankQr, codeFor } from './money-pay.js';
 
 // The two kinds of document, their statuses ([id, label]) and the label of their second date.
@@ -12,7 +12,7 @@ export const KINDS = {
 export const statusLabel = (kind, s) => ((KINDS[kind] || KINDS.invoice).statuses.find(x => x[0] === s) || ['', 'Draft'])[1];
 
 // Money on a document: always two decimals and a plain minus, so it reads the same on paper, in an email and in a PDF.
-export const fmtDoc = (n, sym = '$') => { const v = Number(n) || 0; return (v < 0 ? '-' : '') + sym + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+export const fmtDoc = (n, sym = '$') => { const v = Number(n) || 0; return (v < 0 ? '-' : '') + symText(sym) + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 // A document in a currency that is not the sender's own, whose symbol alone could be another one ('$'), names its code
 // by the total and the balance (snap.showCode, set by the app): "Total (CAD)", "$170.00 CAD due".
 const codeTag = snap => (snap.showCode && snap.code ? ` (${snap.code})` : '');

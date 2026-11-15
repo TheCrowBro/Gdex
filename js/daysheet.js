@@ -29,7 +29,7 @@ const ids = v => (Array.isArray(v) ? v : []);
 // The two things a person may want to leave off. Remembered on this device; where it cannot store them (a private
 // window), the choice still holds until the app is closed, so nothing that was taken off goes back on.
 export const PARTS = [
-  ['guestNames', 'Guest list names and +1s', false, 'The number on the list is always on it'],
+  ['guestNames', 'Guest list names and +1s', false, 'The guest count is always on it'],
   ['notes', 'Booking notes', true, 'Check they say nothing private first'],
 ];
 const KEY = 'tourbook-daysheet';
@@ -164,7 +164,7 @@ const when = t => new Date(t).toLocaleString([], { weekday: 'short', day: 'numer
 export function stateText(b, st = sentState(b)) {
   const at = sentAt(b);
   if (st === 'sent') return `✓ Sent to the band${at ? ' ' + when(at) : ''}.`;
-  if (st === 'changed') return `⚠ Changed since it was sent${at ? ' ' + when(at) : ''}: send it again so everyone has the latest.`;
+  if (st === 'changed') return `⚠ Changed since it was sent${at ? ' ' + when(at) : ''}. Send it again.`;
   return b && b.kind === 'show' ? 'Not sent to the band yet.' : 'Not sent yet.';
 }
 
@@ -194,7 +194,7 @@ export function emailFor(b, url, inc = choices()) {
   const p = db.profile || {}, sign = [str(p.name), str(p.business)].filter(Boolean).join(' · ');
   // Short, plain words: in a mail link every space costs three characters and a curly quote nine.
   const intro = "Hi all,\n\nHere's the day sheet:\n\n";
-  const outro = `\n\nIf anything changes I'll send a new one.${sign ? '\n\n' + sign : ''}`;
+  const outro = `\n\nIf anything changes, I'll send a new one.${sign ? '\n\n' + sign : ''}`;
   const mk = body => `mailto:${to.join(',')}?` + new URLSearchParams({ subject, body }).toString().replace(/\+/g, '%20');
   let mode = 'full', href = mk(intro + url + '\n\n' + daySheetText(b, inc) + outro);
   if (href.length > 1800) { mode = 'link'; href = mk(intro + url + outro); }
@@ -207,7 +207,7 @@ export function emailButton(bookingId, getUrl, inc, text, aria) {
   const a = h('a', { class: 'btn ghost', href: '#', 'aria-label': aria, 'aria-disabled': 'true', onclick: e => {
     const url = getUrl();
     if (!url || a.getAttribute('aria-disabled') === 'true') { e.preventDefault(); toast('One moment: the link is still being made.'); return; }
-    if (a.dataset.mode === 'paste') copy(url).then(okd => toast(okd ? 'The link is long, so it was copied: paste it into the email.' : 'Copy the link from “QR code & link” and paste it into the email.'));
+    if (a.dataset.mode === 'paste') copy(url).then(okd => toast(okd ? 'Long link copied: paste it into the email.' : 'Copy the link from “QR code & link” and paste it into the email.'));
     markSent(bookingId);
   } }, text);
   // fill(url, choices): the choices the link was made with, when they are not the ones the button was made with.
@@ -275,7 +275,7 @@ export function openDaySheet(bookingId, opts) {
   const drawQr = () => {
     if (!linkPanel.open) return;
     if (!url) { qrBox.replaceChildren('Making the code…'); return; }
-    if (url.length > 2800) { qrBox.replaceChildren(h('p', { class: 'small' }, 'This link is too long for a QR code. Leave off the guest names or notes below, or send the link instead.')); return; }
+    if (url.length > 2800) { qrBox.replaceChildren(h('p', { class: 'small' }, 'Too long for a QR code. Leave off guest names or notes below, or send the link.')); return; }
     const n = seq;
     import('./qr.js').then(m => m.qrSvg(url, { cellSize: 3 })).then(svg => { if (n === seq) qrBox.replaceChildren(h('div', { class: 'ds-qr-svg', html: svg })); })
       .catch(() => { if (n === seq) qrBox.replaceChildren('The QR code could not be made here. Send the link instead.'); });
@@ -297,14 +297,14 @@ export function openDaySheet(bookingId, opts) {
     h('summary', null, h('span', { class: 'twirl-ico', 'aria-hidden': 'true' }, '☑'), h('span', null, h('span', { class: 'twirl-name' }, 'What goes on it'), partsSub)),
     h('div', { class: 'twirl-body' },
       PARTS.map(([k, label, , hint]) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: inc[k], 'aria-label': label, onchange: e => { inc[k] = e.target.checked; remember(inc); drawPartsSub(); refresh(true); redraw(); } }), h('span', null, label, h('em', null, ' · ' + hint)))),
-      h('p', { class: 'small muted' }, 'Always on it: the times, where and how to get in, the running order, who is playing and how to reach them, the setlist, backline, hospitality and how many are on the guest list.'),
+      h('p', { class: 'small muted' }, 'Always on it: times, where and how to get in, running order, line-up and contacts, setlist, backline, hospitality and the guest count.'),
       h('p', { class: 'small muted' }, 'Never on it: the deal, fees, ticket price, settlement, budget, rates or invoices.')));
   drawPartsSub();
 
   const refresh = force => {
     const b = get();
     if (!b) {
-      paper.replaceChildren(empty('This booking was deleted, so there is no day sheet to show.'));
+      paper.replaceChildren(empty('This booking was deleted.'));
       status.textContent = ''; hints.textContent = ''; buttons.forEach(x => { if (x.tagName === 'BUTTON') x.disabled = true; }); email.setAttribute('aria-disabled', 'true'); email.href = '#';
       seq++; url = ''; linkArea.value = ''; openLink.removeAttribute('href');
       return;
@@ -314,7 +314,7 @@ export function openDaySheet(bookingId, opts) {
     const st = sentState(b);
     status.className = 'ds-status ' + st; status.textContent = stateText(b, st);
     const miss = missingBits(b, d);
-    hints.textContent = miss.length ? `Not on it yet: ${listWords(miss)}. Add ${miss.length === 1 ? 'it' : 'them'} on the booking and the sheet fills in.` : '';
+    hints.textContent = miss.length ? `Not on it yet: ${listWords(miss)}. Add ${miss.length === 1 ? 'it' : 'them'} to the booking.` : '';
     hints.hidden = !miss.length;
     const n = emailCount(b);
     email.lastChild.textContent = n ? `✉ Email the band (${n})` : '✉ Email the band';
@@ -324,7 +324,7 @@ export function openDaySheet(bookingId, opts) {
   const off = subscribe(() => queueMicrotask(() => refresh(false)));
   const body = h('div', { class: 'stack ds-sheet' },
     status, hints, actions,
-    h('p', { class: 'small muted ds-explain' }, 'The link opens a read-only page with the sheet below, nothing else. It’s a snapshot: if anything changes, send it again.'),
+    h('p', { class: 'small muted ds-explain' }, 'The link opens a read-only copy of the sheet below. If anything changes, send it again.'),
     linkPanel, parts, paper);
   refresh(true);
   const s = sheet('Day sheet', body, { onClose: () => { off(); seq++; if (openOne === s) openOne = null; } });
@@ -336,8 +336,8 @@ export function openDaySheet(bookingId, opts) {
 /* ------------------------------- walkthrough ------------------------------- */
 sheetTutorial('Day sheet', [
   { title: 'The day sheet', text: 'Everything the band and crew need on the day, built from the booking. It never shows the deal, fees, ticket price, settlement or budget.', target: ['.ds-preview'] },
-  { title: 'Sent or not', text: 'Whether the band has it. Once sent, it says so here and on the booking, and warns you if the sheet changes afterwards.', target: ['.ds-status'] },
-  { title: 'Send it', text: 'Share the link to the band chat, email everyone on the booking, print it, copy it as text, or save it as a web page. Any of these ticks “Day sheet sent” on a show’s checklist.', target: ['.ds-actions'] },
+  { title: 'Sent or not', text: 'Whether the band has it, shown here and on the booking. It warns you if the sheet changes after it’s sent.', target: ['.ds-status'] },
+  { title: 'Send it', text: 'Share the link, email everyone on the booking, print, copy as text or save as a web page. Each ticks “Day sheet sent to the band” on a show’s checklist.', target: ['.ds-actions'] },
   { title: 'QR code & link', text: 'At the venue, let the band scan the code off your phone. Open the band’s page to see exactly what they see, with Add to calendar.', target: ['.ds-link > summary'] },
-  { title: 'What goes on it', text: 'Choose whether the guest names and your booking notes go on. Tourbook remembers your choice on this device.', target: ['.ds-parts > summary'] },
+  { title: 'What goes on it', text: 'Choose whether guest names and your booking notes go on it. Tourbook remembers your choice on this device.', target: ['.ds-parts > summary'] },
 ]);

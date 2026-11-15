@@ -87,7 +87,7 @@ export function meter(panel) {
   const calBox = h('details', { class: 'twirl tl-cal' },
     h('summary', null, h('span', { class: 'twirl-ico', 'aria-hidden': 'true' }, '🎚️'), h('span', null, h('span', { class: 'twirl-name' }, 'Calibrate'), calSum)),
     h('div', { class: 'twirl-body' },
-      h('p', { class: 'small tl-note-p' }, 'Phone microphones differ. Stand next to a real sound level meter (front of house usually has one), read both, and nudge the offset until this one matches. It is saved on this device.'),
+      h('p', { class: 'small tl-note-p' }, 'Phone microphones differ. Beside a real meter (front of house usually has one), nudge the offset until both match. Saved on this device.'),
       h('div', { class: 'tl-row' }, h('label', { for: 'tl-cal', class: 'tl-label' }, 'Offset (dB)'),
         h('div', { class: 'tl-stepper' },
           repeatButton({ class: 'icon-btn', id: 'tl-cal-down', 'aria-label': 'Offset down 0.5 dB' }, '−', () => setCal(cal - 0.5)),
@@ -175,7 +175,7 @@ export function meter(panel) {
     const avg = a == null ? null : shown(a);
     const over = !!(lim && avg != null && avg > lim.db);
     if (over) {
-      warnBox.textContent = `⚠ Over the limit. The last ${secs < 58 ? `${secs} seconds` : 'minute'} averaged ${avg.toFixed(0)} ${unitText}; the limit${lim.where ? ' ' + lim.where : ''} is ${lim.db} dB. Ask front of house to bring it down.`;
+      warnBox.textContent = `⚠ Over the limit. The last ${secs < 58 ? `${secs} second${secs === 1 ? '' : 's'}` : 'minute'} averaged ${avg.toFixed(0)} ${unitText}; the limit${lim.where ? ' ' + lim.where : ''} is ${lim.db} dB. Ask front of house to bring it down.`;
       if (!warned) { warned = true; try { navigator.vibrate && navigator.vibrate([160, 90, 160]); } catch { /* no vibration */ } }
     } else warned = false;
     warnBox.hidden = !over;
@@ -204,7 +204,7 @@ export function meter(panel) {
       h('div', { class: 'tl-label' }, 'Weighting'),
       h('div', { class: 'seg tl-mini-seg', role: 'group', 'aria-label': 'Weighting' }, weightBtns),
       calBox),
-    h('p', { class: 'muted small tl-foot' }, 'An estimate from your phone’s microphone, not a calibrated sound level meter: use it to keep an eye on the room, not to settle an argument with the council. Nothing is recorded.'));
+    h('p', { class: 'muted small tl-foot' }, 'An estimate, not a calibrated meter: use it to watch the room, not to settle an argument with the council. Nothing is recorded.'));
   drawLimit(); paintWeight(); paintButtons(); paint();
 
   current = () => ({ listening: !!mic, starting, wanted, micWeight, now: fast == null ? null : Math.round(shown(10 * Math.log10(fast))), max: max == null ? null : Math.round(shown(max)), avg: avgRaw() == null ? null : Math.round(shown(avgRaw())), limit: (limitNow() || {}).db || null, weight, cal });
@@ -218,7 +218,7 @@ export function meter(panel) {
 
 export const METER_STEPS = [
   { target: ['.tl-db'], title: 'Sound level', text: 'The level now, in dB(A) like venue limits. The bar turns amber near the limit and red over it.' },
-  { target: ['.tl-readouts'], title: 'Max and the last minute', text: 'The loudest moment, and the average over the last minute: noise limits are judged on an average like this, not on single hits.' },
+  { target: ['.tl-readouts'], title: 'Max and the last minute', text: 'The loudest moment, and the last minute’s average: noise limits are judged on averages, not single hits.' },
   { target: ['#tl-limit'], title: 'Noise limit', text: 'Pick a venue with a limit (from Venues) or type one. A warning shows when the room is over it.' },
   { target: ['.tl-cal'], title: 'Calibrate', text: 'A phone is not a calibrated meter. Match it once to a real meter with the offset, and it stays saved.' },
 ];

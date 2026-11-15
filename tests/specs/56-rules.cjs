@@ -139,7 +139,7 @@ const all = []; // every console error of every browser below
         }),
       };
     }, FORM.add);
-    ok('…a wide field titled House rules that says how to answer', /\bfield\b/.test(F.cls) && /\bwide\b/.test(F.cls) && F.title === 'House rules' && F.hint === 'Tap what you know: Allowed or Not allowed, Yes or No. Tap it again to clear it. Rules you leave alone stay off the card.', F.hint);
+    ok('…a wide field titled House rules that says how to answer', /\bfield\b/.test(F.cls) && /\bwide\b/.test(F.cls) && F.title === 'House rules' && F.hint === 'Tap what you know, and tap again to clear it. Rules left alone stay off the card.', F.hint);
     ok('…with the four groups by name, in order', same(F.groups.map(g => g.legend), M.groups.map(g => g[1])) && F.groups.length === 4, F.groups.map(g => g.legend).join(' | '));
     ok('…and the seventeen rules, each in its group', F.rules.length === 17 && same(F.groups.map(g => g.rules), M.groups.map(g => M.rules.filter(r => r.group === g[0]).map(r => r.id))), F.groups.map(g => g.rules.length).join('+'));
     ok('each rule is a group named by its label, with its picture kept from a screen reader', F.rules.every((r, i) => r.role === 'group' && r.label === M.rules[i].label && r.name === `${M.rules[i].icon} ${M.rules[i].label}` && r.icon === M.rules[i].icon), JSON.stringify(F.rules.filter((r, i) => r.label !== M.rules[i].label || r.name !== `${M.rules[i].icon} ${M.rules[i].label}`).map(r => [r.label, r.name])));
@@ -262,7 +262,7 @@ const all = []; // every console error of every browser below
     ok('no rules: no chip on the venue’s card', (await chips(page, '#vn-' + plainId)) === 0 && (await chips(page, '#vn-never')) === 0 && (await page.locator('#page .vn-chip').count()) === 1);
     await page.click('#vn-' + plainId);
     await page.waitForSelector('.vn-sheet');
-    ok('…its sheet says none are noted yet, and what Edit adds', (await page.locator('.vn-sheet .vn-rules-sec p.muted.small').innerText()) === 'No house rules noted yet. Edit adds what is allowed in, what is not, and anything unusual.' && (await page.locator('.vn-sheet .vn-rules').count()) === 0 && (await chips(page, '.vn-sheet')) === 0);
+    ok('…its sheet says none are noted yet, and what Edit adds', (await page.locator('.vn-sheet .vn-rules-sec p.muted.small').innerText()) === 'No house rules noted yet. ✎ Edit adds them.' && (await page.locator('.vn-sheet .vn-rules').count()) === 0 && (await chips(page, '.vn-sheet')) === 0);
     await page.keyboard.press('Escape'); await sleep(200);
     await toCal(page);
     ok('…no chip on a show there', (await page.locator('.bk-agenda .bk-card[data-id="pl1"]').count()) === 1 && (await chips(page, '.bk-agenda .bk-card[data-id="pl1"]')) === 0);
@@ -275,7 +275,7 @@ const all = []; // every console error of every browser below
     await page.click('#helpBtn');
     tour = await tourTitles(page);
     const ti = tour.findIndex(s => s.title === 'House rules');
-    ok('…and shows it, after Times, when the venue has some', ti > 0 && tour[ti - 1].title === 'Times' && /belong to the venue and apply to every show there/.test(tour[ti].text), tour.map(s => s.title).join(', '));
+    ok('…and shows it, after Times, when the venue has some', ti > 0 && tour[ti - 1].title === 'Times' && /The rules apply to every show there; edit the venue to change them\./.test(tour[ti].text), tour.map(s => s.title).join(', '));
 
     /* ---------------- the levels, through the form ---------------- */
     await put(page, 'venues', { id: 'club9', kind: 'venue', name: 'Club 9' });
@@ -474,7 +474,7 @@ const all = []; // every console error of every browser below
     await page.click('.sheet .sheet-help');
     let tour = await tourTitles(page);
     let ti = tour.findIndex(s => s.title === 'House rules');
-    ok('the venue sheet’s walkthrough has a House rules step after What to know', ti > 0 && tour[ti - 1].title === 'What to know' && /They show on every show here\./.test(tour[ti].text), tour.map(s => s.title).join(', '));
+    ok('the venue sheet’s walkthrough has a House rules step after What to know', ti > 0 && tour[ti - 1].title === 'What to know' && /They appear on every show here\./.test(tour[ti].text), tour.map(s => s.title).join(', '));
     await page.keyboard.press('Escape'); await sleep(200);
     await page.click('#vn-s-harbour');
     await page.waitForSelector('.vn-sheet');
@@ -482,7 +482,7 @@ const all = []; // every console error of every browser below
     ok('Harbour Hall’s sheet: green, what is allowed and what to know', same(await chip(page, '.vn-sheet .vn-rules-sec'), HARBOUR) && same(f.rows, [['Allowed', 'Pro cameras · Point-and-shoots · Phones · Re-entry'], ['Good to know', 'Age limit: All ages']]), JSON.stringify(f));
     await page.keyboard.press('Escape'); await sleep(200);
     const pageTour = await page.evaluate(() => import('./js/pages/venues.js').then(m => m.venues.tutorial().find(s => s.title === 'A place').text));
-    ok('the venues page’s walkthrough mentions the house rules on a card', /its house rules and your next booking there/.test(pageTour), pageTour);
+    ok('the venues page’s walkthrough mentions the house rules on a card', /house rules and your next booking there/.test(pageTour), pageTour);
 
     /* ---------------- the form's walkthrough ---------------- */
     await page.click('#vn-add');

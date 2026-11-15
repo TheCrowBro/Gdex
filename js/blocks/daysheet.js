@@ -67,8 +67,8 @@ export default {
   },
 
   tutorial: [
-    { title: 'Day sheet', text: 'The band’s sheet for the day: times in order (after-midnight ones last), the venue, running order, line-up, setlist, backline, hospitality and your booking notes. Never the money.', target: ['#blk-daysheet'] },
-    { title: 'Send it to the band', text: 'Share the link to the band chat, email everyone on the booking, or print it. Sending ticks “Day sheet sent” on the checklist. Open day sheet for the preview, the QR code and what goes on it.', target: ['#blk-daysheet .ds-blk-actions'] },
-    { title: 'What goes on it', text: 'Your booking notes go on the sheet unless you leave them off, and the guest names only if you add them. Check here before you send it.', target: ['#blk-daysheet .ds-onit .btn'] },
+    { title: 'Day sheet', text: 'The band’s sheet for the day: times in order, venue, running order, line-up, setlist and notes. Never the money.', target: ['#blk-daysheet'] },
+    { title: 'Send it to the band', text: 'Share the link, email everyone on the booking or print it. Sending ticks “Day sheet sent to the band” on a show’s checklist. Open sheet shows the preview, the QR code and what goes on it.', target: ['#blk-daysheet .ds-blk-actions'] },
+    { title: 'What goes on it', text: 'Booking notes go on unless you leave them off, and guest names only if you add them. Check before you send.', target: ['#blk-daysheet .ds-onit .btn'] },
   ],
 };

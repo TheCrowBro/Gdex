@@ -192,7 +192,7 @@ export function clockCard(b) {
         : today > 0 ? [tick('today', b.id), ' logged today'] : `Start the clock when the ${b.kind === 'rehearsal' ? 'rehearsal' : 'session'} starts. Breaks are taken off.`),
     live && !mine && h('p', { class: 'small muted sd-clock-other' }, `The clock is running on “${titleOf(live)}”. Stop it there, or in the strip at the top, to start it here.`),
     h('div', { class: 'clock-btns' }, ...buttons(b, 'card')),
-    mine && Date.now() - num(live.start) > 16 * H && h('div', { class: 'warn small' }, `Still running since ${new Date(live.start).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}, ${clockTime(live.start)}. Forgot to stop it? Stop now, then fix the finish time in the list of shifts.`));
+    mine && Date.now() - num(live.start) > 16 * H && h('div', { class: 'warn small' }, `Still running since ${new Date(live.start).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}, ${clockTime(live.start)}. Forgot to stop it? Stop now, then fix the finish time under Shifts.`));
   return el;
 }
 
@@ -212,7 +212,7 @@ export function initClockBar(root) {
     if (!live) { said = null; return; }
     const br = currentBreak(live), ms = br ? Date.now() - num(br.start) : workedMs(live);
     const key = (br ? 'b' : 'w') + Math.floor(ms / 6e4);
-    if (said && said[0] === key[0] && said !== key) sr.textContent = br ? `On a break for ${spoken(ms)}` : `${kindWord(byId('bookings', live.bookingId))} clock: ${spoken(ms)} worked`;
+    if (said && said[0] === key[0] && said !== key) sr.textContent = br ? `On a break for ${spoken(ms)}` : `${kindWord(byId('bookings', live.bookingId))}: ${spoken(ms)} worked`;
     said = key;
   };
   const draw = () => {

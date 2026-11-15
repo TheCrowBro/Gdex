@@ -27,7 +27,7 @@ export default {
     const logs = logsFor(b.id);
     const startBtn = h('button', { type: 'button', class: 'btn ' + (logs.length ? 'ghost' : 'primary'), id: `sd-start-log-${b.id}`, onclick: () => start(b) }, '🎙️ Start a take log');
     if (!logs.length) return h('div', { class: 'sd-takes-box' },
-      h('p', { class: 'muted small' }, 'Log the takes as you record: + Take as each one starts, rate them Keep, Maybe or No, and note what to use in the comp.'),
+      h('p', { class: 'muted small' }, 'Log takes as you record: tap + Take as each starts, rate it Keep, Maybe or No, and note what to use in the comp.'),
       h('div', { class: 'actions' }, startBtn));
     return h('div', { class: 'sd-takes-box' },
       h('div', { class: 'sd-takes-logs' }, logs.map(l => {

@@ -226,7 +226,7 @@ function editor(list, st, ctx) {
       label('Act', h('select', { id: 'sl-act', 'data-fk': 'sl-act', onchange: e => saveList(list.id, { actId: e.target.value }) },
         [['', 'No act'], ...acts.map(a => [a.id, a.name || 'Untitled act'])].map(([v, l]) => h('option', { value: v, selected: v === (byId('acts', list.actId) ? list.actId : '') }, l)))),
       label('Gap', h('span', { class: 'sg-unit' }, h('input', { id: 'sl-gap', 'data-fk': 'sl-gap', type: 'number', min: 0, max: 600, step: 1, inputMode: 'numeric', value: p.gap, 'aria-label': 'Gap between songs, in seconds',
-        onchange: e => { const v = Math.max(0, Math.min(600, Math.round(Number(e.target.value) || 0))); saveList(list.id, { gap: v }); announce(`Gap between songs: ${v} seconds`); } }), h('span', { 'aria-hidden': 'true' }, 's'))),
+        onchange: e => { const v = Math.max(0, Math.min(600, Math.round(Number(e.target.value) || 0))); saveList(list.id, { gap: v }); announce(`Gap between songs, in seconds: ${v}`); } }), h('span', { 'aria-hidden': 'true' }, 's'))),
       label('Slot', h('span', { class: 'sg-unit' }, h('input', { id: 'sl-target', 'data-fk': 'sl-target', type: 'number', min: 0, step: 1, inputMode: 'numeric', value: st.target, placeholder: '—', 'aria-label': 'Slot length to fit, in minutes',
         onchange: e => { const v = Math.round(Number(e.target.value) || 0); st.target = v > 0 ? v : ''; ctx.repaint(); } }), h('span', { 'aria-hidden': 'true' }, 'min')))),
     h('div', { class: 'stats sg-stats', role: 'group', 'aria-label': 'Totals' },
@@ -241,8 +241,8 @@ function editor(list, st, ctx) {
     clock && h('p', { class: 'small ' + (clock.late ? 'warn' : 'muted') }, `On at ${clock.on}, off about ${clock.off}${clock.late ? `: past the ${clock.curfew} curfew` : clock.curfew ? ` (curfew ${clock.curfew})` : ''}.`),
     rows.length
       ? h('ol', { class: 'sg-items', 'aria-label': `${list.name || 'Setlist'}, in playing order` }, rows)
-      : h('div', { class: 'empty sg-ed-empty' }, h('p', null, 'Nothing in this setlist yet. Add songs from your library, then set breaks and anything else that takes time on stage.')),
-    rows.length > 1 && h('p', { class: 'small muted sg-hint' }, 'Drag ⠿ to reorder (or focus it and use the arrow keys), or use ↑ ↓. Tap ⠿ for the note, length, segue and remove.'),
+      : h('div', { class: 'empty sg-ed-empty' }, h('p', null, 'Nothing here yet. Add songs, set breaks and anything else that takes time on stage.')),
+    rows.length > 1 && h('p', { class: 'small muted sg-hint' }, 'Drag ⠿ or use ↑ ↓ to reorder. Tap ⠿ for an item’s note, length and segue, or to remove it.'),
     h('div', { class: 'actions sg-add' },
       h('button', { class: 'btn primary', type: 'button', 'data-fk': 'sl-add-songs', onclick: () => openPicker(list.id, ctx) }, '+ Songs'),
       h('button', { class: 'btn ghost', type: 'button', 'data-fk': 'sl-add-break', onclick: () => addBreak(list.id, ctx) }, '+ Set break'),
@@ -260,7 +260,7 @@ function editor(list, st, ctx) {
 function itemRow(list, p, r, i, ctx) {
   const it = r.it, name = sayItem(r), first = i === 0, last = i === p.rows.length - 1;
   const handle = h('button', {
-    class: 'sg-handle', type: 'button', 'data-fk': 'h' + it.id, 'aria-label': `Move ${name}: drag, or use the up and down arrow keys. Activate for its note, length and more`, title: 'Drag to move, or tap for options',
+    class: 'sg-handle', type: 'button', 'data-fk': 'h' + it.id, 'aria-label': `Move ${name}: drag, or use the arrow keys. Activate for its note, length and more.`, title: 'Drag to move, or tap for options',
     onpointerdown: e => drag(e, list.id, it.id, ctx), onkeydown: e => keyMove(e, list.id, it.id), onclick: () => { if (dragged) { dragged = false; return; } itemSheet(list.id, it.id, ctx); },
   }, '⠿');
   const mv = (d, k, sym, off) => h('button', { class: 'icon-btn sg-mv', type: 'button', 'data-fk': k + it.id, 'aria-label': `Move ${name} ${d < 0 ? 'up' : 'down'}`, 'aria-disabled': off ? 'true' : null, onclick: () => moveBy(list.id, it.id, d) }, sym);
@@ -282,8 +282,8 @@ function itemRow(list, p, r, i, ctx) {
       h('span', { class: 'sg-t' }, h('span', { class: 'sg-n' }, r.n + '. '), r.title),
       h('span', { class: 'sg-meta' }, meta, tags,
         !r.last && h('button', { class: 'sg-seg' + (it.segue ? ' on' : ''), type: 'button', 'data-fk': 's' + it.id, 'aria-pressed': String(!!it.segue), 'aria-label': `Segue from ${r.title} into the next item, with no gap`,
-          title: it.segue ? 'Segue: straight into the next one. Tap for a gap.' : `A ${p.gap}s gap follows. Tap to segue straight into the next one.`,
-          onclick: () => { setItem(list.id, it.id, { segue: !it.segue }); announce(it.segue ? `${p.gap} second gap after ${r.title}` : `${r.title} segues into the next item`); } }, it.segue ? '→ segue' : `${p.gap}s gap`)),
+          title: it.segue ? 'Segue: straight into the next one. Tap for a gap.' : `A gap of ${p.gap}s follows. Tap to segue straight into the next one.`,
+          onclick: () => { setItem(list.id, it.id, { segue: !it.segue }); announce(it.segue ? `${p.gap}-second gap after ${r.title}` : `${r.title} segues into the next item`); } }, it.segue ? '→ segue' : `${p.gap}s gap`)),
       it.note && h('span', { class: 'sg-note' }, it.note)),
     moves);
 }
@@ -433,7 +433,7 @@ function addFree(id, ctx) {
     ],
     onSave: v => {
       const raw = String(v.duration || '').trim(), d = parseDur(raw);
-      if (raw && !d) toast(`Could not read the length “${raw}”: added without one. Tap ⠿ on it to set it, like 1:30.`);
+      if (raw && !d) toast(`Couldn’t read the length “${raw}”, so the item has none. Tap its ⠿ to set one, like 1:30.`);
       const x = tidy({ id: uid(), title: String(v.title || '').trim() || 'Item', duration: d, note: String(v.note || '').trim() });
       ctx.focus('h' + x.id);
       editItems(id, its => insertAt(its, v.place, x));
@@ -585,24 +585,24 @@ export function printSetlist(id, opts = {}) {
 
 /* --------------------------------- tutorials --------------------------------- */
 sheetTutorial('Edit setlist', [
-  { target: ['.sg-ed-fields'], title: 'Name, act, gap and slot', text: 'Rename the setlist or move it to another act. The gap is the seconds between songs (tuning, a breath, the count-in). The slot is the set length you have to fill: the totals say how far over or under you are.' },
+  { target: ['.sg-ed-fields'], title: 'Name, act, gap and slot', text: 'Rename the setlist or move it to another act. The gap is the seconds between songs. The slot is your set length, and the totals show how far over or under you are.' },
   { target: ['.sg-stats'], title: 'Running time', text: 'The whole set with the gaps, the number of songs, and how it sits against the slot (or how many items have no length yet).' },
-  { target: ['.sg-items .sg-handle', '.sg-ed-empty'], title: 'Reorder', text: 'Drag the ⠿ handle to move an item, or focus it and use the arrow keys (Home and End jump to the top or bottom). Tap it for the item’s note, its length in this set, segue, encore and remove.' },
+  { target: ['.sg-items .sg-handle', '.sg-ed-empty'], title: 'Reorder', text: 'Drag the ⠿ handle to move an item, or focus it and use the arrow keys (Home and End jump to the top or bottom). Tap it for the item’s note, length in this set, segue and encore, or to remove it.' },
   { target: ['.sg-items .sg-mv'], title: 'Up and down', text: 'Or move one place at a time with these buttons.' },
-  { target: ['.sg-items .sg-start'], title: 'Running clock', text: 'When each item starts, counting from 0:00 with the gaps. Key changes and retunes between songs are marked, so you can plan the talk and the guitar swaps.' },
+  { target: ['.sg-items .sg-start'], title: 'Running clock', text: 'When each item starts, from 0:00 with the gaps. Marked key changes and retunes help you plan the talk and guitar swaps.' },
   { target: ['.sg-items .sg-seg'], title: 'Segue', text: 'Tap to go straight into the next item with no gap; the running time drops by the gap.' },
-  { target: ['.sg-add'], title: 'Add', text: 'Songs from your library (several at once), set breaks such as SET 2 or ENCORE, and anything else that takes time: a drum solo, band intros, a word with the crowd.' },
-  { target: ['.sg-ed-foot'], title: 'Print, copy, duplicate', text: 'Print the big stage copy, copy the list as text for the band chat, make a copy to change for another night, or delete it.' },
+  { target: ['.sg-add'], title: 'Add', text: 'Songs from your library (several at once), set breaks such as SET 2, and anything else that takes time, like a drum solo.' },
+  { target: ['.sg-ed-foot'], title: 'Print, copy, duplicate', text: 'Print the big stage copy, copy it as text for the band chat, duplicate it for another night, or delete it.' },
 ]);
 const ITEM_STEPS = [
-  { target: ['.sg-item-form'], title: 'This item', text: 'A song’s length in this set (empty: the song’s own), or a free item’s title and length; a note for the band; segue straight into the next item; mark it as an encore.' },
+  { target: ['.sg-item-form'], title: 'This item', text: 'A song’s length in this set (empty: the song’s own) or a free item’s title and length, a note for the band, segue and encore.' },
   { target: ['.sg-item-more'], title: 'Move or remove', text: 'Send it to the top or the bottom, open the song, or take it out of the setlist (the song stays in your library).' },
 ];
 sheetTutorial('Setlist item', ITEM_STEPS);
 sheetTutorial('Set break', ITEM_STEPS);
 sheetTutorial('Add songs', [
   { target: ['.sg-pick .search'], title: 'Search', text: 'Find songs by title, key, tuning or act.' },
-  { target: ['.sg-pick-row'], title: 'Tick songs', text: 'Tick as many as you like. They go in, at the end, in the order you ticked them (the numbers show it). The setlist’s act comes first.' },
+  { target: ['.sg-pick-row'], title: 'Tick songs', text: 'Tick as many as you like. They go at the end, in the order the numbers show. The setlist’s act is listed first.' },
   { target: ['#sgp-new'], title: 'A new song', text: 'Not in the library yet? Add it here and it is ticked, ready to go in.' },
   { target: ['#sgp-add'], title: 'Add', text: 'Adds the ticked songs to the setlist.' },
 ]);

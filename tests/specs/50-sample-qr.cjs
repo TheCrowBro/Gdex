@@ -351,7 +351,7 @@ const save = async page => { await topSheet(page).locator('button[type=submit]')
     await patch(page, 's-owls', { sampleWork: URL1 });
     steps = await listSteps(page);
     const st = steps.find(s => s[0] === 'Sample work');
-    ok(`${id}: the list’s walkthrough speaks of the ${w}`, !!st && st[1].includes(`QR code of your sample work for the ${w}:`) && st[1].includes(`the ${w}’s ✎ Edit`), st && st[1]);
+    ok(`${id}: the list’s walkthrough speaks of the ${w}`, !!st && st[1].includes(`QR code of your sample work for the ${w}.`) && st[1].includes(`the ${w}’s ✎ Edit`), st && st[1]);
     form = await editForm(page, 's-owls');
     const hint = await form.locator('input[data-key=sampleWork]').evaluate(b => b.closest('.field').querySelector('small').textContent);
     ok(`${id}: the form’s Sample work line names the ${w} and ${sec}`, hint === `A page of your work with this ${w}: a SoundCloud, Drive or Dropbox link, or a private playlist. Its QR code is on the ${w}’s card in ${sec}, ready to show or share.`, hint);

@@ -317,9 +317,9 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await sleep(300);
   ok('Everything: the show checklist keeps all 14 lines, and the email asks about merch and the settlement', (await page.locator('#blk-advance .check-item').count()) === (await page.evaluate(() => import('./js/model.js').then(m => m.checklistFor('show').length))) && (await page.locator('#blk-advance [data-line="show-deposit"]').count()) === 1
     && /Settlement: cash or transfer/.test(await page.locator('#blk-advance .bk-mail-text').textContent()) && /merch, settlement, Wi-Fi/.test(await page.locator('#blk-advance .bk-email > p.muted').first().innerText()));
-  ok('Everything: the words are as they were (Notes, Status, Delete, the sheets)', (await page.locator('#blk-notes .bk-notes-state').innerText()) === 'Saved when you leave the box. They go on the day sheet the band sees, unless you leave notes off it there.'
-    && /merch float/.test(await page.getAttribute('#bk-notes-text', 'placeholder')) && /done, paid\. A cancelled booking stays in your records but leaves clashes and money\./.test(await stepText(page, 'Status'))
-    && /band’s day sheet/.test(await stepText(page, 'Notes')) && /cancelled leaves clashes and money/.test(await sheetText(page, 'Booking status')) && /a show has a deal and a guest list/.test(await sheetText(page, 'What are you booking?')));
+  ok('Everything: the words are as they were (Notes, Status, Delete, the sheets)', (await page.locator('#blk-notes .bk-notes-state').innerText()) === 'Saved when you leave the box. Notes go on the band’s day sheet unless you leave them off it.'
+    && /merch float/.test(await page.getAttribute('#bk-notes-text', 'placeholder')) && /done, paid\. A cancelled booking stays in your records, out of clashes and money\./.test(await stepText(page, 'Status'))
+    && /band’s day sheet/.test(await stepText(page, 'Notes')) && /a cancelled one stays in your records, out of clashes and money/.test(await sheetText(page, 'Booking status')) && /a show has a deal and a guest list/.test(await sheetText(page, 'What are you booking?')));
   await page.click('.bk-actions .bk-delete');
   await sheetNamed(page, 'Delete this booking?').waitFor();
   ok('Everything: Delete still lists the deal, settlement, quote and invoice', /^Its deal, running order, guest list, settlement, checklist ticks, quote and invoice go with it\./.test(await sheetNamed(page, 'Delete this booking?').locator('.stack > p.small').innerText()));
@@ -367,7 +367,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await setRole(page, 'band');
   ok('a role with money still copies on hold', await page.evaluate(() => Promise.all([import('./js/pages/bookings.js'), import('./js/store.js')]).then(([m, s]) => m.copyOf(s.byId('bookings', 's-show1'), '2030-01-01').status === 'hold')));
   await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.newBooking({ kind: 'show' }))); await sleep(250);
-  ok('…and its new show starts on hold, with the line-up hint', (await page.locator('.sheet select[data-key=status]').last().inputValue()) === 'hold' && /members are added to the line-up/.test(await page.locator('.sheet').last().innerText()));
+  ok('…and its new show starts on hold, with the line-up hint', (await page.locator('.sheet select[data-key=status]').last().inputValue()) === 'hold' && /members join the line-up/.test(await page.locator('.sheet').last().innerText()));
   await page.keyboard.press('Escape'); await sleep(150);
 
   /* ---------------- the kind chooser and the form's words for each role ---------------- */
@@ -461,7 +461,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     text = await page.locator('.sheet input[id$="-actId"]').locator('xpath=ancestor::div[contains(@class,"field")][1]').innerText();
     ok('solo: the hint says to add yourself on the My act page', /Add yourself on the My act page to pick it here\./.test(text) && !/bands and artists/.test(text), text.replace(/\n/g, ' / '));
     await page.keyboard.press('Escape'); await sleep(150);
-    for (const [r, words, btn] of [['scout', 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.', '+ Add a show'], ['audiophile', 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.', '+ Add a show'], ['all', 'Nothing coming up. Add a show, a studio session or a rehearsal, or tap a date on the calendar.', '+ New booking']]) {
+    for (const [r, words, btn] of [['scout', 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.', '+ Add a show'], ['audiophile', 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.', '+ Add a show'], ['all', 'Nothing coming up. Add a booking, or tap a date on the calendar.', '+ New booking']]) {
       await setRole(page, r);
       await go(page, 'bookings');
       ok(`${r}: an empty Coming up reads “${words}”`, (await page.locator('.bk-monthview .empty p').first().innerText()) === words && (await page.locator('.bk-monthview .empty button').innerText()) === btn, await page.locator('.bk-monthview .empty').innerText());

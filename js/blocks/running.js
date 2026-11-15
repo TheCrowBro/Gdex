@@ -87,7 +87,7 @@ function saveRows(b, list, msg = 'Running order saved') {
 export function editRunning(b) {
   rowsSheet({
     title: EDIT_TITLE, cls: 'sh-rows-ro', addLabel: '+ Add a slot', saveLabel: 'Save running order',
-    intro: 'One line per slot: doors, each act, changeovers, the curfew. Lines sort by time when you save, and a time before the day starts counts as after midnight. Your set’s time and length also become the show’s on-stage time.',
+    intro: 'One line per slot, sorted by time when you save. A time before the day starts counts as after midnight. Your set’s time and length update the show.',
     columns: [
       { key: 'time', label: 'Time', type: 'time' },
       { key: 'act', label: 'What / who', placeholder: 'Doors, a band, changeover…' },
@@ -246,7 +246,7 @@ export default {
       rows.length > 0 && h('button', { type: 'button', class: 'btn ghost small', id: 'sh-ro-copy', onclick: () => copyText(runningText(byIdFresh(b)), 'Running order copied') }, '📋 Copy'));
     if (!rows.length) {
       return h('div', { class: 'sh-block sh-running' },
-        h('p', { class: 'muted' }, 'No running order yet. Build it from the doors, your set time and the curfew, then add the support acts with their set lengths.'),
+        h('p', { class: 'muted' }, 'No running order yet. Build it from the show’s times, then add the support acts.'),
         runningWarnings(b).map(w => h('p', { class: 'warn' }, w)), actions);
     }
     const mine = rows.filter(r => r.ours);
@@ -259,9 +259,9 @@ export default {
       actions);
   },
   tutorial: [
-    { title: 'Running order', text: 'The night in order: doors, the supports, changeovers, your set and the curfew, each with its end time. Times after midnight sort to the end of the night.', target: ['#blk-running .sh-ro', '#blk-running'] },
+    { title: 'Running order', text: 'The night in order, each slot with its end time. Times after midnight sort last.', target: ['#blk-running .sh-ro', '#blk-running'] },
     { title: 'Build it in one go', text: 'Fill in doors, your time and set length, and the support acts: Tourbook lays out the night with 15-minute changeovers.', target: ['#sh-ro-build'] },
-    { title: 'Warnings', text: 'A set past curfew, slots that overlap, or a soundcheck after doors show here in red.', target: ['#blk-running .warn'] },
+    { title: 'Warnings', text: 'Sets past curfew, overlapping slots and soundchecks after doors show here in red.', target: ['#blk-running .warn'] },
   ],
 };
 sheetTutorial(EDIT_TITLE, [

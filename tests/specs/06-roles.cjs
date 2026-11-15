@@ -506,7 +506,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   const noMoney = await page.$$eval('#page details.se-sec', ds => ds.map(d => d.dataset.s));
   ok('a role without money: Settings has no Quotes & invoices section', !noMoney.includes('billing') && noMoney.length === 8 && (await page.locator('#se-billing').count()) === 0, noMoney.join(','));
   const noMoneyTut = await page.evaluate(() => import('./js/pages/settings.js').then(m => m.settings.tutorial().map(s => `${s.title}: ${s.text}`)));
-  ok('…its walkthrough leaves it out, and Your details is not said to go on quotes and invoices', noMoneyTut.length === 9 && !noMoneyTut.some(t => /quote|invoice/i.test(t)) && /Your details: Your name and contact details: they go on day sheets\./.test(noMoneyTut.join('\n')), noMoneyTut.join(' | ').slice(0, 300));
+  ok('…its walkthrough leaves it out, and Your details is not said to go on quotes and invoices', noMoneyTut.length === 9 && !noMoneyTut.some(t => /quote|invoice/i.test(t)) && /Your details: Your name and contact details go on day sheets\./.test(noMoneyTut.join('\n')), noMoneyTut.join(' | ').slice(0, 300));
   ok('…nor is it on the page', !/quotes|invoices/i.test(await page.textContent('#se-profile')) && /They go on your day sheets and on your contact card below\./.test(await page.textContent('#se-profile')));
   await page.evaluate(() => import('./js/roles.js').then(m => m.setRole('producer')));
   await sleep(300);

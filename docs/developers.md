@@ -443,7 +443,9 @@ The owner's words (15 Nov 2026): "Quote's and invoices should let you choose you
   again); `''` until a country is picked. `mine()` reads them; for a profile from before (a symbol and no code) the code is
   the old "Currency for payment links" (`db.billing.currencyCode`, still read, never written), else the one the symbol
   stands for (`money-pay.js` `knownCode`; `'kr'` with no code is the device's krone or krona, NOK, DKK or ISK, else
-  SEK; `'$'` stays USD everywhere). `applyMine` never writes `db.billing`: a currency picked on a new device leaves its
+  SEK, and `'¥'` CNY on a Chinese device, else JPY; `'$'` stays USD everywhere). That guess is only ever read, never
+  stored: two devices in different languages guess differently, so a document stamped with one would part the totals
+  (`mineFields()` is yours as stored, the code only when one is). `applyMine` never writes `db.billing`: a currency picked on a new device leaves its
   billing untouched, so it never becomes the newer copy that would replace another device's numbering, tax and bank
   details in a merge (and a profile holding only a currency still counts as empty there, so a filled-in one wins). One
   chooser sets the three together, in one `update` (`applyMine`): at the top
@@ -467,15 +469,23 @@ The owner's words (15 Nov 2026): "Quote's and invoices should let you choose you
   suggested).
 * **A quote or an invoice** carries its own: `currency` (symbol), `code` and `country` (`docFields(c)`), picked in its
   editor (`#mn-ed-currency`, starting as yours, saved only when picked), or yours stamped on it by `saveDoc` the moment it
-  leaves draft (sent, accepted, paid…), so a document that went to a client never changes currency; an invoice made from
-  a quote takes the quote's. A draft with none follows yours (set your currency after making one and it follows), as
-  does a document from before: read it only through `docCur(doc)`. The box, the editor, payments, the snapshot
+  leaves draft (sent, accepted, paid…; `mineFields()`: with no code stored, the symbol alone), so a document that went to
+  a client never changes currency; an invoice made from a quote takes the quote's, as stored. A document with your
+  symbol and no code is in yours (`docCur`), so a country picked later with that symbol (Norway for `'kr'`) applies to
+  it on every device. A draft with none follows yours (set your currency after making one and it follows), as does a
+  document from before, until yours becomes another currency (another symbol, or another code than the one stored):
+  then `applyMine` gives every document past draft with none, and every one in the old symbol with no code, the
+  currency being replaced, with a new time on its booking so every device takes it in. Read a document's currency only
+  through `docCur(doc)`. The deposit note a quote starts with (`Deposit: £300.00 by …`) follows a currency picked in its
+  editor while it still starts as Tourbook wrote it. The box, the editor, payments, the snapshot
   (`currency`, `code`, and `showCode` when it is not in your currency and its symbol alone could be another, `'$'`: the
   document then says "Total (USD)", and the client's page and the email "$1,500.00 USD", `money-doc.js` `docAmount`),
   the Pay buttons and the bank QR all use it, each only in a currency it takes: PayPal with the code, Venmo and Cash App
   the amount in US dollars only, Monzo in pounds only (else no amount, the reference kept), the bank QR the amount in
   euros only, as before, and a payment page with `{amount}` only on a document in your own currency (the snapshot's
-  `own`; it is left off one in another). Its editor's walkthrough has a Currency step.
+  `own`; it is left off one in another). Its editor's walkthrough has a Currency step. An amount's symbol that ends in a
+  letter (`CHF`, `kr`, `zł`, `R`) is followed by a no-break space (`util.js` `symText`, in `fmtMoney` and `fmtDoc`, as
+  Intl writes them: `CHF 1,250`); `$`, `£`, `€`, `¥`, `₹` and `R$` stay against the number.
 * **Never added across currencies:** `sums()` keeps one total per currency (`curKey`: the code, else the symbol) and
   lists yours first; `sumsText` is `£1,200` for one and `£1,200 GBP + €800 EUR` for several, and keeps the code on one
   alone that is not yours when its symbol is shared (`symShared`: `$400 USD` for someone in Canadian dollars). A
@@ -501,7 +511,7 @@ Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `seenEntryF
 `parseDur(text)`, `fmtMin(min)`, `addMinutes('HH:MM', min)`, `minutesBetween(a, b)`, `setlistLength(list)`,
 `itemTitle(item)`, `fmtMoney(n, sym?)`, `currency()`, `dealPays(deal, gross)`, `dealSummary(deal)`, `dealBest(deal)`,
 `settle(b)`, `sessionFee(b, hours?)`, `sessionHoursPlanned(b)`, `bookingIncome(b)`, `incomeInvoice(b)` (the invoice
-`bookingIncome` reads, or `null`: its currency is the income's).
+`bookingIncome` reads, or `null`, as for a cancelled booking: its currency is the income's).
 
 Gear by band: `PAID_BY` (`['me', 'band']`), `gearActId(g)` (the act's id when it is in Acts, else `''`),
 `gearPaidBy(g)` (`'me'`, `'band'`, a person's id when they are in People, else `''`: not known), `gearWorth(list)` (the
@@ -843,7 +853,7 @@ buttons, one control: ← → move the focus between them, round from the last t
   booking over several days sits there; three days with nothing on are their names, to tap; an empty Day has no step.
   After Coming up come "House rules" (what the chip's green, amber and red mean, what "· 1 more" counts, where the full
   rules are) and "Overlapping sets", each only when a chip or an overlap note is on screen. The welcome tour's Venues
-  stop says, in every role that has one, that a venue holds house rules that show on every show there. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
+  stop says, in every role that has one, that a venue holds house rules that appear on every show there. Blocks, pills and tall squares are CSS containers (`bk-entry`, `bk-square`): a block
   shorter than two lines puts its name and time on one line, and a narrow one drops the kind's icon and the word
   before the time ("Doors"), which a screen reader still gets.
 * **What a block says.** A block or pill is too small for the overlap note and the house-rules chip: a hidden span
@@ -1211,8 +1221,8 @@ look and behave the same. Everything lives in one block of `pages/songs.js` ("fo
   (`.sg-acts`), and a chip picked there hides no song. + Song starts with no act.
 * **The form.** `editSong` has "Album or release" (`input[data-key=album]`) straight after Act, with a `datalist` of
   the albums already typed for the act picked, A to Z, which follows the Act box as it changes (`albumHelper`); its hint
-  is in the role's words ("The artist’s albums already typed are offered. Leave it empty for a single or a song not out
-  yet: it goes under Singles & unreleased."). It shows what is stored when that is text, else nothing, and a save
+  is in the role's words ("The artist’s albums typed so far are suggested. Leave it empty for a single or an unreleased
+  song: it goes under Singles & unreleased."). It shows what is stored when that is text, else nothing, and a save
   stores the box with its spaces tidied (`''` when empty). The song's sheet shows it as a fact of its own row, "Album".
 * **What it is not.** Nothing printed or sent changes: the press kit, the printed setlist (`stageDoc`), its text and
   the split sheet carry no album. The setlist editor's song picker keeps its groups by act.
@@ -1537,7 +1547,7 @@ the settings page should close the settings twirl downs after a few minutes."):
   an earlier version, a crash) counts as long ago.
 * **Back in front in the middle of something.** Tourbook back in front on Settings (`visibilitychange`, `pageshow`) with
   a sheet up (`.sheet-back`), or the focus in a box being typed in (an input that is not a button or a switch, a
-  textarea, a select, or editable text) inside an open section, counts as back sooner: nothing closes, and the moment
+  textarea, or editable text; not a select, whose choice is saved as it is made) inside an open section, counts as back sooner: nothing closes, and the moment
   noted is let go (`arrive(true)`, `midTask()`). The person had only gone to fetch something (an IBAN from the bank's
   app, a code from mail, Google's sign-in), not left Settings. Going to Settings (its `render`) is never in the middle
   of something, and leaving later notes the time as usual.
@@ -1645,7 +1655,7 @@ contract is in `docs/licence-server.md` (for the developer).
 
 ## Google Drive (`js/drive.js`, `js/sync.js`; `docs/drive.md`)
 
-* Free for every role, licence or not. On in the repository since 15 November 2026 (the website from its next publish,
+* Free for every role, licence or not. On in the repository since 15 November 2026 (on the website since that day's publish,
   the desktop app from its first release): the owner's client id (Tourbook's own Google Cloud project Tourbook) is in
   `js/cloud-config.js` (`CLOUD_APPS.google`), and `90-drive` checks the repository carries exactly it and that the app
   opened with that file asks Google with it. A build with it empty says "Not set up yet" in the Backups panel's Drive
@@ -1835,7 +1845,7 @@ backline, take, comp, stems, split sheet.
 
   | Spec | In the on leg |
   |---|---|
-  | `06-roles`, `43-ask`, `47-genres`, `70-settings` | their own contexts take `licenceLeg` |
+  | `06-roles`, `26-currency`, `43-ask`, `47-genres`, `70-settings` | their own contexts take `licenceLeg`; only in the on leg, 26 checks that a read-only role's currency chooser changes nothing, and 70 that a saved backup carries `freeDaysFrom` (none in the off leg) |
   | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
   | `14-typed-names` | its read-only check (free days over: Add brings the licence's sheet, no question) runs only in the on leg |

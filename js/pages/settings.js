@@ -60,8 +60,9 @@ function arrive(inPlace = false) {
   if (inPlace && midTask()) return;
   if (left === null || !(Date.now() - left < FOLD_AFTER_MS)) fold();
 }
-// A sheet up, or the focus in a box being typed in (not a button or a switch) inside an open section.
-const TYPED = 'input:not([type=button],[type=submit],[type=reset],[type=checkbox],[type=radio],[type=range],[type=color],[type=file],[type=image]), textarea, select';
+// A sheet up, or the focus in a box being typed in (not a button or a switch) inside an open section. A select is not
+// one: its choice is saved as it is made (Your currency), so nothing is left unsaved.
+const TYPED = 'input:not([type=button],[type=submit],[type=reset],[type=checkbox],[type=radio],[type=range],[type=color],[type=file],[type=image]), textarea';
 function midTask() {
   if (document.querySelector('.sheet-back')) return true;
   const a = document.activeElement;
@@ -149,7 +150,7 @@ export function editProfile() {
       { key: 'location', label: 'Based in', placeholder: 'City' },
       { key: 'address', label: 'Postal address', type: 'textarea', rows: 3, hint: 'For invoices: some clients need it there to pay.' },
       // The same chooser as Quotes & invoices (js/money-currency.js), drawn into the form's select by onReady.
-      { key: 'currency', label: 'Currency', type: 'select', options: [], hint: 'Pick your country. Its currency is used for every fee, deal, settlement, quote and invoice.' },
+      { key: 'currency', label: 'Currency', type: 'select', options: [], hint: 'Pick your country. Its currency is used for every fee, deal and settlement, and for your quotes and invoices (one for work abroad can have its own).' },
       { key: 'bio', label: 'Short bio', type: 'textarea', rows: 3, hint: 'A line or two about you.' },
     ],
     // The currency changes only when another country is picked: what was stored (a symbol typed by hand) stays.
@@ -221,8 +222,8 @@ function contactBlock() {
   return h('div', { class: 'se-contact' },
     h('h3', null, 'Share my contact'),
     h('p', { class: 'small muted se-card-line' }, can
-      ? `Your contact card is on ${page}, as a big QR code: someone scans it with their phone camera to save your number and email. Share it or show it big from there, or save it here as a file.`
-      : `Add your name and a phone number or email (Edit your details) to make your contact card. It shows on ${page} as a big QR code to scan.`),
+      ? `Your contact card is a big QR code on ${page}: scanning it saves your number and email. Show it big or share it there, or save it here as a file.`
+      : `Add your name and a phone number or email to make your contact card. It shows on ${page} as a big QR code.`),
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn ghost', id: 'se-card', onclick: openMyCard }, `🪪 Open ${page}`),
       h('button', { type: 'button', class: 'btn ghost', id: 'se-vcf', disabled: !can, onclick: saveCard }, '⤓ Save contact card (.vcf)')));
@@ -272,7 +273,7 @@ function billingBody() {
   moneySlot = slot;
   const fill = m => {
     if (!m) return slot.replaceChildren(h('p', { class: 'small muted' }, 'Quotes & invoices could not be loaded. Check the connection and open Settings again.'));
-    const kids = [h('p', { class: 'small muted' }, 'Your currency, how your quotes and invoices are numbered, tax, the payment details printed on them, and the prices you pick lines from.')];
+    const kids = [h('p', { class: 'small muted' }, 'Your currency, numbering, tax and payment details for your quotes and invoices, and the prices you pick lines from.')];
     for (const [make, head] of [[m.billingPanel, ''], [m.priceListPanel, 'Your price list']]) {
       try {
         const out = typeof make === 'function' ? make() : null, node = out && out.nodeType ? out : out && out.el && out.el.nodeType ? out.el : null;
@@ -314,7 +315,9 @@ export function removeSample() {
   const n = before - sampleCount(); // some go with others (a booking's clock shifts), so count what is gone
   // The sample's stand-in name, if it is still the one loadSample filled in.
   const p = store.db.profile;
-  if (p.name === 'Sample Producer' && p.business === 'Sample Sound') update(d => { d.profile = { ...d.profile, name: '', business: '', role: d.profile.role === 'Producer' ? '' : d.profile.role, updatedAt: 0 }; }); // a cleared stand-in never wins a merge with a real profile
+  // A cleared stand-in never wins a merge with a real profile. One with no time stays without; one a currency pick gave
+  // a time gets a newer one, so a merge with that stamped stand-in (another device, Drive, a backup) keeps it cleared.
+  if (p.name === 'Sample Producer' && p.business === 'Sample Sound') update(d => { d.profile = { ...d.profile, name: '', business: '', role: d.profile.role === 'Producer' ? '' : d.profile.role, updatedAt: Number(d.profile.updatedAt) > 0 ? Date.now() : 0 }; });
   return n;
 }
 function askRemove() {
@@ -322,7 +325,7 @@ function askRemove() {
   const all = store.COLLECTIONS.flatMap(c => db[c].filter(r => r && r.sample));
   if (!all.length) return toast('There is no sample to remove');
   const edited = all.filter(r => Number(r.updatedAt) > Number(r.createdAt) + 2000).length;
-  if (!confirm(`Remove the ${plural(all.length, 'sample record')}?${edited ? ` ${edited} of them changed after loading, and those changes go too.` : ''} Your own records stay; anything of yours linked to a sample act, venue, song or person is unlinked.`)) return;
+  if (!confirm(`Remove the ${plural(all.length, 'sample record')}?${edited ? ` ${edited} of them changed after loading, and those changes go too.` : ''} Your own records stay, but lose any links to sample records.`)) return;
   const next = document.querySelector('#se-sample + .se-sec > summary'); // the section that takes its place
   const n = removeSample();
   if (!n) return; // nothing went (refused): say nothing about a removal
@@ -333,7 +336,7 @@ function askRemove() {
 }
 function sampleBody() {
   return [
-    h('p', { class: 'small muted' }, 'These are the sample’s records: a sample band and a few weeks of bookings, marked as the sample. They come out in one go; your own records stay.'),
+    h('p', { class: 'small muted' }, 'The sample’s records: a band and a few weeks of bookings. They come out in one go; your own records stay.'),
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn danger', id: 'se-sample-remove', onclick: askRemove }, 'Remove the sample…')),
   ];
 }
@@ -352,7 +355,7 @@ function aboutLine() {
   let line = `Version ${VERSION}${BUILD !== 'dev' ? ' · ' + BUILD : ''} · your data stays on this device${driveLinked() ? ' and your Google Drive' : ''}`;
   if (licenceOn()) {
     const s = licenceNow();
-    line += s.mode === 'away' ? ' · the working roles only in the desktop app'
+    line += s.mode === 'away' ? ' · working roles: desktop app only'
       : ['licensed', 'pending'].includes(s.mode) && s.canEdit ? ' · licensed'
         : !s.canEdit ? (roleNeedsLicence(roleId()) ? ' · read-only: needs a licence' : ' · the working roles need a licence') // the Audiophile itself is never read-only
           : s.started ? ` · free days: ${s.trialLeft} left` : ' · Audiophile is free';
@@ -363,7 +366,7 @@ function aboutLine() {
 // in its own window on this computer and looks for new versions at its download address (desktop/updater.cjs).
 function whereWords() {
   const desk = !!window.tourbookDesktop;
-  return `Everything you enter stays ${desk ? 'in this app, on this computer' : 'in this browser, on this device'}. Your bookings, contacts and fees are never sent to a Tourbook server. If you connect Google Drive, Tourbook also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Tourbook’s licence server at tourbook.crowmade.app only ever hears about your licence, and only once you use a working role, or a backup file or Google Drive brings in free days started on another device.' : ''}${desk ? ' The desktop app also looks for new versions at tourbook-download.crowmade.app.' : ''} A backup file keeps it all safe and moves it to another device.`;
+  return `Everything you enter stays ${desk ? 'in this app, on this computer' : 'in this browser, on this device'}. Your bookings, contacts and fees are never sent to a Tourbook server. If you connect Google Drive, Tourbook also keeps a copy in a private folder of your own Drive.${licenceOn() ? ' Tourbook’s licence server at tourbook.crowmade.app only ever hears about your licence, and only once you use a working role, or once a backup file or Google Drive brings in free days started on another device.' : ''}${desk ? ' The desktop app also looks for new versions at tourbook-download.crowmade.app.' : ''} A backup file keeps it all safe and moves it to another device.`;
 }
 function aboutBody(up, done) {
   let size = 0; try { size = new Blob([store.serialize()]).size; } catch { /* ignore */ }
@@ -432,7 +435,7 @@ function eraseBody() {
     onkeydown: e => { if (e.key === 'Enter' && eraseArmed()) { e.preventDefault(); eraseDevice(); } } });
   input.spellcheck = false;
   return [
-    h('p', { class: 'warn small', id: 'se-erase-warn' }, `This removes everything Tourbook keeps on this device: bookings, acts, people, songs, setlists, backline, venues, take logs, insurance, your details and money settings, and your role (Tourbook asks again when it next opens).${driveLinked() ? ' Google Drive gets this device’s last changes first (Tourbook tells you if it can’t), then is disconnected here; the copy in your Drive stays.' : ''} Backup files, and a copy kept in a file, stay as they are.${licenceOn() ? ' Your licence sign-in and free-day count stay on this device.' : ''} There is no undo.`),
+    h('p', { class: 'warn small', id: 'se-erase-warn' }, `This removes everything Tourbook keeps on this device: every record, your details and money settings, and your role (Tourbook asks again when it next opens).${driveLinked() ? ' Google Drive gets this device’s last changes first (Tourbook tells you if it can’t), then is disconnected here; the copy in your Drive stays.' : ''} Backup files, and a copy kept in a file, stay as they are.${licenceOn() ? ' Your licence sign-in and free-day count stay on this device.' : ''} There is no undo.`),
     h('div', { class: 'field' }, h('label', { for: 'se-erase-input' }, 'Type ERASE to confirm'), input),
     S.behind && h('div', { class: 'stack se-erase-behind', role: 'alert' },
       h('p', { class: 'warn small' }, S.behind.text),
@@ -446,9 +449,9 @@ function eraseBody() {
 /* ------------------------------- the page ------------------------------- */
 // The walkthrough's words for each section; billing is left out, with the section, while money is off.
 const SECTIONS = [
-  ['role', 'Your role', 'Jack of Trades, producer, manager, band, solo artist, scout or audiophile: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
-  ['profile', 'Your details', () => (moneyShown() ? `Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.` : `Your name and contact details: they go on day sheets. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.`)],
-  ['billing', 'Quotes & invoices', 'Your currency, how quotes and invoices are numbered, tax, your payment details, and your price list.'],
+  ['role', 'Your role', 'It sets the section menu and the pages for the way you work. Change it any time; nothing is removed. Turn the “Did you see them?” question on or off here too.'],
+  ['profile', 'Your details', () => (moneyShown() ? `Your name, business and contact details go on day sheets, quotes and invoices. Below them, open ${sectionName('card', 'My card')} for your contact card as a big QR code, or save the card as a file.` : `Your name and contact details go on day sheets. Below them, open ${sectionName('card', 'My card')} for your contact card as a big QR code, or save the card as a file.`)],
+  ['billing', 'Quotes & invoices', 'Your currency, numbering, tax, payment details and your price list for quotes and invoices.'],
   ['backups', 'Backups', 'Save a backup file, bring one back, keep a copy in a file in a synced folder, or connect Google Drive to share Tourbook between your devices with a dated copy each day.'],
   ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
   ['help', 'Help', 'A walkthrough for any page, and the welcome tour.'],
@@ -513,5 +516,5 @@ sheetTutorial('Your details', [
   { title: 'Who you are', text: 'Your name, and your business, band or project name, as they should read on day sheets and invoices.', target: ['[data-key="name"]'] },
   { title: 'How to reach you', text: 'Phone, email and website go on your contact card and on your documents.', target: ['[data-key="phone"]'] },
   { title: 'Postal address', text: 'For invoices: some clients need it there before they can pay.', target: ['[data-key="address"]'] },
-  { title: 'Currency', text: 'Pick your country: its currency is used for every fee, deal, settlement, quote and invoice. The country this device is set to comes first.', target: ['[data-key="currency"]'] },
+  { title: 'Currency', text: 'Pick your country: its currency is used for every fee, deal and settlement, and for your quotes and invoices (one for work abroad can have its own). This device’s country comes first.', target: ['[data-key="currency"]'] },
 ]);

@@ -80,7 +80,7 @@ export default {
         h('button', { type: 'button', class: 'btn ghost small', id: `sd-new-song-${b.id}`, onclick: () => addNew(b) }, '+ New song')));
   },
   tutorial: [
-    { title: 'Songs', text: 'The songs this session works on. Change a song’s status here (demo, recording, mixing…): it changes in Songs too. ✕ takes a song off this session without deleting it.', target: ['#blk-worksongs .sd-worksongs', '.sd-worksongs'] },
+    { title: 'Songs', text: 'The songs this session works on. A status set here shows in Songs too. ✕ takes a song off this session without deleting it.', target: ['#blk-worksongs .sd-worksongs', '.sd-worksongs'] },
   ],
 };
 

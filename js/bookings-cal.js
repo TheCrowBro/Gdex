@@ -240,7 +240,7 @@ function comingUp() {
       ? h('div', { class: 'bk-agenda' },
         h('div', { class: 'list' }, shown.map(agendaCard)),
         list.length > 8 && h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn ghost small', id: 'bk-agenda-more', onclick: () => go({ all: !S.all }, { top: false }) }, S.all ? 'Show fewer' : `Show all (${list.length})`)))
-      : empty(X.filtersOn() ? 'Nothing coming up with these filters.' : moneyShown() ? 'Nothing coming up. Add a show, a studio session or a rehearsal, or tap a date on the calendar.' : 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.',
+      : empty(X.filtersOn() ? 'Nothing coming up with these filters.' : moneyShown() ? 'Nothing coming up. Add a booking, or tap a date on the calendar.' : 'Nothing coming up. Add a show you’re going to, or tap a date on the calendar.',
         X.filtersOn() ? h('button', { type: 'button', class: 'btn ghost', id: 'bk-agenda-clear', onclick: () => clearFilters(['.bk-filters .chip', '[data-view-head]'], true) }, 'Clear the filters')
           : moneyShown() ? h('button', { type: 'button', class: 'btn primary', onclick: () => X.newBooking({}) }, '+ New booking') : h('button', { type: 'button', class: 'btn primary', onclick: () => X.newBooking({ kind: 'show' }) }, '+ Add a show')),
   ];
@@ -529,12 +529,12 @@ export function calendarSteps(ctx) {
     ] : []),
     // The chips come after the calendar, as a keyboard and a screen reader meet them.
     { title: 'Filters', text: 'Under the calendar: show one act, or one kind of booking, on the calendar and in Coming up.', target: ['.bk-filters'] },
-    { title: 'Coming up', text: 'Your next bookings, soonest first; on the same day, in the order the bands play. Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-agenda', '.bk-calview > .empty'] },
+    { title: 'Coming up', text: 'Your next bookings, soonest first. Tap one to open it. Press and hold one for three seconds to delete it.', target: ['.bk-agenda', '.bk-calview > .empty'] },
     // The lines a card can carry, each explained only when one is on screen.
     ...(onScreen('.vn-chip') ? [{ title: 'House rules', text: RULES_HELP, target: ['.bk-agenda .vn-chip', '.bk-cal-panel .vn-chip'] }] : []),
-    ...(onScreen('.bk-overlap') ? [{ title: 'Overlapping sets', text: 'Another show that day has a set at the same time: the note names it and when it plays. In 3 days and Day the two sit side by side.', target: ['.bk-agenda .bk-overlap', '.bk-cal-panel .bk-overlap'] }] : []),
+    ...(onScreen('.bk-overlap') ? [{ title: 'Overlapping sets', text: 'Another show that day has a set at the same time: the note names it and when it plays. In 3 days and Day, the two sit side by side.', target: ['.bk-agenda .bk-overlap', '.bk-cal-panel .bk-overlap'] }] : []),
   ];
 }
 // Whether the calendar as drawn now shows a line of that kind (a house-rules chip, an overlap note) anywhere.
 const onScreen = sel => [...document.querySelectorAll('.bk-calview ' + sel)].some(el => el.getClientRects().length > 0);
-const RULES_HELP = 'The coloured line on a show is its venue’s house rules: green when nothing is restricted, amber when something is (an age limit, cash only, a written rule), red when phones or every camera are not allowed. It names the main rule; “·\u00a01\u00a0more” counts the others. The show’s page and the venue’s page have them in full.';
+const RULES_HELP = 'The coloured line on a show is its venue’s house rules: green when nothing is restricted, amber when something is (an age limit, cash only, a written rule), red when phones are not allowed, or no cameras are. It names the main rule; “·\u00a01\u00a0more” counts the others. The show’s page and the venue’s page have them in full.';

@@ -453,12 +453,12 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
   // The sheet's own help, and the welcome tour's stop for the box.
   await page.click(`${SHEET} .sheet-help`); await page.waitForSelector('.tour-card'); await sleep(400);
   const tourTitle = await page.$eval('#tour-title', e => e.textContent), tourText = await page.$eval('.tour-card p', e => e.textContent);
-  ok('the ? in the search runs its own walkthrough, which says what the box finds, dates included', tourTitle === 'Search' && /^Find bookings, acts, venues, people, songs, setlists, gear, take logs and invoices by any word in them, or by a date: “20 nov”/.test(tourText) && /\/ jumps into the box/.test(tourText), tourTitle + ': ' + tourText);
+  ok('the ? in the search runs its own walkthrough, which says what the box finds, dates included', tourTitle === 'Search' && /^Find bookings, acts, venues, people, songs, setlists, gear, take logs and invoices by any word in them, or by a date: “20 nov”/.test(tourText) && /\/ jumps here from any page/.test(tourText), tourTitle + ': ' + tourText);
   const steps = [tourTitle];
   for (let i = 0; i < 8 && (await page.$('.tour-card')); i++) { await page.click('.tour-actions .btn.primary'); await sleep(450); if (await page.$('.tour-card')) steps.push(await page.$eval('#tour-title', e => e.textContent)); }
   ok('…through the tabs, what was found, the kinds, the places and the results, and leaves the search open', same(steps, ['Search', 'Tabs', 'What was found', 'Kinds', 'Places', 'The results']) && !!(await page.$(SHEET)), steps.join(' › '));
   const welcome = await page.evaluate(() => import('./js/tour.js').then(m => { const st = m.welcomeSteps(), i = st.findIndex(s => s.title === 'Search'); return { i, deck: st.findIndex(s => s.title === 'Your sections are tracks'), target: st[i] && st[i].target, text: st[i] && st[i].text }; }));
-  ok('the welcome tour stops at the box, just after the section menu, and says what it finds, dates included', welcome.i === welcome.deck + 1 && same(welcome.target, ['#srch-bar']) && /finds anything: bookings, acts, venues, people, songs, setlists, gear, take logs and invoices/.test(welcome.text) && /“20 nov”, “friday”, “nov”, “2025” or “this week”/.test(welcome.text), JSON.stringify(welcome));
+  ok('the welcome tour stops at the box, just after the section menu, and says what it finds, dates included', welcome.i === welcome.deck + 1 && same(welcome.target, ['#srch-bar']) && /finds bookings, acts, venues, people, songs, setlists, gear, take logs and invoices by any word or by a date/.test(welcome.text) && /“20 nov”, “friday”, “nov”, “2025” or “this week”/.test(welcome.text), JSON.stringify(welcome));
 
   /* ------------------------------ a tap opens it where it lives ------------------------------ */
   await chip(page, '.srch-places', 'The Church').click(); await sleep(150);
@@ -587,7 +587,7 @@ const dayWords = (page, iso) => page.evaluate(iso => { const [y, m, d] = iso.spl
       const told = {};
       for (let i = 0; i < 8 && (await page.$('.tour-card')); i++) { told[await page.$eval('#tour-title', e => e.textContent)] = await page.$eval('.tour-card p', e => e.textContent); await page.click('.tour-actions .btn.primary'); await sleep(450); }
       ok('audiophile: the walkthrough speaks of shows on the gigs tab', told.Kinds === 'Shows, sessions and rehearsals each have a list of their own. It starts on shows.'
-        && /On the gigs tab: .* a card marked From the log is a time you logged seeing a band that has no show on the calendar\./.test(told['The results'] || ''), JSON.stringify([told.Kinds, told['The results']]));
+        && /On the gigs tab, the newest come first and a line marks today\. A card marked From the log is a time you logged seeing a band, with no show on the calendar\./.test(told['The results'] || ''), JSON.stringify([told.Kinds, told['The results']]));
     }
     if (id === 'producer') {
       await page.click(`${SHEET} .sheet-help`); await page.waitForSelector('.tour-card'); await sleep(350);

@@ -82,8 +82,8 @@ export const songs = {
   tutorial: () => (S.view === 'setlists' ? [
     { target: ['.sg-views'], title: 'Songs and setlists', text: 'Switch between your song library and your setlists.' },
     { target: ['.sg-acts'], title: 'By act', text: 'Show one act’s setlists, or all of them.' },
-    { target: ['.sg-setlist'], title: 'A setlist', text: 'Its running time, songs and the next booking it is used at. Tap to edit: drag songs into order, add set breaks, and fit it to the slot.' },
-    { target: ['#sg-new-setlist'], title: 'New setlist', text: 'Name it, pick the act, then add songs. You can also start one from a show’s Setlist box, sized to its set length.' },
+    { target: ['.sg-setlist'], title: 'A setlist', text: 'Its running time, songs and next booking. Tap to edit: reorder songs, add set breaks and fit the slot.' },
+    { target: ['#sg-new-setlist'], title: 'New setlist', text: 'Name it, pick the act, then add songs. Or start one from a show’s Setlist box, sized to its set length.' },
   ] : songSteps()),
 };
 // The songs list's walkthrough, in the role's words and as the list is drawn: in folds by act and album, by album only,
@@ -92,15 +92,15 @@ function songSteps() {
   const sh = libraryShape(), w = actWord(), noAct = sh.albums.has(NO_ACT) ? ` Songs with no ${w} come last, under No ${w}.` : '';
   const folds = sh.byAct || sh.anyAlbum;
   const foldText = sh.byAct
-    ? `Each ${w}’s songs fold under its name, A to Z.${noAct} Inside, ${sh.anyAlbum ? `they fold under each album or release, A to Z, with ${NO_ALBUM} last` : 'they fold under each album or release once a song has one: ✎ Edit on a song sets it'}. Tap a heading to drop it down or fold it away.`
-    : `The songs fold under each album or release, A to Z, with ${NO_ALBUM} last. Tap a heading to drop it down or fold it away.`;
+    ? `Each ${w}’s songs fold under its name, A to Z.${noAct} Inside, ${sh.anyAlbum ? `they fold under each album or release, A to Z, with ${NO_ALBUM} last` : 'they fold under each album or release once a song has one: ✎ Edit on a song sets it'}. Tap a heading to open or close it.`
+    : `The songs fold under each album or release, A to Z, with ${NO_ALBUM} last. Tap a heading to open or close it.`;
   return [
     { target: ['.page-head'], title: 'Songs', text: `Every song with its key, tempo, length and status, ${folds ? (sh.byAct ? `by ${w}${sh.anyAlbum ? ' and album' : ''}` : 'by album') : `grouped by ${w}`}.` },
     { target: ['.sg-views'], title: 'Songs and setlists', text: 'Switch to your setlists here.' },
     folds && { target: ['.sg-fold-head'], title: sh.byAct ? (sh.anyAlbum ? `By ${w} and album` : `By ${w}`) : 'By album', text: foldText },
     { target: ['#sg-q'], title: 'Search', text: 'Find a song by title, album, key, tuning, ISRC or writer.' + (folds ? ' The folds with a match open; clear the search and they are as they were.' : '') },
-    { target: ['.sg-song'], title: 'A song', text: 'Tap for the details, the split sheet (who wrote it and their share), the setlists it is in, and Print split sheet.', before: folds ? openFirstFold : undefined },
-    { target: ['#sg-new-song'], title: 'Add a song', text: 'Title, album or release, key, tempo and length (type 3:45), tuning, status, lyrics and chords, and the split sheet.' },
+    { target: ['.sg-song'], title: 'A song', text: 'Tap for its details, split sheet, setlists and Print split sheet.', before: folds ? openFirstFold : undefined },
+    { target: ['#sg-new-song'], title: 'Add a song', text: 'Title, album or release, key, tempo, length (type 3:45) and more, with the split sheet.' },
   ].filter(Boolean);
 }
 
@@ -131,7 +131,7 @@ function view(draw) {
 }
 
 function songsList(draw) {
-  if (!db.songs.length) return [empty('Add your songs with their key, tempo and length, so setlists add up to the slot and the split sheet is ready before release.', h('button', { class: 'btn primary', type: 'button', onclick: () => editSong({}) }, '+ Add a song'))];
+  if (!db.songs.length) return [empty('Add songs with key, tempo and length, so setlists fit the slot and split sheets are ready before release.', h('button', { class: 'btn primary', type: 'button', onclick: () => editSong({}) }, '+ Add a song'))];
   const q = S.q.trim().toLowerCase();
   const match = s => !q || songText(s).includes(q);
   const found = db.songs.filter(match), sh = libraryShape();
@@ -251,7 +251,7 @@ function songCard(s) {
 }
 
 function setlistsList() {
-  if (!db.setlists.length) return [empty('Build setlists from your songs: put them in order, add set breaks, and see the running time against the slot. Attach one to a show from its booking.', h('button', { class: 'btn primary', type: 'button', onclick: () => newSetlistForm() }, '+ New setlist'))];
+  if (!db.setlists.length) return [empty('Build setlists from your songs: order them, add set breaks and fit the slot. Attach one to a show from its booking.', h('button', { class: 'btn primary', type: 'button', onclick: () => newSetlistForm() }, '+ New setlist'))];
   const shown = db.setlists.filter(l => !S.act || actOf(l) === S.act).sort(byName);
   if (!shown.length) return [empty(S.act === NO_ACT ? 'Every setlist belongs to an act.' : `No setlists for ${actName(S.act) || 'this act'} yet.`, S.act !== NO_ACT ? h('button', { class: 'btn primary', type: 'button', onclick: () => newSetlistForm() }, '+ New setlist') : null)];
   return [h('div', { class: 'list' }, shown.map(setlistCard))];
@@ -336,7 +336,7 @@ function splitsView(s, splits, tot) {
         h('b', { class: 'sg-share' }, fmtPct(p.share))),
       (p.pro || p.ipi || p.publisher) && h('div', { class: 'small muted' }, ...dotted([p.pro && 'PRO ' + p.pro, p.ipi && 'IPI ' + p.ipi, p.publisher && 'Publisher: ' + p.publisher])))),
     h('div', { class: 'sg-total ' + (splitOk(tot) ? 'ok' : 'bad') }, h('span', null, 'Total'), h('b', null, fmtPct(tot) + (splitOk(tot) ? ' ✓' : ''))),
-    !splitOk(tot) && h('p', { class: 'warn sg-split-warn', role: 'status' }, `⚠ The shares add up to ${fmtPct(tot)}, not 100%. ${tot > 100 ? 'Someone has been given too much.' : 'Part of the song is not given to anyone yet.'} Edit the split sheet to fix it before anyone signs.`));
+    !splitOk(tot) && h('p', { class: 'warn sg-split-warn', role: 'status' }, `⚠ The shares add up to ${fmtPct(tot)}, not 100%. ${tot > 100 ? 'Someone has been given too much.' : 'Part of the song has not been given to anyone yet.'} Edit the split sheet to fix it before anyone signs.`));
 }
 
 // Adds the song to the end of a setlist, or starts a new setlist with it.
@@ -382,7 +382,7 @@ function editSongNow(s = {}, onSaved) {
       { key: 'actId', label: 'Act', type: 'select', options: [['', 'No act'], ...acts.map(a => [a.id, a.name || 'Untitled act'])] },
       // The albums already typed for the act picked above are offered as suggestions (albumHelper keeps them to that act).
       { key: 'album', label: 'Album or release', list: albumNames(src.actId && byId('acts', src.actId) ? src.actId : NO_ACT), placeholder: 'e.g. Harbour Lights EP',
-        hint: `The ${actWord()}’s albums already typed are offered. Leave it empty for a single or a song not out yet: it goes under ${NO_ALBUM}.` },
+        hint: `The ${actWord()}’s albums typed so far are suggested. Leave it empty for a single or an unreleased song: it goes under ${NO_ALBUM}.` },
       { key: 'key', label: 'Key', type: 'select', options: keyOpts },
       { key: 'bpm', label: 'Tempo (BPM)', type: 'number', min: 0, step: 'any', placeholder: 'e.g. 120' },
       { key: 'duration', label: 'Length', placeholder: '3:45', hint: 'Minutes and seconds, like 3:45' },
@@ -392,7 +392,7 @@ function editSongNow(s = {}, onSaved) {
       { key: 'link', label: 'Link', type: 'url', placeholder: 'Demo, chart or streaming link' },
       { key: 'lyrics', label: 'Lyrics & chords', type: 'textarea', rows: 6, placeholder: '[Verse 1]\nAm        F\nHarbour lights…' },
       { key: 'notes', label: 'Notes', type: 'textarea', rows: 2 },
-      { key: 'splits', label: 'Split sheet', type: 'rows', hint: 'Each writer and publisher with their share of the song. The shares should add up to 100%.',
+      { key: 'splits', label: 'Split sheet', type: 'rows', hint: 'Each writer and publisher with their share. Shares should total 100%.',
         columns: [{ key: 'name', label: 'Name' }, { key: 'role', label: 'Role' }, { key: 'share', label: 'Share %', type: 'number' }, { key: 'pro', label: 'PRO' }, { key: 'ipi', label: 'IPI' }, { key: 'publisher', label: 'Publisher' }] },
     ],
     onSave: v => {
@@ -474,7 +474,7 @@ export function splitDoc(s) {
         : h('p', null, 'No writers or publishers have been added yet.')),
     splits.length > 0 && !splitOk(tot) && h('p', { class: 'sg-split-bad' }, `Check before signing: the shares add up to ${fmtPct(tot)}, not 100%.`),
     h('div', { class: 'cs-sec' }, h('h4', null, 'Agreed and signed'),
-      h('p', { class: 'sg-sign-note' }, 'Each party agrees to the shares of the song (the composition) set out above, and that they are correct.'),
+      h('p', { class: 'sg-sign-note' }, 'Each party agrees to the shares of the song (the composition) set out above and confirms they are correct.'),
       h('div', { class: 'sg-sign' }, parties.map(p => h('div', { class: 'sg-sign-party' },
         h('div', { class: 'sg-sign-line' }),
         h('div', null, h('b', null, p.name || 'Name'), p.role ? ` · ${p.role}` : '', p.share ? ` · ${fmtPct(p.share)}` : ''),
@@ -499,9 +499,9 @@ export function printSplitSheet(id) {
 
 /* --------------------------------- tutorials --------------------------------- */
 sheetTutorial('Song', [
-  { target: ['.sg-hero'], title: 'The song', text: 'Its title, act and where it is: idea, demo, recording, mixing, mastered or released.' },
-  { target: ['.sg-facts'], title: 'Key, tempo, length', text: 'What the band needs on the night. The length makes setlists add up. The album or release, when it has one, is the fold it sits in on the songs list.' },
+  { target: ['.sg-hero'], title: 'The song', text: 'Its title, act and status, from idea to released.' },
+  { target: ['.sg-facts'], title: 'Key, tempo, length', text: 'What the band needs on the night. The length makes setlists add up. Its album or release, if any, is its fold on the songs list.' },
   { target: ['.sg-song-actions'], title: 'Edit and print', text: 'Edit everything, print the split sheet for everyone to sign, or add the song to a setlist.' },
-  { target: ['.sg-parties', '.sg-sec'], title: 'Split sheet', text: 'Who wrote it and each share, with PRO, IPI and publisher. The shares must add up to 100%; you are warned when they do not.' },
+  { target: ['.sg-parties', '.sg-sec'], title: 'Split sheet', text: 'Who wrote it and each share, with PRO, IPI and publisher. You are warned unless the shares total 100%.' },
   { target: ['.sg-links'], title: 'In setlists', text: 'The setlists the song is in and where. Tap one to open it.' },
 ]);

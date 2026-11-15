@@ -822,13 +822,13 @@ function openResults({ first = false } = {}) {
 
 /* ------------------------------- help ------------------------------- */
 sheetTutorial(TITLE, () => [
-  { title: 'Search', text: `${helpText()} Every word you type has to be found, in any order. On a keyboard, / jumps into the box from any page.`, target: ['#srch-q'] },
-  { title: 'Tabs', text: 'All has the best matches of every kind, a name that starts with what you typed first. Each other tab has one kind, with how many were found. ← → move along them.', target: ['.srch-tabs'] },
-  { title: 'The date', text: 'How a date you typed was read: everything dated that day, or in that week, month or year, comes up.', target: ['.srch-when'] },
-  { title: 'What was found', text: 'How many, and on the bookings tab at how many places.', target: ['.srch-found'] },
+  { title: 'Search', text: `${helpText()} Every word must match, in any order. On a keyboard, / jumps here from any page.`, target: ['#srch-q'] },
+  { title: 'Tabs', text: 'All lists the best matches; names that start with what you typed come first. Each other tab holds one kind. ← → switch tabs.', target: ['.srch-tabs'] },
+  { title: 'The date', text: 'How your date was read: everything from that day, week, month or year comes up.', target: ['.srch-when'] },
+  { title: 'What was found', text: `How many, and on the ${tabName('gigs').toLowerCase()} tab at how many places.`, target: ['.srch-found'] },
   { title: 'Kinds', text: 'Shows, sessions and rehearsals each have a list of their own. It starts on shows.', target: ['.srch-kinds'] },
   { title: 'Places', text: 'Tap a place to see only what was there. Tap it again, or All, to see everything.', target: ['.srch-places'] },
-  { title: 'The results', text: `Tap one to open it where it lives. On the ${tabName('gigs').toLowerCase()} tab: newest first, with a line for today between what is still to come and what is over; a card marked From the log is a time you logged seeing ${an(actWord())} that has no show on the calendar.`, target: ['.srch-list .card'] },
+  { title: 'The results', text: `Tap one to open it. On the ${tabName('gigs').toLowerCase()} tab, the newest come first and a line marks today. A card marked From the log is a time you logged seeing ${an(actWord())}, with no show on the calendar.`, target: ['.srch-list .card'] },
 ]);
 // The welcome tour's stop for the box, after the section menu.
-setSearchStep({ target: ['#srch-bar'], title: 'Search', get text() { return `The box at the top of every page finds anything: ${andList(whatList())}, by any word in them, or by a date (${DATE_HELP}). The results come up as you type, a tab for each kind.`; } });
+setSearchStep({ target: ['#srch-bar'], title: 'Search', get text() { return `This box, on every page, finds ${andList(whatList())} by any word or by a date (${DATE_HELP}). Results come up as you type, with a tab for each kind.`; } });

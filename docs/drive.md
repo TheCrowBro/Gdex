@@ -209,7 +209,9 @@ every sync, for ever. The profile keeps its own rule: one someone filled in beat
 whatever their times, and the newer of two filled-in ones wins. The sample's stand-in and an empty profile carry no time
 of their own (loading and removing the sample leave it as it was), so between those two the stand-in stays while
 sample records are there and the empty one wins once they are gone: a device with the sample and a new one agree, and
-Remove the sample on either clears the stand-in on both.
+Remove the sample on either clears the stand-in on both. Picking a currency (Settings, Your details, the welcome tour)
+gives a stand-in or an empty profile a time of its own; between two that have times the newer wins, and Remove the
+sample gives a stand-in that had a time a newer one as it clears it, so the cleared profile still wins everywhere.
 
 ### Keys (localStorage; Erase clears them, after disconnecting)
 
@@ -243,7 +245,7 @@ the desktop app refuses to sign in (Google knows only 47861).
   copies; a Vdex file refused; a shared copy cut short (the daily copy still saved, then Put this device's copy in its
   place, the bad one kept aside and the daily copies kept); a copy deleted meanwhile; Drive's errors in words and the connection coming back; ties
   (one record with the same time and different contents on two devices; the sample's stand-in profile on one device
-  and an empty one on another, then Remove the sample) settle the same way everywhere and stop writing; Replace
+  and an empty one on another, a currency picked, then Remove the sample) settle the same way everywhere and stop writing; Replace
   everywhere reading Drive first (another device's venue it had not taken in is replaced too; with no internet nothing
   is replaced).
 - `92-drive-desktop`: the desktop app's bridge stood in for at localhost:47861 (served by the test, no server); a

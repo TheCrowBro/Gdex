@@ -168,7 +168,8 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
 
   /* ------------------------------ ties: the same time, different contents ------------------------------ */
   // Two copies of the same time that differ go the same way on every device; otherwise each keeps its own and writes it
-  // back at every sync. The sample's stand-in profile and an empty one carry no time of their own at all.
+  // back at every sync. The sample's stand-in profile and an empty one carry no time of their own, until a currency is
+  // picked: then the newer wins, and Remove the sample gives the cleared one a newer time still.
   {
     const unit = await pa.evaluate(() => import('./js/store.js').then(s => {
       const base = s.normalise({}), T = Date.now();
@@ -184,6 +185,12 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
     await connect(Q.page); await waitCloud(Q.page, 'synced'); await closeSheets(Q.page);
     await syncOn(P.page);
     const names = async () => [(await data(P.page)).profile.name, (await data(Q.page)).profile.name, D3.json().profile.name].join(' | ');
+    // A currency picked on the device with the sample (Settings → Quotes & invoices does the same) gives the stand-in a time.
+    await P.page.evaluate(() => import('./js/money-currency.js').then(c => c.setMine(c.choiceFor('GB'))));
+    await sleep(1500); // its timed sync
+    await syncOn(P.page); await syncOn(Q.page); await syncOn(P.page);
+    const curs = async () => [(await data(P.page)).profile.currencyCode, (await data(Q.page)).profile.currencyCode, D3.json().profile.currencyCode].join(' | ');
+    ok('(a currency picked on the device with the sample reaches the other: the stand-in has a time now)', (await curs()) === 'GBP | GBP | GBP' && (await data(Q.page)).profile.updatedAt > 0, await curs());
     let w = D3.writes();
     for (let i = 0; i < 3; i++) { await syncOn(P.page); await syncOn(Q.page); }
     ok('the sample’s stand-in profile on one device and an empty one on the other: the stand-in on both while the sample is there, and syncing writes nothing', (await names()) === 'Sample Producer | Sample Producer | Sample Producer' && D3.writes() === w, `${await names()}; ${D3.writes() - w} writes`);
@@ -192,7 +199,7 @@ const { fakeDrive, device, connect, closeSheets, openBackups, state, syncOn, dat
     await syncOn(P.page); await syncOn(Q.page); await syncOn(P.page);
     w = D3.writes();
     for (let i = 0; i < 2; i++) { await syncOn(P.page); await syncOn(Q.page); }
-    ok('…and Remove the sample on one device clears the stand-in on both, for good', (await names()) === ' |  | ' && !(await data(P.page)).bookings.some(b => b.sample) && D3.writes() === w, `${await names()}; ${D3.writes() - w} writes`);
+    ok('…and Remove the sample on one device clears the stand-in on both, for good, the currency picked kept', (await names()) === ' |  | ' && (await curs()) === 'GBP | GBP | GBP' && !(await data(P.page)).bookings.some(b => b.sample) && D3.writes() === w, `${await names()}; ${await curs()}; ${D3.writes() - w} writes`);
     const T = Date.now() + 10;
     const tieOn = (page, notes) => page.evaluate(([t, n]) => import('./js/store.js').then(s => s.update(d => { d.venues.push({ id: 'tie-v', name: 'Tied', notes: n, updatedAt: t }); })), [T, notes]);
     await tieOn(P.page, 'from P'); await tieOn(Q.page, 'from Q');

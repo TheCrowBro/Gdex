@@ -279,7 +279,7 @@ const money = (page, n) => page.evaluate(v => import('./js/model.js').then(m => 
   ok('settle: merch, costs and profit match', [r0.f.merch, r0.f.costs, r0.f.profit].every(x => st.includes(x)));
   const amts = await page.$$eval('#blk-settlement .sh-pay-amt', a => a.map(x => x.textContent));
   ok('settle: four equal payouts', amts.length === 4 && amts.every(a => a === r0.pay[0]) && r0.pay[0] === '$480.65', amts.join(' '));
-  ok('settle: explains what a share of 2 means', /2 = a double share/.test(st));
+  ok('settle: explains what a share of 2 means', /2 doubles it/.test(st));
   await page.locator('#sh-w-s-maya').fill('2');
   await page.locator('#sh-w-s-maya').press('Tab');
   ok('settle: a weight of 2 is stored for Maya', await storeHas(page, 's-past', b => b.settlement.shares && b.settlement.shares['s-maya'] === 2));

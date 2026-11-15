@@ -71,7 +71,7 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
     ok('…each heading a button inside an h2', same(await page.$$eval('.sg-fold-head', bs => bs.map(b => b.parentElement.tagName)), ['H2', 'H2']));
     steps = await tutorial(page);
     const fs = steps.find(s => s[2] === '.sg-fold-head');
-    ok('…and the walkthrough speaks of album folds only', !!fs && fs[0] === 'By album' && fs[1] === 'The songs fold under each album or release, A to Z, with Singles & unreleased last. Tap a heading to drop it down or fold it away.' && steps[0][1].endsWith('by album.'), JSON.stringify(fs));
+    ok('…and the walkthrough speaks of album folds only', !!fs && fs[0] === 'By album' && fs[1] === 'The songs fold under each album or release, A to Z, with Singles & unreleased last. Tap a heading to open or close it.' && steps[0][1].endsWith('by album.'), JSON.stringify(fs));
     // An album whose letters spell "none" is an album of its own, with an id of its own (not Singles & unreleased's).
     await page.evaluate(() => import('./js/store.js').then(s => s.patch('songs', 'o-2', { album: 'N.O.N.E' })));
     await page.waitForSelector('.sg-fold-head >> text=N.O.N.E', T);
@@ -194,7 +194,7 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
   const box = form.locator('input[data-key=album]');
   const offered = () => box.evaluate(i => [...document.getElementById(i.getAttribute('list')).options].map(o => o.value));
   const hint = await box.evaluate(i => i.closest('.field').querySelector('small').textContent);
-  ok('…its hint, in the role’s words', hint === 'The act’s albums already typed are offered. Leave it empty for a single or a song not out yet: it goes under Singles & unreleased.', hint);
+  ok('…its hint, in the role’s words', hint === 'The act’s albums typed so far are suggested. Leave it empty for a single or an unreleased song: it goes under Singles & unreleased.', hint);
   const o1 = await offered();
   await form.locator('select[data-key=actId]').selectOption('s-owls');
   const o2 = await offered();
@@ -265,11 +265,11 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
   let steps = await tutorial(page);
   const fstep = steps.find(s => s[2] === '.sg-fold-head');
   ok('the songs walkthrough explains the folds, after Songs and setlists and before Search, in the role’s words',
-    !!fstep && fstep[0] === 'By act and album' && fstep[1] === 'Each act’s songs fold under its name, A to Z. Songs with no act come last, under No act. Inside, they fold under each album or release, A to Z, with Singles & unreleased last. Tap a heading to drop it down or fold it away.'
+    !!fstep && fstep[0] === 'By act and album' && fstep[1] === 'Each act’s songs fold under its name, A to Z. Songs with no act come last, under No act. Inside, they fold under each album or release, A to Z, with Singles & unreleased last. Tap a heading to open or close it.'
     && steps.indexOf(fstep) === steps.findIndex(s => s[0] === 'Songs and setlists') + 1 && steps[steps.indexOf(fstep) + 1][0] === 'Search', JSON.stringify(steps.map(s => s[0])));
   ok('…its first step, its search step and its Add a song step speak of albums', steps[0][1] === 'Every song with its key, tempo, length and status, by act and album.' && steps.find(s => s[0] === 'Search')[1] === 'Find a song by title, album, key, tuning, ISRC or writer. The folds with a match open; clear the search and they are as they were.' && /^Title, album or release,/.test(steps.find(s => s[0] === 'Add a song')[1]) && !steps.some(s => s[2] === '.sg-acts'));
   const sheetStep = await page.evaluate(() => import('./js/tour.js').then(m => (m.sheetSteps('Song') || []).find(s => s.title === 'Key, tempo, length').text));
-  ok('the song sheet’s walkthrough speaks of the album', /album or release, when it has one, is the fold it sits in/.test(sheetStep), sheetStep);
+  ok('the song sheet’s walkthrough speaks of the album', /Its album or release, if any, is its fold on the songs list\./.test(sheetStep), sheetStep);
   await page.reload(); await page.waitForSelector('#deck .dk-next');
   await go(page, 'songs');
   ok('a reload folds every fold again', (await heads(page)).every(x => x[2] === 'false') && !(await shown(page)).length, JSON.stringify(await heads(page)));
@@ -296,7 +296,7 @@ const seed = page => page.evaluate(() => import('./js/store.js').then(s => { s.l
     ok(`${id}: ${id === 'manager' ? 'Songs as a bonus track' : 'Songs on its menu'}, in folds, its words for songs with no ${w} (“No ${w}”), in the walkthrough and in the form’s hint`,
       onMenu === (id !== 'manager') && (await page.textContent('#sg-act-none .sg-fold-name')) === `No ${w}` && (await spoken(page, '#sg-act-none')) === `No ${w}, 2 songs`
       && !!st && st[0] === `By ${w} and album` && st[1].startsWith(`Each ${w}’s songs fold under its name, A to Z. Songs with no ${w} come last, under No ${w}.`)
-      && h === `The ${w}’s albums already typed are offered. Leave it empty for a single or a song not out yet: it goes under Singles & unreleased.`,
+      && h === `The ${w}’s albums typed so far are suggested. Leave it empty for a single or an unreleased song: it goes under Singles & unreleased.`,
       JSON.stringify({ onMenu, name: await page.textContent('#sg-act-none .sg-fold-name'), st: st && st[1].slice(0, 70), h }));
   }
   ok('no errors in the console (every role)', errors.length === 0, errors.slice(0, 5).join(' | '));

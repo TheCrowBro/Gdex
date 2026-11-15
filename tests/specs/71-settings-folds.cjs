@@ -3,7 +3,7 @@
 // shown again 3 minutes or more after it was left (another section, Tourbook in the background, or closed and opened
 // again), Settings has every section closed and the list cleared. While it stays on screen nothing closes, and
 // openSettingsSection still opens the section it is asked for. Back in front in the middle of something (typing in a
-// box, a sheet up) is not leaving, and closed in place the view goes under the section menu. The page's clock is
+// box, a sheet up; not a choice made in a select, saved as it is made) is not leaving, and closed in place the view goes under the section menu. The page's clock is
 // Playwright's, running on from now: fastForward moves it on, setSystemTime jumps (a phone asleep); "out of sight" is
 // document.visibilityState with a visibilitychange event, as in 13-calendar.
 const { open, ok, sleep, go } = require('../helpers.cjs');
@@ -145,6 +145,13 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   ok('…leaving after that still notes the time: back within 3 minutes, still open', same(await opened(), ['billing']));
   await go(page, 'bookings'); await later(3 * MIN); await toSettings();
   ok('…and back after 3 minutes, closed', same(await opened(), []) && same(await stored(), { open: [], left: null }), JSON.stringify(await stored()));
+  // A choice in a select (Your currency) is saved as it is made: with the focus still on it, nothing is being typed, so
+  // back in front after 3 minutes every section closes.
+  await twirl('billing'); await twirl('display'); await page.waitForSelector('#mn-bl-currency');
+  await page.focus('#mn-bl-currency'); await page.selectOption('#mn-bl-currency', 'DE'); await sleep(300);
+  const pick = await page.evaluate(() => import('./js/money-currency.js').then(c => ({ code: c.mine().code, focus: document.activeElement.id })));
+  await away();
+  ok('a currency picked in Quotes & invoices, the focus still on its chooser, and back in front after 3 minutes: every section closes', pick.code === 'EUR' && pick.focus === 'mn-bl-currency' && same(await opened(), []) && same(await stored(), { open: [], left: null }), JSON.stringify([pick, await opened()]));
   await twirl('profile');
   await page.click('#se-edit-profile'); await page.waitForSelector('.sheet [data-key="name"]'); await sleep(200);
   await away();

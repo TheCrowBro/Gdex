@@ -148,7 +148,7 @@ export const card = {
         canShare() && h('button', { type: 'button', class: 'btn ghost', id: 'cd-share', onclick: shareCard }, '↗ Share'),
         h('button', { type: 'button', class: 'btn ghost', id: 'cd-vcf', onclick: () => saveCard() }, '⤓ Save as a file (.vcf)'),
         edit(false)),
-      h('p', { class: 'small muted cd-note' }, 'Everything under the code is in it, and nothing is sent anywhere: the phone that scans it reads it off your screen. It is the same card as in Settings → Your details.')));
+      h('p', { class: 'small muted cd-note' }, 'Everything under the code is in it. Nothing is sent anywhere: a phone reads it off your screen. Same card as in Settings → Your details.')));
     return cleanup;
   },
   tutorial: () => {
@@ -161,7 +161,7 @@ export const card = {
       { title: page, text: `Your contact card, ready to show ${who}.`, target: ['#page .page-head'] },
       { title: 'The code', text: 'Your contact card as a QR code. Most phone cameras offer to save it as a contact as soon as they see it, with no app and no internet.', target: ['.cd-qr'] },
       { title: 'What it holds', text: 'Your name and the details under the code, and nothing else. Change them with Edit your details and the code follows.', target: ['.cd-who'] },
-      { title: 'Show big', text: 'The code alone on a plain white screen, as big as it fits, to scan from across a table or in a dark room. The screen stays on while it shows. Tap anywhere, press Escape or go Back to close it.', target: ['#cd-big'] },
+      { title: 'Show big', text: 'The code alone on a plain white screen, as big as will fit, to scan from across a table or in a dark room. The screen stays on. Tap anywhere, press Escape or go Back to close it.', target: ['#cd-big'] },
       { title: 'Share', text: 'Sends the card with your phone’s own share sheet: a message, an email, AirDrop or whatever it offers.', target: ['#cd-share'] },
       { title: 'Save as a file', text: 'The card as a .vcf file, which any phone, address book or email program opens.', target: ['#cd-vcf'] },
       { title: 'Edit your details', text: 'The same details as Settings → Your details: change them here or there.', target: ['#cd-edit'] },

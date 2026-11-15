@@ -82,23 +82,32 @@ export function deviceRegion() {
 
 /* ------------------------------- yours, and a document's ------------------------------- */
 // The code for a symbol stored with no code: 'kr' is the device's own (NOK on NO, DKK on DK, ISK on IS), else what it
-// always was (SEK); '$' stays USD, so a new device is $ / USD wherever it is.
+// always was (SEK); '$' stays USD, so a new device is $ / USD wherever it is. Only ever read, never stored: two devices
+// in different languages guess differently, so a guess written into a document would part the totals.
 const guessCode = sym => {
   const k = codeOf(sym), dc = COUNTRY_CURRENCY[deviceRegion()];
   return k && k !== 'USD' && dc && dc !== k && symbolFor(k) === sym && symbolFor(dc) === sym ? dc : k;
 };
+// Yours as it is stored in d (the database, or a copy being changed): the symbol, and the code and country only when
+// they are stored (the profile's, else the old "Currency for payment links", db.billing.currencyCode); code '' when none is.
+function stored(d = db) {
+  const p = d.profile && typeof d.profile === 'object' ? d.profile : {}, sym = p.currency || '$';
+  if (isCode(p.currencyCode)) return { sym, code: p.currencyCode, country: typeof p.currencyCountry === 'string' ? p.currencyCountry : '' };
+  const bl = d.billing && typeof d.billing === 'object' ? d.billing : {};
+  return { sym, code: isCode(bl.currencyCode) ? bl.currencyCode : '', country: '' };
+}
 // A currency: { sym, code, country }. code is '' when the symbol was typed by hand and is not known; country '' when
 // none was picked. Yours is the profile's, all three from the one record; a profile from before has only the symbol,
 // with the code from the old "Currency for payment links" (db.billing.currencyCode) or else the one the symbol stands for.
-export function mine() {
-  const p = db.profile && typeof db.profile === 'object' ? db.profile : {}, sym = p.currency || '$';
-  if (isCode(p.currencyCode)) return { sym, code: p.currencyCode, country: typeof p.currencyCountry === 'string' ? p.currencyCountry : '' };
-  const bl = db.billing && typeof db.billing === 'object' ? db.billing : {};
-  return { sym, code: isCode(bl.currencyCode) ? bl.currencyCode : guessCode(sym), country: '' };
-}
-// A quote's or an invoice's currency: its own, else (a document from before currencies were per document) yours.
+export function mine() { const c = stored(); return c.code ? c : { ...c, code: guessCode(c.sym) }; }
+// The fields a document stores for yours: the code and country only when they are stored, never a guess.
+export const mineFields = () => docFields(stored());
+// A quote's or an invoice's currency: its own, else (a document from before currencies were per document) yours. One
+// with your symbol and no code was stamped while yours had no code stored: it is in yours, so a country picked later
+// with that symbol (Norway for 'kr') applies to it, on every device.
 export function docCur(doc) {
   if (!doc || typeof doc.currency !== 'string' || !doc.currency.trim()) return mine();
+  if (!isCode(doc.code)) { const own = mine(); if (doc.currency === own.sym) return own; }
   return { sym: doc.currency, code: isCode(doc.code) ? doc.code : guessCode(doc.currency), country: typeof doc.country === 'string' ? doc.country : '' };
 }
 // What tells two currencies apart: the code, else (a symbol typed by hand) the symbol.
@@ -151,9 +160,25 @@ export const picked = sel => (sel && sel.value !== sel.dataset.start && sel.valu
 // Sets your currency inside an update: the symbol, the code and the country, together in the profile. The billing
 // settings (numbering, tax, payment details) are left alone: a currency picked on a new device never makes its empty
 // billing the newer copy in a merge with Google Drive or a backup, and the profile's merge already lets one filled in
-// beat one that holds only a currency.
+// beat one that holds only a currency. When yours becomes another currency (another symbol, or another code than the
+// one stored), every quote and invoice that went out in yours keeps it: one past draft with no currency of its own (sent
+// before currencies were per document) gets the one being replaced, as does one in its symbol with no code, and its
+// booking a new time so every device takes it in. A draft with none still follows yours.
 export function applyMine(d, c) {
-  d.profile = { ...d.profile, currency: c.sym, currencyCode: c.code || '', currencyCountry: c.country || '', updatedAt: Date.now() };
+  const was = stored(d), now = Date.now();
+  if (was.sym !== c.sym || (was.code && was.code !== c.code)) {
+    for (const b of Array.isArray(d.bookings) ? d.bookings : []) {
+      let kept = false;
+      for (const k of ['quote', 'invoice']) {
+        const doc = b && b[k];
+        if (!doc || typeof doc !== 'object') continue;
+        const none = !(typeof doc.currency === 'string' && doc.currency.trim());
+        if ((none && doc.status !== 'draft') || (!none && doc.currency === was.sym && !isCode(doc.code) && was.code)) { b[k] = { ...doc, ...docFields(was) }; kept = true; }
+      }
+      if (kept) b.updatedAt = now;
+    }
+  }
+  d.profile = { ...d.profile, currency: c.sym, currencyCode: c.code || '', currencyCountry: c.country || '', updatedAt: now };
 }
 export const setMine = c => !!c && update(d => applyMine(d, c));
 // Your chooser, for Settings → Quotes & invoices: it saves as soon as a country is picked (and goes back to what is

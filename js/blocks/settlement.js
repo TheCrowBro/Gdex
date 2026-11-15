@@ -30,7 +30,7 @@ function markSettled(b) {
   if (!known(s.tickets)) ask.push('there’s no ticket count');
   if (!known(s.received)) ask.push('nothing is recorded as received');
   if (b.date && b.date > todayISO()) ask.push('the show hasn’t happened yet');
-  if (ask.length && !confirm(`${ask.join(', ').replace(/^./, c => c.toUpperCase())}. Mark the show settled anyway?`)) return;
+  if (ask.length && !confirm(`${ask.join('; ').replace(/^./, c => c.toUpperCase())}. Mark the show settled anyway?`)) return;
   if (!saveBooking(b.id, x => { x.status = 'settled'; x.settlement = { ...sOf(x), settledAt: Date.now() }; })) return;
   markCheck(b.id, 'show-settled', true);
   toast('Show settled');
@@ -198,7 +198,7 @@ export default {
     const pay = h('section', { class: 'sh-sec', 'aria-labelledby': 'sh-st-pay-h' },
       h('h4', { id: 'sh-st-pay-h' }, 'Payouts'),
       !ppl.length ? h('div', { class: 'small muted' }, h('p', null, 'No one is on this show yet. Add the band under Line-up to split the profit.'), ctx.open && h('button', { type: 'button', class: 'btn ghost small', onclick: () => open('lineup') }, 'Line-up →'))
-        : [h('p', { class: 'small muted' }, 'The profit split between everyone on the show, an equal share each. Change a share to weight it: 2 = a double share, 0.5 = a half share, 0 = not paid from this night.'),
+        : [h('p', { class: 'small muted' }, 'The profit, split equally. Change a share to weight it: 2 doubles it, 0.5 halves it, 0 pays nothing from this night.'),
           r.profit < 0 && h('p', { class: 'warn' }, `The night lost ${m(-r.profit)}. The amounts below are each person’s share of the loss.`),
           zero && h('p', { class: 'warn' }, 'Every share is 0, so no one is paid.'),
           h('div', { class: 'sh-pay' }, ppl.map(p => {
@@ -218,7 +218,7 @@ export default {
     return h('div', { class: 'sh-block sh-settle' + (done ? ' settled' : '') },
       done ? h('div', { class: 'sh-st-status card-row' }, h('div', null, h('span', { class: 'pill st-settled' }, 'Settled'), s.settledAt ? h('span', { class: 'small muted' }, ` on ${fmtShort(ymd(new Date(s.settledAt)))}`) : null),
         h('button', { type: 'button', class: 'btn ghost small', id: 'sh-st-reopen', onclick: () => reopen(b) }, 'Reopen'))
-        : future && !hasFigures(b) && h('p', { class: 'muted small' }, 'For the night itself: fill this in with the promoter after the show. It works out what you’re owed, the merch and each person’s share.'),
+        : future && !hasFigures(b) && h('p', { class: 'muted small' }, 'After the show, fill this in with the promoter to see what you’re owed, the merch and each share.'),
       door, merchSec, costSec, totals, pay, notes,
       h('div', { class: 'actions sh-st-actions' },
         !done && h('button', { type: 'button', class: 'btn primary', id: 'sh-st-settle', onclick: () => markSettled(b) }, '✓ Mark settled'),
@@ -239,5 +239,5 @@ sheetTutorial(MERCH_TITLE, [
   { title: 'What sold', text: 'Under each line: how many sold and what they took.', target: ['.sh-row-note'] },
 ]);
 sheetTutorial(COSTS_TITLE, [
-  { title: 'The night’s costs', text: 'Anything spent on the night. They come off the profit before the payouts.', target: ['.sh-rows .sh-row', '.sh-rows-form .actions .btn'] },
+  { title: 'The night’s costs', text: 'Anything spent on the night. It comes off the profit before the payouts.', target: ['.sh-rows .sh-row', '.sh-rows-form .actions .btn'] },
 ]);

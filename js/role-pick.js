@@ -49,7 +49,7 @@ const settled = r => `Set up for ${r.label}: ${menuSections(r).length} sections 
 // The section menu in its own words (Aa → Section menu, js/a11y.js menuWords): the record player's sleeve, or the
 // track list of the tape deck and the digital player.
 // With the licence on and no licence, the working sections among them come with the working roles (closedWords).
-const aboutText = () => { const shut = closedWords().bonus; return `Your role sets the section menu: which sections are tracks and in what order, and the boxes on a booking. Tourbook always opens on the calendar. Nothing is removed: sections not on the menu are bonus tracks on ${menuWords().list} (${menuWords().tap})${shut ? `. ${shut}` : ', and links to them still open them.'}`; };
+const aboutText = () => { const shut = closedWords().bonus; return `Your role sets which sections are tracks, in what order, and which boxes a booking shows. Tourbook always opens on the calendar. Nothing is removed: other sections are bonus tracks on ${menuWords().list} (${menuWords().tap})${shut ? `. ${shut}` : ', and links to them still work.'}`; };
 const nudgeWords = () => [h('strong', null, 'New: a menu for the way you work. '), `Producer, manager, band, solo artist, scout or audiophile: Tourbook puts the sections you use on the menu, and every other one stays on ${menuWords().list}.`];
 // Switching the section menu (Aa) with the role card or Settings → Your role on screen changes their words at once.
 window.addEventListener('tourbook-prefs', () => {
@@ -74,7 +74,7 @@ export function askRole({ then = () => {}, title = 'Who’s using Tourbook?' } =
     then(id);
   };
   const body = h('div', { class: 'stack rp-ask' },
-    h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Tourbook puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.${licenceIntro()}`),
+    h('p', { class: 'rp-intro' }, `Pick the role closest to you, and Tourbook puts the sections you’ll use on your menu, in your words. Change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.${licenceIntro()}`),
     h('div', { class: 'list rp-list', role: 'group', 'aria-label': 'Roles' }, CARDS.map(r => card(r, { onPick: pick }))));
   const unpicked = () => {
     nudged();

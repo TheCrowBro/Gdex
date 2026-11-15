@@ -122,7 +122,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await go(page, 'settings'); await sleep(300);
       await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
       // The line under the cards says what the first-run words say: the Audiophile free, for personal use, not for work.
-      ok('Settings → Your role’s licence line, before any paid use: the Audiophile is free for good, for personal use, not for work; the other roles have 30 free days, then a licence', /^Audiophile is free for good, for personal use, not for work\. The other roles, Jack of Trades included, have 30 free days on this device, counted from the first time you use one; then a licence: 20 USD once plus any tax where you live, for up to 3 of your devices\.$/.test(await page.textContent('.rp-licence-line p')), await page.textContent('.rp-licence-line p'));
+      ok('Settings → Your role’s licence line, before any paid use: the Audiophile is free for good, for personal use, not for work; the other roles have 30 free days, then a licence', /^Audiophile is free for good, for personal use, not for work\. The other roles, Jack of Trades included, are free for 30 days on this device from the first time you use one, then need a licence: 20 USD once plus any tax where you live, for up to 3 of your devices\.$/.test(await page.textContent('.rp-licence-line p')), await page.textContent('.rp-licence-line p'));
       await page.click('#se-role .rp-card[data-role="producer"]');
       await page.waitForSelector('.sheet[aria-label="Before you use the working roles"]');
       ok('picking Producer shows the terms sheet first, with its tick box and Agree off until ticked', await page.$eval('#lic-terms-agree', b => b.disabled) && /I am 18 or over, and I have read and agree to the terms of service\./.test(await page.textContent('.lic-terms-check')) && (await page.locator('.lic-terms a[href="terms.html"]').count()) > 0 && (await page.locator('.lic-terms a[href="privacy.html"]').count()) > 0);
@@ -227,7 +227,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('.dk-sheet .dk-bonus .dk-track[data-section="songs"]'); await sleep(500);
       ok('…tapping one offers the licence and stays where it was', (await sheets(page)).includes('Songs needs a licence') && (await page.evaluate(() => window.logiPage())) === 'bookings', (await sheets(page)).join(' | '));
       const offer = await page.evaluate(() => document.querySelector('.sheet.licence-needed').textContent);
-      ok('…the offer says the free days are over, what a licence opens, the price, and that its own sections and My card stay free', /Your 30 free days of Tourbook’s working sections are over on this device\./.test(offer) && /A licence opens People, Songs, Studio log, Backline, Money and Insurance, and every role: 20 USD once plus any tax where you live, for up to 3 of your devices\. Your gigs, bands, venues and tools stay free, and so does My card\./.test(offer) && /Buy a licence · 20 USD/.test(offer) && /Sign in \(I have one\)/.test(offer) && /Not now/.test(offer), offer);
+      ok('…the offer says the free days are over, what a licence opens, the price, and that its own sections and My card stay free', /Your 30 free days of Tourbook’s working sections are over on this device\./.test(offer) && /A licence opens People, Songs, Studio log, Backline, Money and Insurance, and every role\. It costs 20 USD once plus any tax where you live, for up to 3 of your devices\. Your gigs, bands, venues and tools stay free, and so does My card\./.test(offer) && /Buy a licence · 20 USD/.test(offer) && /Sign in \(I have one\)/.test(offer) && /Not now/.test(offer), offer);
       ok('…and the sheet holds the focus, not Buy', await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('licence-needed')));
       await page.click('.sheet.licence-needed .lic-later'); await sleep(250);
       ok('logiGo to a working section resolves false', (await go(page, 'money')) === false);
@@ -249,7 +249,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await page.click('#bk-more > summary'); await sleep(400);
       const after = await page.evaluate(() => { const f = document.getElementById('bk-more'); return { open: f.open, boxes: f.querySelectorAll('.blk').length }; });
       ok('…opening it offers the licence and draws no box', (await sheets(page)).includes('The working boxes need a licence') && !after.open && after.boxes === 0, JSON.stringify(after));
-      ok('…its words say what the working boxes are', /The line-up, setlist, take log and the other working boxes, and People, Songs and Backline’s cards, come with Tourbook’s working roles\./.test(await page.textContent('.sheet.licence-needed')));
+      ok('…its words say what the working boxes are', /The line-up, setlist, take log and the other working boxes, and the cards in People, Songs and Backline, come with Tourbook’s working roles\./.test(await page.textContent('.sheet.licence-needed')));
       await closeTop(page);
       const opened = await page.evaluate(() => import('./js/blocks/../pages/bookings.js').then(() => { const f = document.getElementById('blk-lineup'); return !!f; }));
       ok('…so a box asked for by id is not there to open', opened === false);
@@ -282,7 +282,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       // A studio session already here: shown, not changed, with the licence offered.
       await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-sess1'))); await sleep(500);
       const note = await page.evaluate(() => ({ note: (document.querySelector('.lic-work-note') || {}).textContent || '', area: document.querySelectorAll('#bk-notes-text').length, ro: document.querySelectorAll('.bk-notes-ro').length }));
-      ok('a studio session already here is shown read-only: what it is kept for, its notes as text', /^Studio sessions come with Tourbook’s working roles: this one stays here for you to look at, and can be changed with a licence\.Get a licence…$/.test(note.note) && note.area === 0, JSON.stringify(note));
+      ok('a studio session already here is shown read-only: what it is kept for, its notes as text', /^Studio sessions come with Tourbook’s working roles\. This one is read-only; change it with a licence\.Get a licence…$/.test(note.note) && note.area === 0, JSON.stringify(note));
       await page.click('.bk-edit'); await sleep(400);
       const e1 = await sheets(page); await closeTop(page);
       await page.click('#bk-status'); await sleep(400);
@@ -353,7 +353,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
         await go(page, 'settings'); await sleep(300);
         await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);
         const about = await page.textContent('#se-role .rp-about');
-        ok(`an Audiophile, ${when}: the welcome tour and Your role say the working sections come with the working roles, not that a tap opens them`, says.test(tour) && !/to open any of them/.test(tour) && !/links to them still open them/.test(about) && says.test(about), JSON.stringify({ tour, about }));
+        ok(`an Audiophile, ${when}: the welcome tour and Your role say the working sections come with the working roles, not that a tap opens them`, says.test(tour) && !/to open any of them/.test(tour) && !/links to them still work/.test(about) && says.test(about), JSON.stringify({ tour, about }));
         if (seed) ok('…and the tour does not offer every role any time', !/Change your role there any time/.test(tour) && /The working roles need a licence now\./.test(tour), tour);
         await ctx.close();
       }
@@ -371,7 +371,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       let sh = await sheets(page);
       ok('at opening a working role with its free days over gets the free-days-over sheet, and no question', sh.join() === 'Your 30 free days are over', sh.join(' | '));
       const words = await page.textContent('.sheet.licence-over');
-      ok('…its words: read-only as Producer, nothing deleted, the price, and the way out (free as an Audiophile, for personal use, not for work)', /Tourbook is read-only as Producer on this device until there is a licence: you can open, search, print and share everything, but not change it\. Nothing has been deleted\. A licence is 20 USD once plus any tax where you live, for up to 3 of your devices\. Or carry on free as an Audiophile, for personal use, not for work, with everything you already have\./.test(words) && /Buy a licence · 20 USD/.test(words) && /Sign in \(I have one\)/.test(words) && /Carry on free as an Audiophile/.test(words), words);
+      ok('…its words: read-only as Producer, nothing deleted, the price, and the way out (free as an Audiophile, for personal use, not for work)', /Tourbook is read-only as Producer on this device until there is a licence: you can open, search, print and share everything, but not change it\. Nothing has been deleted\. A licence is 20 USD once plus any tax where you live, for up to 3 of your devices\. Or carry on free as an Audiophile, with everything you already have, for personal use, not for work\./.test(words) && /Buy a licence · 20 USD/.test(words) && /Sign in \(I have one\)/.test(words) && /Carry on free as an Audiophile/.test(words), words);
       await closeTop(page); await sleep(1500);
       sh = await sheets(page);
       // It opened as Tourbook opened, with nothing focused: once it is gone the page has the focus (it was left nowhere).
@@ -688,7 +688,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       const st = await state(page);
       ok('…the clock set back: mode clock, read-only, and its own sheet', st.mode === 'clock' && st.canEdit === false && (await sheets(page)).join() === 'Your device’s clock looks wrong' && /Tourbook can’t count your free days while this device’s date and time are off by more than a day\./.test(await page.textContent('.sheet.licence-over')), JSON.stringify(st));
       // It offers Carry on free as an Audiophile, so it says what that is for, as every sheet that offers it does (decisions §21).
-      ok('…and its way out says the Audiophile is for personal use, not for work', /Until then Tourbook is read-only as Producer\. Or carry on free as an Audiophile, for personal use, not for work\.$/.test(await page.textContent('.sheet.licence-over .lic-over p')) && (await page.locator('.sheet.licence-over .lic-carry').count()) === 1, await page.textContent('.sheet.licence-over .lic-over p'));
+      ok('…and its way out says the Audiophile is for personal use, not for work', /Until then Tourbook is read-only as Producer\. Nothing has been deleted\. Or carry on free as an Audiophile, for personal use, not for work\.$/.test(await page.textContent('.sheet.licence-over .lic-over p')) && (await page.locator('.sheet.licence-over .lic-carry').count()) === 1, await page.textContent('.sheet.licence-over .lic-over p'));
       srv.offline = false; srv.date = () => new Date(real + 3 * HOUR + 10 * 60e3);
       await page.evaluate(() => import('./js/licence-web.js').then(m => m.status(true)));
       await sleep(700);
@@ -840,7 +840,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
         seen[`${kind} ${label}`] = [(await sheets(page)).join(), (await page.textContent('.sheet.licence-needed .lic-offer p').catch(() => '')).slice(0, 200)];
         for (let i = 0; i < 3; i++) { await page.keyboard.press('Escape'); await sleep(150); }
       }
-      const want = { session: ['Studio sessions need a licence', 'Studio sessions come with Tourbook’s working roles: this one stays here for you to look at, and can be changed with a licence.'], rehearsal: ['Rehearsals need a licence', 'Rehearsals come with Tourbook’s working roles: this one stays here for you to look at, and can be changed with a licence.'] };
+      const want = { session: ['Studio sessions need a licence', 'Studio sessions come with Tourbook’s working roles. This one is read-only; change it with a licence.'], rehearsal: ['Rehearsals need a licence', 'Rehearsals come with Tourbook’s working roles. This one is read-only; change it with a licence.'] };
       const wrong = Object.entries(seen).filter(([k, v]) => { const w = want[k.split(' ')[0]]; return v === 'no button' ? !/Confirmed/.test(k) : !(v[0] === w[0] && v[1].startsWith(w[1])); });
       ok('a free Audiophile\'s studio session or rehearsal, free days over: Edit, Delete, Duplicate, the status and the page note\'s own Get a licence… offer "Studio sessions need a licence" or "Rehearsals need a licence", in the page note\'s words', ids.every(Boolean) && wrong.length === 0, JSON.stringify(wrong.length ? wrong : seen).slice(0, 400));
       await ctx.close();

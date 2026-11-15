@@ -220,7 +220,7 @@ export function setTimer(panel) {
     h('div', { class: 'tl-row tl-adjust' }, minus, plus, bigBtn),
     curfewEl, awakeEl, live);
   panel.append(card, full,
-    h('p', { class: 'muted small tl-foot' }, 'The timer keeps counting if you open another page, and picks up where it is when you come back.'));
+    h('p', { class: 'muted small tl-foot' }, 'The timer keeps counting while you’re on another page.'));
   paint();
   iv = setInterval(() => { if (alive) paint(); }, 250);
   if (running()) keepAwake().then(() => alive && paint());

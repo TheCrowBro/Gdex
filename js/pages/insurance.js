@@ -8,7 +8,7 @@ import { openForm } from '../form.js';
 import { sheetTutorial } from '../tour.js';
 import { sectionName } from '../roles.js';
 
-const TYPES = ['Instruments & equipment', 'Public liability', 'Employers liability', 'Travel & touring', 'Vehicle', 'Event cancellation', 'Professional indemnity', 'Studio contents', 'Other'];
+const TYPES = ['Instruments & equipment', 'Public liability', 'Employers’ liability', 'Travel & touring', 'Vehicle', 'Event cancellation', 'Professional indemnity', 'Studio contents', 'Other'];
 const ICONS = { instrument: '🎸', public: '👥', employer: '👷', travel: '✈️', vehicle: '🚐', cancel: '📅', indemnity: '⚖️', studio: '🎚️' };
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const num = v => (v === '' || v == null || !Number.isFinite(Number(v)) ? 0 : Number(v));
@@ -100,7 +100,7 @@ function coverCheck(gearValue, eq) {
   const biggest = [...live].sort((a, b) => num(b.cover) - num(a.cover))[0];
   const toBackline = h('button', { class: 'btn ghost small', type: 'button', id: 'ins-backline', onclick: () => window.logiGo && window.logiGo('backline') }, '🎛️ Open Backline');
   if (!gearValue) {
-    return live.length ? h('div', { class: 'ins-note ins-cover' }, h('p', null, 'Add your instruments and gear under Backline, with what each is worth, to check this cover against it.'), h('div', { class: 'actions' }, toBackline)) : null;
+    return live.length ? h('div', { class: 'ins-note ins-cover' }, h('p', null, 'Add your gear and its value under Backline to check this cover against it.'), h('div', { class: 'actions' }, toBackline)) : null;
   }
   if (cover < gearValue) {
     const fix = biggest
@@ -115,7 +115,7 @@ function coverCheck(gearValue, eq) {
   }
   const spare = cover - gearValue;
   return h('div', { class: 'ins-note ins-ok-note ins-cover' },
-    h('p', null, `✓ Your instruments & equipment cover (${fmtMoney(cover)}) is more than your backline is worth (${fmtMoney(gearValue)}).`,
+    h('p', null, `✓ Your instruments & equipment cover (${fmtMoney(cover)}) is enough for your backline, worth ${fmtMoney(gearValue)}.`,
       spare < cover * 0.1 ? ` Only ${fmtMoney(spare)} to spare: raise it before you buy more gear.` : ''),
     h('div', { class: 'actions' }, toBackline));
 }
@@ -147,8 +147,8 @@ export const insurance = {
   tutorial: () => [
     { title: 'Insurance', text: 'Your policies in one place: instruments & equipment, public liability, travel, the van. Tap + Add for a new one.', target: ['.ins-page .page-head'] },
     { title: 'At a glance', text: 'How many policies, what they cost a year, and what your backline is worth.', target: ['.ins-stats'] },
-    { title: 'Cover vs backline', text: 'Your instruments & equipment cover against the value of everything under Backline. A warning shows when the cover falls short.', target: ['.ins-cover'] },
-    { title: 'Renewals', text: 'Each policy shows the days left. It turns to the accent colour 30 days before it renews, and red once it has expired.', target: ['.ins-pill'] },
+    { title: 'Cover vs backline', text: 'Your instruments & equipment cover against your backline’s value, with a warning when it falls short.', target: ['.ins-cover'] },
+    { title: 'Renewals', text: 'Each policy shows the days left, in the accent colour from 30 days before it renews and in red once it has expired.', target: ['.ins-pill'] },
     { title: 'The certificate', text: 'Open it, or send it to a venue or promoter by email with the policy details.', target: ['.ins-cert', '.ins-card'] },
     { title: 'Edit', text: 'Change the cover, renewal date, phone numbers and notes, or delete the policy.', target: ['.ins-card .icon-btn'] },
     { title: 'Nothing here yet', text: 'Add your instruments & equipment cover first, then public liability: venues ask for it.', target: ['#ins-empty-add'] },

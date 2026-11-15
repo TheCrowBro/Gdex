@@ -191,7 +191,7 @@ export default {
   tutorial: () => [
     { title: 'Checklist', text: moneyShown() ? 'Tick each step as it is done. Some tick themselves: sending the day sheet or an invoice, settling the night.' : 'Tick each step as it is done. Sending the day sheet ticks its line for you.', target: ['#blk-advance .bk-progress'] },
     { title: 'Your own lines', text: 'Add a line you always need. It shows on every booking of this kind; ✎ renames it and ✕ removes it.', target: ['#blk-advance .bk-adv-add'] },
-    { title: 'The advance email', text: 'Writes the email to the promoter: what you know, and a question for everything still blank. Read it first, copy it, or open it in your mail app.', target: ['#blk-advance .bk-email'] },
+    { title: 'The advance email', text: 'What you know, and a question for everything still blank. Read it, copy it or open it in your mail app.', target: ['#blk-advance .bk-email'] },
   ],
 };
 

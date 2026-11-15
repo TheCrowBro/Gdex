@@ -40,9 +40,9 @@ export const GOOGLE_ERR = {
   access_denied: 'Google sign-in was cancelled.',
   popup_closed: 'The Google window was closed before you signed in.',
   popup_failed_to_open: 'The Google window was blocked. Allow pop-ups for Tourbook and tap again.',
-  timed_out: 'The Google sign-in in your web browser wasn’t finished. Tap Connect to try again.',
-  failed: 'Google sign-in didn’t work. Tap again to try again.',
-  refused: 'Google sign-in didn’t work. Tap again to try again.',
+  timed_out: 'The Google sign-in in your web browser wasn’t finished. Try again.',
+  failed: 'Google sign-in didn’t work. Try again.',
+  refused: 'Google sign-in didn’t work. Try again.',
   address_taken: WORDS.taken,
 };
 // An error whose message is said to the person as it is. name: NotAllowedError (sign in again), AbortError (silent:

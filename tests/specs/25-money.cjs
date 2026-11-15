@@ -253,12 +253,16 @@ async function submitTop(page) { await topSheet(page).locator('button[type=submi
   ok('the session total is hours × rate plus tax', Math.abs(tot.net - want * 45) < 0.001 && Math.abs(tot.total - want * 45 * 1.2) < 0.001, JSON.stringify(tot));
   await page.click('#mn-sent-invoice'); await sleep(200);
   ok('sending a session invoice ticks "Invoice sent"', (await booking(page, 's-sess0')).checks['ses-invoice'] === true);
+  // The session has no contact email: the hint under the buttons names the mail button by the label it has now.
+  const noMail = async () => JSON.stringify(await page.locator('.mn-doc > p.small.muted').allInnerTexts());
+  ok('no contact email, not yet due: the hint names “Email the client”, the button on screen', /Email the client/.test(await page.locator('#mn-email-invoice').innerText()) && (await noMail()) === JSON.stringify(['Add the contact’s email and “Email the client” is addressed for you.']), await noMail());
   // Past its due date: the box says so and the email becomes a reminder.
   await page.evaluate(() => import('./js/store.js').then(s => s.update(d => { const x = d.bookings.find(b => b.id === 's-sess0'); const t = new Date(Date.now() - 5 * 864e5); x.invoice.due = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; })));
   await page.waitForFunction(() => decodeURIComponent((document.getElementById('mn-email-invoice') || {}).href || '').includes('Reminder: invoice'), null, { timeout: 8000 }).catch(() => {});
   const remind = decodeURIComponent(await page.getAttribute('#mn-email-invoice', 'href'));
   ok('an overdue invoice is emailed as a reminder', /Reminder: invoice GIG-0010/.test(remind) && /still open/.test(remind) && /Send a reminder/.test(await page.locator('#mn-email-invoice').innerText()), remind.slice(0, 160));
   ok('the box shows it is overdue', (await page.locator('.mn-doc .warn').count()) === 1 && /Overdue/.test(await page.locator('.mn-doc-id .pill').innerText()) && /overdue/.test(await summary(page)));
+  ok('…and with no contact email, the hint names “Send a reminder”, the button it has now', (await noMail()) === JSON.stringify(['Add the contact’s email and “Send a reminder” is addressed for you.']), await noMail());
   await mount(page, 'money', 's-sess1');
   const sessPreview = await page.locator('.mn-suggest').innerText();
   ok('session players are suggested at their rate', /Session player: Marcus Bell \(Guitar\)/.test(sessPreview) && /\$180/.test(sessPreview), sessPreview);

@@ -3,7 +3,7 @@
 // here touches the page or the store's storage; pass records in, get values out. Pages import from here instead of
 // keeping their own lists, so a show reads the same on the calendar, the day sheet and the money page.
 import { db, byId, update, overlaps, upcoming, nightMin, playField, playKey, byPlay, byDayPlay, byDayPlayDesc } from './store.js';
-import { pad, ymd, parseISO } from './util.js';
+import { pad, ymd, parseISO, symText } from './util.js';
 import { totalValue } from './store.js'; // gear by band: an item's value × how many
 
 /* ------------------------------- bookings ------------------------------- */
@@ -628,7 +628,7 @@ export const itemTitle = it => (it && it.songId && byId('songs', it.songId) ? by
 export const DEAL_TYPES = [['guarantee', 'Guarantee (flat fee)'], ['door', 'Door split (% of the door)'], ['versus', 'Guarantee vs % (whichever is more)'], ['plus', 'Guarantee + % after break-even'], ['none', 'No fee (showcase, charity)']];
 const num = v => (Number.isFinite(Number(v)) && v !== '' && v != null ? Number(v) : 0);
 // Rounded to the cent first, so a door split of 1889.9999… reads $1,890.
-export const fmtMoney = (n, sym = currency()) => { const v = Math.round(Number(n) * 100) / 100; if (!Number.isFinite(v)) return '—'; const neg = v < 0; const s = Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: Math.abs(v) % 1 ? 2 : 0, maximumFractionDigits: 2 }); return (neg ? '−' : '') + sym + s; };
+export const fmtMoney = (n, sym = currency()) => { const v = Math.round(Number(n) * 100) / 100; if (!Number.isFinite(v)) return '—'; const neg = v < 0; const s = Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: Math.abs(v) % 1 ? 2 : 0, maximumFractionDigits: 2 }); return (neg ? '−' : '') + symText(sym) + s; };
 export const currency = () => (db.profile && db.profile.currency) || '$';
 
 // What a deal pays at a given door. gross = tickets × price. Promoter expenses come off the gross before a split.
@@ -735,9 +735,9 @@ export function playersFee(b, hours) {
   }
   return t;
 }
-// The invoice a booking's income is read from (not void, with lines), or null: its income is then in the invoice's
-// currency (js/money-currency.js docCur), not always yours.
-export const incomeInvoice = b => { const inv = b && b.invoice; return inv && typeof inv === 'object' && inv.status !== 'void' && Array.isArray(inv.lines) && inv.lines.length ? inv : null; };
+// The invoice a booking's income is read from (a booking not cancelled; the invoice not void, with lines), or null: its
+// income is then in the invoice's currency (js/money-currency.js docCur), not always yours.
+export const incomeInvoice = b => { const inv = b && isLive(b) && b.invoice; return inv && typeof inv === 'object' && inv.status !== 'void' && Array.isArray(inv.lines) && inv.lines.length ? inv : null; };
 // What a booking brings in (before costs and tax), for the money page and the calendar: what its invoice bills when it
 // has one (not void), else a show's deal (at the counted door when settled, else at the guarantee) or a session's fee;
 // nothing for a cancelled booking.

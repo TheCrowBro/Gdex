@@ -137,10 +137,10 @@ export async function shareSample(id) {
 /* ------------------------------- walkthroughs ------------------------------- */
 // The acts list's step (after Drop it open): an open card's Sample work, else the card heads.
 export const sampleStep = () => (sampleShown() ? { title: 'Sample work', target: ['.ac-sample', '.ac-card-head'],
-  text: `Drop a card open for a QR code of your sample work for the ${actWord()}: a SoundCloud, Drive or Dropbox page, or a private playlist. Show big puts it on the whole screen to scan; Share link sends the link. Add the link in the ${actWord()}’s ✎ Edit; until there is one, the code holds the ${actWord()}’s first link.` } : null);
+  text: `Drop a card open for a QR code of your sample work for the ${actWord()}. Show big fills the screen with it; Share link sends the link. Add the link in the ${actWord()}’s ✎ Edit; until then, the code holds the ${actWord()}’s first link.` } : null);
 // The act form's step (after Links).
 export const sampleFormStep = () => (sampleShown() ? { title: 'Sample work', target: ['input[data-key=sampleWork]'],
-  text: `A page of your work with this ${actWord()}, to share: a SoundCloud, Drive or Dropbox link, or a private playlist. Its QR code is on the ${actWord()}’s card in ${sectionName('acts', 'Acts')}; with none, the card uses the first link above.` } : null);
+  text: `A page of your work with this ${actWord()}, to share. Its QR code is on the ${actWord()}’s card in ${sectionName('acts', 'Acts')}; with no link here, the card uses the first link above.` } : null);
 sheetTutorial('Sample work', () => [
-  { title: 'Show it big', text: `Hold the phone up: whoever scans the code opens your sample work (or, until there is a link to it, the ${actWord()}’s first link) on their own phone. Turn the brightness up in a dark room.`, target: ['.ac-qr-full'] },
+  { title: 'Show it big', text: `Hold the phone up: whoever scans the code opens your sample work, or the ${actWord()}’s first link if there is none yet. Turn the brightness up in a dark room.`, target: ['.ac-qr-full'] },
 ]);
