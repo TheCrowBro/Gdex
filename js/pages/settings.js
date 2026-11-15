@@ -1,7 +1,6 @@
 // Settings: everything that isn't a record, in twirl-down sections that each say where they stand on their closed
 // line: your role (which sets the section menu), your details (with the way to My card, the contact card as a big QR code, and the card as a .vcf file), quotes & invoices, backups, display &
-// accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here, until
-// Settings is shown again 3 minutes or more after it was left ("open sections", below).
+// accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here.
 // A role without money (scout, audiophile: moneyShown() false) has no Quotes & invoices section, and its details
 // are not said to go on quotes and invoices; the section comes back with a role that uses money.
 import { h, toast, announce, safeUrl, telUrl, nodes } from '../util.js';
@@ -37,7 +36,9 @@ const S = { erase: '', behind: null, busy: false }; // what is typed in the eras
 // back in front on it, or after a reload) FOLD_AFTER_MS or more after that, every section is closed and the list
 // cleared; sooner, they stay as they were. While Settings stays on screen nothing closes, and no timer runs: the time
 // is only compared as Settings is shown. A first showing with no time noted (a list kept by an earlier version, a
-// crash) counts as long ago.
+// crash) counts as long ago. Tourbook back in front in the middle of something (a sheet up, or the focus in a box being
+// typed in inside an open section) had only gone to fetch something (an IBAN from the bank's app, a code from mail,
+// Google's sign-in): that counts as back sooner, and the sections stay as they were.
 const OPEN_KEY = 'tourbook-settings-open', LEFT_KEY = 'tourbook-settings-left';
 const FOLD_AFTER_MS = 3 * 60 * 1000;
 const OPEN = (() => { try { const a = JSON.parse(localStorage.getItem(OPEN_KEY)); return new Set(Array.isArray(a) ? a : []); } catch { return new Set(); } })();
@@ -46,12 +47,21 @@ const saveOpen = () => { try { if (OPEN.size) localStorage.setItem(OPEN_KEY, JSO
 // section openSettingsSection is opening, which stays open when the others close. erased: after Erase this device,
 // nothing is noted again before the page reloads.
 const SEEN = { on: false, left: null, keep: null, erased: false };
-function arrive() {
+// inPlace: Tourbook back in front with Settings already drawn (not Settings being drawn).
+function arrive(inPlace = false) {
   if (SEEN.on) return;
   SEEN.on = true;
   let left = SEEN.left; SEEN.left = null;
   try { const t = localStorage.getItem(LEFT_KEY); if (left === null && t !== null) left = Number(t); localStorage.removeItem(LEFT_KEY); } catch { /* blocked storage: the time in memory */ }
+  if (inPlace && midTask()) return;
   if (left === null || !(Date.now() - left < FOLD_AFTER_MS)) fold();
+}
+// A sheet up, or the focus in a box being typed in (not a button or a switch) inside an open section.
+const TYPED = 'input:not([type=button],[type=submit],[type=reset],[type=checkbox],[type=radio],[type=range],[type=color],[type=file],[type=image]), textarea, select';
+function midTask() {
+  if (document.querySelector('.sheet-back')) return true;
+  const a = document.activeElement;
+  return !!(a && a.closest && a.closest('#page details.se-sec[open]') && (a.matches(TYPED) || a.isContentEditable));
 }
 function leave() {
   if (!SEEN.on) return;
@@ -61,16 +71,23 @@ function leave() {
   try { if (OPEN.size) localStorage.setItem(LEFT_KEY, String(SEEN.left)); else localStorage.removeItem(LEFT_KEY); } catch { /* blocked storage: the time in memory */ }
 }
 // Every section closed, but the one being opened. On Tourbook's return the page is already drawn: its sections close
-// in place, and a focus inside one goes to its title.
+// in place, a focus inside one goes to its title, and the page, much shorter now, goes to the title with the focus
+// (else the first section closed), under the section menu, not to the end of the list.
 function fold() {
   for (const id of OPEN) if (id !== SEEN.keep) OPEN.delete(id);
   saveOpen();
+  let first = null;
   for (const d of document.querySelectorAll('#page details.se-sec[open]')) {
     if (d.dataset.s === SEEN.keep) continue;
     const sum = d.querySelector(':scope > summary'), a = document.activeElement;
     if (sum && a && a !== sum && d.contains(a)) sum.focus({ preventScroll: true });
     d.open = false;
+    first = first || d;
   }
+  if (!first) return; // nothing was open on the page (Settings being drawn): the app's own scroll
+  const a = document.activeElement, d = a && a.matches && a.matches('#page details.se-sec > summary') ? a.parentElement : first;
+  d.style.scrollMarginTop = `${(document.getElementById('deck')?.getBoundingClientRect().height || 0) + 8}px`;
+  d.scrollIntoView({ block: 'start' });
 }
 
 // One twirl-down: icon, title, a line saying where it stands, and its body. onOpen runs when it is (or opens) open.
@@ -442,8 +459,8 @@ export const settings = {
     // while Tourbook is in the background, it is shown when Tourbook comes back.
     if (document.visibilityState !== 'hidden') arrive();
     const done = [];
-    const sight = () => (document.visibilityState === 'hidden' ? leave() : arrive());
-    const kept = e => { if (e.persisted && document.visibilityState !== 'hidden') arrive(); }; // the page the browser kept, brought back
+    const sight = () => (document.visibilityState === 'hidden' ? leave() : arrive(true));
+    const kept = e => { if (e.persisted && document.visibilityState !== 'hidden') arrive(true); }; // the page the browser kept, brought back
     document.addEventListener('visibilitychange', sight); window.addEventListener('pagehide', leave); window.addEventListener('pageshow', kept);
     done.push(() => { document.removeEventListener('visibilitychange', sight); window.removeEventListener('pagehide', leave); window.removeEventListener('pageshow', kept); });
     const profile = profileBody();

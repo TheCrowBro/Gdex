@@ -2,9 +2,10 @@
 // settings twirl downs after a few minutes."). Which sections are open is remembered while the person comes and goes;
 // shown again 3 minutes or more after it was left (another section, Tourbook in the background, or closed and opened
 // again), Settings has every section closed and the list cleared. While it stays on screen nothing closes, and
-// openSettingsSection still opens the section it is asked for. The page's clock is Playwright's, running on from now:
-// fastForward moves it on, setSystemTime jumps (a phone asleep); "out of sight" is document.visibilityState with a
-// visibilitychange event, as in 13-calendar.
+// openSettingsSection still opens the section it is asked for. Back in front in the middle of something (typing in a
+// box, a sheet up) is not leaving, and closed in place the view goes under the section menu. The page's clock is
+// Playwright's, running on from now: fastForward moves it on, setSystemTime jumps (a phone asleep); "out of sight" is
+// document.visibilityState with a visibilitychange event, as in 13-calendar.
 const { open, ok, sleep, go } = require('../helpers.cjs');
 
 const MIN = 60000;
@@ -58,6 +59,9 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   ok('…and the sections still open again with a tap', (await twirl('backups'), same(await opened(), ['backups'])) && same((await stored()).open, ['backups']));
   await go(page, 'bookings'); await later(MIN); await go(page, 'acts'); await later(MIN); await toSettings();
   ok('two minutes on other sections, through more than one: still open', same(await opened(), ['backups']));
+  await go(page, 'bookings'); await later(2 * MIN); await go(page, 'acts'); await later(2 * MIN); await toSettings();
+  ok('four minutes away, two on each of two sections: every section is closed (the time runs from leaving Settings, not from the last section)', same(await opened(), []) && same(await stored(), { open: [], left: null }), JSON.stringify([await opened(), await stored()]));
+  await twirl('backups');
 
   /* ------------------------------ Tourbook in the background on Settings ------------------------------ */
   await twirl('help'); await twirl('display');
@@ -78,7 +82,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   ok('…and a short trip to the background after that changes nothing', same(await opened(), ['about']));
   // The page the browser kept (pagehide and pageshow, persisted) and brought back after 3 minutes.
   const kept = type => page.evaluate(type => window.dispatchEvent(new PageTransitionEvent(type, { persisted: true })), type);
-  await twirl('sample');
+  await twirl('help');
   await kept('pagehide'); await page.clock.setSystemTime(await page.evaluate(() => Date.now()) + 3 * MIN + 1000); await kept('pageshow'); await sleep(150);
   ok('the page the browser kept, brought back after 3 minutes: every section is closed', same(await opened(), []) && same(await stored(), { open: [], left: null }), JSON.stringify([await opened(), await stored()]));
   await twirl('about');
@@ -94,7 +98,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   await later(3 * MIN);
   await toSettings();
   ok('opened again after 3 minutes: every section is closed and the list is cleared', same(await opened(), []) && same(await stored(), { open: [], left: null }), JSON.stringify([await opened(), await stored()]));
-  await twirl('sample');
+  await twirl('help');
   await go(page, 'bookings'); await page.reload(); await page.waitForSelector('#deck .dk-next');
   await later(3 * MIN);
   await toSettings();
@@ -113,8 +117,57 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   ok('openSettingsSection within 3 minutes opens the section and keeps the others', (await openSection('backups')) === true && same(await opened(), ['profile', 'backups', 'display']) && same((await stored()).open, ['backups', 'display', 'profile']), JSON.stringify(await stored()));
   ok('…with the focus on its title', (await page.evaluate(() => document.activeElement.id)) === 'se-backups-sum');
   await go(page, 'bookings'); await later(3 * MIN);
+  await page.evaluate(() => { // About's open state at each change of the page, from its first draw
+    window.__log = [];
+    window.__obs = new MutationObserver(() => window.__log.push(document.getElementById('se-about')?.open));
+    window.__obs.observe(document.getElementById('page'), { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
+  });
   ok('openSettingsSection after 3 minutes opens only the section it is asked for', (await openSection('about')) === true && same(await opened(), ['about']) && same((await stored()).open, ['about']), JSON.stringify([await opened(), await stored()]));
+  const drawn = await page.evaluate(() => { window.__obs.disconnect(); return window.__log; });
+  ok('…drawn open from its first draw, not closed then opened', drawn[0] === true, JSON.stringify(drawn));
   ok('…already on Settings, it opens one more and closes nothing', (await openSection('help')) === true && same(await opened(), ['help', 'about']));
+
+  /* ------------------------------ in the middle of something ------------------------------ */
+  // Tourbook in the background to fetch something (the rest of an IBAN from the bank's app, a code from mail): that is
+  // not leaving Settings, and back in front after 3 minutes the person is where they were.
+  const away = async () => { await sight(true); await page.clock.setSystemTime(await page.evaluate(() => Date.now()) + 3 * MIN + 1000); await sight(false); };
+  await go(page, 'bookings'); await later(3 * MIN); await toSettings();
+  await twirl('billing'); await page.waitForSelector('#mn-bl-iban');
+  await page.click('#mn-bl-iban'); await page.keyboard.type('GB29 NWBK');
+  await away();
+  const typing = await page.evaluate(() => ({ focus: document.activeElement.id, open: document.getElementById('se-billing').open }));
+  await page.keyboard.type(' 6016 1331 9268 19');
+  ok('typing in a box (an IBAN) and back in front after 3 minutes: the section stays open, the focus in the box', typing.open && typing.focus === 'mn-bl-iban' && same(await opened(), ['billing']) && same((await stored()).open, ['billing']), JSON.stringify(typing));
+  ok('…what is typed next goes into the box', (await page.inputValue('#mn-bl-iban')) === 'GB29 NWBK 6016 1331 9268 19', await page.inputValue('#mn-bl-iban'));
+  ok('…and the time noted is let go', (await stored()).left === null);
+  await page.focus('#se-billing-sum'); await sleep(300); // the IBAN saved on leaving the box
+  await go(page, 'bookings'); await later(MIN); await toSettings();
+  ok('…leaving after that still notes the time: back within 3 minutes, still open', same(await opened(), ['billing']));
+  await go(page, 'bookings'); await later(3 * MIN); await toSettings();
+  ok('…and back after 3 minutes, closed', same(await opened(), []) && same(await stored(), { open: [], left: null }), JSON.stringify(await stored()));
+  await twirl('profile');
+  await page.click('#se-edit-profile'); await page.waitForSelector('.sheet [data-key="name"]'); await sleep(200);
+  await away();
+  ok('a sheet up (Edit your details) and back in front after 3 minutes: the section behind it stays open', same(await opened(), ['profile']) && (await stored()).left === null, JSON.stringify(await opened()));
+  await page.keyboard.press('Escape'); await sleep(200);
+  ok('…and Escape gives the focus back to Edit your details', !(await page.$('.sheet-back')) && (await page.evaluate(() => document.activeElement.id)) === 'se-edit-profile', await page.evaluate(() => document.activeElement.id));
+
+  /* ------------------------------ the view after closing in place ------------------------------ */
+  // On a small phone the list is much shorter once closed: the view goes to the title with the focus (else the first
+  // section closed), under the section menu, not to the end of the list.
+  await page.setViewportSize({ width: 360, height: 640 }); await sleep(200);
+  const where = id => page.evaluate(id => { const r = document.getElementById(id).getBoundingClientRect(), deck = document.getElementById('deck').getBoundingClientRect(); return { top: Math.round(r.top), deck: Math.round(deck.bottom), h: innerHeight, focus: document.activeElement.id }; }, id);
+  await twirl('billing'); await twirl('display');
+  await page.focus('#se-edit-profile');
+  await away();
+  const w1 = await where('se-profile-sum');
+  ok('360 × 640, the focus on Edit your details, back after 3 minutes: the focus on Your details\' title, under the section menu and on screen', w1.focus === 'se-profile-sum' && w1.top >= w1.deck && w1.top < w1.h - 40 && same(await opened(), []), JSON.stringify(w1));
+  await twirl('profile'); await twirl('billing'); await twirl('display');
+  await page.evaluate(() => { document.activeElement.blur(); scrollTo(0, document.documentElement.scrollHeight); }); await sleep(200);
+  await away();
+  const w2 = await where('se-profile');
+  ok('…with no focus in a section: the first section that was open is under the section menu and on screen', w2.top >= w2.deck && w2.top < w2.h - 40 && same(await opened(), []), JSON.stringify(w2));
+  await page.setViewportSize({ width: 420, height: 900 }); await sleep(200);
 
   /* ------------------------------ erase ------------------------------ */
   await twirl('erase');

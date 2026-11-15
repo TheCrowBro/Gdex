@@ -1329,18 +1329,27 @@ the settings page should close the settings twirl downs after a few minutes."):
 * **On screen again.** Settings' `render` (gone to, after a reload too; a redraw while it is on screen does not count),
   `visibilitychange` back to visible, or `pageshow` (persisted). `FOLD_AFTER_MS` (3 minutes) or more after the moment
   noted, every section is closed and the list removed: before they are drawn, or in place when the page is already
-  drawn (Tourbook back in front), a focus inside one going to its title. Sooner, they stay as they were. Either way
-  the moment noted is let go. A first showing with no moment noted (a list kept by an earlier version, a crash) counts
-  as long ago.
+  drawn (Tourbook back in front), a focus inside one going to its title, and the view going to the title with the
+  focus (else the first section closed), under the section menu, not to the end of the much shorter list. Sooner,
+  they stay as they were. Either way the moment noted is let go. A first showing with no moment noted (a list kept by
+  an earlier version, a crash) counts as long ago.
+* **Back in front in the middle of something.** Tourbook back in front on Settings (`visibilitychange`, `pageshow`) with
+  a sheet up (`.sheet-back`), or the focus in a box being typed in (an input that is not a button or a switch, a
+  textarea, a select, or editable text) inside an open section, counts as back sooner: nothing closes, and the moment
+  noted is let go (`arrive(true)`, `midTask()`). The person had only gone to fetch something (an IBAN from the bank's
+  app, a code from mail, Google's sign-in), not left Settings. Going to Settings (its `render`) is never in the middle
+  of something, and leaving later notes the time as usual.
 * **Nothing runs meanwhile.** While Settings stays on screen nothing closes, however long; no timer is set, the times are
   only compared as Settings shows (`arrive()`, `leave()`, `fold()`).
 * **`openSettingsSection(id)`**, from any page: goes to Settings and opens `id`, under the section menu with the focus on
   its title; when the others close (3 minutes or more away), `id` stays open.
 * **Erase this device** removes both keys, and the reload after it notes nothing.
 
-`71-settings-folds` checks it with Playwright's clock: back within 3 minutes, after 3, through more than one section,
-in the background on Settings (a focus inside), a page the browser kept, a reload either side of 3 minutes, a list with
-no time, `openSettingsSection` either side of 3 minutes, and Erase.
+`71-settings-folds` checks it with Playwright's clock: back within 3 minutes, after 3, through more than one section
+(either side of 3 minutes, counted from leaving Settings), in the background on Settings (a focus inside), a page the
+browser kept, a reload either side of 3 minutes, a list with no time, `openSettingsSection` either side of 3 minutes
+(drawn open from its first draw), in the background mid-task (typing an IBAN, a sheet up), the view after closing in
+place at 360 × 640 (with and without a focus inside), and Erase.
 
 ## The licence (`js/licence-state.js`, `js/licence.js`, `js/licence-web.js`; decisions §9)
 
