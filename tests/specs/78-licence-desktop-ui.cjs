@@ -150,7 +150,9 @@ const UNSTARTED = { kind: 'desktop', enabled: true, mode: 'unstarted', canEdit: 
       ok('adoptFreeDaysFrom hands an earlier start to licence.adopt, and refuses a later one', adopted[0] === true && adopted[1] === false && adoptCalls.length === 1 && adoptCalls[0][1] === t && adopted[2] === t, JSON.stringify({ adopted, adoptCalls }));
       // Enter licence code: full, then moved here.
       await about(page);
-      ok('…licences on, Where your data is kept names the licence server too, still in the app’s words', /stays in this app, on this computer\..*licence server at tourbook\.crowmade\.app.*looks for new versions at tourbook-download\.crowmade\.app/.test(await page.textContent('#se-about .se-where')));
+      // The licence server hears from a device once a working role is used, or once a backup file or Google Drive has
+      // brought in a free days' start (js/backup.js, js/sync.js), so the sentence names both.
+      ok('…licences on, Where your data is kept names the licence server too, and when it hears from this device (a working role used, or free days brought in by a backup file or Google Drive), still in the app’s words', /stays in this app, on this computer\..*licence server at tourbook\.crowmade\.app only ever hears about your licence, and only once you use a working role, or a backup file or Google Drive brings in free days started on another device\. .*looks for new versions at tourbook-download\.crowmade\.app/.test(await page.textContent('#se-about .se-where')));
       ok('About & licence: the free days, “until you add a licence code”, with Buy and Enter licence code', /After that the working roles are read-only here until you add a licence code\. Audiophile stays free\./.test(await page.textContent('.licence-panel .licence-line')) && (await page.textContent('.licence-panel .lic-enter')) === 'Enter licence code');
       await sleep(300);
       ok('…the price comes from the bridge (the UK: 24.00 USD with VAT)', /Buy a licence · 24\.00 USD with VAT/.test(await page.textContent('.licence-panel .lic-buy')) && (await calls(page)).includes('price'));
