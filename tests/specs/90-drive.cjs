@@ -1,6 +1,6 @@
-// Google Drive, free for everyone (the build spec §8): the owner's client id in the repository; not set up yet (with an
-// empty id); connecting (Google contacted only once asked, a cancelled sign-in leaves nothing linked, only drive.appdata
-// asked, Google's script not loading and Try again); the
+// Google Drive, free for everyone (the build spec §8): the owner's client id in the repository, and the app opened with
+// it asking Google with it; not set up yet (with an empty id); connecting (Google contacted only once asked, a cancelled
+// sign-in leaves nothing linked, only drive.appdata asked, Google's script not loading and Try again); the
 // walkthroughs of the Backups sheet, the connect sheet and the daily copies; the first device writes the copy, a second
 // joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
 // page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
@@ -110,11 +110,12 @@ const serveFiles = async route => {
 };
 
 // One device: a browser context with Tourbook open, the welcome tour, the role card and the question out of the way (as
-// tests/helpers.cjs does, the licence leg included), the Google client set (client: '' for none), Google's sign-in
-// script and the fake Drive routed, toasts recorded, and every request to a Google host listed in hosts.
+// tests/helpers.cjs does, the licence leg included), the Google client set (client: '' for none; ownClient: the
+// repository's own js/cloud-config.js, not routed), Google's sign-in script and the fake Drive routed, toasts recorded,
+// and every request to a Google host listed in hosts.
 // seed: localStorage values set before the first page when absent. standIn: a module served as js/licence-state.js
 // (with licences live in js/licence-config.js). serve: Tourbook's files served by the test at url (no test server).
-async function device(browser, D, { who = 'A', client = CLIENT, sample = false, init = null, seed = null, standIn = null, url = BASE, serve = false, viewport = { width: 420, height: 900 }, prefs = null, gis = true } = {}) {
+async function device(browser, D, { who = 'A', client = CLIENT, sample = false, init = null, seed = null, standIn = null, url = BASE, serve = false, viewport = { width: 420, height: 900 }, prefs = null, gis = true, ownClient = false } = {}) {
   const ctx = await browser.newContext({ viewport, serviceWorkers: 'block' });
   const hosts = [];
   ctx.on('request', r => { try { const u = new URL(r.url()); if (/google/.test(u.hostname)) hosts.push(u.hostname + u.pathname); } catch { /* not a URL */ } });
@@ -135,7 +136,7 @@ async function device(browser, D, { who = 'A', client = CLIENT, sample = false, 
   await ctx.route('https://*.tile.openstreetmap.org/**', r => r.fulfill(tile));
   await ctx.route('https://nominatim.openstreetmap.org/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await ctx.route('https://api.open-meteo.com/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"daily":{"time":[]}}' }));
-  await ctx.route('**/js/cloud-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: `export const CLOUD_APPS = ${JSON.stringify({ google: client })};\n` }));
+  if (!ownClient) await ctx.route('**/js/cloud-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: `export const CLOUD_APPS = ${JSON.stringify({ google: client })};\n` }));
   if (standIn) {
     await ctx.route('**/js/licence-state.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: standIn }));
     await ctx.route('**/js/licence-config.js', r => r.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: "export const LICENCE_SITES = ['localhost', '127.0.0.1'];\n" }));
@@ -239,13 +240,36 @@ if (require.main === module) (async () => {
   /* ------------------------- the owner's client, in the repository ------------------------- */
   // Google Drive is on: the owner made Tourbook's own Google client on 15 November 2026 (Google Cloud project Tourbook,
   // docs/drive.md), and the repository's js/cloud-config.js carries exactly its public id, so an emptied or changed file
-  // fails here. The devices below stand in their own id for it (device() routes the file); Google is never contacted.
+  // fails here. One device opens the app with that file as it is; the others stand in their own id for it (device()
+  // routes the file). Google is never contacted: its sign-in script is the test's own.
   {
     const OWNER = '41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com';
     let cfg = null, src = '';
     try { src = fs.readFileSync(path.join(ROOT, 'js', 'cloud-config.js'), 'utf8'); cfg = (await import(require('url').pathToFileURL(path.join(ROOT, 'js', 'cloud-config.js')).href)).CLOUD_APPS; } catch { /* none */ }
     const id = cfg && cfg.google;
     ok('the repository’s js/cloud-config.js carries the owner’s Google client id, and only it: a ….apps.googleusercontent.com id, exactly the owner’s', !!cfg && JSON.stringify(Object.keys(cfg)) === '["google"]' && typeof id === 'string' && /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(id) && id === OWNER && src.split(OWNER).length === 2, JSON.stringify(cfg));
+
+    // The app as published, with that file: the card offers Connect, nothing goes to Google until the tap, then only
+    // Google's sign-in script, and Continue with Google asks Google with the owner's id, for drive.appdata only.
+    const dv = await device(browser, null, { who: 'own', ownClient: true }); all.push(dv);
+    const { page } = dv;
+    await openBackups(page);
+    const card = page.locator(`${sheetOf('Backups')} .se-bk-drive`), cardState = await card.getAttribute('data-state');
+    const offered = cardState === 'off' && (await card.locator('.se-bk-drive-connect').count()) === 1;
+    ok('the app with the repository’s own js/cloud-config.js: the Drive card offers Connect Google Drive…, and nothing has gone to Google', offered && (await card.locator('.se-bk-drive-connect').innerText()) === 'Connect Google Drive…' && dv.hosts.length === 0, `${cardState} ${dv.hosts.join(' ')}`);
+    let g = {};
+    if (offered) {
+      await page.click(`${sheetOf('Backups')} .se-bk-drive-connect`);
+      await page.waitForSelector(`${sheetOf('Connect Google Drive')} .se-bk-drive-go:not([disabled])`, { timeout: 10000 });
+      ok('…the tap on Connect Google Drive… asks only for Google’s sign-in script', dv.hosts.length > 0 && dv.hosts.every(x => x === 'accounts.google.com/gsi/client'), dv.hosts.join(' '));
+      await page.evaluate(() => { window.__gfail = true; });
+      await page.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
+      await page.waitForSelector(`${sheetOf('Connect Google Drive')} .se-bk-drive-err:not([hidden])`, { timeout: 10000 });
+      g = await page.evaluate(() => ({ id: window.__gcfg && window.__gcfg.client_id, scope: window.__gcfg && window.__gcfg.scope }));
+    }
+    ok('…Continue with Google asks Google with the owner’s id, for drive.appdata only; cancelled, it leaves nothing linked and Drive never contacted', g.id === OWNER && g.scope === SCOPE && !(await page.evaluate(() => localStorage.getItem('tourbook-drive'))) && !(await state(page)).linked && dv.hosts.every(x => x === 'accounts.google.com/gsi/client'), JSON.stringify({ g, hosts: dv.hosts }));
+    await closeSheets(page);
+    await dv.ctx.close();
   }
 
   /* ------------------------------ not set up yet ------------------------------ */

@@ -188,9 +188,9 @@ found somewhere, in any order; capitals and accents don't matter.
 ## Keep your things safe
 
 - **Everything stays on this device.** Nothing else leaves it but what you turn on or use: a venue's map and address
-  search (OpenStreetMap), Google Drive once you connect it (it then syncs by itself), and, once licences are switched
-  on, a working role's licence checks. The [privacy page](privacy.html) says in plain words what leaves your device and
-  when.
+  search (OpenStreetMap); Google, from the moment you tap Connect Google Drive… (once connected, Drive syncs by itself);
+  and, once licences are switched on, a working role's licence checks. The [privacy page](privacy.html) says in plain
+  words what leaves your device and when.
 - **Google Drive** (☁ → Backups → Connect Google Drive…) keeps every phone and computer you connect the same, with a
   dated copy each day for the last week and the last 12 months, in a hidden Tourbook folder of your own Drive that only Tourbook
   can open. It is free, whatever your role. Nothing goes to a Tourbook server.
@@ -213,7 +213,8 @@ found somewhere, in any order; capitals and accents don't matter.
 - Tourbook does not share anything with Vdex: its own storage (`tourbook-…` keys), its own offline cache, its own files, its
   own licence server, keys, Stripe link, Google project, desktop app id, port and download bucket.
 - The licence server (`cloudflare/`) and the desktop app (`desktop/`) are built and tested, switched off. Google Drive
-  is switched on (Tourbook's own Google sign-in client, since 15 November 2026: `docs/drive.md`); the desktop app gets
-  it with its first release. [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing
-  is published until the owner says so. `TOURBOOK_LICENCE=on node tests/run.mjs` runs the tests with the licence live;
+  is switched on in the repository (Tourbook's own Google sign-in client, since 15 November 2026: `docs/drive.md`):
+  tourbook.crowmade.app gets it with its next publish, the desktop app with its first release.
+  [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing is published until the
+  owner says so. `TOURBOOK_LICENCE=on node tests/run.mjs` runs the tests with the licence live;
   `npm ci --prefix cloudflare` first lets the licence server's tests run.

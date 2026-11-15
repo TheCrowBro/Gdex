@@ -2,7 +2,8 @@
 // Services' token client on the website and the desktop app's trip through the web browser (window.tourbookDesktop), asks
 // for one permission only, drive.appdata (a hidden folder in the person's Drive that only Tourbook can open), and keeps
 // the token for its hour. driveAdapter() reads and writes the files in that folder: tourbook-db.json (the copy every device
-// shares) and the daily copies. Nothing here runs until the person connects Drive; js/sync.js decides when.
+// shares) and the daily copies. Nothing here contacts Google until the person taps Connect Google Drive… or Drive is
+// already linked (js/backup.js's connect sheet and js/sync.js decide when).
 import { CLOUD_APPS } from './cloud-config.js';
 import { toast } from './util.js';
 
@@ -62,8 +63,9 @@ export const desktopFilesInBrowser = () => /^(localhost|127\.0\.0\.1)$/.test(loc
 export const inDesktopApp = () => !!window.tourbookDesktop;
 
 /* ------------------------------- signing in ------------------------------- */
-// Google's script is loaded only once the person has asked for Drive (the connect sheet, or Drive already linked), so
-// nobody who never links Drive ever contacts Google. A failed load can be tried again.
+// Google's script is loaded only once the person has asked for Drive (the connect sheet, which a tap on Connect Google
+// Drive… opens, or Drive already linked), so nobody who never taps Connect Google Drive… ever contacts Google; one who
+// taps it and then Not now has. A failed load can be tried again.
 let gis = null;
 export const loadGIS = () => gis || (gis = new Promise((res, rej) => {
   if (desktopFilesInBrowser()) return rej(fail(WORDS.away));

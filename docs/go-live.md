@@ -4,10 +4,11 @@
 
 The first launch is Tourbook itself at **https://tourbook.crowmade.app**, installable and working offline, with its terms,
 privacy and download pages, and the licence server's addresses switched off: every role free, nothing asked, Google
-Drive saying "Not set up yet" (so it did at the first publish, 14 November 2026; Google Drive was switched on the next
-day, step 6, and comes with the next publish), the download page saying the desktop app is coming, `/buy` saying the
-licence is not on sale yet. Nothing goes on the internet until you say **"publish"**; each step below happens only with
-your go-ahead, in this order. You approve; the developer runs.
+Drive saying "Not set up yet" (as it did on the live site at the first publish, 14 November 2026, and the one after it;
+Google Drive was switched on in the repository on 15 November 2026, step 6, and comes with the next publish), the
+download page saying the desktop app is coming, `/buy` saying the licence is not on sale yet. Nothing goes on the
+internet until you say **"publish"**; each step below happens only with your go-ahead, in this order. You approve; the
+developer runs.
 
 1. **You read the terms and the privacy policy** (`terms.html`, `privacy.html`; the preview has them) and say what to
    change. They go live with this launch: who provides Tourbook, the contact address, the law, the courts, the liability
@@ -42,8 +43,8 @@ your go-ahead, in this order. You approve; the developer runs.
    The guard refuses any other name, address, store or binding (Vdex's Worker, KV, domain or bucket included).
 7. **Check it**: the workflow checks the live build, the security header and the licence server's answers itself.
    Then by hand: https://tourbook.crowmade.app asks "Who’s using Tourbook?" and says nothing about a licence; Settings → About
-   shows the build; ☁ → Google Drive says "Not set up yet" (at the first publish; from the publish after step 6 it
-   offers **Connect Google Drive…**); `/buy` says the licence is not on sale yet; `/download.html` says the desktop app
+   shows the build; ☁ → Google Drive says "Not set up yet" (as at the first two publishes; from the first publish after
+   step 6 it offers **Connect Google Drive…**); `/buy` says the licence is not on sale yet; `/download.html` says the desktop app
    is coming; any wrong address shows "There’s nothing at this address". Install it from the browser, and open it once
    with the network off.
 
@@ -103,7 +104,8 @@ Google Drive was switched on (step 6): section 7 lost its sentence "Google Drive
 switched on; until then Tourbook says Google Drive isn’t set up yet.", and nothing else in the terms changed. Since the
 terms had been published the day before, their date moved to 15 November 2026 and `TERMS_VERSION` to `'2026-11-15'`
 (`docs/developers.md`, the legal pages; while licences are off the one-time terms sheet asks no one, so nobody is asked
-again now). The privacy policy is dated the same day: its section 7 now says Google’s sign-in script runs only once you
+again now; section 18’s “Tourbook shows you the new terms the next time you use a working role” works only once licences
+are on, one more thing for the lawyer to look at). The privacy policy is dated the same day: its section 7 now says Google’s sign-in script runs only once you
 tap Connect Google Drive…, as its section 3 says, rather than once you connect. Tell the developer anything to change.
 **Before licences are switched on (9(d)), a lawyer you choose reads the terms and the privacy policy** (you said you
 would find one); the developer makes the changes they ask for, dated the day they are made (with `TERMS_VERSION`).
@@ -154,14 +156,17 @@ you answer question 2 below. The terms (section 3) tell buyers they can reply to
 without `REPLY_TO` a reply would go to licences@tourbook.crowmade.app, which has no inbox set up. Steps:
 `docs/licence-server.md`, Part 5.
 
-## 6. Google (30 minutes): done on 15 November 2026
+## 6. Google (30 minutes): done on 15 November 2026 (check Publish app before the next publish)
 
 A new Google Cloud project named Tourbook; the Google Drive API; branding (name Tourbook, support email, home page, privacy and
 terms addresses, authorised domain crowmade.app); the one scope `…/auth/drive.appdata`; a Web application client with the
 JavaScript origins `https://tourbook.crowmade.app` and `http://localhost:47861`; publish the app; give the developer the
 client id (it goes in `js/cloud-config.js`). Steps: `docs/drive.md`.
 
-You did this on 15 November 2026 (Publish app was under way as the id went in). The client id,
+You did this on 15 November 2026 (Publish app was under way as the id went in). **Before the publish that carries the
+id:** in the Google Cloud project Tourbook, Google Auth platform → Audience must say **In production**. While it says
+Testing, everyone but the test users listed there gets Google’s “Access blocked” page, though the website, its terms and
+its download page offer Google Drive to every role. The client id,
 `41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com`, is in `js/cloud-config.js` as
 `CLOUD_APPS.google` (spec 90 checks the repository carries exactly it). With it, the terms' section 7 lost its sentence
 "Google Drive works once Tourbook’s Google sign-in is switched on; until then Tourbook says Google Drive isn’t set up yet."

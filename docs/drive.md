@@ -14,7 +14,7 @@ permission that reaches only Tourbook's own hidden folder.
 project **Tourbook** (steps 1 to 5 below): a Web application client whose public id,
 `41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com`, is in `js/cloud-config.js` as
 `CLOUD_APPS.google` (`90-drive` checks the repository carries exactly it). The website has Google Drive from the first
-publish with the id in; the desktop app, which carries its own copy of `js/cloud-config.js`, gets it with its first
+publish with the id in (with the Google app in production, step 7); the desktop app, which carries its own copy of `js/cloud-config.js`, gets it with its first
 release (none has been released yet). A build whose id is empty says "Not set up yet" in the Google Drive card in Backups
 and loads nothing about Google.
 
@@ -48,7 +48,7 @@ Google sign-in.
    `js/cloud-config.js` as `CLOUD_APPS.google`. It is a public id, not a secret. Tourbook's:
    `41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com` (15 November 2026).
 7. **Audience → Publish app.** Until the app is published only the test users listed there can sign in, and only for
-   seven days at a time.
+   seven days at a time. Check it says **In production** before the website is published with the id.
 8. Optional: **Branding → Verify branding**, so Google's sign-in window says "Tourbook" rather than the domain.
 
 Then:
@@ -58,18 +58,20 @@ Then:
 - **The desktop app carries its own copy** of `js/cloud-config.js`: a new or changed id reaches desktop users only with a
   new desktop release.
 - **Try it once for real** after the first publish with the id in: connect Google Drive on tourbook.crowmade.app, and in
-  the desktop app after its first release.
+  the desktop app after its first release. Check too that your Google Account’s third-party connections and Google
+  Drive’s Settings → Manage apps list it as Tourbook, as the terms (section 17) and the privacy policy (section 3) say; if
+  they show crowmade.app, verify the branding (step 8) or tell the developer.
   The tests stand in for Google, so they cannot prove that Google's real sign-in script loads under Tourbook's
   Content-Security-Policy (`index.html` allows `https://accounts.google.com` for scripts, styles and frames, and any
   `https:` address for requests; `92-drive-desktop` checks those words are there). On 15 November 2026, before that
   publish and without signing in, the developer opened Google's real sign-in for this client from both origins: the
   website's flow at `https://tourbook.crowmade.app` (the repository's files answered there by the browser test, so the
   live site was not involved; Google's script loaded under the CSP once Connect Google Drive… was tapped, and Continue
-  with Google opened Google's "Sign in … to continue to crowmade.app") and the desktop app's own sign-in page at
-  `http://localhost:47861` ("to continue to Tourbook"). On the website Google names the domain until the branding is
-  verified (step 8). While its window is open, Google's script logs "Cross-Origin-Opener-Policy policy would block the
-  window.closed call." in the page's console: Chrome's words about Google's own page, not Tourbook's; a window closed
-  before signing in is still noticed ("The Google window was closed before you signed in.").
+  with Google opened Google's sign-in page, "Sign in to continue to crowmade.app") and the desktop app's own sign-in
+  page at `http://localhost:47861` ("to continue to Tourbook"). On the website Google names the domain; Verify branding
+  (step 8) should make it say Tourbook. While its window is open, Google's script logs "Cross-Origin-Opener-Policy policy
+  would block the window.closed call." in the page's console: Chrome's words about Google's own page, not Tourbook's; a
+  window closed before signing in is still noticed ("The Google window was closed before you signed in.").
 
 ### If something goes wrong
 
@@ -222,7 +224,8 @@ the desktop app refuses to sign in (Google knows only 47861).
 
 ### Tests (Google faked)
 
-- `90-drive`: the repository's `js/cloud-config.js` carries exactly the owner's id; not set up (an empty id); connect
+- `90-drive`: the repository's `js/cloud-config.js` carries exactly the owner's id, and the app opened with it offers
+  Connect, loads only Google's sign-in script on the tap and asks Google with that id; not set up (an empty id); connect
   (Google contacted only once asked; a cancelled sign-in; only `drive.appdata`; Google's script not loading, then Try
   again); the walkthroughs of the Backups sheet, the connect sheet and the daily copies;
   first device, second device, edits and deletions travelling; the hour up and one tap; a 401; status changes not

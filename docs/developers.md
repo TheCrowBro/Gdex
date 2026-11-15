@@ -1382,12 +1382,14 @@ contract is in `docs/licence-server.md` (for the developer).
 
 ## Google Drive (`js/drive.js`, `js/sync.js`; `docs/drive.md`)
 
-* Free for every role, licence or not. On since 15 November 2026: the owner's client id (Tourbook's own Google Cloud
-  project Tourbook) is in `js/cloud-config.js` (`CLOUD_APPS.google`), and `90-drive` checks the repository carries
-  exactly it. A build with it empty says "Not set up yet" in the Backups panel's Drive card and loads nothing about
-  Google; the tests stand in an id of their own (or an empty one) for the file. Google's sign-in script is loaded only
-  when the connect sheet opens or Drive is already linked; the desktop app never loads it
-  (`window.tourbookDesktop.googleSignIn` opens the sign-in in the web browser).
+* Free for every role, licence or not. On in the repository since 15 November 2026 (the website from its next publish,
+  the desktop app from its first release): the owner's client id (Tourbook's own Google Cloud project Tourbook) is in
+  `js/cloud-config.js` (`CLOUD_APPS.google`), and `90-drive` checks the repository carries exactly it and that the app
+  opened with that file asks Google with it. A build with it empty says "Not set up yet" in the Backups panel's Drive
+  card and loads nothing about Google; the other tests stand in an id of their own (or an empty one) for the file.
+  Google's sign-in script is loaded only when the connect sheet opens (a tap on Connect Google Drive…) or Drive is
+  already linked; the desktop app never loads it (`window.tourbookDesktop.googleSignIn` opens the sign-in in the web
+  browser).
 * One scope, `drive.appdata` (the desktop app accepts no other). Files in the hidden app folder: `tourbook-db.json` (the
   shared copy: the database plus one top-level field `freeDaysFrom`, the earliest free-days start of any device on that
   Drive) and the daily copies `tourbook-backup-<mon…sun>.json` and `tourbook-backup-YYYY-MM.json` (the last 12 months). A
