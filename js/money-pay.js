@@ -6,8 +6,10 @@
 // [ISO code, symbol]. The code goes into PayPal links and the European bank QR.
 export const CURRENCIES = [['USD', '$'], ['EUR', '€'], ['GBP', '£'], ['AUD', 'A$'], ['CAD', 'C$'], ['NZD', 'NZ$'], ['CHF', 'CHF'], ['SEK', 'kr'], ['NOK', 'kr'], ['DKK', 'kr'], ['JPY', '¥'], ['INR', '₹'], ['ZAR', 'R'], ['SGD', 'S$'], ['HKD', 'HK$'], ['MXN', 'MX$'], ['BRL', 'R$'], ['PLN', 'zł'], ['CZK', 'Kč'], ['AED', 'AED']];
 const BY_SYMBOL = { '$': 'USD', '€': 'EUR', '£': 'GBP', 'A$': 'AUD', 'AU$': 'AUD', 'C$': 'CAD', 'CA$': 'CAD', 'NZ$': 'NZD', 'US$': 'USD', '¥': 'JPY', '₹': 'INR', 'R': 'ZAR', 'S$': 'SGD', 'HK$': 'HKD', 'MX$': 'MXN', 'R$': 'BRL', 'zł': 'PLN', 'Kč': 'CZK', 'CHF': 'CHF', 'kr': 'SEK', 'AED': 'AED' };
-// The ISO code for a currency symbol ('$' → 'USD'), or a code typed as such; USD when nothing better is known.
-export const codeFor = sym => { const t = String(sym ?? '').trim(), u = t.toUpperCase(); return BY_SYMBOL[t] || BY_SYMBOL[u] || (CURRENCIES.some(c => c[0] === u) ? u : 'USD'); };
+// The ISO code for a currency symbol ('$' → 'USD'), or a code typed as such; '' when it is not known (knownCode), USD
+// then (codeFor).
+export const knownCode = sym => { const t = String(sym ?? '').trim(), u = t.toUpperCase(); return BY_SYMBOL[t] || BY_SYMBOL[u] || (CURRENCIES.some(c => c[0] === u) ? u : ''); };
+export const codeFor = sym => knownCode(sym) || 'USD';
 export const amountStr = n => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
 
 const clean = s => String(s ?? '').trim();

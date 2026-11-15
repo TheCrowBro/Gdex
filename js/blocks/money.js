@@ -6,6 +6,7 @@ import { h, toast, ymd } from '../util.js';
 import { byId, redraw } from '../store.js';
 import { fmtMoney } from '../model.js';
 import { dateText } from '../money-doc.js';
+import { docCur, mine, sameCur } from '../money-currency.js';
 import {
   KINDS, statusLabel, calc, qtyText, docOf, docTotals, isOverdue, isPaid, suggestLines, createDoc, setStatus, recordPayment, removePayment,
   openEditor, openShareSheet, printDoc, saveWebPage, copyText, previewDoc, mailtoFor, shareLink, contactEmail,
@@ -45,7 +46,9 @@ function makeView(b, kind) {
 // A document: number, status, dates, lines, totals, payments, next steps and the ways to send it.
 function docView(b, kind, doc) {
   const K = KINDS[kind], t = calc(doc), tot = docTotals(doc), isInv = kind === 'invoice', email = contactEmail(b);
-  const dates = [doc.issued && `Dated ${dateText(doc.issued)}`, doc.due && `${K.dueLabel.toLowerCase()} ${dateText(doc.due)}`, doc.sentAt && doc.status !== 'draft' && `sent ${dateText(ymd(new Date(doc.sentAt)))}`].filter(Boolean).join(' · ');
+  // In its own currency (js/money-currency.js), named when it is not yours.
+  const cur = docCur(doc), money = n => fmtMoney(n, cur.sym);
+  const dates = [doc.issued && `Dated ${dateText(doc.issued)}`, doc.due && `${K.dueLabel.toLowerCase()} ${dateText(doc.due)}`, doc.sentAt && doc.status !== 'draft' && `sent ${dateText(ymd(new Date(doc.sentAt)))}`, !sameCur(cur, mine()) && `in ${cur.code || cur.sym}`].filter(Boolean).join(' · ');
   const stat = (v, l, cls = '') => h('div', { class: 'stat ' + cls }, h('b', null, v), h('span', null, l));
   // The email opens addressed to the booking's contact; the client's link is added once it is packed.
   const mail = h('a', { class: 'btn ghost small', id: `mn-email-${kind}`, href: mailtoFor(b.id, kind), title: email ? `To ${email}` : 'No email for the contact on this booking' }, isOverdue(b) && kind === 'invoice' ? '✉ Send a reminder' : '✉ Email the client');
@@ -60,17 +63,17 @@ function docView(b, kind, doc) {
     h('div', { class: 'mn-doc-head' },
       h('div', { class: 'mn-doc-id' }, h('strong', null, `${K.label} ${doc.number}`), statusPill(b, kind, doc)),
       dates && h('div', { class: 'muted small' }, dates)),
-    isInv && isOverdue(b) && h('p', { class: 'warn' }, `${fmtMoney(tot.due)} was due on ${dateText(doc.due)}. “Email the client” sends a reminder with the link.`),
-    h('div', { class: 'stats mn-doc-stats' }, stat(fmtMoney(tot.total), t.rate > 0 ? `total with ${doc.taxName || 'tax'}` : 'total'),
-      isInv ? stat(fmtMoney(tot.paid), 'paid') : stat(String(doc.lines.length), doc.lines.length === 1 ? 'line' : 'lines'),
-      isInv ? stat(fmtMoney(tot.due), doc.status === 'void' ? 'void' : 'due', isOverdue(b) ? 'bad' : '') : stat(doc.due ? shortDate(doc.due) : '—', 'valid until')),
+    isInv && isOverdue(b) && h('p', { class: 'warn' }, `${money(tot.due)} was due on ${dateText(doc.due)}. “Email the client” sends a reminder with the link.`),
+    h('div', { class: 'stats mn-doc-stats' }, stat(money(tot.total), t.rate > 0 ? `total with ${doc.taxName || 'tax'}` : 'total'),
+      isInv ? stat(money(tot.paid), 'paid') : stat(String(doc.lines.length), doc.lines.length === 1 ? 'line' : 'lines'),
+      isInv ? stat(money(tot.due), doc.status === 'void' ? 'void' : 'due', isOverdue(b) ? 'bad' : '') : stat(doc.due ? shortDate(doc.due) : '—', 'valid until')),
     h('ul', { class: 'mn-doc-lines', 'aria-label': `Lines on ${K.label.toLowerCase()} ${doc.number}` },
-      ...(t.lines.length ? t.lines.map(l => h('li', null, h('span', null, l.desc || '—', h('small', { class: 'muted' }, ` · ${qtyText(l.qty, l.unit)}${l.price === '' || l.price == null ? '' : ' × ' + fmtMoney(l.price)}`)), h('b', null, fmtMoney(l.amount))))
+      ...(t.lines.length ? t.lines.map(l => h('li', null, h('span', null, l.desc || '—', h('small', { class: 'muted' }, ` · ${qtyText(l.qty, l.unit)}${l.price === '' || l.price == null ? '' : ' × ' + money(l.price)}`)), h('b', null, money(l.amount))))
         : [h('li', { class: 'muted' }, 'No lines yet: tap Edit to add them.')]),
-      t.rate > 0 && h('li', { class: 'mn-doc-tax' }, h('span', null, `${doc.taxName || 'Tax'} ${t.rate}%`), h('b', null, fmtMoney(t.tax)))),
+      t.rate > 0 && h('li', { class: 'mn-doc-tax' }, h('span', null, `${doc.taxName || 'Tax'} ${t.rate}%`), h('b', null, money(t.tax)))),
     isInv && doc.payments.length > 0 && h('div', { class: 'mn-payments' }, h('h4', null, 'Payments'),
-      ...doc.payments.map(p => h('div', { class: 'card-row mn-payment' }, h('div', null, h('strong', null, fmtMoney(p.amount)), h('div', { class: 'muted small' }, [p.date && dateText(p.date), p.method].filter(Boolean).join(' · '))),
-        h('button', { class: 'icon-btn', type: 'button', 'aria-label': `Remove the payment of ${fmtMoney(p.amount)}${p.date ? ' on ' + dateText(p.date) : ''}`, onclick: () => removePayment(b.id, p.id) }, '✕')))),
+      ...doc.payments.map(p => h('div', { class: 'card-row mn-payment' }, h('div', null, h('strong', null, money(p.amount)), h('div', { class: 'muted small' }, [p.date && dateText(p.date), p.method].filter(Boolean).join(' · '))),
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': `Remove the payment of ${money(p.amount)}${p.date ? ' on ' + dateText(p.date) : ''}`, onclick: () => removePayment(b.id, p.id) }, '✕')))),
     h('div', { class: 'actions mn-doc-actions' },
       h('button', { class: 'btn ghost small', type: 'button', id: `mn-edit-${kind}`, onclick: () => openEditor(b.id, kind) }, '✏️ Edit'), ...next),
     h('div', { class: 'mn-send' },
@@ -89,13 +92,13 @@ export default {
   summary(b) {
     const inv = docOf(b, 'invoice'), q = docOf(b, 'quote');
     if (inv) {
-      const t = docTotals(inv);
+      const t = docTotals(inv), money = n => fmtMoney(n, docCur(inv).sym);
       if (inv.status === 'void') return `Invoice ${inv.number} · void`;
       if (isPaid(inv)) return `Invoice ${inv.number} · paid`;
-      if (inv.status === 'draft') return `Invoice ${inv.number} · draft · ${fmtMoney(t.total)}`;
-      return `Invoice ${inv.number} · ${fmtMoney(t.due)} ${isOverdue(b) ? 'overdue' : 'due'}`;
+      if (inv.status === 'draft') return `Invoice ${inv.number} · draft · ${money(t.total)}`;
+      return `Invoice ${inv.number} · ${money(t.due)} ${isOverdue(b) ? 'overdue' : 'due'}`;
     }
-    if (q) { const t = docTotals(q); return `Quote ${statusLabel('quote', q.status).toLowerCase()}${t.total ? ' · ' + fmtMoney(t.total) : ''}`; }
+    if (q) { const t = docTotals(q), money = n => fmtMoney(n, docCur(q).sym); return `Quote ${statusLabel('quote', q.status).toLowerCase()}${t.total ? ' · ' + money(t.total) : ''}`; }
     return '';
   },
   render(b) {

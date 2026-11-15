@@ -3,7 +3,7 @@
 // balance and the bank details with a QR. No store, no account, nothing fetched but this page's own files.
 import { h } from './util.js';
 import { unpack } from './link-pack.js';
-import { KINDS, calc, renderDoc, docTitle, fmtDoc, dateText, cleanSnapshot, isPaidDoc } from './money-doc.js';
+import { KINDS, calc, renderDoc, docTitle, docAmount, dateText, cleanSnapshot, isPaidDoc } from './money-doc.js';
 import { docCss, docPrintCss } from './doc-css.js';
 import { qrSvg } from './qr.js';
 
@@ -23,12 +23,12 @@ async function show() {
   try { raw = await unpack(location.hash); } catch { return fail('The link is incomplete or damaged. It may have been cut short when it was copied.'); }
   const snap = cleanSnapshot(raw);
   if (!snap) return fail('The link does not hold a quote or an invoice.');
-  const K = KINDS[snap.kind], t = calc(snap), sym = snap.currency;
+  const K = KINDS[snap.kind], t = calc(snap), amount = n => docAmount(n, snap);
   document.title = docTitle(snap);
   const isInv = snap.kind === 'invoice', paid = isPaidDoc(snap), overdue = isInv && !paid && snap.status !== 'void' && t.due > 0 && snap.due && snap.due < today();
   const tag = isInv
     ? (paid ? h('span', { class: 'tag paid' }, 'Paid, thank you') : snap.status === 'void' ? h('span', { class: 'tag void' }, 'Void')
-      : t.due > 0 ? h('span', { class: 'tag' + (overdue ? ' over' : '') }, `${fmtDoc(t.due, sym)} due${snap.due ? (overdue ? ', was due ' : ' by ') + dateText(snap.due) : ''}`) : null)
+      : t.due > 0 ? h('span', { class: 'tag' + (overdue ? ' over' : '') }, `${amount(t.due)} due${snap.due ? (overdue ? ', was due ' : ' by ') + dateText(snap.due) : ''}`) : null)
     : h('span', { class: 'tag' }, snap.status === 'accepted' ? 'Accepted' : snap.status === 'declined' ? 'Declined' : snap.due ? `Valid until ${dateText(snap.due)}` : 'Quote');
   const paper = h('div', { class: 'paper' }, renderDoc(snap, { qr: qrSvg }));
   const paySec = paper.querySelector('.pay-sec');
@@ -37,7 +37,7 @@ async function show() {
   bar.replaceChildren(
     h('div', { class: 'who' }, `${K.label} ${snap.number}`, h('small', null, [(snap.from || [])[0] && `from ${snap.from[0]}`, snap.title].filter(Boolean).join(' · '))),
     h('div', { class: 'acts' }, tag,
-      canPay && h('a', { class: 'btn primary', href: '#pay', id: 'pay-jump', onclick: e => { e.preventDefault(); paySec.scrollIntoView({ behavior: 'smooth', block: 'start' }); (paySec.querySelector('.pay-btn') || paySec).focus?.(); } }, `Pay ${fmtDoc(t.due, sym)}`),
+      canPay && h('a', { class: 'btn primary', href: '#pay', id: 'pay-jump', onclick: e => { e.preventDefault(); paySec.scrollIntoView({ behavior: 'smooth', block: 'start' }); (paySec.querySelector('.pay-btn') || paySec).focus?.(); } }, `Pay ${amount(t.due)}`),
       h('button', { class: 'btn', type: 'button', onclick: () => window.print() }, 'Print or save as PDF'),
       snap.email && h('a', { class: 'btn', href: `mailto:${snap.email}?subject=${encodeURIComponent(`${K.label} ${snap.number}`)}` }, 'Reply')));
   box.replaceChildren(paper);

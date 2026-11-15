@@ -4,23 +4,27 @@ import { h, nodes } from './util.js';
 import { db, update, canChangeQuietly } from './store.js';
 import { role, roleChosen, menuSections, offMenu, sectionName, moneyShown, startSection } from './roles.js';
 import { closedWords } from './licence-state.js';
+import { mine, currencySelect, picked, applyMine } from './money-currency.js';
 
 // The first-run walkthrough (also Settings → Help → Take the welcome tour). It follows the role (js/roles.js): its own
 // welcome, then the sections on its menu in order. The profile card saves what is typed on Next.
-// A role without money (scout, audiophile) is asked only for a name and what they do: no business, no currency.
-const PROFILE_FIELDS = [['Your name', 'name'], ['Business or project name', 'business', '', true], ['What you do', 'role', 'Producer, band leader, tour manager…'], ['Currency symbol', 'currency', '$, £, €…', true]];
+// A role without money (scout, audiophile) is asked only for a name and what they do: no business, no currency. The
+// currency is the country chooser of Settings (js/money-currency.js), with this device's country first.
+const PROFILE_FIELDS = [['Your name', 'name'], ['Business or project name', 'business', '', true], ['What you do', 'role', 'Producer, band leader, tour manager…'], ['Currency', 'currency', '', true]];
 const profileStep = {
   title: 'Your details',
   get text() { return moneyShown() ? 'They go on your invoices, day sheets and contact card. Change them any time under Settings.' : 'Your name goes on your contact card. Change it any time under Settings.'; },
   body: () => h('div', { class: 'tour-fields' }, ...PROFILE_FIELDS.filter(f => moneyShown() || !f[3]).map(([label, key, ph]) => {
     // What you do starts as the role's own word for it (Producer, Artist manager…) until something else is typed.
     const value = db.profile[key] || (key === 'role' && roleChosen() ? role().what || '' : '');
+    if (key === 'currency') { const sel = currencySelect(mine()); sel.dataset.key = key; sel.setAttribute('aria-label', label); return h('label', { class: 'tour-field' }, h('span', null, label), sel); }
     return h('label', { class: 'tour-field' }, h('span', null, label), h('input', { type: 'text', value, 'data-key': key, placeholder: ph || '', 'aria-label': label, autocomplete: 'off' }));
   })),
   onNext: () => {
     const patch = {};
-    document.querySelectorAll('.tour-form input[data-key]').forEach(i => { const v = i.value.trim(); if ((db.profile[i.dataset.key] || '') !== v && !(i.dataset.key === 'currency' && !v)) patch[i.dataset.key] = v; });
-    if (Object.keys(patch).length && canChangeQuietly()) update(d => { d.profile = { ...d.profile, ...patch, updatedAt: Date.now() }; }); // a read-only role (the licence) keeps what is stored, without a word
+    document.querySelectorAll('.tour-form input[data-key]').forEach(i => { const v = i.value.trim(); if ((db.profile[i.dataset.key] || '') !== v) patch[i.dataset.key] = v; });
+    const cur = picked(document.querySelector('.tour-form select[data-key="currency"]')); // only when another country is picked
+    if ((Object.keys(patch).length || cur) && canChangeQuietly()) update(d => { d.profile = { ...d.profile, ...patch, updatedAt: Date.now() }; if (cur) applyMine(d, cur); }); // a read-only role (the licence) keeps what is stored, without a word
   },
 };
 // What each section is, for a role that does not say it its own way.
