@@ -771,8 +771,12 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       const over = await page.textContent('.sheet.licence-over');
       await closeTop(page); await sleep(400);
       const bar = await page.textContent('.licence-bar span').catch(() => '');
-      await go(page, 'settings'); await sleep(300); await page.evaluate(() => { for (let d = document.getElementById('se-sample-load').closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true; }); await page.click('#se-sample-load'); await sleep(600);
+      await go(page, 'settings'); await sleep(300);
+      await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/backup.js')]).then(([s, b]) => { b.importBackup(new File([s.serialize()], 'tourbook-backup-test.json', { type: 'application/json' })); }));
+      await page.waitForSelector('.sheet[aria-label="Bring back a backup"]');
+      await page.click('.sheet[aria-label="Bring back a backup"] .se-imp-merge'); await sleep(600);
       const ro = await page.textContent('.sheet.licence-readonly .lic-ro p').catch(() => '');
+      await closeTop(page);
       await closeTop(page);
       await page.evaluate(() => import('./js/licence.js').then(m => m.offerRole('all'))); await sleep(400);
       const offerTitle = (await sheets(page)).join(), offerWords = await page.textContent('.sheet.licence-needed').catch(() => '');
@@ -790,18 +794,34 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       await ctx.close();
     }
     {
-      // A refused change with no form (Load the sample, Bring back a backup's Merge): "Nothing was changed.", never "what
-      // you typed is still in the form".
-      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': ended() } });
+      // A refused change with no form (Remove the sample… on a device with sample records on it, Bring back a backup's
+      // Merge): "Nothing was changed.", never "what you typed is still in the form". Settings no longer loads the sample.
+      // Remove the sample… asks the licence before its question: a read-only role gets the sheet at once, no question
+      // (answered after 3 s the gate would show no sheet), and no refused removal per record.
+      const { ctx, page } = await openLive(browser, errors, { seed: { 'tourbook-role': 'producer', 'tourbook-terms': agreed(), 'tourbook-licence': trialFrom(Date.now() - 5 * DAY) } });
+      await sampleIn(page); await setLicence(page, ended()); await reload(page);
       await page.waitForSelector('.sheet.licence-over', { timeout: 8000 }); await closeTop(page);
-      await go(page, 'settings'); await sleep(300); await page.evaluate(() => { for (let d = document.getElementById('se-sample-load').closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true; }); await page.click('#se-sample-load'); await sleep(600);
+      const nSample = () => page.evaluate(() => import('./js/store.js').then(s => s.COLLECTIONS.reduce((n, c) => n + s.db[c].filter(r => r.sample).length, 0)));
+      const had = await nSample();
+      await go(page, 'settings'); await sleep(300);
+      const offer = await page.evaluate(() => ({ load: document.querySelectorAll('#se-sample-load').length, remove: document.querySelectorAll('#se-sample-remove').length }));
+      await page.evaluate(() => { const d = document.getElementById('se-sample'); if (d) d.open = true; }); await sleep(200);
+      // What the screen reader is told: every write to #sr-live.
+      await page.evaluate(() => { window.__said = []; new MutationObserver(ms => ms.forEach(m => { const r = m.target; if (r.id === 'sr-live' && m.addedNodes.length && r.textContent) window.__said.push(r.textContent); })).observe(document.body, { subtree: true, childList: true }); });
+      let asked = 0; const onDialog = () => { asked++; }; page.on('dialog', onDialog);
+      await page.click('#se-sample-remove'); await sleep(600); // no question: the licence refuses first
+      page.off('dialog', onDialog);
       const sample = await page.textContent('.sheet.licence-readonly .lic-ro p').catch(() => '');
+      const kept = { asked, sheet: await page.locator('.sheet.licence-readonly').count(), n: await nSample(), sec: await page.locator('#se-sample').count(), toasts: (await toasts(page)).filter(t => /Sample removed/.test(t)), said: await page.evaluate(() => window.__said) };
+      ok('read-only, Settings offers no sample to load, and Remove the sample… is refused by the licence before any question: the read-only sheet shows, every sample record and the section stay, nothing says it was removed (no toast, no screen-reader announcement) and "Read-only" is said at most once',
+        offer.load === 0 && offer.remove === 1 && had > 0 && kept.asked === 0 && kept.sheet === 1 && kept.n === had && kept.sec === 1 && kept.toasts.length === 0
+        && !kept.said.some(t => /Sample removed/.test(t)) && kept.said.filter(t => /Read-only/.test(t)).length <= 1, JSON.stringify({ offer, had, kept }));
       await closeTop(page);
       await page.evaluate(() => Promise.all([import('./js/store.js'), import('./js/backup.js')]).then(([s, b]) => { b.importBackup(new File([s.serialize()], 'tourbook-backup-test.json', { type: 'application/json' })); }));
       await page.waitForSelector('.sheet[aria-label="Bring back a backup"]');
       await page.click('.sheet[aria-label="Bring back a backup"] .se-imp-merge'); await sleep(600);
       const backup = await page.textContent('.sheet.licence-readonly .lic-ro p').catch(() => '');
-      ok('a refused change with no form says "Nothing was changed.", not that what was typed is in the form: Load the sample, and Bring back a backup', /^Your free days are over, so Producer can’t change things on this device\. Nothing was changed\. You can still open/.test(sample) && /^Your free days are over, so Producer can’t change things on this device\. Nothing was changed\. You can still open/.test(backup), JSON.stringify({ sample, backup }));
+      ok('a refused change with no form says "Nothing was changed.", not that what was typed is in the form: Remove the sample…, and Bring back a backup', /^Your free days are over, so Producer can’t change things on this device\. Nothing was changed\. You can still open/.test(sample) && /^Your free days are over, so Producer can’t change things on this device\. Nothing was changed\. You can still open/.test(backup), JSON.stringify({ sample, backup }));
       await ctx.close();
     }
     {

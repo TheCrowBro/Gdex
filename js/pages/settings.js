@@ -1,6 +1,9 @@
 // Settings: everything that isn't a record, in twirl-down sections that each say where they stand on their closed
 // line: your role (which sets the section menu), your details (with the way to My card, the contact card as a big QR code, and the card as a .vcf file), quotes & invoices, backups, display &
-// accessibility, help, the sample, about, and erasing this device. Which sections are open is remembered here.
+// accessibility, help, about, and erasing this device. Which sections are open is remembered here. Settings no longer
+// offers the sample (the owner took Sample data off, 15 November 2026): a device with sample records on it (loaded there
+// before, or brought in by a backup or Google Drive) has a Sample data section only while they are on it, to remove them
+// in one go.
 // A role without money (scout, audiophile: moneyShown() false) has no Quotes & invoices section, and its details
 // are not said to go on quotes and invoices; the section comes back with a role that uses money.
 import { h, toast, announce, safeUrl, telUrl, nodes } from '../util.js';
@@ -19,8 +22,8 @@ import { backupPanel, onBackupChange, beforeErase, backupLine, driveBehind, expo
 import { role, roleChosen, menuSections, sectionName, moneyShown } from '../roles.js';
 import { rolePanel } from '../role-pick.js';
 import { askPref } from '../acts-ask.js';
-// The licence (decisions §9): About becomes About & licence while licences are on, Your role says the free days left, and
-// a read-only role cannot load the sample. Nothing of it shows while licences are off.
+// The licence (decisions §9): About becomes About & licence while licences are on, and Your role says the free days left.
+// Nothing of it shows while licences are off.
 import { licenceOn, licenceNow } from '../licence-state.js';
 import { roleNeedsLicence, roleId } from '../roles.js';
 
@@ -292,14 +295,10 @@ const licenceBit = () => {
   return s.started ? ` · ${plural(s.trialLeft, 'free day')} left` : '';
 };
 const roleSummary = () => { const r = role(); return (roleChosen() ? `${r.label} · ${plural(menuSections(r).length, 'section')} on the menu` : 'Not chosen: every section is on the menu') + licenceBit(); };
+// Settings no longer loads the sample (store.loadSample() stays as the tests' fixture). A device with sample records on it
+// (loaded there before, or brought in by a backup or Google Drive) keeps a way to remove them: the Sample data section,
+// drawn only while a sample record is on the device.
 const sampleCount = () => store.COLLECTIONS.reduce((n, c) => n + db[c].filter(r => r && r.sample).length, 0);
-function loadSample() {
-  if (!store.canChange({ form: false })) return; // a read-only role: the licence's sheet says why
-  const before = sampleCount();
-  store.loadSample();
-  const added = sampleCount() - before;
-  toast(added ? `Sample loaded: ${plural(added, 'record')}. Open ${sectionName('bookings', 'Bookings')} to have a look.` : 'The whole sample is already here.');
-}
 // Every sample record goes through store.remove, so anything of yours that pointed at one (a booking for the sample
 // act, at a sample venue, with a sample song) is unlinked instead of left pointing at nothing. Returns how many went.
 export function removeSample() {
@@ -314,22 +313,23 @@ export function removeSample() {
   return n;
 }
 function askRemove() {
+  if (!store.canChange({ form: false })) return; // a read-only role: the licence's sheet says why, and no question is asked
   const all = store.COLLECTIONS.flatMap(c => db[c].filter(r => r && r.sample));
   if (!all.length) return toast('There is no sample to remove');
   const edited = all.filter(r => Number(r.updatedAt) > Number(r.createdAt) + 2000).length;
   if (!confirm(`Remove the ${plural(all.length, 'sample record')}?${edited ? ` ${edited} of them changed after loading, and those changes go too.` : ''} Your own records stay; anything of yours linked to a sample act, venue, song or person is unlinked.`)) return;
+  const next = document.querySelector('#se-sample + .se-sec > summary'); // the section that takes its place
   const n = removeSample();
+  if (!n) return; // nothing went (refused): say nothing about a removal
   toast(`Sample removed: ${plural(n, 'record')}`);
   announce('Sample removed');
+  // With the last sample record gone the section goes too: the focus goes to the section now in its place, after the redraw.
+  if (!sampleCount() && next) { const id = next.id; setTimeout(() => document.getElementById(id)?.focus({ preventScroll: true }), 0); }
 }
 function sampleBody() {
-  const n = sampleCount();
   return [
-    h('p', { class: 'small muted' }, 'A band and an artist in the studio, a few weeks of shows, sessions and rehearsals, songs and a setlist, backline, venues and insurance: enough to try every page. Sample records are marked, and come out again in one go.'),
-    n > 0 && h('p', { class: 'small' }, `${plural(n, 'sample record')} on this device.`),
-    h('div', { class: 'actions' },
-      h('button', { type: 'button', class: 'btn ' + (n ? 'ghost' : 'primary'), id: 'se-sample-load', onclick: loadSample }, n ? 'Load it again' : 'Load the sample'),
-      n > 0 && h('button', { type: 'button', class: 'btn danger', id: 'se-sample-remove', onclick: askRemove }, 'Remove the sample…')),
+    h('p', { class: 'small muted' }, 'These are the sample’s records: a sample band and a few weeks of bookings, marked as the sample. They come out in one go; your own records stay.'),
+    h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn danger', id: 'se-sample-remove', onclick: askRemove }, 'Remove the sample…')),
   ];
 }
 
@@ -447,7 +447,7 @@ const SECTIONS = [
   ['backups', 'Backups', 'Save a backup file, bring one back, keep a copy in a file in a synced folder, or connect Google Drive to share Tourbook between your devices with a dated copy each day.'],
   ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
   ['help', 'Help', 'A walkthrough for any page, and the welcome tour.'],
-  ['sample', 'Sample data', 'Load a sample band and a few weeks of bookings to try things out, and remove it again in one go.'],
+  ['sample', 'Sample data', 'The sample’s records: remove them in one go, and this section goes with them. Your own records stay.'],
   ['about', () => (licenceOn() ? 'About & licence' : 'About'), () => (licenceOn() ? 'The version and updates, your licence, privacy and terms, and where your data is kept.' : 'The version and updates, privacy, and where your data is kept.')],
   ['erase', 'Erase this device', 'Wipes everything Tourbook keeps on this device. You type ERASE first, so it can’t happen by accident.'],
 ];
@@ -480,7 +480,7 @@ export const settings = {
           h('button', { type: 'button', class: 'btn primary', id: 'se-tutorials', onclick: () => import('../tutorials.js').then(m => m.openChooser()).catch(e => { console.error(e); toast('The tutorials could not be opened.'); }) }, '📚 Page tutorials…'),
           h('button', { type: 'button', class: 'btn ghost', id: 'se-tour', onclick: () => startTour() }, '🧭 Take the welcome tour')),
       ]),
-      sample: section('sample', '🧪', 'Sample data', sampleCount() ? `${plural(sampleCount(), 'sample record')} loaded` : 'Not loaded', sampleBody()),
+      sample: sampleCount() ? section('sample', '🧪', 'Sample data', `${plural(sampleCount(), 'sample record')} on this device`, sampleBody()) : null, // only while there is a sample to remove
       about: section('about', 'ℹ️', licenceOn() ? 'About & licence' : 'About', aboutLine(), aboutBody(up, done)),
       erase: section('erase', '🗑️', 'Erase this device', 'Remove everything Tourbook keeps here', eraseBody()),
     };
@@ -500,7 +500,7 @@ export const settings = {
   },
   tutorial: () => [
     { title: 'Settings', text: 'Everything that isn’t a booking or a record. Tap a section to open it; each one says where it stands on its closed line.', target: ['#page .page-head'] },
-    ...SECTIONS.filter(([id]) => id !== 'billing' || moneyShown()).map(([id, title, text]) => ({ title: typeof title === 'function' ? title() : title, text: typeof text === 'function' ? text() : text, target: [`#se-${id} > summary`] })),
+    ...SECTIONS.filter(([id]) => (id !== 'billing' || moneyShown()) && (id !== 'sample' || sampleCount() > 0)).map(([id, title, text]) => ({ title: typeof title === 'function' ? title() : title, text: typeof text === 'function' ? text() : text, target: [`#se-${id} > summary`] })),
   ],
 };
 

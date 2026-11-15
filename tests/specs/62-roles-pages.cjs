@@ -3,9 +3,9 @@
 // (Setlists for a band that has setlists; the metronome's Go to Songs always lands on the songs), the group People's
 // + Add starts in (Band members with an act's people on show) and the hint under Group about Ask if they're free, the
 // Money page's word for the year's income (a manager's acts), Bookings and Acts by the role's own names (set timer,
-// sample toast, People), the scout's and gig-goer's People and Venues without fees or a performer's words, and the
-// pages at 320px with extra-large text (no word or amount split mid-way, tool names readable). Everything (no role)
-// keeps the defaults it always had.
+// People), Settings offering no sample to load in any role, the scout's and gig-goer's People and Venues without fees
+// or a performer's words, and the pages at 320px with extra-large text (no word or amount split mid-way, tool names
+// readable). Everything (no role) keeps the defaults it always had.
 const { open, ok, sleep, go, topSheet } = require('../helpers.cjs');
 
 const state = page => page.evaluate(() => (window.tourbookAudioState ? window.tourbookAudioState() : null));
@@ -420,22 +420,19 @@ const splitWords = (page, sel) => page.evaluate(s => {
   says('the set timer’s walkthrough uses the role’s name too', /tonight’s show in Shows\./, await tourText(page));
   await closeTour(page);
 
-  // The sample's toast.
-  const sampleToast = async () => {
+  // Settings no longer loads the sample (its toast named the role's Bookings): in no role's words does Settings offer it.
+  // With the sample removed there is no Sample data section at all.
+  const sampleOffer = async () => {
     await page.evaluate(() => import('./js/pages/settings.js').then(m => m.removeSample()));
     await go(page, 'settings');
-    await page.waitForSelector('#se-sample');
-    if (!(await page.$eval('#se-sample', d => d.open))) { await page.evaluate(() => document.querySelector('#se-sample-sum').scrollIntoView({ block: 'center' })); await page.click('#se-sample-sum'); }
-    await page.waitForSelector('#se-sample-load', { state: 'visible' });
-    await page.evaluate(() => document.querySelector('#se-sample-load').scrollIntoView({ block: 'center' }));
-    await page.click('#se-sample-load');
-    return page.locator('.toast', { hasText: 'Sample loaded' }).last().innerText({ timeout: 4000 }).catch(() => '');
+    await page.waitForSelector('#se-role');
+    return page.evaluate(() => ({ sec: document.querySelectorAll('#se-sample').length, load: document.querySelectorAll('#se-sample-load').length, words: /load (it again|the sample)|sample loaded:|try things out/i.test(document.getElementById('page').textContent) }));
   };
-  let t = await sampleToast();
-  ok('a scout’s sample toast says “Open Shows”', /Open Shows to have a look\./.test(t), t);
+  let t = await sampleOffer();
+  ok('a scout’s Settings offers no sample to load', t.sec === 0 && t.load === 0 && !t.words, JSON.stringify(t));
   await asRole(page, null);
-  t = await sampleToast();
-  ok('everything’s still says “Open Bookings”', /Open Bookings to have a look\./.test(t), t);
+  t = await sampleOffer();
+  ok('…nor everything’s', t.sec === 0 && t.load === 0 && !t.words, JSON.stringify(t));
 
   allErrors.push(...errors);
   ok('no errors in the console', allErrors.length === 0, allErrors.slice(0, 5).join(' | '));

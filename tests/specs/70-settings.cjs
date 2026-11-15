@@ -1,5 +1,6 @@
 // Settings and backups: your details and the contact card, the currency everywhere, saving a backup and bringing one
-// back (merge, replace, a locked one, a Vdex file refused), the sample loaded and removed with references cleaned,
+// back (merge, replace, a locked one, a Vdex file refused), no way to load the sample anywhere in the app, and on a
+// device that loaded it before (the tests' fixture) the Sample data section that removes it with references cleaned,
 // the display and Quotes & invoices panels, help, remembered sections, a copy kept in a file, the reminder, and
 // erasing the device.
 const { open, ok, sleep, go, BASE, licenceLeg } = require('../helpers.cjs');
@@ -55,8 +56,19 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   let { browser, page, errors } = await open({ tab: 'settings', init: () => { window.showSaveFilePicker = undefined; } });
   await page.waitForSelector('#se-profile');
   const ids = await page.$$eval('#page details.se-sec', ds => ds.map(d => d.id));
-  ok('nine sections, in order', ids.join(',') === 'se-role,se-profile,se-billing,se-backups,se-display,se-help,se-sample,se-about,se-erase', ids.join(','));
-  ok('every section has a line saying where it stands', (await page.$$eval('#page .se-sec > summary .se-sub', s => s.filter(x => x.textContent.trim()).length)) === 9);
+  ok('eight sections, in order: no Sample data on a new device', ids.join(',') === 'se-role,se-profile,se-billing,se-backups,se-display,se-help,se-about,se-erase', ids.join(','));
+  ok('every section has a line saying where it stands', (await page.$$eval('#page .se-sec > summary .se-sub', s => s.filter(x => x.textContent.trim()).length)) === 8);
+  // The owner, 15 November 2026: "Remove the sample data setting". Nothing loads the sample: no button, no words, no step.
+  const sampleStep = () => run(page, () => import('./js/pages/settings.js').then(m => (m.settings.tutorial().find(x => x.title === 'Sample data') || {}).text || ''));
+  const loadWords = /load (it again|the sample)|sample loaded:|try things out|to try every page/i;
+  await page.evaluate(() => document.querySelectorAll('#page details.se-sec').forEach(d => { d.open = true; })); await sleep(300);
+  ok('…no way to load the sample: no button, no words in any section, no walkthrough step', (await page.locator('#se-sample, #se-sample-load').count()) === 0 && !loadWords.test(await text(page, '#page')) && (await sampleStep()) === '', (await text(page, '#page')).match(loadWords) || '');
+  const ROOT = process.env.TOURBOOK_ROOT || path.join(__dirname, '..', '..');
+  const appFiles = dir => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? appFiles(path.join(dir, e.name)) : /\.(js|html)$/.test(e.name) ? [path.join(dir, e.name)] : []));
+  // The app's own pages and code (the terms and the privacy policy are the owner's to reword: docs/developers.md).
+  const offers = [...appFiles('js'), ...fs.readdirSync(ROOT).filter(n => /\.html$/.test(n) && !/^(terms|privacy)\.html$/.test(n))].filter(f => loadWords.test(fs.readFileSync(path.join(ROOT, f), 'utf8')) || /se-sample-load/.test(fs.readFileSync(path.join(ROOT, f), 'utf8')));
+  ok('…and no text in the app offers to load the sample', offers.length === 0, offers.join(', '));
+  await page.evaluate(() => document.querySelectorAll('#page details.se-sec').forEach(d => { d.open = false; })); await sleep(300);
   ok('your details say they are not set yet', /Not set yet/.test(await text(page, '#se-profile .se-sub')));
 
   // Your details
@@ -104,15 +116,18 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   ok('a blank currency becomes $', (await data(page)).profile.currency === '$');
   await tap(page, '#se-edit-profile'); await page.waitForSelector(sheetOf('Your details')); await fill('currency', '£'); await page.click(`${sheetOf('Your details')} button[type=submit]`); await sleep(250);
 
-  // Sample data
-  await openSec(page, 'sample');
-  ok('the sample is not loaded yet', /Not loaded/.test(await text(page, '#se-sample .se-sub')) && (await page.locator('#se-sample-remove').count()) === 0);
-  await tap(page, '#se-sample-load');
+  // Sample data: a device that loaded the sample before (the tests' fixture loads it as Settings once did).
+  await run(page, () => import('./js/store.js').then(s => s.loadSample()));
   await sleep(300);
   d = await data(page);
-  ok('loading the sample fills the database', d.bookings.some(b => b.id === 's-show1') && d.acts.some(a => a.id === 's-owls'));
+  ok('the sample (the tests’ fixture) fills the database', d.bookings.some(b => b.id === 's-show1') && d.acts.some(a => a.id === 's-owls'));
   ok('the sample does not overwrite your details', d.profile.name === 'Maya Brooks');
-  ok('the sample line counts the sample records', /\d+ sample records loaded/.test(await text(page, '#se-sample .se-sub')));
+  const nSample = Object.values(d).filter(Array.isArray).reduce((n, list) => n + list.filter(r => r && r.sample).length, 0);
+  ok('with sample records on the device, Settings has a Sample data section, between Help and About', (await page.$$eval('#page details.se-sec', ds => ds.map(x => x.id).join(','))) === 'se-role,se-profile,se-billing,se-backups,se-display,se-help,se-sample,se-about,se-erase');
+  ok('its line counts the sample records on the device', (await text(page, '#se-sample .se-sub')) === `${nSample} sample records on this device`, await text(page, '#se-sample .se-sub'));
+  await openSec(page, 'sample');
+  ok('it offers only to remove them, in one go: no way to load the sample again', (await page.locator('#se-sample button').count()) === 1 && (await text(page, '#se-sample-remove')) === 'Remove the sample…' && (await page.locator('#se-sample-load').count()) === 0 && !loadWords.test(await text(page, '#se-sample')), await text(page, '#se-sample'));
+  ok('…and the walkthrough has its step while it shows', /remove them in one go/.test(await sampleStep()) && !loadWords.test(await sampleStep()), await sampleStep());
 
   // Backups: save one
   await openSec(page, 'backups');
@@ -218,8 +233,11 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
     s.upsert('setlists', { id: 't-set', name: 'Own set', actId: 's-owls', items: [{ id: 'x1', songId: 's-song1' }, { id: 'x2', title: 'A new one' }] });
   }));
   await openSec(page, 'sample');
+  let asked = ''; const onAsk = dl => { asked = dl.message(); }; page.on('dialog', onAsk);
   await tap(page, '#se-sample-remove');
   await sleep(500);
+  page.off('dialog', onAsk);
+  ok('a role that can change things is asked first: Remove the N sample records?', /^Remove the \d+ sample records\? /.test(asked), asked);
   d = await data(page);
   const leftovers = ['bookings', 'acts', 'people', 'gear', 'kits', 'venues', 'songs', 'setlists', 'logs', 'shifts', 'insurance'].flatMap(c => d[c].filter(r => r.sample || /^s-/.test(r.id)).map(r => c + ':' + r.id));
   ok('removing the sample removes every sample record', leftovers.length === 0, leftovers.join(', '));
@@ -231,7 +249,8 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   ok('a setlist of yours keeps the sample song’s title as text', ownSet.items[0].songId === '' && ownSet.items[0].title === 'Harbour Lights' && ownSet.actId === '');
   ok('removed records are remembered as deleted (a merge won’t bring them back)', ['s-show1', 's-owls', 's-song1'].every(id => d.deleted[id] > 0));
   ok('your details are not the sample’s, so they stay', d.profile.name === 'Maya Brooks');
-  ok('the sample line says it is not loaded', /Not loaded/.test(await text(page, '#se-sample .se-sub')));
+  ok('once no sample record is left, the Sample data section and its walkthrough step are gone', (await page.locator('#se-sample').count()) === 0 && (await page.locator('#page details.se-sec').count()) === 8 && (await sampleStep()) === '');
+  ok('…and the focus is on the section now in its place, About', (await run(page, () => document.activeElement && document.activeElement.id)) === 'se-about-sum', await run(page, () => document.activeElement && (document.activeElement.id || document.activeElement.tagName)));
 
   // Display & accessibility
   await openSec(page, 'display');
@@ -271,7 +290,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   asking = await askNow();
   ok('Always ask is kept on the device, not in the database', asking.key === 'on' && asking.on === 'Always ask' && !/tourbook-ask-seen|"ask/.test(JSON.stringify(await data(page))), JSON.stringify(asking));
   await tap(page, '#ac-ask-off');
-  ok('…and Never ask puts it back; the sections are still nine', (await askNow()).key === 'off' && (await page.locator('#page details.se-sec').count()) === 9);
+  ok('…and Never ask puts it back; the sections are still eight', (await askNow()).key === 'off' && (await page.locator('#page details.se-sec').count()) === 8);
 
   // About
   await openSec(page, 'about');
@@ -386,6 +405,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   await sleep(400);
   d = await data(page);
   ok('removing the sample clears the stand-in name', d.profile.name === '' && d.profile.business === '');
+  ok('…and its section goes with it', (await page.locator('#se-sample').count()) === 0);
   ok('and leaves records of your own', d.songs.some(s => s.id === 't-copy') && d.songs.some(s => s.id === 't-after'));
   ok('no errors in the console (file copy)', errors.length === 0, errors.slice(0, 5).join(' | '));
   await browser.close();

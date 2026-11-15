@@ -80,7 +80,7 @@ export function flush() { rev++; writeNow(); }
 // The licence (js/licence-state.js) installs the one write gate: a paid role used after its free days is read-only.
 // fn({ form, quiet }) → true to allow. form: a form asks before closing (it stays open when refused); quiet: a side
 // effect of something allowed (a day sheet marked sent), skipped without a word when refused. canChange({ form: false })
-// for a change asked with no form (Load the sample, bringing a backup back), so the refusal says nothing about one.
+// for a change asked with no form (Remove the sample…, bringing a backup back), so the refusal says nothing about one.
 let gate = null;
 export const setGate = fn => { gate = typeof fn === 'function' ? fn : null; };
 export const canChange = ({ form = true } = {}) => !gate || gate({ form }) !== false;
@@ -365,9 +365,10 @@ export function eraseAll() {
 /* ------------------------------- sample ------------------------------- */
 // The stand-in profile the sample fills in when there is none (Settings → Remove the sample clears it again).
 export const SAMPLE_PROFILE = { name: 'Sample Producer', business: 'Sample Sound', role: 'Producer' };
-// A small band and a producer's week, dated around today, so every page has something to show (and the tests have
-// fixed ids to reach for). Records already present are left alone. On the day it is loaded no sample show is waiting
-// for "Did you see them?": the past show is in the act's log and the others are still to come.
+// A small band and a producer's week, dated around today, so every page has something to show: the tests' fixture,
+// with fixed ids to reach for. Settings no longer offers it; a device with sample records on it can remove them there.
+// Records already present are left alone. On the day it is loaded no sample show is waiting for "Did you see them?":
+// the past show is in the act's log and the others are still to come.
 export function loadSample() {
   const day = n => ymd(new Date(Date.now() + n * 864e5));
   const at = (n, hh, mm = 0) => { const d = new Date(Date.now() + n * 864e5); d.setHours(hh, mm, 0, 0); return d.getTime(); };

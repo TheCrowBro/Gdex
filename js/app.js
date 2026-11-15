@@ -85,7 +85,7 @@ function show(i, dir = 0) {
 }
 
 // Re-render the active page when data changes (live tools keep their own state: their page sets static: true).
-// Redraws are coalesced: a burst of changes in one go (an import, a sample loaded) draws the page once.
+// Redraws are coalesced: a burst of changes in one go (an import, the sample removed) draws the page once.
 let redrawQueued = false;
 // What identifies a control across a redraw: its kind, its id or label, and the text around it (a checklist box is
 // known by its line). The same control in the new page gets the focus back, so ticking by keyboard stays in place.

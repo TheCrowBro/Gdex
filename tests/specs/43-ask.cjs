@@ -494,7 +494,7 @@ async function whoIsAsked() {
   await roleNow(page, 'band');
   P = await pref();
   ok('for a band the note says the role is not asked, and how to be', P.note === 'Your role is not asked. Choose Always ask to be asked anyway.' && P.on.startsWith('ac-ask-auto:true:true'), JSON.stringify(P));
-  ok('still nine sections, one group of role cards with seven choices, and no radio among the three buttons', (await page.locator('#page details.se-sec').count()) === 9 && (await page.locator('#se-role [role=radiogroup]').count()) === 1
+  ok('still eight sections (no sample on this device, so no Sample data), one group of role cards with seven choices, and no radio among the three buttons', (await page.locator('#page details.se-sec').count()) === 8 && (await page.locator('#se-role [role=radiogroup]').count()) === 1
     && (await page.locator('#se-role [role=radio]').count()) === 7 && (await page.locator('.ac-ask-pref [role=radio]').count()) === 0);
   await roleNow(page, 'scout');
   await page.click('#ac-ask-off'); await sleep(150);
