@@ -39,7 +39,7 @@ function macAppleSigned() {
 function startFeedChecks() { updater = null; setTimeout(checkFeed, 8000); setInterval(checkFeed, 4 * 3600e3); }
 function offerRestart(win, version) {
   if (offered || !win || win.isDestroyed()) return; offered = true;
-  dialog.showMessageBox(win, { type: 'info', title: 'Tourbook', message: `Tourbook ${version} is ready to install.`, detail: 'Restart now to update, or it installs by itself the next time Tourbook is closed.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
+  dialog.showMessageBox(win, { type: 'info', title: 'Tourbook', message: `Tourbook ${version} is ready to install.`, detail: 'Restart now, or it installs itself when you next close Tourbook.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
     .then(r => { if (r.response === 0) updater.quitAndInstall(); }).catch(() => {});
 }
 async function check() {

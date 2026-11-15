@@ -26,11 +26,11 @@ let token = 0;
 async function show() {
   const n = ++token;
   const hash = location.hash.replace(/^#/, '');
-  if (!hash) return fail('It has no day sheet in it: the part after the # is missing. Copy the whole link and open it again.');
+  if (!hash) return fail('The part after the # is missing. Copy the whole link and open it again.');
   let raw;
   try { raw = await unpack(hash); } catch { if (n === token) fail('Part of it is missing or damaged: it may have been cut off when it was copied.'); return; }
   if (n !== token) return;
-  if (raw && typeof raw === 'object' && Number(raw.v) > 1) return fail('It was made by a newer version of Tourbook than this page knows. Reload the page; if that does not help, ask for a fresh link.', 'This day sheet is too new for this page');
+  if (raw && typeof raw === 'object' && Number(raw.v) > 1) return fail('It was made by a newer version of Tourbook. Try reloading the page.', 'This day sheet is too new for this page');
   const d = raw && typeof raw === 'object' && Number(raw.v) === 1 ? cleanDaySheet(fromLink(raw)) : null;
   if (!d || !(d.title || d.date || d.times.length)) return fail('It does not hold a day sheet Tourbook can read.');
 

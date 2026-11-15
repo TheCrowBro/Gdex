@@ -122,7 +122,7 @@ export function openInputList(actId) {
     if (!a) return;
     const list = a.inputList || [];
     rowsBox.replaceChildren(...list.map((r, i) => rowEl(r, i, list.length)));
-    if (!list.length) rowsBox.append(h('p', { class: 'muted ac-in-empty' }, 'No inputs yet. Start from a preset above, or add them one by one: channel, source, mic or DI, stand.'));
+    if (!list.length) rowsBox.append(h('p', { class: 'muted ac-in-empty' }, 'No inputs yet. Start from a preset above, or add them one by one.'));
     const dups = dupChannels(a), real = list.filter(r => !blankRow(r)).length;
     status.replaceChildren(...nodes(h('span', { class: 'muted small' }, real ? `${real} input${real === 1 ? '' : 's'}` : ''),
       dups.length > 0 && h('div', { class: 'warn' }, `Channel${dups.length === 1 ? '' : 's'} ${dups.join(', ')} ${dups.length === 1 ? 'is' : 'are'} used twice. Renumber puts them in order.`)));
@@ -290,7 +290,7 @@ export function stagePlot(a) {
   const placed = new Set(plot.map(p => p.label));
   const people = membersOf(a).map(memberLabel).filter(l => !placed.has(l));
   return h('div', { class: 'ac-plot' },
-    h('p', { class: 'small muted', id: 'ac-plot-hint' }, 'Drag the labels to where things stand, the audience at the bottom. With a keyboard: focus a label and use the arrow keys (Shift for bigger steps), Enter to rename, Delete to remove.'),
+    h('p', { class: 'small muted', id: 'ac-plot-hint' }, 'Drag the labels into place, the audience at the bottom. With a keyboard, the arrow keys move a label (Shift for bigger steps), Enter renames it and Delete removes it.'),
     h('div', { class: 'ac-stage-frame' }, h('div', { class: 'ac-stage-back', 'aria-hidden': 'true' }, 'Back of stage'), stage, h('div', { class: 'ac-audience', 'aria-hidden': 'true' }, 'Audience')),
     cur && h('div', { class: 'ac-plot-tools', role: 'group', 'aria-label': 'Selected label' },
       h('span', { class: 'grow' }, 'Selected: ', h('b', null, cur.label)),
@@ -311,9 +311,9 @@ export function stagePlot(a) {
 
 /* ------------------------------- walkthroughs ------------------------------- */
 sheetTutorial('Input list', [
-  { title: 'Input list', text: 'One row per channel the sound engineer patches: the channel number, the source, the mic or DI, the stand and a note.', target: ['.ac-in-editor > p'] },
+  { title: 'Input list', text: 'One row per channel the sound engineer patches: number, source, mic or DI, stand and note.', target: ['.ac-in-editor > p'] },
   { title: 'Start from a preset', text: 'A four-piece rock band, a duo with tracks or a solo acoustic set: it fills a typical list you then change. It asks before replacing a list.', target: ['#ac-in-preset'] },
-  { title: 'Rows', text: 'Type in the boxes; each one is saved when you leave it. ↑ and ↓ move a row, ✕ removes it.', target: ['.ac-in-row', '.ac-in-empty'] },
+  { title: 'Rows', text: 'Type in the boxes; each one is saved when you leave it. ↑ and ↓ move a row, and ✕ removes it.', target: ['.ac-in-row', '.ac-in-empty'] },
   { title: 'Renumber', text: 'After moving rows around, this numbers the channels 1, 2, 3… in the order of the list.', target: ['#ac-in-renumber'] },
   { title: 'Add a row', text: 'A new row gets the next channel number.', target: ['#ac-in-add'] },
 ]);

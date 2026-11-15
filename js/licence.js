@@ -77,10 +77,10 @@ function describe(s) {
   const l = s.licence, seats = seatsOf(s);
   const until = desk() ? 'until you add a licence code' : 'until you sign in with the email address you bought a licence with';
   switch (s.mode) {
-    case 'unstarted': return { line: ['Audiophile is free. The other roles have 30 free days on this device, counted from the first time you use one; then a licence: ', onceEl(), `, for up to ${seats} of your devices.`], buy: true, enter: true };
+    case 'unstarted': return { line: ['Audiophile is free. The other roles are free for 30 days on this device from the first time you use one, then need a licence: ', onceEl(), `, for up to ${seats} of your devices.`], buy: true, enter: true };
     case 'trial': return { line: `Free days: ${s.trialLeft} left${s.trialEnds ? ` (until ${day(s.trialEnds)})` : ''}. After that the working roles are read-only here ${until}. Audiophile stays free.`, buy: true, enter: true };
     case 'ended': return { line: 'Your free days are over: the working roles are read-only here. Audiophile is free.', tone: 'warn', buy: true, enter: true };
-    case 'clock': return { line: 'This device’s clock looks wrong, so Tourbook can’t count your free days: the working roles are read-only here until its date and time are right. Audiophile is free.', tone: 'warn', buy: true, enter: true };
+    case 'clock': return { line: 'This device’s clock looks wrong, so the working roles are read-only here until its date and time are right. Audiophile is free.', tone: 'warn', buy: true, enter: true };
     case 'licensed': return web()
       ? { line: `Signed in as ${l ? l.email : ''}${l && l.comp ? ' · a free licence' : ''} · a licence for up to ${plural(seats, 'device')}.`, tone: 'ok', release: true, forget: true }
       : { line: `Licensed to ${who(l)}${l && l.comp ? ' · a free licence' : ''} · up to ${plural(seats, 'device')}.`, tone: 'ok', copy: true, release: true };
@@ -116,7 +116,7 @@ function actions(s, d, { sheetWords = false, carry = false, after = () => {} } =
   return b;
 }
 // Next to Buy: what is bought (a licence, not a copy; California's rule for digital goods), and the currency.
-const buyNote = d => (d && d.buy ? h('p', { class: 'small muted licence-buy-note' }, 'You are buying a licence to use Tourbook, not ownership of a copy of it (see the ', h('a', { href: 'terms.html#paid', target: '_blank', rel: 'noopener' }, 'terms'), '). Prices are in US dollars; Stripe can show your own currency at its exchange rate, which costs 2 to 4% more.') : null);
+const buyNote = d => (d && d.buy ? h('p', { class: 'small muted licence-buy-note' }, 'You are buying a licence to use Tourbook, not ownership of a copy of it (see the ', h('a', { href: 'terms.html#paid', target: '_blank', rel: 'noopener' }, 'terms'), '). Prices are in US dollars; paying in your own currency at Stripe’s exchange rate costs 2 to 4% more.') : null);
 
 // Checks the licence online now. The toast says what the server answered.
 async function retry(btn, after = () => {}) {
@@ -155,7 +155,7 @@ function whyNot(s, what = 'working sections') {
   switch (s.mode) {
     case 'cancelled': return 'Your licence has been cancelled, for example after a refund. If you think that’s a mistake, reply to the email your licence came in.';
     case 'expired': return `Your licence ended on ${day(s.licence && s.licence.expires)}.`;
-    case 'clock': return 'Tourbook can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Tourbook again.';
+    case 'clock': return 'Tourbook can’t count your free days while this device’s date and time are off by more than a day. Set them right, or turn on automatic date and time, then open Tourbook again.';
     case 'offline': return 'Tourbook hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again.';
     case 'released': return `This computer is no longer on your licence: it’s in use on ${plural(seatsOf(s), 'other device')}.`;
     case 'pending': return 'Your licence isn’t activated on this computer yet: Tourbook needs the internet once to do that.';
@@ -175,7 +175,7 @@ function offer(title, first, gone) {
   const close = () => sh && sh.close();
   sh = sheet(title, h('div', { class: 'stack lic-offer' },
     h('p', null, first),
-    h('p', null, `A licence opens ${PAID_LIST}, and every role: `, onceEl(), `, for up to 3 of your devices. ${capFirst(freeWords())} stay free${cardFree()}.`),
+    h('p', null, `A licence opens ${PAID_LIST}, and every role. It costs `, onceEl(), `, for up to 3 of your devices. ${capFirst(freeWords())} stay free${cardFree()}.`),
     h('div', { class: 'actions' }, ...actions(s, d, { sheetWords: true, after: close }), h('button', { type: 'button', class: 'btn ghost lic-later', onclick: close }, 'Not now')),
     buyNote(d)));
   sh.el.classList.add('licence-needed');
@@ -189,8 +189,8 @@ function offer(title, first, gone) {
 const KIND_WORDS = { session: 'Studio sessions', rehearsal: 'Rehearsals' };
 export function offerSection(id, kind = '') {
   const s = licenceNow();
-  if (id === 'work' && KIND_WORDS[kind]) return offer(`${KIND_WORDS[kind]} need a licence`, `${KIND_WORDS[kind]} come with Tourbook’s working roles: this one stays here for you to look at, and can be changed with a licence. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
-  if (id === 'work') return offer('The working boxes need a licence', `The line-up, setlist, take log and the other working boxes, and People, Songs and Backline’s cards, come with Tourbook’s working roles. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
+  if (id === 'work' && KIND_WORDS[kind]) return offer(`${KIND_WORDS[kind]} need a licence`, `${KIND_WORDS[kind]} come with Tourbook’s working roles. This one is read-only; change it with a licence. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
+  if (id === 'work') return offer('The working boxes need a licence', `The line-up, setlist, take log and the other working boxes, and the cards in People, Songs and Backline, come with Tourbook’s working roles. ${whyNot(s, 'working roles')}`, () => mayWork() === 'open');
   const name = sectionName(id, NAMES[id] || id);
   return offer(`${name} needs a licence`, whyNot(s), () => mayOpen(id) === 'open');
 }
@@ -212,7 +212,7 @@ export function overSheetIfDue() {
     const s = licenceNow();
     if (s.mode === 'away') return awaySheet().done;
     overOpen = new Promise(resolve => {
-      const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, for personal use, not for work, with everything you already have.'];
+      const role = roleAs(), how = ['A licence is ', onceEl(), ', for up to 3 of your devices. Or carry on free as an Audiophile, with everything you already have, for personal use, not for work.'];
       // Every one of these sheets offers Carry on free as an Audiophile, so each says what it is for (decisions §21).
       const carry = ' Or carry on free as an Audiophile, for personal use, not for work.';
       const readOnly = `Tourbook is read-only ${role} on this device until there is a licence: you can open, search, print and share everything, but not change it. Nothing has been deleted.`;
@@ -221,9 +221,9 @@ export function overSheetIfDue() {
         cancelled: ['Your licence has been cancelled', ['This can happen after a refund. If you think that’s a mistake, reply to the email your licence came in. ', readOnly.replace('until there is a licence', 'until there is a licence again'), ' ', ...how]],
         expired: [`Your licence ended on ${day(s.licence && s.licence.expires)}`, [readOnly, ' ', ...how]],
         offline: ['Tourbook needs to check your licence', [`It hasn’t reached the licence server for 90 days. Connect to the internet and tap Try again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`, carry]],
-        released: ['This computer is no longer on your licence', [`It’s in use on ${plural(seatsOf(s), 'other device')}. Activate it here again to choose which one to take off. Until then Tourbook is read-only ${role}. Nothing has been deleted.`, carry]],
+        released: ['This computer is no longer on your licence', [`Your licence is in use on ${plural(seatsOf(s), 'other device')}. Activate it here again to choose which one to take off. Until then Tourbook is read-only ${role}. Nothing has been deleted.`, carry]],
         pending: ['Tourbook needs to activate your licence', [`It hasn’t been able to reach the licence server since the code was entered. Connect to the internet and tap Try again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`, carry]],
-        clock: ['Your device’s clock looks wrong', [`Tourbook can’t count your free days while this device’s date and time are off by more than a day. Set them right (or turn on the automatic time), then open Tourbook again. Nothing has been deleted. Until then Tourbook is read-only ${role}.`, carry]],
+        clock: ['Your device’s clock looks wrong', [`Tourbook can’t count your free days while this device’s date and time are off by more than a day. Set them right, or turn on automatic date and time, then open Tourbook again. Until then Tourbook is read-only ${role}. Nothing has been deleted.`, carry]],
       }[s.mode] || ['Tourbook is read-only here', [readOnly, ' ', ...how]];
       let sh = null;
       const close = () => sh && sh.close();
@@ -318,7 +318,7 @@ export function roleLicenceLine() {
     if (s.mode === 'away') words = ['Here, in a web browser, only Audiophile works: open Tourbook from its desktop app for the other roles.'];
     else if (has) words = ['Licensed: every role on this device.'];
     else if (s.canEdit && s.started) { words = [`Your free days: ${s.trialLeft} left${s.trialEnds ? `, until ${day(s.trialEnds, false)}` : ''}. Audiophile stays free after that, for personal use, not for work.`]; d = { buy: true, enter: true }; }
-    else if (s.canEdit) words = ['Audiophile is free for good, for personal use, not for work. The other roles, Jack of Trades included, have 30 free days on this device, counted from the first time you use one; then a licence: ', onceEl(), ', for up to 3 of your devices.'];
+    else if (s.canEdit) words = ['Audiophile is free for good, for personal use, not for work. The other roles, Jack of Trades included, are free for 30 days on this device from the first time you use one, then need a licence: ', onceEl(), ', for up to 3 of your devices.'];
     else { words = [s.mode === 'ended' ? 'Your free days are over. ' : whyNot(s) + ' ', 'Audiophile is free, for personal use; the other roles need a licence.']; d = nextStep(s); }
     // A warning only for a working role in use.
     el.replaceChildren(h('p', { class: 'small' + (s.canEdit || has || !roleNeedsLicence(roleId()) ? '' : ' licence-warn') }, ...words), ...(Object.keys(d).length ? [h('div', { class: 'actions' }, ...actions(s, d))] : []));
@@ -419,7 +419,7 @@ export function enterCode(prefill = '') {
   const msg = h('p', { class: 'small', role: 'status' });
   const go = h('button', { type: 'button', class: 'btn primary', id: 'lic-activate', onclick: () => send() }, 'Activate');
   const body = h('div', { class: 'stack' },
-    h('p', { class: 'small muted' }, 'Paste the code from your email: all of it, starting with TOURBOOK-. Tourbook activates it online once, so it can count the devices it is used on (up to 3).'),
+    h('p', { class: 'small muted' }, 'Paste the whole code from your email, starting with TOURBOOK-. Tourbook activates it online once, to count the devices using it (up to 3).'),
     box, msg, h('div', { class: 'actions' }, go));
   const sh = sheet('Enter licence code', body);
   setTimeout(() => box.focus(), 50);
@@ -431,7 +431,7 @@ export function enterCode(prefill = '') {
     if (r && r.error === 'expired') { msg.textContent = `This code ended on ${day(r.expires) || r.expires}.`; msg.className = 'small licence-warn'; return; }
     if (!r || r.error) { msg.textContent = (r && typeof r.error === 'string' && r.error) || 'Something went wrong. Try again.'; msg.className = 'small licence-warn'; return; }
     told(r); sh.close();
-    toast(r.mode === 'licensed' ? 'Licensed: every role on this device.' : r.mode === 'pending' ? 'Code saved. Tourbook activates it the next time it is online.' : 'Tourbook could not reach the licence server. Try again when you are online.');
+    toast(r.mode === 'licensed' ? 'Licensed: every role on this device.' : r.mode === 'pending' ? 'Code saved. Tourbook activates it the next time you are online.' : 'Tourbook could not reach the licence server. Try again when you are online.');
   }
 }
 

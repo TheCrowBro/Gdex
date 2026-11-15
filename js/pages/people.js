@@ -116,7 +116,7 @@ function edit(p = {}, onSaved, { actIds = null } = {}) {
       { key: 'company', label: 'Company', placeholder: 'Agency, label, venue or studio' },
       { key: 'phone', label: 'Phone', type: 'tel', placeholder: '+1 555 0100' },
       { key: 'email', label: 'Email', type: 'email' },
-      { key: 'rate', label: 'Usual rate', type: 'number', min: 0, step: 'any', placeholder: 'e.g. 180', hint: 'What they usually charge you. Only you see it: it never goes into a message, a day sheet or their contact card.' },
+      { key: 'rate', label: 'Usual rate', type: 'number', min: 0, step: 'any', placeholder: 'e.g. 180', hint: 'What they charge you. Only you see it: never in a message, day sheet or contact card.' },
       { key: 'rateUnit', label: 'Per', type: 'select', options: PERSON_RATE_UNITS },
       acts.length > 0 && { key: 'acts', label: 'Member of', type: 'checks', options: acts.map(a => ({ value: a.id, label: a.name, hint: a.genre || '' })), hint: 'The acts they play in. Each act’s page shows the same line-up.' },
       { key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Their mic, dietary needs, who they dep for…' },
@@ -141,7 +141,7 @@ function edit(p = {}, onSaved, { actIds = null } = {}) {
 function askHint(form) {
   const sel = form.querySelector('[data-key=group]'), field = sel && sel.closest('.field');
   if (!field) return;
-  const note = h('small', { class: 'muted pp-group-hint', id: sel.id + '-hint' }, 'Crew, session players and band members get “🙋 Ask if they’re free”, to check a date with them. Industry contacts don’t.');
+  const note = h('small', { class: 'muted pp-group-hint', id: sel.id + '-hint' }, 'Crew, session players and band members get “🙋 Ask if they’re free”. Industry contacts don’t.');
   field.append(note);
   const sync = () => { const on = sel.value === 'contact'; note.hidden = !on; if (on) sel.setAttribute('aria-describedby', note.id); else sel.removeAttribute('aria-describedby'); };
   sel.addEventListener('change', sync);
@@ -178,7 +178,7 @@ function deletePerson(id, { asked = false } = {}) {
 /* ------------------------------- the person sheet ------------------------------- */
 const personSteps = () => [
   { title: 'Get in touch', text: 'Call, text or email them with the number and address saved here.', target: ['.pp-sheet .pp-quick'] },
-  { title: 'Ask if they’re free', text: 'Pick a booking and send them a text or email with the date, the place and the times. The money is never in it.', target: ['#pp-ask'] },
+  { title: 'Ask if they’re free', text: 'Pick a booking, then text or email them its date, place and times, never the money.', target: ['#pp-ask'] },
   { title: 'Share their contact', text: 'A QR code another phone can scan, or a .vcf file to send.', target: ['#pp-share'] },
   { title: actsTitle(), text: 'The acts they play in. Tap one to open it.', target: ['.pp-acts-sec'] },
   { title: bookingsWord(), text: 'Their upcoming shows, sessions and rehearsals, with a warning when two land on the same day. Tap one to open it.', target: ['.pp-upcoming'] },
@@ -362,7 +362,7 @@ function askFree(id) {
 
 /* ------------------------------- share contact ------------------------------- */
 const shareSteps = [
-  { title: 'Scan to save', text: 'Another phone’s camera reads this code and offers to save the contact. Their rate and your notes are not in it.', target: ['.pp-qr'] },
+  { title: 'Scan to save', text: 'Another phone’s camera scans this to save the contact, without their rate or your notes.', target: ['.pp-qr'] },
   { title: 'Or send the file', text: 'A .vcf contact file: share it, or save it to send later.', target: ['#pp-vcf'] },
 ];
 sheetTutorial('Share contact', shareSteps);
@@ -453,7 +453,7 @@ function draw(root) {
 
   let list;
   if (!all.length) {
-    list = empty(moneyShown() ? 'Add your band, the session players and crew you hire, and the promoters and agents you deal with. Then put them on bookings, and ask who’s free in a tap.'
+    list = empty(moneyShown() ? 'Add your band, session players, crew, promoters and agents. Then put them on bookings and ask who’s free in a tap.'
       : `Add the managers, agents, promoters and label contacts you deal with. Call, text or email them in a tap, and see the ${actWord()}s they’re with.`,
       h('button', { class: 'btn primary', type: 'button', id: 'pp-empty-add', onclick: add }, '+ Add a person'));
   } else if (!shown.length) {
@@ -481,7 +481,7 @@ function draw(root) {
     filtered && shown.length > 0 && h('p', { class: 'muted small pp-showing', role: 'status' }, `Showing ${plural(shown.length, 'person', 'people')} of ${all.length}.`),
     list,
     shown.length > 0 && h('div', { class: 'actions pp-foot' },
-      h('button', { class: 'btn ghost small', type: 'button', id: 'pp-export', onclick: () => exportContacts(shown) }, filtered ? `⤓ Save these ${shown.length} as contacts (.vcf)` : '⤓ Save everyone as contacts (.vcf)'))));
+      h('button', { class: 'btn ghost small', type: 'button', id: 'pp-export', onclick: () => exportContacts(shown) }, filtered ? (shown.length === 1 ? '⤓ Save this one as a contact (.vcf)' : `⤓ Save these ${shown.length} as contacts (.vcf)`) : '⤓ Save everyone as contacts (.vcf)'))));
 }
 
 // Who to add first, by the group + Add starts in.
@@ -494,12 +494,12 @@ export const people = {
   id: 'people', label: 'People', icon: '👥',
   render(root) { draw(root); },
   tutorial: () => [
-    { title: 'People', text: moneyShown() ? 'Everyone you work with: your band, the session players and crew you hire, and the promoters, agents and labels you deal with. Tap + Add for someone new.'
-      : 'The managers, agents, promoters and label contacts you deal with, with call, text and email one tap away. Tap + Add for someone new.', target: ['.pp-page .page-head'] },
+    { title: 'People', text: moneyShown() ? 'Everyone you work with: band, session players, crew, promoters, agents and labels. Tap + Add for someone new.'
+      : 'The managers, agents, promoters and label contacts you deal with, a tap from a call, text or email. Tap + Add for someone new.', target: ['.pp-page .page-head'] },
     { title: 'Search', text: 'Find anyone by name, role, instrument, company or act.', target: ['#pp-search'] },
     { title: 'Groups', text: 'Show only band members, session players, crew or industry contacts.', target: ['.pp-groups'] },
     { title: actsTitle(), text: 'Show only the people in one act.', target: ['.pp-actfilter'] },
-    { title: 'A person', text: 'Their role, instruments, company, acts and next booking. Tap the card for their ' + (moneyShown() ? 'bookings, rate and notes' : 'bookings and notes') + ', to ask if they’re free, or to share their contact.', target: ['.pp-card .pp-main'] },
+    { title: 'A person', text: 'Their role, instruments, company, acts and next booking. Tap the card to ask if they’re free, share their contact, or see their ' + (moneyShown() ? 'bookings, rate and notes' : 'bookings and notes') + '.', target: ['.pp-card .pp-main'] },
     { title: 'Call, text or email', text: 'Straight from the card, with the number and address saved for them.', target: ['.pp-card .pp-quick'] },
     { title: 'Save as contacts', text: 'Save the people on screen as a contacts file (.vcf) your phone or computer can import.', target: ['#pp-export'] },
     { title: 'Nobody here yet', text: FIRST_ADD[moneyShown() ? newGroup() : 'contact'] || FIRST_ADD.band, target: ['#pp-empty-add'] },

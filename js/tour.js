@@ -30,12 +30,12 @@ const profileStep = {
 // What each section is, for a role that does not say it its own way.
 export const STOP_TEXT = {
   bookings: 'Shows, studio sessions and rehearsals on one calendar. Open one for its times, deal, setlist, guest list, day sheet, settlement and invoice.',
-  acts: 'The bands and artists you play in, manage, produce or follow: times seen with your scores, members, links, press kit and tech rider.',
-  people: 'Everyone you work with: players, crew, engineers, promoters and agents, with their contact details and what they are booked on.',
+  acts: 'The bands and artists you play with, manage, produce or follow: times seen with your scores, members, links, press kit and tech rider.',
+  people: 'Everyone you work with: their contact details and what they are booked on.',
   songs: 'Keys, tempos and lengths for every song, split sheets for the writers, and setlists that add up to the slot.',
   sessions: 'The studio log: each session’s takes, keepers and notes, song by song.',
   backline: 'Your gear: what you own, what goes to each booking, and what is out on loan.',
-  venues: 'Every room, studio and festival you play or visit: the stage, the PA, load-in, curfew, the contact, and the house rules that show on every show there.',
+  venues: 'Every room, studio and festival you play or visit: stage, PA, load-in, curfew, contact, and house rules that appear on every show there.',
   money: 'What you are owed and what you have been paid: settlements, invoices and the year’s totals.',
   tools: 'A tuner, a metronome with tap tempo, delay times for any tempo, a sound level meter and a set timer.',
   insurance: 'Your policies and what they cover, next to the backline they insure.',
@@ -62,7 +62,7 @@ export function welcomeSteps() {
   const bonus = offMenu(r).map(id => sectionName(id, NAMES[id]));
   const sideA = Math.ceil(menu.length / 2);
   return [
-    { title: 'Welcome to Tourbook', text: r.welcome || 'The booking deck for producers and bands: shows, studio sessions and rehearsals, your acts and people, backline, venues, songs and setlists, settlements and invoices, and the tools you need on the night. This takes about a minute. Tap Skip any time.' },
+    { title: 'Welcome to Tourbook', text: r.welcome || 'The booking deck for producers and bands: shows, studio sessions, acts, people, backline, venues, setlists and money, plus tools for the night. This takes about a minute. Tap Skip any time.' },
     profileStep,
     { go: stopsOn[0] || 'settings', target: ['.deck'], title: 'Your sections are tracks',
       get text() {

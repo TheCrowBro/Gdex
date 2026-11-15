@@ -97,6 +97,6 @@ export default {
         h('button', { class: 'btn ghost small', type: 'button', onclick: () => detach(b) }, `Remove from this ${what(b)}`)));
   },
   tutorial: [
-    { target: ['#blk-setlist'], title: 'Setlist', text: 'Pick one of the act’s setlists or start a new one for this show. Its running time is checked against the set length (and the curfew), Edit opens the editor sized to the slot, and Print makes the big stage copy. A setlist with songs ticks “Setlist ready” on the checklist.' },
+    { target: ['#blk-setlist'], title: 'Setlist', text: 'Pick one of the act’s setlists or start a new one. Its running time is checked against the set length and curfew. Print makes the big stage copy. A show’s setlist with songs ticks “Setlist ready” on the checklist.' },
   ],
 };

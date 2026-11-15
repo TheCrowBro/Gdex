@@ -129,7 +129,7 @@ export async function exportLocked() {
   if (!canLock()) { toast(NO_LOCK); return false; }
   const pass = await askPassphrase({
     title: 'Save with a passphrase', confirm: true, submit: 'Save the backup',
-    intro: 'The backup file is locked: it opens only with this passphrase. Use one you will remember; a forgotten passphrase can’t be recovered, by anyone.',
+    intro: 'Only this passphrase opens the backup file. Use one you’ll remember: nobody can recover a forgotten one.',
     check: p => (p.length >= 8 ? true : 'Use at least 8 characters.'),
   });
   if (!pass) return false;
@@ -203,7 +203,7 @@ export async function importBackup(file) {
   let data;
   try { data = JSON.parse(await file.text()); } catch { return refuse('That file couldn’t be read as a backup. Pick a file Tourbook saved: its name starts with tourbook-backup and ends in .json.'); }
   if (isLocked(data)) { data = await unlock(data); if (!data) return null; }
-  if (isVdex(data)) return refuse('This is a Vdex backup, not a Tourbook one. Vdex and Tourbook keep separate data: open this file in Vdex instead.');
+  if (isVdex(data)) return refuse('This is a Vdex backup, not a Tourbook one. Open it in Vdex instead.');
   if (!isTourbook(data)) return refuse('That file is not a Tourbook backup. Pick a file Tourbook saved: its name starts with tourbook-backup and ends in .json.');
   return chooseHow(data, file.name || 'backup', { drive: drive.driveState().linked });
 }
@@ -219,7 +219,7 @@ function merge(data, { revive = false, what = 'backup' } = {}) {
   for (const [k, t] of after) { if (!before.has(k)) added++; else if (before.get(k) !== t) updated++; }
   for (const k of before.keys()) if (!after.has(k)) removed++;
   const msg = back || added || updated || removed ? `Merged: ${back ? `${back} brought back (deleted here since that ${what}), ` : ''}${added} new, ${updated} updated${removed ? `, ${removed} removed (deleted on the other device)` : ''}.`
-    : dead ? `Merged. Nothing changed: the ${plural(dead, 'record')} in that ${what} deleted on this device since ${dead === 1 ? 'stays' : 'stay'} deleted.`
+    : dead ? `Merged. Nothing changed: ${plural(dead, 'record')} deleted here since that ${what} ${dead === 1 ? 'stays' : 'stay'} deleted.`
       : `Merged. Nothing new in that ${what}: this device already had all of it.`;
   toast(msg); announce(msg);
 }
@@ -293,8 +293,8 @@ function chooseHow(raw, name, { drive: linked = false, copy = false } = {}) {
       }
       const nNow = totalOf(countsOf(store.db));
       if (how === 'replace' && !confirm(linked
-        ? `Replace everything on this device, and on every device connected to this Google Drive, with this ${what}? The ${plural(nNow, 'record')} here now are replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`
-        : `Replace everything on this device with this ${what}? The ${plural(nNow, 'record')} here now are replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`)) return;
+        ? `Replace everything on this device, and on every device connected to this Google Drive, with this ${what}? The ${plural(nNow, 'record')} here now will be replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`
+        : `Replace everything on this device with this ${what}? The ${plural(nNow, 'record')} here now will be replaced by the ${plural(nFile, 'record')} ${where}. This can’t be undone.`)) return;
       finish(how); s.close();
       if (how === 'replace') {
         store.replaceAll(data, { everywhere: linked });
@@ -456,7 +456,7 @@ async function initFile() {
 
 // The ☁ button at the top says how Google Drive and the copy in a file are doing, the worse of the two first (it says
 // Backup when neither is on). [state, label, spoken, how bad]
-const FILE_LOOK = { saved: ['synced', 'Saved', 'copy in a file is up to date', 1], saving: ['saving', 'Saving…', 'saving the copy in a file', 2], 'needs-permission': ['needs-permission', 'Allow', 'the copy in a file needs your OK', 3], error: ['error', 'Not saved', 'the copy in a file could not be saved', 4] };
+const FILE_LOOK = { saved: ['synced', 'Saved', 'the copy in a file is up to date', 1], saving: ['saving', 'Saving…', 'saving the copy in a file', 2], 'needs-permission': ['needs-permission', 'Allow', 'the copy in a file needs your OK', 3], error: ['error', 'Not saved', 'the copy in a file could not be saved', 4] };
 const DRIVE_LOOK = { synced: ['synced', 'Synced', 'Google Drive is up to date', 1], saving: ['saving', 'Saving…', 'saving to Google Drive', 2], 'needs-permission': ['needs-permission', 'Sign in', 'Google Drive needs you to sign in again', 3], error: ['error', 'Not synced', 'Google Drive is not synced', 4] };
 function paintButton() {
   const btn = document.getElementById('cloudBtn');
@@ -533,7 +533,7 @@ async function openDailyCopies(panel = null) {
   try { copies = await drive.listDailyCopies({ ask: true }); }
   catch (e) {
     if (e.name === 'AbortError') { s.close(); return; }
-    box.replaceChildren(...nodes(h('p', { class: 'warn small', role: 'alert' }, e.name === 'NotAllowedError' ? 'Google Drive wants you to sign in again before the daily copies can be listed: tap Sign in again, then try once more.' : e.message), done));
+    box.replaceChildren(...nodes(h('p', { class: 'warn small', role: 'alert' }, e.name === 'NotAllowedError' ? 'Google Drive wants you to sign in again first: tap Sign in again, then try once more.' : e.message), done));
     return;
   }
   const pick = async (c, btn) => {
@@ -547,14 +547,14 @@ async function openDailyCopies(panel = null) {
     copies.length
       ? h('div', { class: 'list se-bk-copy-list' }, ...copies.map(c => { const b = h('button', { type: 'button', class: 'card tap se-bk-copy', onclick: () => pick(c, b) }, h('strong', null, c.label), h('span', { class: 'small muted' }, ` · ${savedWhen(c.at)}`)); return b; }))
       : h('p', { class: 'small muted' }, 'No daily copies yet. Tourbook saves one the first time it syncs each day.'),
-    h('p', { class: 'small muted' }, 'Tourbook keeps a copy for each day of the last week and one for each of the last 12 months, so a mistake can be undone for about a week, or a month.'),
+    h('p', { class: 'small muted' }, 'Tourbook keeps a copy for each of the last 7 days and each of the last 12 months.'),
     done));
 }
 
 // The shared copy in Drive can't be read: this device's copy goes in its place. The unreadable one is kept in Drive as
 // it is, and the daily copies stay (js/sync.js replaceUnreadable).
 function putOursInPlace() {
-  if (!confirm('The copy in your Google Drive can’t be read. Put this device’s copy in its place? The one Tourbook can’t read is kept in your Drive, as it is, beside it, and every daily copy stays. Your other devices add what they have the next time they sync.')) return;
+  if (!confirm('The copy in your Google Drive can’t be read. Put this device’s copy in its place? The unreadable one stays in your Drive, unchanged, as do the daily copies. Your other devices add what they have when they next sync.')) return;
   driveRun(() => drive.replaceUnreadable(), 'This device’s copy is in your Google Drive now. Up to date.');
 }
 
@@ -573,8 +573,8 @@ function clockWords(ms) {
   if (a <= CLOCK_OFF) return '';
   const m = a / 60000, amount = m < 120 ? `${Math.round(m)} minutes` : m < 48 * 60 ? `${Math.round(m / 60)} hours` : `${Math.round(m / 1440)} days`;
   return ms < 0
-    ? `⚠ This device’s clock is about ${amount} behind Google’s. Tourbook keeps the newest change of each record when it syncs, so with a slow clock what you change or delete here can be undone. Set this device’s date and time to set themselves automatically.`
-    : `⚠ This device’s clock is about ${amount} ahead of Google’s. Tourbook keeps the newest change of each record when it syncs, so with a fast clock what you change on your other devices can be undone. Set this device’s date and time to set themselves automatically.`;
+    ? `⚠ This device’s clock is about ${amount} behind Google’s, so a sync can undo what you change or delete here. Turn on automatic date and time.`
+    : `⚠ This device’s clock is about ${amount} ahead of Google’s, so a sync can undo what you change on your other devices. Turn on automatic date and time.`;
 }
 
 function driveCard() {
@@ -609,7 +609,7 @@ function driveCard() {
       h('button', { type: 'button', class: `btn ${needs || d.unreadable ? 'ghost' : 'primary'} se-bk-drive-sync`, onclick: () => driveRun(() => drive.syncNow({ ask: true }), 'Google Drive is up to date.') }, 'Sync now'),
       h('button', { type: 'button', class: 'btn ghost se-bk-drive-restore', onclick: e => openDailyCopies(e.currentTarget.closest('.se-bk')) }, 'Bring back a daily copy…'),
       h('button', { type: 'button', class: 'btn ghost se-bk-drive-off', onclick: async () => { if (await drive.disconnectDrive()) toast('Google Drive is disconnected on this device. Both copies stay.'); } }, 'Disconnect')),
-    h('p', { class: 'small muted' }, 'Disconnect stops syncing on this device. Both copies stay: this device’s and the one in your Drive. To take Tourbook’s access away completely, remove Tourbook in your Google Account under third-party connections.'),
+    h('p', { class: 'small muted' }, 'Disconnect stops syncing on this device. Both copies stay, here and in your Drive. To end Tourbook’s access completely, remove it in your Google Account under third-party connections.'),
     h('button', { type: 'button', class: 'btn ghost small se-bk-drive-delete', onclick: () => deleteDriveCopy() }, 'Delete Tourbook’s copy from Google Drive…'));
 }
 
@@ -648,7 +648,7 @@ function fileCard() {
   if (!f.supported) {
     return h('div', { class: 'card stack se-bk-file', 'data-state': 'unsupported' }, title,
       h('p', { class: 'small muted' }, isPhone()
-        ? 'Phones and tablets can’t let an app keep writing to a file. Save a backup now and then instead, and keep it in your cloud drive (Files, Google Drive, Dropbox…) or email it to yourself.'
+        ? 'Phones and tablets can’t keep writing to a file. Save a backup now and then instead, and keep it in your cloud drive or email it to yourself.'
         : 'This needs Chrome or Edge on a computer. In this browser, save a backup now and then instead.'));
   }
   if (!f.linked) {
@@ -682,7 +682,7 @@ export function backupPanel() {
   const draw = () => redraw(body, [
     statusLine(),
     driveCard(),
-    h('p', { class: 'small muted' }, 'Tourbook keeps everything on this device unless you connect Google Drive. A backup file holds all of it: bookings, acts, people, songs, setlists, backline, venues, your details and money settings. Keep it in your cloud drive or email it to yourself; it also moves Tourbook to a new phone or computer.'),
+    h('p', { class: 'small muted' }, 'Tourbook keeps everything on this device unless you connect Google Drive. A backup file holds all of it and moves Tourbook to a new phone or computer. Keep it in your cloud drive or email it to yourself.'),
     h('div', { class: 'se-bk-actions' },
       h('button', { type: 'button', class: 'btn primary se-bk-save', onclick: () => exportBackup() }, '⤓ Save a backup'),
       h('button', { type: 'button', class: 'btn ghost se-bk-open', onclick: () => input.click() }, '📂 Bring back a backup…'),
@@ -716,7 +716,7 @@ export const backupSteps = STEPS;
 sheetTutorial('Backups', STEPS);
 sheetTutorial('Bring back a backup', [
   { title: 'What is in the file', text: 'How many bookings, songs, people and so on the backup holds, next to what is on this device now.', target: ['.se-imp-file'] },
-  { title: 'Your free days', text: 'Bringing the backup back changes this device’s free days for the working roles. This line says from which day they are counted, how many days are left and until when, or that they are over.', target: ['.se-imp-days'] },
+  { title: 'Your free days', text: 'Bringing the backup back changes this device’s free days for the working roles. This line says when they started, how many are left and until when, or that they are over.', target: ['.se-imp-days'] },
   { title: 'Merge', text: 'Keeps everything here and adds what the backup has that this device lacks. Where the same record is in both, the one changed last wins. Records deleted here since the backup stay deleted, unless you tick Also bring back (ticked for a daily copy).', target: ['.se-imp-merge'] },
   { title: 'Replace', text: 'Makes this device exactly like the file. Anything added here since the backup is lost, so Tourbook asks first.', target: ['.se-imp-replace'] },
 ]);

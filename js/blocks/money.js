@@ -63,7 +63,7 @@ function docView(b, kind, doc) {
     h('div', { class: 'mn-doc-head' },
       h('div', { class: 'mn-doc-id' }, h('strong', null, `${K.label} ${doc.number}`), statusPill(b, kind, doc)),
       dates && h('div', { class: 'muted small' }, dates)),
-    isInv && isOverdue(b) && h('p', { class: 'warn' }, `${money(tot.due)} was due on ${dateText(doc.due)}. “Email the client” sends a reminder with the link.`),
+    isInv && isOverdue(b) && h('p', { class: 'warn' }, `${money(tot.due)} was due on ${dateText(doc.due)}. “Send a reminder” emails the client the link.`),
     h('div', { class: 'stats mn-doc-stats' }, stat(money(tot.total), t.rate > 0 ? `total with ${doc.taxName || 'tax'}` : 'total'),
       isInv ? stat(money(tot.paid), 'paid') : stat(String(doc.lines.length), doc.lines.length === 1 ? 'line' : 'lines'),
       isInv ? stat(money(tot.due), doc.status === 'void' ? 'void' : 'due', isOverdue(b) ? 'bad' : '') : stat(doc.due ? shortDate(doc.due) : '—', 'valid until')),
@@ -83,7 +83,7 @@ function docView(b, kind, doc) {
       h('button', { class: 'btn ghost small', type: 'button', id: `mn-print-${kind}`, onclick: () => printDoc(b.id, kind) }, '🖨 Print'),
       h('button', { class: 'btn ghost small', type: 'button', id: `mn-web-${kind}`, 'aria-label': 'Save as a web page', title: 'Save as a web page (to attach to an email)', onclick: () => saveWebPage(b.id, kind) }, '💾 Web page'),
       h('button', { class: 'btn ghost small', type: 'button', id: `mn-copy-${kind}`, onclick: () => copyText(b.id, kind) }, '📋 Copy text')),
-    !email && h('p', { class: 'small muted' }, 'Add an email for the contact on this booking and “Email the client” is addressed for you.'));
+    !email && h('p', { class: 'small muted' }, 'Add the contact’s email and “Email the client” is addressed for you.'));
 }
 
 export default {
@@ -116,9 +116,9 @@ export default {
       h('div', { id: 'mn-panel', role: 'tabpanel', 'aria-labelledby': `mn-tab-${kind}` }, doc ? docView(b, kind, doc) : makeView(b, kind)));
   },
   tutorial: [
-    { title: 'Quote & invoice', text: 'One quote and one invoice per booking. Tourbook starts them from the booking: a show’s fee, a session’s studio time and players, or the booking’s fee.', target: ['#blk-money'] },
+    { title: 'Quote & invoice', text: 'One quote and one invoice per booking, started from its fee or a session’s studio time and players.', target: ['#blk-money'] },
     { title: 'Quote or invoice', text: 'Switch between the two. A quote becomes the invoice in one tap once it is accepted.', target: ['.mn-tabs'] },
     { title: 'Next step', text: 'Edit the lines, mark it as sent, and record payments as they arrive. Paid in full ticks the checklist for you.', target: ['.mn-doc-actions', '.mn-make'] },
-    { title: 'Send it', text: 'A link the client opens on any phone with Pay buttons, an email, a printout or a web page to attach.', target: ['.mn-send'] },
+    { title: 'Send it', text: 'A link with Pay buttons that the client opens on any phone, an email, a printout or a web page to attach.', target: ['.mn-send'] },
   ],
 };

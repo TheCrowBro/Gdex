@@ -66,7 +66,7 @@ export function tempo(panel, ctx) {
 
   /* ---------- tap ---------- */
   const tapBpm = h('b', { class: 'tl-tap-bpm' }, '–');
-  const tapSub = h('span', { class: 'tl-tap-sub' }, 'Tap along: here, or press T');
+  const tapSub = h('span', { class: 'tl-tap-sub' }, 'Tap along here, or press T');
   const tapLive = h('div', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
   const pad = h('button', { type: 'button', class: 'tl-tap', id: 'tl-tap', 'aria-label': 'Tap the tempo', 'aria-describedby': 'tl-tap-sub' },
     h('span', { class: 'tl-tap-word', 'aria-hidden': 'true' }, 'TAP'), tapBpm, h('span', { class: 'tl-tap-unit', 'aria-hidden': 'true' }, 'BPM'));
@@ -88,7 +88,7 @@ export function tempo(panel, ctx) {
   pad.addEventListener('pointercancel', () => { pointerAt = -Infinity; });
   pad.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); doTap(performance.now()); } });
   pad.addEventListener('click', () => { const followsPointer = performance.now() - pointerAt < 1000; pointerAt = -Infinity; if (!followsPointer) doTap(performance.now()); }); // a screen reader's tap has no pointerdown
-  const clearTaps = h('button', { type: 'button', class: 'btn ghost small', id: 'tl-tap-clear', onclick: () => { tapper.reset(); tapBpm.textContent = '–'; tapSub.textContent = 'Tap along: here, or press T'; } }, 'Clear');
+  const clearTaps = h('button', { type: 'button', class: 'btn ghost small', id: 'tl-tap-clear', onclick: () => { tapper.reset(); tapBpm.textContent = '–'; tapSub.textContent = 'Tap along here, or press T'; } }, 'Clear');
 
   /* ---------- BPM ⇄ ms ---------- */
   const bpmIn = h('input', { type: 'number', id: 'tl-tempo-bpm', min: TEMPO_MIN, max: TEMPO_MAX, step: 'any', inputMode: 'decimal', value: S.bpm });
@@ -172,6 +172,6 @@ export function tempo(panel, ctx) {
 export const TEMPO_STEPS = [
   { target: ['#tl-tap'], title: 'Tap tempo', text: 'Tap along with the band or a record: four or more taps give a steady reading. The T key works too. It starts again after two seconds without a tap.' },
   { target: ['#tl-tempo-bpm'], title: 'BPM and milliseconds', text: 'Type a tempo to see one beat in milliseconds, or type milliseconds to get the tempo.' },
-  { target: ['.tl-dt'], title: 'Delay times', text: 'Every note value at this tempo, straight, dotted and triplet. A dotted eighth is the classic U2 / Edge delay. Tap any time to copy it.' },
+  { target: ['.tl-dt'], title: 'Delay times', text: 'Every note value at this tempo, straight, dotted and triplet. A dotted eighth is the classic U2 / Edge delay. Tap a time to copy it.' },
   { target: ['.tl-rv'], title: 'Reverb', text: 'Pre-delay and decay times that end on the beat, for rooms, plates, halls and long ambient tails.' },
 ];

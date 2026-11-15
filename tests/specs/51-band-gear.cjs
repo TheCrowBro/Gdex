@@ -209,9 +209,9 @@ const seed = page => page.evaluate(extra => import('./js/store.js').then(s => s.
   /* the walkthrough */
   st = await steps(page);
   by = st.find(s => s[0] === 'By artist');
-  ok('the walkthrough explains the folds and the investment, pointing at a heading', !!by && by[2] === '.bl-band-head' && /A to Z, then Not for an artist last/.test(by[1]) && /each item’s value times how many/.test(by[1]) && /your investment: the value of what you paid for yourself/.test(by[1]) && /Tap a heading/.test(by[1]), JSON.stringify(by));
+  ok('the walkthrough explains the folds and the investment, pointing at a heading', !!by && by[2] === '.bl-band-head' && /A to Z, then Not for an artist last/.test(by[1]) && /each item’s value times how many/.test(by[1]) && /your investment \(the value of what you paid for yourself\)/.test(by[1]) && /Tap a heading/.test(by[1]), JSON.stringify(by));
   ok('…just before the step on an item, which drops a fold open first', st.findIndex(s => s[0] === 'By artist') === st.findIndex(s => s[0] === 'An item') - 1 && st.find(s => s[0] === 'An item')[3], JSON.stringify(st.map(s => s[0])));
-  ok('…and its search and owner steps say the folds with a match open', /the artist it is for/.test(st.find(s => s[0] === 'Find something')[1]) && /folds with a match open/.test(st.find(s => s[0] === 'Find something')[1]) && /folds with a match open/.test(st.find(s => s[0] === 'Whose is it?')[1]));
+  ok('…and its search and owner steps say the folds with a match open', /serial number, place or artist\./.test(st.find(s => s[0] === 'Find something')[1]) && /folds with a match open/.test(st.find(s => s[0] === 'Find something')[1]) && /folds with a match open/.test(st.find(s => s[0] === 'Whose is it?')[1]));
   await page.click('#helpBtn');
   await page.waitForSelector('.tour-card');
   const titles = [];

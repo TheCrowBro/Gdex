@@ -302,7 +302,7 @@ const sheetNamed = (page, t) => page.locator(`.sheet[aria-label="${t}"]`);
   /* ---------------- Settings: the seam for the question, and the walkthrough's words ---------------- */
   await go(page, 'settings');
   const tut = await page.evaluate(() => import('./js/pages/settings.js').then(m => Object.fromEntries(m.settings.tutorial().map(s => [s.title, s.text]))));
-  ok('Settings → Your role says the question is turned on or off there; Display names the three menus', / The “Did you see them\?” question is turned on or off here too\.$/.test(tut['Your role']) && /^The section menu \(record player, tape deck or digital player\), colour theme/.test(tut['Display & accessibility']), `${tut['Your role']} | ${tut['Display & accessibility']}`);
+  ok('Settings → Your role says the question is turned on or off there; Display names the three menus', / Turn the “Did you see them\?” question on or off here too\.$/.test(tut['Your role']) && /^The section menu \(record player, tape deck or digital player\), colour theme/.test(tut['Display & accessibility']), `${tut['Your role']} | ${tut['Display & accessibility']}`);
   ok('…and Settings still has its nine sections', (await page.locator('#page details.se-sec').count()) === 9 && (await page.locator('#se-role .rp-panel').count()) === 1);
 
   ok('no errors in the console (the sample)', errors.length === 0, errors.slice(0, 5).join(' | '));

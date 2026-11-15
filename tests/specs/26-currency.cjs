@@ -78,7 +78,7 @@ async function searchMoney(page, q) {
     first: s.options[0].value,
   }));
   ok('Your currency is at the top of Quotes & invoices', await page.$eval('#se-billing .mn-billing', el => el.firstElementChild.classList.contains('mn-bl-cur')));
-  ok('…and the section’s lead and its walkthrough step say so', /^Your currency, how your quotes and invoices are numbered/.test(await page.locator('#se-billing .se-money > p').first().innerText())
+  ok('…and the section’s lead and its walkthrough step say so', /^Your currency, numbering, tax and payment details for your quotes and invoices/.test(await page.locator('#se-billing .se-money > p').first().innerText())
     && await run(page, () => import('./js/pages/settings.js').then(m => /^Your currency, /.test(((m.settings.tutorial() || []).find(s => /Quotes & invoices/.test(s.title)) || {}).text || ''))));
   ok('this device’s country (en-GB) is suggested first', opts.first === 'GB' && JSON.stringify(opts.tips) === JSON.stringify([['GB', 'United Kingdom — £ GBP']]) && JSON.stringify(opts.groups) === JSON.stringify(['Suggested', 'Every country']), JSON.stringify(opts.tips));
   const names = opts.all.map(o => o[1].split(' — ')[0]);

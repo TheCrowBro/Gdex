@@ -284,7 +284,7 @@ const SEED = [
   let steps = await tutorial(page);
   const gs = steps.find(s => s[0] === 'Main genres');
   ok('the list’s walkthrough explains the groups, pointing at a heading', !!gs && gs[2] === '.ac-group-head' && /Your acts are grouped by main genre, A to Z/.test(gs[1]) && /indie rock and folk rock are Rock, doom folk is Folk/.test(gs[1]) && /Unique/.test(gs[1]) && /No genre yet/.test(gs[1]) && /An act’s ✎ Edit sets its main genre by hand/.test(gs[1]), JSON.stringify(gs));
-  ok('…right after the cards, and its search step speaks of the main genre', steps.findIndex(s => s[0] === 'Main genres') === steps.findIndex(s => s[2].startsWith('.ac-card,')) + 1 && /its main genre/.test(steps.find(s => s[0] === 'Search')[1]) && /groups with a match open/.test(steps.find(s => s[0] === 'Search')[1]));
+  ok('…right after the cards, and its search step speaks of the main genre', steps.findIndex(s => s[0] === 'Main genres') === steps.findIndex(s => s[2].startsWith('.ac-card,')) + 1 && /genre, main genre, member/.test(steps.find(s => s[0] === 'Search')[1]) && /groups with a match open/.test(steps.find(s => s[0] === 'Search')[1]));
   // run it on a list whose groups are all folded: the cards' step drops the first group open, so it has a card to show
   await page.reload();
   await page.waitForSelector('#deck .dk-next');
@@ -374,7 +374,7 @@ const SEED = [
   ok('a new act starts on Automatic (no genre yet)', (await topSheet(page).locator('select[data-key=mainGenre]').inputValue()) === '' && (await topSheet(page).locator('select[data-key=mainGenre] option').first().textContent()) === 'Automatic (no genre yet)');
   const fs = await formSteps(page, 'New act');
   const fm = fs.find(s => s[0] === 'Main genre');
-  ok('the act form’s walkthrough has a Main genre step, after Earlier names', !!fm && fm[2] === 'select[data-key=mainGenre]' && fs[1][0] === 'Earlier names' && fs[2][0] === 'Main genre' && /^The heading it sits under on the list\./.test(fm[1]) && /Automatic works it out from the genre/.test(fm[1]) && !/\bbands?\b|\bartists?\b/i.test(fm[1]), JSON.stringify(fs.map(s => s[0])));
+  ok('the act form’s walkthrough has a Main genre step, after Earlier names', !!fm && fm[2] === 'select[data-key=mainGenre]' && fs[1][0] === 'Earlier names' && fs[2][0] === 'Main genre' && /^Its heading on the list\./.test(fm[1]) && /Automatic works it out from the genre/.test(fm[1]) && !/\bbands?\b|\bartists?\b/i.test(fm[1]), JSON.stringify(fs.map(s => s[0])));
   await topSheet(page).locator('input[data-key=name]').fill('Hand Set');
   await topSheet(page).locator('input[data-key=genre]').fill('Noise');
   await topSheet(page).locator('select[data-key=mainGenre]').selectOption('punk');
@@ -405,7 +405,7 @@ const SEED = [
     ok(`${id}: “${name}” in groups, read out in its words, in its own order inside a group, with its words in the list’s walkthrough and the form’s hint (the form’s walkthrough fits a band and a solo artist alike)`,
       (await page.textContent('#page .page-head h1')) === name && (await spoken(page, '#ac-grp-rock')) === `Rock, 3 ${w}s` && same(order, want)
       && !!st && st[1].startsWith(`Your ${w}s are grouped by main genre`) && st[1].includes(`${owner} ✎ Edit sets its main genre by hand`)
-      && hint === `The heading it’s listed under in ${name}. Automatic goes by the genre above.` && !!fstep && fstep[1].startsWith('The heading it sits under on the list.'),
+      && hint === `The heading it’s listed under in ${name}. Automatic goes by the genre above.` && !!fstep && fstep[1].startsWith('Its heading on the list.'),
       JSON.stringify({ h1: await page.textContent('#page .page-head h1'), said: await spoken(page, '#ac-grp-rock'), order, st: st && st[1].slice(0, 60), hint, f: fstep && fstep[1].slice(0, 60) }));
   }
   ok('no errors in the console (every role)', errors.length === 0, errors.slice(0, 5).join(' | '));

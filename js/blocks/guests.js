@@ -135,7 +135,7 @@ export default {
         c.in > 0 && h('button', { type: 'button', class: 'btn ghost small', id: 'sh-g-reset', onclick: () => { if (confirm('Untick everyone at the door?') && saveBooking(b.id, x => { x.guestList = listOf(x).map(g => ({ ...g, in: false })); })) toast('Door ticks cleared'); } }, 'Clear door ticks')));
   },
   tutorial: [
-    { title: 'Guest list', text: 'Names, their +1s and a note. The heads count includes the +1s, against the places the promoter allows.', target: ['#blk-guests .sh-g-stats', '#blk-guests'] },
+    { title: 'Guest list', text: 'Names, their +1s and a note. Heads, +1s included, count against the places the promoter allows.', target: ['#blk-guests .sh-g-stats', '#blk-guests'] },
     { title: 'Add a guest', text: 'Type the name, the number of +1s and a note, then Add. Enter works too.', target: ['#blk-guests .sh-g-add'] },
     { title: 'At the door', text: 'Tick each guest in as they arrive. Print the door list for the venue, or copy it into a message to the promoter.', target: ['#blk-guests .sh-g-list'] },
   ],

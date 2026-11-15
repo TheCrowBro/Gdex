@@ -180,7 +180,7 @@ function namesEditor(a) {
   const maxOf = r => (later.has(r) && r.until === later.get(r) ? r.until : today);
   const list = h('div', { class: 'ac-was-rows' });
   const label = h('span', { class: 'ac-was-label' }, 'Earlier names');
-  const hint = h('small', { class: 'muted' }, 'A name used before, and the day it stopped being used (leave the day empty if you don’t know it). Shows and scores from before that day say “formerly …”.');
+  const hint = h('small', { class: 'muted' }, 'An earlier name and its last day, if known. Shows and scores from before then say “formerly …”.');
   const delLabel = r => (r.name.trim() ? `Remove the earlier name ${r.name.trim()}` : 'Remove this earlier name');
   const draw = (focusAt = -1) => {
     label.hidden = hint.hidden = !rows.length;
@@ -249,7 +249,7 @@ function deleteAct(id, confirmed = false) {
     const nb = db.bookings.filter(b => b.actId === id).length, ns = db.songs.filter(s => s.actId === id).length, nl = db.setlists.filter(s => s.actId === id).length;
     const kept = [nb && plural(nb, 'booking'), ns && plural(ns, 'song'), nl && plural(nl, 'setlist')].filter(Boolean);
     const list = kept.length > 1 ? kept.slice(0, -1).join(', ') + ' and ' + kept[kept.length - 1] : kept[0];
-    if (!confirm(`Delete ${a.name || 'this act'}?${list ? ` Its ${list} stay, without an act.` : ''} Its members stay in People.`)) return;
+    if (!confirm(`Delete ${a.name || 'this act'}?${list ? ` Its ${list} will stay, without an act.` : ''} Its members stay in People.`)) return;
   }
   if (S.id === id) Object.assign(S, { view: 'list', id: null });
   remove('acts', id);
@@ -318,7 +318,7 @@ function seenPanel(a, onPage = false) {
           r != null ? scoreBar(r) : h('span', { class: 'small muted' }, 'No score'),
           s.notes && h('p', { class: 'small ac-seen-notes' }, s.notes)),
         h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Edit the time you saw them on ${seenDate(s.date)}`, onclick: () => logSighting(a, s) }, '✎'));
-    })) : h('p', { class: 'small muted' }, 'Each time you see them play, log the date, where, and a score out of 100. The card adds them up.'),
+    })) : h('p', { class: 'small muted' }, 'Each time you see them play, log when, where and your score out of 100. The card adds them up.'),
     h('div', { class: 'actions ac-pnl-actions' }, logBtn('primary'), pastBtn, !onPage && openBtn('ghost')),
   ];
 }
@@ -337,7 +337,7 @@ function fromPastShow(a, past) {
   let close = () => {};
   const today = todayISO();
   ({ close } = sheet('From a past show', h('div', { class: 'stack' },
-    h('p', { class: 'small muted' }, `Shows of ${a.name || 'this act'} on your calendar, up to today, that are not in its log yet. Pick one to log it with its date and place.`),
+    h('p', { class: 'small muted' }, `Shows of ${a.name || 'this act'} up to today, not logged yet. Pick one to log it with its date and place.`),
     h('div', { class: 'list' }, past.slice(0, 20).map(b => h('button', { type: 'button', class: 'card tap ac-pick', onclick: () => { close(); logSighting(a, { date: b.date, venueId: b.venueId || '', where: b.venueId ? '' : (b.venueName || ''), bookingId: b.id }); } },
       h('strong', null, b.date === today ? 'Today' : seenDate(b.date)), h('span', { class: 'small muted' }, whereText(b))))))));
 }
@@ -464,7 +464,7 @@ function ordered(list) {
 }
 // The empty list: the role's own words (pages.acts.empty), or what an act is, under the section's name for the role.
 const emptyText = () => pageOpt('acts', 'empty', '') || (secName() === 'Acts' ? '' : `Nothing in ${secName()} yet. `) +
-  'An act is a band or artist you play in, manage or produce. Its card counts the times you have seen them play, with your scores out of 100 and its dates coming up; it also keeps its members, links, press kit and tech rider.';
+  'An act is a band or artist you play with, manage or produce. It keeps its members, links, press kit, tech rider and dates, and your score out of 100 each time you see them.';
 
 /* ------------------------------- main genres ------------------------------- */
 // The list folds its acts under their main genre (model.mainGenreOf: worked out from the genre typed, or set by hand in
@@ -602,7 +602,7 @@ function aboutTab(a) {
         h('span', { class: 'small muted' }, songs.length || sets.length ? 'Open Songs →' : 'Add songs and setlists in Songs →'))),
     h('section', { class: 'ac-sec', id: 'ac-bio', 'aria-labelledby': 'ac-h-bio' },
       h('h3', { id: 'ac-h-bio' }, 'Bio'),
-      a.bio ? h('p', { class: 'prewrap ac-text' }, a.bio) : h('p', { class: 'muted ac-none' }, hasTab('epk') ? 'No bio yet. A few lines for promoters and press go on the press kit: ✎ Edit to add them.' : 'No bio yet. ✎ Edit adds a few lines on who they are.')),
+      a.bio ? h('p', { class: 'prewrap ac-text' }, a.bio) : h('p', { class: 'muted ac-none' }, hasTab('epk') ? 'No bio yet. ✎ Edit adds a few lines for the press kit.' : 'No bio yet. ✎ Edit adds a few lines on who they are.')),
     // Every name the act had before, the latest first, with the days it changed.
     earlierNames(a).length > 0 && h('section', { class: 'ac-sec', id: 'ac-names', 'aria-labelledby': 'ac-h-names' },
       h('h3', { id: 'ac-h-names' }, 'Earlier names'),
@@ -639,7 +639,7 @@ function openAddMembers(actId) {
     const free = db.people.filter(p => !inAct.has(p.id)).sort(byName);
     const ql = q.trim().toLowerCase();
     const shown = ql ? free.filter(p => [p.name, p.role, p.instrument, p.company].join(' ').toLowerCase().includes(ql)) : free;
-    intro.textContent = `Tap someone to add them to ${a.name}. People live in the People section; an act lists who plays in it.`;
+    intro.textContent = `Tap someone from People to add them to ${a.name}.`;
     const groups = [...PEOPLE_GROUPS, ['', 'Others']].map(([g, label]) => [label, shown.filter(p => (g ? p.group === g : !PEOPLE_GROUPS.some(([k]) => k === p.group)))]).filter(([, ps]) => ps.length);
     listBox.replaceChildren(...(shown.length ? groups.map(([label, ps]) => h('div', { class: 'ac-addm-group' }, h('h4', null, label), ps.map(p =>
       h('button', { type: 'button', class: 'card tap ac-addm-item', id: 'ac-addm-' + p.id, 'aria-label': `Add ${p.name}${roleOf(p) ? ' (' + roleOf(p) + ')' : ''} to ${a.name}`, onclick: () => pick(p) },
@@ -705,7 +705,7 @@ function riderTab(a) {
   return h('div', { class: 'ac-cols ac-rider' },
     h('section', { class: 'ac-sec', id: 'ac-inputs', 'aria-labelledby': 'ac-h-inputs' },
       h('h3', { id: 'ac-h-inputs' }, n ? `Input list · ${plural(n, 'input')}` : 'Input list'),
-      table ? h('div', { class: 'ac-in-wrap' }, table) : h('p', { class: 'muted ac-none' }, 'No input list yet. Start from a preset (rock band, duo with tracks, solo acoustic) and change what differs.'),
+      table ? h('div', { class: 'ac-in-wrap' }, table) : h('p', { class: 'muted ac-none' }, 'No input list yet. Start from a preset and change what differs.'),
       dups.length > 0 && h('div', { class: 'warn' }, `Channel${dups.length === 1 ? '' : 's'} ${dups.join(', ')} ${dups.length === 1 ? 'is' : 'are'} on the list twice. Renumber in the editor puts them in order.`),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'btn primary small', id: 'ac-in-edit', onclick: () => openInputList(a.id) }, n ? '✎ Edit input list' : '+ Make the input list'),
@@ -737,16 +737,16 @@ const listSteps = () => {
   const parts = andList(keptTabs().map(([id]) => ({ about: follows ? 'bookings and members' : 'members', epk: 'press kit', rider: 'rider' })[id]));
   const inGroups = grouped(db.acts), w = actWord(); // the list in main genres: the cards' step opens the first group when none is open
   return [
-    { title: secName(), text: follows ? 'The bands and artists you go to see. Each keeps its links, members and notes and the log of each time you saw them; bookings point back to it.' : 'The bands and artists you play in, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
+    { title: secName(), text: follows ? 'The bands and artists you go to see. Each keeps its links, members, notes and a log of each time you saw them. Bookings point back to it.' : 'The bands and artists you play with, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
     { title: 'Add an act', text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] },
     { title: yours(), text: (logged ? 'Each card shows their dates coming up on the calendar and, once you log a time you saw them play, how many times, your average and latest score out of 100.' : 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.')
       + (db.acts.some(x => formerName(x)) ? ' “formerly …” under a name is the name they had before.' : '')
       + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'], before: inGroups ? openFirstGroup : undefined },
-    inGroups && { title: 'Main genres', text: `Your ${w}s are grouped by main genre, A to Z. Tourbook works it out from the genre typed: indie rock and folk rock are Rock, doom folk is Folk, and a genre it doesn’t know goes under Unique; ${w}s with no genre come last, under No genre yet. Tap a heading to drop its ${w}s down or fold them away. ${/^[aeiou]/.test(w) ? 'An' : 'A'} ${w}’s ✎ Edit sets its main genre by hand.`, target: ['.ac-group-head'] },
-    { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. You can log a time you saw them play there too; once you have, the card keeps the log: when, where, the score and your notes.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
+    inGroups && { title: 'Main genres', text: `Your ${w}s are grouped by main genre, A to Z. Tourbook works it out from the genre typed: indie rock and folk rock are Rock, doom folk is Folk, and a genre it doesn’t know is Unique. Any ${w} with no genre goes last, under No genre yet. Tap a heading to open or close it. ${/^[aeiou]/.test(w) ? 'An' : 'A'} ${w}’s ✎ Edit sets its main genre by hand.`, target: ['.ac-group-head'] },
+    { title: 'Drop it open', text: logged ? `Tap a card, then Open the act for its ${parts}. Log a time you saw them there too, and the card keeps the log with your scores.` : `Tap a card for the log of each time you saw them: when, where, the score and your notes. Log another, pick one of their past shows, or open the act for its ${parts}.`, target: ['.ac-card-head'] },
     { title: 'Dates coming up', text: 'Their next bookings from the calendar. Tap one to open it.', target: ['.ac-date'] },
     sampleStep(), // Sample work on an open card: a producer, a manager and Jack of Trades
-    { title: 'Search', text: 'Find an act by its name, a name it had before, its genre, its main genre, a member’s name or its notes.' + (inGroups ? ' The groups with a match open; clear the search and they are as they were.' : ''), target: ['#ac-search'] },
+    { title: 'Search', text: 'Find an act by name, earlier name, genre, main genre, member or notes.' + (inGroups ? ' The groups with a match open; clear the search and they are as they were.' : ''), target: ['#ac-search'] },
   ].filter(Boolean);
 };
 // The walkthrough's cards step, on a list in groups that are all folded: a group drops open (and stays open for the
@@ -769,7 +769,7 @@ const actSteps = () => {
       { title: 'Coming up', text: moneyShown() ? `This act’s bookings from today on. Tap one to open it, or book a new ${book()[1]} for the act.` : 'Their shows on your calendar from today on. Tap one to open it, or add a show of theirs you’re going to.', target: ['#ac-coming'] },
       { title: 'Members', text: 'People from the People section. Add someone already there or a new person; ✕ takes them out of the act (they stay in People).', target: ['#ac-members'] },
       { title: 'Songs & setlists', text: 'How many songs and setlists the act has. Tap to open Songs.', target: ['#ac-songs'] },
-      !!was && { title: 'Earlier names', text: 'Every name the act had before, the latest first, with the days it changed. Bookings and scores from before a change say the name it had that night. ✎ Edit corrects a day, takes a name away or adds one.', target: ['#ac-names'] },
+      !!was && { title: 'Earlier names', text: 'Every name the act had before, the latest first, with the days it changed. Earlier bookings and scores show the name it had then. ✎ Edit changes them.', target: ['#ac-names'] },
     ] : []),
     ...(has('epk') ? [
       { title: 'Press kit', text: 'A one-page press kit from the act’s details: bio, links, line-up, confirmed shows and contact. Print it, or save it as a web page to send.', target: ['.ac-epk'], before: () => setTab('epk') },
@@ -800,11 +800,11 @@ export const acts = {
 const RENAME_HELP = ' Change it and Tourbook asks whether it is a new name or a spelling fix: a new name keeps the old one, shown as “formerly …”.';
 const formSteps = () => [
   { title: 'Name', text: (hasTab('epk') ? 'The band or artist name, as it goes on posters and the press kit.' : 'The band or artist name, as it goes on posters.') + (document.querySelector('.sheet[aria-label="Edit act"]') ? RENAME_HELP : ''), target: ['input[data-key=name]'] },
-  { title: 'Earlier names', text: 'Names the act had before, each with the day it stopped using that name. The latest shows under the name as “formerly …”, and bookings and scores from before that day say which name it had. Add one by hand if the name changed before you kept the act here; ✕ takes one away.', target: ['.ac-was'] },
+  { title: 'Earlier names', text: 'Names the act had before, each with its last day. The latest shows as “formerly …”, and earlier bookings and scores show the name it had. Add one if the name changed before you kept the act here. ✕ takes one away.', target: ['.ac-was'] },
   // In words that fit a band and a solo artist alike, as the rest of the form's walkthrough (the hint names the list).
-  { title: 'Main genre', text: 'The heading it sits under on the list. Automatic works it out from the genre and shows what it found: indie rock and folk rock are Rock, and a genre Tourbook doesn’t know is Unique. Pick a main genre to choose it yourself.', target: ['select[data-key=mainGenre]'] },
+  { title: 'Main genre', text: 'Its heading on the list. Automatic works it out from the genre: indie rock is Rock, and a genre Tourbook doesn’t know is Unique. Or pick one yourself.', target: ['select[data-key=mainGenre]'] },
   { title: 'Colour', text: 'The stripe on the act’s cards, so its bookings and songs are quick to tell apart.', target: ['select[id$="-color"]'] },
-  { title: 'Links', text: hasTab('epk') ? 'One per line: a name, a colon, the address. They become buttons on the act, lines on the press kit, and the first one is its QR code.' : 'One per line: a name, a colon, the address. They become buttons on the act.', target: ['textarea[data-key=links]'] },
+  { title: 'Links', text: hasTab('epk') ? 'One per line: a name, a colon, the address. They become buttons on the act and lines on the press kit; the first is its QR code.' : 'One per line: a name, a colon, the address. They become buttons on the act.', target: ['textarea[data-key=links]'] },
   sampleFormStep(), // Sample work, for the roles that have it
   { title: 'Bio', text: hasTab('epk') ? 'Two or three sentences for promoters and press. It heads the press kit.' : 'A few lines on who they are, what they sound like and where they’ve played.', target: ['textarea[data-key=bio]'] },
 ].filter(Boolean);
@@ -819,11 +819,11 @@ sheetTutorial('Edit a time seen', seenSteps);
 sheetTutorial('Edit act', formSteps);
 sheetTutorial(RENAME, [
   { title: 'Old and new', text: 'The name as it was saved, and the name you typed.', target: ['.ac-rename-names'] },
-  { title: 'Since when?', text: 'The day the new name began. It starts on today; move it back if the name changed a while ago. Bookings and scores from before that day say “formerly …”.', target: ['#ac-rename-since'] },
-  { title: 'A new name, or a fix', text: 'It’s a new name keeps the old one as an earlier name. Just fixing the spelling saves the name and keeps nothing else. ✕ goes back to the form with nothing saved.', target: ['.ac-rename-answers'] },
+  { title: 'Since when?', text: 'The day the new name began: today, unless you move it back. Bookings and scores from before that day say “formerly …”.', target: ['#ac-rename-since'] },
+  { title: 'A new name, or a fix', text: '“It’s a new name” keeps the old one as an earlier name. “Just fixing the spelling” drops the old spelling. ✕ goes back to the form without saving.', target: ['.ac-rename-answers'] },
 ]);
 sheetTutorial('Add members', [
-  { title: 'Add members', text: 'Tap someone to add them to the act. Each tap adds one, and the sheet stays open for the next.', target: ['.ac-addm-list'] },
+  { title: 'Add members', text: 'Tap someone to add them to the act. The sheet stays open for the next.', target: ['.ac-addm-list'] },
   { title: 'Someone new', text: 'Makes a person in People and adds them to this act in one go.', target: ['#ac-addm-new'] },
 ]);
 sheetTutorial('QR code', [

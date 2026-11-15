@@ -53,7 +53,7 @@ const GROUPS = [
 ];
 
 export const themeSummary = () => `${(PALETTES.find(p => p.id === prefs.palette) || PALETTES[0]).name} · ${prefs.scheme === 'system' ? 'follows device' : prefs.scheme}`;
-export const prefsSummary = () => [prefs.palette !== 'stage' && (PALETTES.find(p => p.id === prefs.palette) || {}).name, prefs.scheme !== 'system' && prefs.scheme, prefs.text !== 'normal' && `${prefs.text === 'large' ? 'large' : 'extra large'} text`, prefs.targets === 'large' && 'big buttons', prefs.contrast === 'high' && 'high contrast', prefs.motion !== 'soft' && (prefs.motion === 'off' ? 'no animation' : 'menu animation only'), prefs.menu === 'tape' ? 'tape deck' : prefs.menu === 'digital' && 'digital player'].filter(Boolean).join(' · ') || 'standard';
+export const prefsSummary = () => [prefs.palette !== 'stage' && (PALETTES.find(p => p.id === prefs.palette) || {}).name, prefs.scheme !== 'system' && prefs.scheme, prefs.text !== 'normal' && `${prefs.text === 'large' ? 'large' : 'extra-large'} text`, prefs.targets === 'large' && 'big buttons', prefs.contrast === 'high' && 'high contrast', prefs.motion !== 'soft' && (prefs.motion === 'off' ? 'no animation' : 'menu animation only'), prefs.menu === 'tape' ? 'tape deck' : prefs.menu === 'digital' && 'digital player'].filter(Boolean).join(' · ') || 'standard';
 
 export function displayPanel({ onTour } = {}) {
   const groups = h('div', { class: 'stack' });
@@ -84,7 +84,7 @@ export function displayPanel({ onTour } = {}) {
   const theme = h('details', { class: 'twirl' }, h('summary', null, h('span', { class: 'twirl-ico', 'aria-hidden': 'true' }, '🎨'), h('span', null, h('span', { class: 'twirl-name' }, 'Colour theme'), themeSum)), themeBody);
   const el = h('div', { class: 'stack' }, theme, groups,
     onTour && h('div', { class: 'pref' }, h('div', { class: 'pref-label' }, 'Help'), h('button', { class: 'btn ghost', onclick: onTour }, '🧭 Take the tour again')),
-    h('p', { class: 'muted small' }, '“Small touches” are short, gentle effects: buttons pressing, cards lifting, new notes popping in, the tour spotlight gliding. Nothing slides across the screen. Choose Menu only or None to stop them; everything also stops if your phone is set to reduce motion.'));
+    h('p', { class: 'muted small' }, '“Small touches” are gentle effects like buttons pressing or cards lifting; nothing slides across the screen. Menu only or None stops them. Everything stops if your phone is set to reduce motion.'));
   // Aa and Settings → Display stay in step: a choice made in the other one (Aa opened over Settings) shows here at once.
   // A panel no longer on the page stops listening.
   const onPrefs = () => { if (!el.isConnected) { window.removeEventListener('tourbook-prefs', onPrefs); return; } draw(); drawTheme(); };

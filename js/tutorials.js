@@ -38,7 +38,7 @@ export function openTutorial() {
 export function openChooser() {
   let close = () => {};
   const body = h('div', { class: 'stack' },
-    h('p', { class: 'small muted' }, 'A short walkthrough of any page. Each one highlights the boxes on that page with a line about what they do.'),
+    h('p', { class: 'small muted' }, 'A short walkthrough of any page, with a line on what each box does.'),
     h('div', { class: 'list' }, ...pages().map(t => { const mark = sectionMark(t.id); return h('button', { class: 'card tap', type: 'button', 'data-section': t.id, 'aria-label': mark ? `${t.label}, ${mark.label}` : null, onclick: async () => {
       close();
       const shown = await window.logiGo?.(t.id);

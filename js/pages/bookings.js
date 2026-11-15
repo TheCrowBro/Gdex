@@ -205,13 +205,13 @@ function fieldsFor(kind, cur = '') {
   // With no acts yet: where to add them, in the role's words (a solo artist adds themselves: pages.bookings.noActs).
   const noActs = !acts.length ? `${pageOpt('bookings', 'noActs', '') || `Add your bands and artists on the ${sectionName('acts', 'Acts')} page to pick them here.`}${pageHint('acts', 'Acts')}` : '';
   // The members join an empty line-up (tidy), except for a role that keeps the line-up out of the way.
-  const joins = kind !== 'other' && blockShown('lineup') ? 'Its members are added to the line-up when the line-up is empty.' : '';
+  const joins = kind !== 'other' && blockShown('lineup') ? 'Its members join the line-up when it is empty.' : '';
   // A role that scores the shows it goes to scores the act picked here (Score this show on the booking).
   const scores = kind === 'show' && pageOpt('bookings', 'score', false) ? `The ${word} you’re going to see. On the night or after, Score this show logs your score on their card.` : '';
   const act = (label = capital(word)) => ({ key: 'actId', label, type: 'select', options: [['', `Not in my ${word}s`], ...acts.map(a => [a.id, (a.name || 'Unnamed act') + (model.formerName(a) ? ` (formerly ${model.formerName(a)})` : '')])], hint: noActs || scores || joins }); // an act that changed its name can be picked by the old one too
   const status = { key: 'status', label: 'Status', type: 'select', options: statusChoices(kind, cur).map(([id, label]) => [id, label]) };
   const date = { key: 'date', label: 'Date', type: 'date', required: true };
-  const endDate = { key: 'endDate', label: 'Last day (more than one day)', type: 'date', hint: 'Leave blank for a single day.' };
+  const endDate = { key: 'endDate', label: 'Last day', type: 'date', hint: 'Leave blank for a single day.' };
   const venue = (label, nameLabel, ph) => [
     { key: 'venueId', label, type: 'select', options: venueOptions(kind), hint: db.venues.length ? '' : `Save venues, studios and rooms on the ${sectionName('venues', 'Venues')} page to pick them here.${pageHint('venues', 'Venues')}` },
     { key: 'venueName', label: nameLabel, placeholder: ph },
@@ -408,7 +408,7 @@ function duplicateSheet(b) {
   const span = multi(b) ? daysBetween(b.date, lastDay(b)) : 0;
   const input = h('input', { type: 'date', id: 'bk-dup-date', required: true, value: isoOk(b.date) ? addDays(b.date, 7) : todayISO() });
   const note = h('p', { class: 'muted small', 'aria-live': 'polite' });
-  const sync = () => { note.textContent = span && isoOk(input.value) ? `It runs to ${fmtShort(addDays(input.value, span))}, ${span + 1} days like this one.` : ''; };
+  const sync = () => { note.textContent = span && isoOk(input.value) ? `It runs to ${fmtShort(addDays(input.value, span))}: ${span + 1} days, like this one.` : ''; };
   input.addEventListener('input', sync); sync();
   let close = () => {};
   const form = h('form', { class: 'stack', onsubmit: e => {
@@ -524,7 +524,7 @@ function workNote(b) {
   if (!workLocked(b)) return null;
   const start = mayWork() === 'start';
   return h('div', { class: 'card lic-work-note' },
-    h('p', { class: 'small' }, `${b.kind === 'session' ? 'Studio sessions' : 'Rehearsals'} come with Tourbook’s working roles: this one stays here for you to look at, and can be changed ${start ? 'during your 30 free days' : 'with a licence'}.`),
+    h('p', { class: 'small' }, `${b.kind === 'session' ? 'Studio sessions' : 'Rehearsals'} come with Tourbook’s working roles. This one is read-only; change it ${start ? 'during your 30 free days' : 'with a licence'}.`),
     h('button', { type: 'button', class: 'btn ghost small', id: 'bk-work-open', onclick: () => gateWork(() => draw(), b.kind) }, start ? 'Start my 30 free days' : 'Get a licence…'));
 }
 
@@ -713,17 +713,17 @@ function bookingSteps(b) {
   // (★ Score, and Didn’t go beside it once the show is over), as scoreRow draws it.
   const said = scoreOn(b) ? model.seenAnswer(b) : null;
   const base = [
-    { title: 'The booking', text: 'The date, the times in the order the day runs, the venue with directions, the act and the contact. Press and hold this card for three seconds to delete the booking.', target: ['.bk-hero'] },
-    { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records but leaves clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records but leaves clashes.', target: ['.bk-status'] },
+    { title: 'The booking', text: 'The date, times, venue with directions, act and contact. Press and hold this card for three seconds to delete the booking.', target: ['.bk-hero'] },
+    { title: 'Status', text: moneyShown() ? 'Tap to change it: hold, offer, confirmed, advanced, done, paid. A cancelled booking stays in your records, out of clashes and money.' : 'Tap to change it: hold, offer, confirmed, advanced, done. A cancelled booking stays in your records, out of clashes.', target: ['.bk-status'] },
     { title: 'Times', text: 'Off stage is worked out from the set time and length. A time marked +1 is after midnight.', target: ['.bk-times'] },
-    { title: 'House rules', text: 'What this venue allows and what it does not. The rules belong to the venue and apply to every show there; change them by editing the venue.', target: ['.bk-hero .vn-rules'] },
-    said != null && said !== 'no' && { title: 'Score this show', text: 'Logs the night on the act’s card: the date and venue are filled in, you give the score out of 100 and notes. Once it is logged, the score shows here; Edit changes it.' + (said === '' && model.showOver(b) ? ' If you missed it, Didn’t go says so and Tourbook stops asking.' : ''), target: ['.bk-score'] },
+    { title: 'House rules', text: 'What this venue allows and doesn’t. The rules apply to every show there; edit the venue to change them.', target: ['.bk-hero .vn-rules'] },
+    said != null && said !== 'no' && { title: 'Score this show', text: 'Logs the night on the act’s card with the date and venue filled in: add a score out of 100 and notes. The score then shows here; Edit changes it.' + (said === '' && model.showOver(b) ? ' If you missed it, Didn’t go says so and Tourbook stops asking.' : ''), target: ['.bk-score'] },
     said === 'no' && { title: 'Didn’t go', text: 'You said you missed this show, so it is not counted as seen. Change takes that answer back.', target: ['.bk-score'] },
-    scoreable(b) && !actOf(b) && scoresShows() && { title: 'Score this show', text: `Pick the ${actWord()} you saw, and Score this show shows here: it logs the night on their card.`, target: ['.bk-score'] },
+    scoreable(b) && !actOf(b) && scoresShows() && { title: 'Score this show', text: `Pick the ${actWord()} you saw, then score the night here. It goes on their card.`, target: ['.bk-score'] },
     { title: 'Edit', text: 'Change the date, venue, times or contact.', target: ['.bk-edit'] },
     { title: 'Copy, calendar, delete', text: `Duplicate makes a copy on another date${moneyShown() ? ' (on hold, without the money)' : ''}. Add to calendar saves a calendar file of this booking.`, target: ['.bk-actions'] },
     { title: 'The boxes', text: 'Everything else about the booking, one box each: tap a box to open it. Boxes you open stay open.', target: ['.bk-blocks'] },
-    foldedFor(b.kind).length > 0 && { title: 'More boxes', text: 'The boxes your role uses less, folded away under the others. Open it to reach any of them; they work as the ones above. Settings → Your role changes which boxes are here.' + (workMark() ? ' The working boxes (line-up, setlist, take log and the rest) come with Tourbook’s working roles.' : ''), target: ['.bk-more'] },
+    foldedFor(b.kind).length > 0 && { title: 'More boxes', text: 'The boxes your role uses less, folded away under the others. Tap to open them. Settings → Your role changes which boxes are here.' + (workMark() ? ' The working boxes (line-up, setlist, take log and the rest) come with Tourbook’s working roles.' : ''), target: ['.bk-more'] },
   ].filter(Boolean);
   const set = openSet(b.id);
   const steps = x => { try { return (typeof x.tutorial === 'function' ? x.tutorial(b) : x.tutorial) || []; } catch { return []; } };
@@ -735,12 +735,12 @@ const formSteps = kind => () => [
   kind !== 'other' && { title: `The ${actWord()}`, text: blockShown('lineup') ? 'Who is playing. Its members join the line-up when it is empty.' : 'Who is playing.', target: ['select[id$="-actId"]'] },
   { title: 'Date', text: 'The day, and a last day for a festival weekend or a block of studio days.', target: ['[data-key="date"]'] },
   { title: 'Where', text: 'Pick a saved venue, or choose “Not in my venues” and type the name and address.', target: ['select[id$="-venueId"]', '[data-key="venueName"]'] },
-  kind === 'show' && { title: 'Times', text: 'Load-in, soundcheck, doors, on stage and curfew. The set length works out when you are off stage.', target: ['[data-key="loadIn"]'] },
+  kind === 'show' && { title: 'Times', text: 'Load-in, soundcheck, doors, on stage and curfew. Off stage is worked out from the set time and length.', target: ['[data-key="loadIn"]'] },
   kind === 'session' && { title: 'Rate', text: 'What the session costs: per hour, per day, per song or a flat fee.', target: ['[data-key="rate"]'] },
-  kind !== 'rehearsal' && kind !== 'other' && { title: 'Contact', text: 'The promoter, agent or studio contact. Their phone and email give you call, text and email buttons on the booking.', target: ['[data-key="contactName"]'] },
+  kind !== 'rehearsal' && kind !== 'other' && { title: 'Contact', text: 'The promoter, agent or studio contact. Their phone and email add Call, Text and Email buttons to the booking.', target: ['[data-key="contactName"]'] },
 ].filter(Boolean);
 for (const [kind] of model.KINDS) { sheetTutorial(`New ${NOUN[kind]}`, formSteps(kind)); sheetTutorial(`Edit ${NOUN[kind]}`, formSteps(kind)); }
 sheetTutorial('What are you booking?', () => [{ title: 'Pick a kind', text: moneyShown() ? 'Each kind has its own form and boxes: a show has a deal and a guest list, a session a rate and takes.' : 'Each kind has its own form and boxes. The one you add most is first.', target: ['.bk-kinds'] }]);
-sheetTutorial('Booking status', () => [{ title: 'Status', text: moneyShown() ? 'Tap one to set it. Hold and offer show hollow on the calendar; cancelled leaves clashes and money.' : 'Tap one to set it. Hold and offer show hollow on the calendar; a cancelled one stays in your records, out of clashes.', target: ['.bk-status-list'] }]);
+sheetTutorial('Booking status', () => [{ title: 'Status', text: moneyShown() ? 'Tap one to set it. Hold and offer show hollow on the calendar; a cancelled one stays in your records, out of clashes and money.' : 'Tap one to set it. Hold and offer show hollow on the calendar; a cancelled one stays in your records, out of clashes.', target: ['.bk-status-list'] }]);
 sheetTutorial('Duplicate booking', () => [{ title: 'New date', text: moneyShown() ? 'The copy goes on this date, on hold, with the same act, venue, times, people and gear.' : 'The copy goes on this date, confirmed, with the same act, venue, times and notes.', target: ['#bk-dup-date'] }]);
 sheetTutorial('Delete this booking?', [{ title: 'Delete', text: 'Deleting cannot be undone. Keep it closes this without changing anything.', target: ['.btn.danger'] }]);

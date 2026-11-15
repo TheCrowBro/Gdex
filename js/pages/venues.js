@@ -155,8 +155,8 @@ function listView(draw) {
       ? h('div', { class: 'list vn-list' }, shown.map(venueCard))
       : all.length
         ? empty('No place matches that. Try another word or kind.', h('button', { type: 'button', class: 'btn ghost', id: 'vn-clear', onclick: () => { S.q = ''; S.kind = ''; draw(); } }, 'Show every place'))
-        : empty(moneyShown() ? 'Save the clubs, halls, studios and rehearsal rooms you play and record in: capacity, stage, PA, curfew, load-in and a map. Shows there warn you when the set would run past curfew.'
-          : `Save the rooms you go to: clubs, halls and festivals, with the capacity, the PA, the noise limit and a map. Each one lists the ${sectionName('bookings', 'Bookings').toLowerCase()} you’ve been to there.`,
+        : empty(moneyShown() ? 'Save the clubs, halls, studios and rehearsal rooms you play and record in. Shows there warn you if a set would run past curfew.'
+          : `Save the rooms you go to, with capacity, PA, noise limit and a map. Each lists the ${sectionName('bookings', 'Bookings').toLowerCase()} you’ve been to there.`,
           h('button', { type: 'button', class: 'btn primary', id: 'vn-first', onclick: () => editVenue({ kind: 'venue' }) }, 'Add a venue')),
   ];
 }
@@ -238,7 +238,7 @@ export function openVenue(id) {
           : h('p', { class: 'muted small' }, 'Nothing noted yet. Edit adds the capacity, stage, PA, curfew, load-in and parking.')),
       // What the place allows in. They are the venue's: every show here carries them, whoever plays.
       h('section', { class: 'vn-rules-sec' }, h('h3', null, 'House rules'),
-        rulesFull(v) || h('p', { class: 'muted small' }, 'No house rules noted yet. Edit adds what is allowed in, what is not, and anything unusual.')),
+        rulesFull(v) || h('p', { class: 'muted small' }, 'No house rules noted yet. ✎ Edit adds them.')),
       v.notes && h('section', null, h('h3', null, 'Notes'), h('p', { class: 'prewrap vn-notes' }, v.notes)),
       h('section', { class: 'vn-bookings' },
         h('h3', null, `Coming up here (${next.length})`),
@@ -277,7 +277,7 @@ export function editVenue(v = {}, onSaved) {
       { key: 'curfew', label: 'Curfew', type: 'time', hint: 'When the music has to stop. Shows here warn you if the set runs past it.' },
       { key: 'noiseLimit', label: 'Noise limit (dB)', type: 'number', min: 0, step: 'any', placeholder: 'e.g. 98' },
       // House rules: the answers (editor.node, put in by onReady just above this box), anything else in words, and the colour.
-      { key: 'rulesNote', label: 'Other house rules', type: 'textarea', rows: 2, placeholder: 'e.g. No re-entry after 11pm. Coats in the cloakroom.', hint: 'Anything the rules above don’t cover. It shows on every show here.' },
+      { key: 'rulesNote', label: 'Other house rules', type: 'textarea', rows: 2, placeholder: 'e.g. No re-entry after 11pm. Coats in the cloakroom.', hint: 'Anything the rules above don’t cover. It appears on every show here.' },
       { key: 'rulesTone', label: 'How strict', type: 'select', options: RULE_TONES, hint: 'The colour of the house rules on this venue’s shows: green, amber or red. Automatic works it out from the answers above.' },
       { key: 'stage', label: 'Stage', placeholder: 'e.g. 6m × 4m, drum riser' },
       { key: 'pa', label: 'PA & desk', placeholder: 'e.g. d&b, Midas M32 at FOH, 4 wedges' },
@@ -326,23 +326,23 @@ const PAGE_STEPS = () => [
   moneyShown() ? { title: 'Places you play and record', text: 'Venues, studios, rehearsal rooms and festivals. + Add saves one with its capacity, stage, PA, curfew, load-in, contact and map.', target: ['.vn-head'] }
     : { title: 'The rooms you go to', text: 'Clubs, halls and festivals. + Add saves one with its capacity, the PA, the noise limit, the contact and a map.', target: ['.vn-head'] },
   { title: 'Kinds of place', text: 'Show only venues, studios, rehearsal rooms or festivals.', target: ['.vn-kinds'] },
-  { title: 'Find a place', text: 'Search by name, address, contact, what the stage and PA are, or a house rule (“no phones”, “cash only”, “21+”).', target: ['#vn-search'] },
-  { title: 'A place', text: 'How many it holds, the curfew and noise limit, its house rules and your next booking there. Tap it for the map, details and every booking there.', target: ['.vn-card'] },
+  { title: 'Find a place', text: 'Search by name, address, contact, stage, PA or a house rule (“no phones”, “cash only”, “21+”).', target: ['#vn-search'] },
+  { title: 'A place', text: 'Capacity, curfew, noise limit, house rules and your next booking there. Tap it for the map, details and every booking.', target: ['.vn-card'] },
 ];
 const SHEET_STEPS = () => [
   moneyShown() ? { title: 'Book here', text: 'Starts a booking at this place: a show at a venue or festival, a session at a studio, a rehearsal at a room. Edit changes the details or deletes it.', target: ['.vn-sheet-actions'] }
     : { title: 'Add one here', text: 'Puts a date at this place on your calendar: a show at a venue or festival, a studio session at a studio, a rehearsal at a room. Edit changes the details or deletes it.', target: ['.vn-sheet-actions'] },
   { title: 'Getting there', text: 'The map, and directions in your maps app.', target: ['.vn-map'] },
   { title: 'What to know', text: 'Capacity, stage, PA, backline provided, load-in, parking, curfew and noise limit: the things to check before the day.', target: ['.vn-details'] },
-  { title: 'House rules', text: 'What this place allows and what it does not: cameras, the age limit, bags and anything unusual you noted. They show on every show here.', target: ['.vn-rules-sec'] },
+  { title: 'House rules', text: 'What this place allows and doesn’t: cameras, the age limit, bags and anything unusual. They appear on every show here.', target: ['.vn-rules-sec'] },
   { title: `${sectionName('bookings', 'Bookings')} here`, text: moneyShown() ? 'What is coming up and what you played before. A warning shows when a set would run past the curfew. Tap one to open it.' : 'What is coming up here and what you went to before. Tap one to open it.', target: ['.vn-bookings'] },
 ];
 // Read when the walkthrough runs (sheetTutorial takes a function), so its words follow the role.
 const FORM_STEPS = () => [
   { title: 'The place', text: 'Its name, what kind of place it is, and the address.', target: ['[data-key=name]'] },
   { title: 'On the map', text: 'Find it from the address, paste a map link, or use where you are now. The map and directions use it.', target: ['.place'] },
-  { title: 'Curfew and limits', text: moneyShown() ? 'Shows here warn you when the set would run past the curfew or the deal counts on more people than it holds.' : 'Shows here warn you when the set would run past the curfew. The noise limit is there for the sound meter.', target: ['[data-key=curfew]', '[data-key=capacity]'] },
-  { title: 'House rules', text: 'Tap what you know about each rule and type anything unusual. Every show here then carries them in green, amber or red; How strict sets the colour by hand.', target: ['.vn-rules-edit .vn-rule', '.vn-rules-edit'] }, // one rule with its two buttons: the whole block is taller than a phone, and the card would be cut short over its middle
+  { title: 'Curfew and limits', text: moneyShown() ? 'Shows here warn you if a set would run past curfew or the deal counts on more people than the place holds.' : 'Shows here warn you when the set would run past the curfew. The noise limit is there for the sound meter.', target: ['[data-key=curfew]', '[data-key=capacity]'] },
+  { title: 'House rules', text: 'Tap what you know and type anything unusual. They appear on every show here in green, amber or red. How strict sets the colour by hand.', target: ['.vn-rules-edit .vn-rule', '.vn-rules-edit'] }, // one rule with its two buttons: the whole block is taller than a phone, and the card would be cut short over its middle
 ];
 sheetTutorial('Add venue', FORM_STEPS);
 sheetTutorial('Edit venue', FORM_STEPS);

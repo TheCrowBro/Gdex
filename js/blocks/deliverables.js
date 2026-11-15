@@ -100,7 +100,7 @@ export default {
         PRESETS.map(p => h('button', { type: 'button', class: 'chip', 'aria-label': `Add ${named(p)}`, onclick: () => { if (add(b, named(p), due.value)) toast(`Added ${named(p)}`); } }, p))));
   },
   tutorial: [
-    { title: 'Deliverables', text: 'What the session owes: tick each one when it is sent. Late ones turn red, ones due soon are highlighted. When all are done, the checklist line “Mixes and stems delivered” ticks itself.', target: ['#blk-deliverables .sd-deliver', '.sd-deliver'] },
+    { title: 'Deliverables', text: 'What the session owes: tick each one when it is sent. Late ones turn red and ones due soon are highlighted. When all are done, “Mixes and stems delivered” ticks itself on the checklist.', target: ['#blk-deliverables .sd-deliver', '.sd-deliver'] },
     { title: 'Quick add', text: 'Pick a due date first if you like, then tap a preset to add it. ✎ edits or deletes one.', target: ['#blk-deliverables .sd-presets', '.sd-presets'] },
   ],
 };

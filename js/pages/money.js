@@ -70,7 +70,7 @@ function yearRange() {
 function render(root) {
   const head = h('div', { class: 'page-head' }, h('h1', null, sectionName('money', 'Money')));
   if (!db.bookings.length) {
-    root.append(head, empty(`Your money shows up here once you have bookings: ${whatEarned()}, what is owed to you, deposits due, and what each player was paid.`, h('button', { class: 'btn primary', type: 'button', onclick: () => newBooking({ kind: 'show' }) }, '+ Add a booking')));
+    root.append(head, empty(`Your money shows up here once you have bookings: ${whatEarned()}, what you’re owed, deposits due and payouts.`, h('button', { class: 'btn primary', type: 'button', onclick: () => newBooking({ kind: 'show' }) }, '+ Add a booking')));
     return;
   }
   const [lo, hi] = yearRange();
@@ -216,7 +216,7 @@ function render(root) {
       : h('p', { class: 'muted small' }, `No bookings in ${Y}.`)),
 
     section('mn-payouts', 'Payouts per person', payRows.length ? [h('div', { class: 'card mn-pay-card' }, ...payRows.map(p => h('div', { class: 'card-row mn-payout' }, h('div', null, h('strong', null, p.name), h('div', { class: 'muted small' }, `from ${plural(p.shows, 'show')}` + (p.open ? ` · ${p.open === p.shows ? (p.shows === 1 ? 'not' : 'none') : p.open + ' not'} marked settled yet` : ''))), h('b', null, fmtMoney(r2(p.amount)))))),
-      h('p', { class: 'small muted' }, 'Each show’s profit, shared between the people on it by their shares (set in the show’s settlement). A show not marked settled yet is counted as it stands.')]
+      h('p', { class: 'small muted' }, 'Each show’s profit is split by the shares in its settlement. Shows not yet marked settled count as they stand.')]
       : h('p', { class: 'muted small' }, `No payouts in ${Y}: they come from settled shows with people on them.`)),
 
     section('mn-export', 'For the accountant', h('div', { class: 'actions' },
@@ -230,7 +230,7 @@ export const money = {
   render,
   tutorial: () => [
     { title: 'Money', text: `Your year in money: ${whatEarned()}, what is owed, deposits due, settled shows and each person’s share. It fills in as you add bookings, settle shows and send invoices.`, target: ['#page .page-head'] },
-    { title: 'Your year', text: `${cap(whatEarned())} from bookings done or settled${ownEarned() ? '' : ' (their fees, before any commission)'}, what is booked ahead, what you invoiced, what came in, and what is still owed.`, target: ['.mn-stats'] },
+    { title: 'Your year', text: `${cap(whatEarned())} from bookings done or settled${ownEarned() ? '' : ' (their fees, before any commission)'}, and what is booked ahead, invoiced, paid and still owed.`, target: ['.mn-stats'] },
     { title: 'Pick a year', text: 'Step back through earlier years, or ahead to bookings next year.', target: ['.mn-year'] },
     { title: 'Deposits due', text: 'Shows with a deposit not in yet. Tap Received when it lands.', target: ['.mn-deposits'] },
     { title: 'Unpaid invoices', text: 'Overdue first. Tap one to open the booking, then send a reminder or record the payment.', target: ['.mn-unpaid'] },

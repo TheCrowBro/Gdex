@@ -68,7 +68,7 @@ const errLine = page => page.evaluate(() => { const e = document.querySelector('
   await pa.evaluate(() => { window.__danswer = { error: 'timed_out' }; });
   await pa.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
   await until(async () => /wasn’t finished/.test(await errLine(pa)));
-  ok('…one left unfinished says to try again', (await errLine(pa)) === 'The Google sign-in in your web browser wasn’t finished. Tap Connect to try again.');
+  ok('…one left unfinished says to try again', (await errLine(pa)) === 'The Google sign-in in your web browser wasn’t finished. Try again.');
   await pa.evaluate(() => { window.__danswer = { error: 'address_taken' }; });
   await pa.click(`${sheetOf('Connect Google Drive')} .se-bk-drive-go`);
   await until(async () => /another program/.test(await errLine(pa)));

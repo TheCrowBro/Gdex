@@ -185,7 +185,7 @@ function editTake(l, t) {
       { key: 'n', label: 'Take number', type: 'number', min: 1, required: true },
       { key: 'rating', label: 'Rating', type: 'select', options: [['', 'Not rated'], ...RATINGS.map(([k, label]) => [k, label])] },
       { key: 'songId', label: 'Song', type: 'select', options: songOptionsFlat({ ...l, songId: t.songId }) },
-      { key: 'text', label: 'Notes', type: 'textarea', rows: 4, placeholder: 'Great feel, pitchy in the bridge…', hint: `Recorded ${clockTime(Number(t.at))}. A [0:42] at the start of a line is how far into the take the note was made.` },
+      { key: 'text', label: 'Notes', type: 'textarea', rows: 4, placeholder: 'Great feel, pitchy in the bridge…', hint: `Recorded ${clockTime(Number(t.at))}. A [0:42] at a line’s start shows how far into the take it was noted.` },
     ],
     onSave: v => changeLog(l.id, x => { const y = x.takes.find(z => z.id === t.id); if (y) Object.assign(y, { n: Math.max(1, Math.round(Number(v.n)) || 1), songId: v.songId, rating: v.rating, text: v.text }); }),
     onDelete: () => { update(d => { const x = d.logs.find(y => y.id === l.id); if (!x) return; x.takes = (x.takes || []).filter(z => z.id !== t.id); x.updatedAt = Date.now(); d.deleted[t.id] = Date.now(); }); toast(`Take ${t.n} deleted`); },
@@ -268,7 +268,7 @@ function listView() {
   const match = l => { const q = S.q.trim().toLowerCase(); return !q || logWords(l).some(x => x.toLowerCase().includes(q)); };
   const fill = () => {
     const shown = logs.filter(match);
-    if (!logs.length) { box.replaceChildren(empty('Log takes while you record: tap + Take as each one starts, rate them Keep, Maybe or No, and jot notes for the comp. Start a log here, or from a studio session’s Take log box.', h('button', { type: 'button', class: 'btn primary', onclick: () => newLogForm() }, '+ New take log'))); return; }
+    if (!logs.length) { box.replaceChildren(empty('Log takes while you record: tap + Take as each starts, then rate it and add notes. Start a log here or from a studio session’s Take log box.', h('button', { type: 'button', class: 'btn primary', onclick: () => newLogForm() }, '+ New take log'))); return; }
     if (!shown.length) { box.replaceChildren(h('p', { class: 'muted' }, `No logs match “${S.q.trim()}”.`)); return; }
     const months = groupBy(shown, l => logDate(l).slice(0, 7));
     box.replaceChildren(...[...months].map(([ym, list]) => h('section', { class: 'sd-month' },
@@ -411,27 +411,27 @@ export const sessions = {
     { title: 'The take log', text: 'One log per recording session or song. The timer shows how long the log has been running.', target: ['.sd-title', '.sd-log-view .page-head'] },
     { title: 'Next takes', text: 'Pick the song the next takes are for. Each song counts its own takes: a new song starts again at Take 1.', target: ['.sd-song-row'] },
     { title: '+ Take', text: 'Tap it the moment a take starts. It is numbered and stamped with the time.', target: ['#sd-take'] },
-    { title: 'Notes', text: 'Type a note while a take plays: it goes on the latest take, marked with how far into the take you started typing. Enter saves it.', target: ['.sd-composer'] },
+    { title: 'Notes', text: 'A note typed during a take goes on it, stamped with how far in you were. Enter saves it.', target: ['.sd-composer'] },
     { title: 'Rate the takes', text: 'Keep, Maybe or No on each take. Tap again to clear. ✎ edits the number, song, rating or notes, or deletes the take.', target: ['.sd-take .sd-rate', '.sd-filter'] },
     { title: 'Keepers', text: 'Show only the takes rated Keep: the list for the comp.', target: ['.sd-filter'] },
     { title: 'Export', text: 'Send the log as text to the engineer, copy it, or save a spreadsheet.', target: ['#sd-export'] },
   ] : [
     { title: 'Studio log', text: 'Take logs for recording sessions: every take numbered, timed and rated, with notes for the comp.', target: ['.sd-list-view .page-head'] },
     { title: 'Today', text: 'A studio session today shows here, ready to start its log.', target: ['.sd-today'] },
-    { title: 'Your logs', text: 'Newest first, by month: the songs, the session, how many takes and how many keepers.', target: ['.sd-logs .sd-log', '.sd-logs'] },
+    { title: 'Your logs', text: 'Newest first, by month, with songs, session, takes and keepers.', target: ['.sd-logs .sd-log', '.sd-logs'] },
     { title: 'New log', text: 'Start a log for a song or a session. A studio session’s Take log box starts one too.', target: ['#sd-new'] },
   ]),
 };
 
 sheetTutorial('New take log', [
   { title: 'Name it', text: 'Leave the title blank and the log is named after the song.', target: ['.sheet [data-key=title]'] },
-  { title: 'Song and session', text: 'The song for the first takes (you can switch between takes) and the studio session it belongs to, so it shows on that booking.', target: ['.sheet .form'] },
+  { title: 'Song and session', text: 'The song for the first takes (switch any time) and the studio session, so the log shows on that booking.', target: ['.sheet .form'] },
 ]);
 sheetTutorial('Edit take', [
   { title: 'Fix a take', text: 'Change its number, rating or song, or write notes. Delete removes just this take.', target: ['.sheet .form'] },
 ]);
 sheetTutorial('Log details', [
-  { title: 'Log details', text: 'The title, date, song for the next takes, the studio session, and free notes about the session. Delete removes the whole log.', target: ['.sheet .form'] },
+  { title: 'Log details', text: 'Edit the title, date, song, session and notes. Delete removes the whole log.', target: ['.sheet .form'] },
 ]);
 sheetTutorial('Export take log', [
   { title: 'Share it', text: 'Share sends the log as text (or saves a text file). Copy puts it on the clipboard. The spreadsheet has one row per take.', target: ['.sd-export .btn.primary', '.sd-export'] },

@@ -160,7 +160,7 @@ async function theSheet() {
   await page.focus('#ac-ask-yes-q-a');
   const order = [];
   for (let i = 0; i < 9; i++) { await page.keyboard.press('Tab'); order.push(await focusId(page)); }
-  ok('Tab runs through each row’s buttons, then Done, and stays inside the sheet', same(order, ['ac-ask-no-q-a', 'ac-ask-yes-q-b', 'ac-ask-no-q-b', 'ac-ask-yes-q-c', 'ac-ask-no-q-c', 'ac-ask-close', 'Tutorial for this', 'Close', 'ac-ask-yes-q-a']), order.join(' › '));
+  ok('Tab runs through each row’s buttons, then Done, and stays inside the sheet', same(order, ['ac-ask-no-q-a', 'ac-ask-yes-q-b', 'ac-ask-no-q-b', 'ac-ask-yes-q-c', 'ac-ask-no-q-c', 'ac-ask-close', 'Tutorial for this panel', 'Close', 'ac-ask-yes-q-a']), order.join(' › '));
   // A click on its dim backdrop, over the top bar's ? (before ↓ below, which scrolls the page under the sheet): the
   // question does not close on its backdrop (js/util.js sheet(), dismissOnBackdrop false), and the click must neither
   // reach ? nor take the focus out of the sheet onto the page's body. (08-sheets taps with a finger too.)
@@ -427,13 +427,13 @@ async function whoIsAsked() {
   await setKey(page, 'tourbook-ask-seen', null);
   ok('askAtOpen opens its sheet before it returns, for the ids it was given and no others', same(await call(['w-2']), [QUESTION]) && same(await rowIds(page), ['w-2']));
   const helpLine = () => page.locator(`${Q} .ac-ask > p`).innerText();
-  ok('…one show: its line of help speaks of that show alone', (await helpLine()) === 'This show is over. Tap Yes if you saw it and give a score, or No if you missed it. Close this any time: until you answer, Tourbook asks again for two weeks after the show.', await helpLine());
+  ok('…one show: its line of help speaks of that show alone', (await helpLine()) === 'This show is over. Tap Yes to score it, or No if you missed it. Until you answer, Tourbook asks again for two weeks after the show.', await helpLine());
   ok('called again while the sheet is up: nothing happens (never two sheets)', same(await call(['w-2', 'w-13']), [QUESTION]) && same(await rowIds(page), ['w-2']));
   await esc(page);
   ok('called again after it was closed: it opens again, the newest show first whatever the order given', same(await call(['w-13', 'w-2']), [QUESTION]) && same(await rowIds(page), ['w-2', 'w-13']));
   await sleep(150);
   ok('…with the focus on the first Yes', (await focusId(page)) === 'ac-ask-yes-w-2', await focusId(page));
-  ok('…two shows: the line of help speaks of them all', (await helpLine()) === 'These shows are over. Tap Yes for the ones you saw and give a score, or No for the ones you missed. Close this any time: Tourbook asks again about the rest for two weeks after each show.', await helpLine());
+  ok('…two shows: the line of help speaks of them all', (await helpLine()) === 'These shows are over. Tap Yes to score each one you saw, or No if you missed it. Tourbook asks again about the rest for two weeks after each show.', await helpLine());
   await esc(page);
 
   /* whichever section menu is in use */
