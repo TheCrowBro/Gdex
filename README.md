@@ -45,6 +45,10 @@ on the calendar every time, and the calendar is the first track on every menu:
 | 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Tourbook asks if you saw them and takes your score; no fees or settlements. |
 | 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Tourbook asks if you saw them and takes your score; Tools opens on the sound meter; no fees. Free, for personal use, not for work. |
 
+**The Audiophile starts with a gig.** Pick Audiophile the first time Tourbook opens and it walks you through adding a
+band, then a venue, then a gig at them, each with its own form; a short tour of the app follows. Bringing back a backup
+or connecting Google Drive, as on a new phone, takes you straight in instead.
+
 Every menu ends with **My card** and **Settings**, whoever you are. Nothing is ever deleted or out of reach: the
 sections a role doesn't use are **bonus tracks** on the sleeve (tap the record), and the booking boxes it doesn't use
 are under **More boxes**. Change role any time in **Settings → Your role**.

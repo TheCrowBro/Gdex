@@ -55,10 +55,10 @@ const menuKind = () => {
 let searchStep = null;
 export const setSearchStep = step => { searchStep = step; };
 const listWords = list => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`);
-export function welcomeSteps() {
+export function welcomeSteps({ skip = [] } = {}) {
   const r = role(), menu = menuSections(r), stopsOn = menu.filter(id => id !== 'settings');
   const own = new Map((r.tour || []).filter(s => stopsOn.includes(s.id)).map(s => [s.id, s.text]));
-  const stops = (own.size ? [...own.keys()] : stopsOn).slice(0, MAX_STOPS);
+  const stops = (own.size ? [...own.keys()] : stopsOn).filter(id => !skip.includes(id)).slice(0, MAX_STOPS);
   const bonus = offMenu(r).map(id => sectionName(id, NAMES[id]));
   const sideA = Math.ceil(menu.length / 2);
   return [
@@ -109,8 +109,9 @@ export function startTour(from = 0, { first = false } = {}) {
 // Runs any list of steps: { title, text, target: [selectors], go?: tabId, before?: fn, body?: ctx => node, onNext?: fn }.
 // Steps whose target is not on screen are skipped. A body is a form inside the card (saved by onNext, which may return
 // false to stay on the step); ctx has refresh(), next(), stop() and index. onEnd runs once the tour has gone, however
-// it ended.
-export function runTour(steps, { remember = false, from = 0, footer = null, root = null, onEnd = null } = {}) {
+// it ended. forced: no Skip, and Escape and the arrows do nothing (the start, js/start.js). A step may carry count (the
+// words in place of "2 / 5"; '' for none) and button (the primary button's words).
+export function runTour(steps, { remember = false, from = 0, footer = null, root = null, onEnd = null, forced = false } = {}) {
   if (active) return;
   const STEPS = steps;
   const app = document.getElementById('app');
@@ -125,7 +126,7 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
     (twin && twin.getClientRects().length && !twin.closest('[inert]') ? twin : document.getElementById('page'))?.focus({ preventScroll: true });
   };
   const spot = h('div', { class: 'tour-spot', 'aria-hidden': 'true' });
-  const card = h('div', { class: 'tour-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'tour-title' });
+  const card = h('div', { class: 'tour-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'tour-title', 'aria-describedby': 'tour-text' });
   const layer = h('div', { class: 'tour' }, spot, card);
   const wasInert = !!(app && app.inert);
   window.logiShowNav?.(); // the section menu may be slid away: the tour points at it
@@ -134,8 +135,8 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   const seen = new Set(); // steps already shown: they keep their place in the count when going back
   const stop = () => { if (!active) return; active = null; layer.remove(); if (app) app.inert = wasInert; window.removeEventListener('resize', place); window.removeEventListener('scroll', onScroll, true); document.removeEventListener('keydown', keys, true); if (remember) done(); if (onEnd) onEnd(); giveBack(); };
   active = { stop };
-  // Arrow keys move between steps, except while typing in a field of the card; Escape always leaves.
-  const keys = e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && e.key !== 'Escape') return; if (e.key === 'Escape') { e.stopPropagation(); stop(); } else if (e.key === 'ArrowRight') { e.stopPropagation(); next(); } else if (e.key === 'ArrowLeft') { e.stopPropagation(); dir = -1; show(i - 1); } };
+  // Arrow keys move between steps, except while typing in a field of the card; Escape always leaves (forced: neither does anything).
+  const keys = e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && e.key !== 'Escape') return; if (e.key === 'Escape') { e.stopPropagation(); if (!forced) stop(); } else if (forced) return; else if (e.key === 'ArrowRight') { e.stopPropagation(); next(); } else if (e.key === 'ArrowLeft') { e.stopPropagation(); dir = -1; show(i - 1); } };
   // The card goes under the thing it points at, else over it. When it fits on neither side (a small screen, big text,
   // the tall section menu), it docks to the edge of the screen on the roomier side and is cut to the room left there,
   // its words scrolling inside it, so the highlighted part stays in view; Skip, Back and Next always show.
@@ -187,13 +188,13 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
     const body = s.body ? s.body({ refresh: () => show(n), next: forward, stop, index: n }) : null;
     card.replaceChildren(...nodes(
       h('div', { class: 'tour-body', onscroll: e => moreCue(e.currentTarget) },
-        h('div', { class: 'tour-step muted small' }, `${pos + 1} / ${shown.length}`),
-        h('h2', { id: 'tour-title' }, s.title), h('p', null, s.text),
+        s.count !== '' && h('div', { class: 'tour-step muted small' }, s.count || `${pos + 1} / ${shown.length}`),
+        h('h2', { id: 'tour-title' }, s.title), h('p', { id: 'tour-text' }, s.text),
         body && h('form', { class: 'tour-form', noValidate: true, onsubmit: e => { e.preventDefault(); forward(); } }, body)),
       h('div', { class: 'tour-actions' },
-        h('button', { class: 'btn ghost small', type: 'button', onclick: stop }, 'Skip'), footer && footer(n, stop), h('span', { class: 'spacer' }),
+        !forced && h('button', { class: 'btn ghost small', type: 'button', onclick: stop }, 'Skip'), footer && footer(n, stop), h('span', { class: 'spacer' }),
         pos > 0 && h('button', { class: 'btn ghost', type: 'button', onclick: () => { dir = -1; show(n - 1); } }, 'Back'),
-        h('button', { class: 'btn primary', type: 'button', onclick: forward }, isLast ? 'Done' : 'Next'))));
+        h('button', { class: 'btn primary', type: 'button', onclick: forward }, s.button || (isLast ? 'Done' : 'Next')))));
     spot.classList.remove('tour-pulse'); void spot.offsetWidth; spot.classList.add('tour-pulse');
     place();
     ((body && card.querySelector('.tour-form input, .tour-form textarea, .tour-form select')) || card.querySelector('.tour-actions .btn.primary'))?.focus();

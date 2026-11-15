@@ -247,7 +247,11 @@ const licenceThenAsk = () => {
 };
 // The tour is on screen at once, so the question waits for it to end; the first-run tour ends on the calendar, so the
 // question is asked there.
-const tourThenAsk = () => { startTour(0, { first: true }); licenceThenAsk(); };
+// The welcome tour (when not seen yet), then the sheets at an opening (licence, then "Did you see them?"). A role with a
+// start of its own (js/start.js: the Audiophile, picked on a device with nothing in it) takes its first steps before
+// them; runStart calls welcome once they are over, with tour false when its own shorter tour has just run.
+const welcome = (tour = true) => { if (tour && !tourSeen()) startTour(0, { first: true }); licenceThenAsk(); };
+const tourThenAsk = picked => import('./start.js').then(m => m.runStart(picked, welcome)).catch(e => { console.error(e); welcome(); });
 // Coming back counts as opening, for the question only. An installed app is seldom loaded afresh: it is brought back from
 // the background, sometimes days later, and someone who went to a show last night would never be asked. So after three
 // hours or more out of sight (the screen hidden, or the page kept by the browser and restored), the waiting shows are
@@ -292,7 +296,8 @@ dayCheck();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') hiddenAt = Date.now(); else { dayCheck(); cameBack(); } });
 window.addEventListener('pagehide', () => { if (hiddenAt === null) hiddenAt = Date.now(); }); // for a browser that keeps the page without calling it hidden
 window.addEventListener('pageshow', e => { dayCheck(); if (e.persisted) cameBack(); });
-if (!tourSeen()) {
+const startOn = () => { try { return !!localStorage.getItem('tourbook-start'); } catch { return false; } }; // js/start.js: a start under way comes back on every open, even if a welcome tour ran meanwhile
+if (!tourSeen() || startOn()) {
   if (roleChosen()) setTimeout(() => whenClear(tourThenAsk), 700);
   else setTimeout(() => import('./role-pick.js').then(m => whenClear(() => m.askRole({ then: tourThenAsk }))).catch(e => { console.error(e); whenClear(tourThenAsk); }), 500);
 } else {

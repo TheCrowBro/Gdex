@@ -8,6 +8,7 @@
 // IndexedDB, a wrong clock and the server's time, the pause).
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
+const { passStart } = require('../helpers.cjs');
 const BASE = process.env.TOURBOOK_URL || 'http://localhost:8124/';
 const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -112,11 +113,11 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
         && (await page.textContent('.rp-ask .rp-card[data-role="all"] .rp-licence')) === '30 days free, then a licence' && (await page.locator('.rp-ask .rp-all').count()) === 0 && !/everything/i.test(await page.textContent('.rp-ask')), await page.textContent('.rp-ask'));
       ok('…and the focus is on that first card, Jack of Trades', await page.evaluate(() => { const a = document.activeElement; return !!a && a.dataset.role === 'all' && a === document.querySelector('.rp-ask .rp-card'); }), await page.evaluate(() => (document.activeElement || {}).dataset?.role || (document.activeElement || {}).tagName));
       await page.click('.rp-ask .rp-card[data-role="audiophile"]');
-      await page.waitForSelector('.tour-card');
+      await passStart(page); // the Audiophile's start on a device with nothing in it (js/start.js): a band, a venue and a gig
       await page.click('.tour-actions .btn.ghost'); // Skip
       await sleep(2600); // the idle work and the status's 1.5 s
       st = await state(page);
-      ok('picking the Audiophile starts nothing and sends nothing to the licence server', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'audiophile' && st.mode === 'unstarted' && srv.asked.length === 0 && !(await second(page)), JSON.stringify({ st, asked: srv.asked }));
+      ok('picking the Audiophile, and its start (a band, a venue and a gig), starts nothing and sends nothing to the licence server', (await page.evaluate(() => localStorage.getItem('tourbook-role'))) === 'audiophile' && st.mode === 'unstarted' && srv.asked.length === 0 && !(await second(page)), JSON.stringify({ st, asked: srv.asked }));
       // Settings → Your role: Producer asks the terms first; Not now changes nothing.
       await go(page, 'settings'); await sleep(300);
       await page.evaluate(() => { document.getElementById('se-role').open = true; }); await sleep(200);

@@ -150,14 +150,17 @@ export function openBooking(id, { box = '' } = {}) {
     return !!byId('bookings', id);
   });
 }
+// The calendar in its saved view, on the day in view (js/start.js, as the Audiophile's start ends).
+export const showCalendar = () => { if (S.view !== 'cal') go({ view: 'cal' }); };
 
 // Open the new-booking form, prefilled ({ kind, actId, venueId, date, setlistId }). Without a kind, asks for one first.
 // A free Audiophile without the working roles adds a show, whatever was asked for (+ New, a day's + New, a venue, a link).
-export function newBooking(preset = {}) {
+// opts.onSaved(record) after the booking is stored; preset.blankAct leaves the act box empty even with one act saved.
+export function newBooking(preset = {}, opts = {}) {
   const p = preset && typeof preset === 'object' ? preset : {};
-  if (showsOnly()) editBooking(blank('show', p));
-  else if (p.kind && model.KINDS.some(k => k[0] === p.kind)) editBooking(blank(p.kind, p));
-  else chooseKind(p);
+  if (showsOnly()) editBooking(blank('show', p), opts);
+  else if (p.kind && model.KINDS.some(k => k[0] === p.kind)) editBooking(blank(p.kind, p), opts);
+  else chooseKind(p, opts);
 }
 // The owner's answer 1: only shows to add, and the studio sessions and rehearsals already here kept to look at.
 const WORK_KINDS = ['session', 'rehearsal'];
@@ -172,7 +175,7 @@ function blank(kind, p = {}) {
   const v = p.venueId ? byId('venues', p.venueId) : null;
   return {
     kind, status: firstStatus(kind), title: '',
-    actId: p.actId && byId('acts', p.actId) ? p.actId : db.acts.length === 1 && kind !== 'other' ? db.acts[0].id : '',
+    actId: p.actId && byId('acts', p.actId) ? p.actId : !p.blankAct && db.acts.length === 1 && kind !== 'other' ? db.acts[0].id : '',
     date: isoOk(p.date) ? p.date : todayISO(), endDate: '',
     venueId: v ? v.id : '', venueName: '', address: '',
     contact: v ? { name: v.contact || '', role: '', phone: v.phone || '', email: v.email || '' } : {},
@@ -183,10 +186,10 @@ function blank(kind, p = {}) {
 }
 
 // The kinds in the role's order, its usual kind first (a producer's studio session, a scout's show), with its own words.
-function chooseKind(preset = {}) {
+function chooseKind(preset = {}, opts = {}) {
   const kinds = kindOrder().map(id => model.KINDS.find(k => k[0] === id)).filter(Boolean);
   const { close } = sheet('What are you booking?', h('div', { class: 'bk-kinds' },
-    kinds.map(([id, label, icon]) => h('button', { type: 'button', class: 'card tap bk-kind', 'data-kind': id, onclick: () => { close(); editBooking(blank(id, preset)); } },
+    kinds.map(([id, label, icon]) => h('button', { type: 'button', class: 'card tap bk-kind', 'data-kind': id, onclick: () => { close(); editBooking(blank(id, preset), opts); } },
       h('span', { class: 'bk-kind-ico', 'aria-hidden': 'true' }, icon),
       h('span', { class: 'bk-kind-text' }, h('strong', null, label), h('span', { class: 'muted small' }, kindHelp(id) || KIND_HELP[id]))))));
   setTimeout(() => document.querySelector('.bk-kinds .bk-kind')?.focus(), 60);
@@ -247,9 +250,10 @@ function fieldsFor(kind, cur = '') {
     !showsOnly() && { key: 'fee', label: 'Fee', type: 'number', min: 0, step: 'any', placeholder: '0' }].filter(Boolean);
 }
 
-// focus: the key of a field to put the cursor in (Score this show's "Pick the act" opens the form on the act).
+// focus: the key of a field to put the cursor in (Score this show's "Pick the act" opens the form on the act); onSaved:
+// called with the stored booking.
 function editBooking(b, opts = {}) { viaWork(b, () => editBookingNow(b, opts)); }
-function editBookingNow(b, { focus = '' } = {}) {
+function editBookingNow(b, { focus = '', onSaved = null } = {}) {
   const isNew = !b.id;
   const kind = model.KINDS.some(k => k[0] === b.kind) ? b.kind : 'other';
   const c = b.contact || {};
@@ -285,6 +289,7 @@ function editBookingNow(b, { focus = '' } = {}) {
       if (!stored) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       haptic();
       if (isNew) { toast(`${model.kindLabel(kind)} added`); openBooking(stored.id); } else toast('Saved');
+      if (onSaved) onSaved(stored);
     },
     onDelete: isNew ? null : () => { if (remove('bookings', b.id) !== false) { toast('Booking deleted'); haptic(30); } },
   });

@@ -71,7 +71,7 @@ export function askRole({ then = () => {}, title = 'Who’s using Tourbook?' } =
     picked = true; haptic(); close();
     setRole(id, { start: true });
     announce(settled(roleOf(id)));
-    then();
+    then(id);
   };
   const body = h('div', { class: 'stack rp-ask' },
     h('p', { class: 'rp-intro' }, `Are you a producer, a manager, in a band, a solo artist, a scout or an audiophile? Pick the closest, and Tourbook puts the sections you’ll use on your menu, in your words. You can change it any time under Settings → Your role. Nothing is ever deleted, and every other section stays one tap away on ${menuWords().list}.${licenceIntro()}`),

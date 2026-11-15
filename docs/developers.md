@@ -72,6 +72,7 @@ Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` before `npm ci` unless you need the deskto
 | `js/bookings-cal.js`, `js/bookings-kit.js` | The calendar's views (drawn for `pages/bookings.js`), and the helpers the two share. |
 | `js/acts-ask.js`, `js/venues-rules.js`, `js/acts-sample.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn; an act's Sample work (its link on the act form, its QR code on the act's card). |
 | `js/combo.js` | The type-and-pick box: the booking form's band and venue boxes (`js/form.js` type `combo`; "The band and venue boxes" below). |
+| `js/start.js` | The start: the Audiophile's first steps (a band, a venue, then a gig), taken straight after it is picked on a device with nothing in it ("The start" below). |
 | `js/search.js`, `js/search-dates.js` | The search: the box at the top of every page (in the section menu's bar), the `/` key and the results it opens over the page; the dates it reads. |
 | `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `js/licence-config.js`, `js/licence-keys.js`, `js/tax.js`, `css/licence.css` | The licence (below): the state every module asks, its sheets, panel and bar, the website's talk with the licence server, the sign-in's signature check, the one-time terms sheet, the owner's switch, the public keys (generated), the price with tax. |
 | `js/drive.js`, `js/sync.js`, `js/cloud-config.js`, `js/kv.js` | Google Drive (below): Google's sign-in and the Drive files, keeping this device and Drive the same, the owner's Google client id; the IndexedDB store both the backup file and the licence use. |
@@ -112,7 +113,9 @@ focus, then producer, manager, band, solo artist, scout or audiophile (`CARDS` i
 lists; `askRole`, then the welcome tour
 for that role, `startTour(0, { first: true })`, which ends on the calendar however it ends, so "Did you see them?" is
 asked there; taken again later, from ?, Aa or Settings, the
-tour ends on the section it was started from: `runTour(steps, { onEnd })`). Settings → Your role swaps it (`rolePanel`). A
+tour ends on the section it was started from: `runTour(steps, { onEnd })`). A role with a start of its own (`STARTS` in
+`js/start.js`: the Audiophile) picked there on a device with nothing in it takes it first ("The start" below); a shorter
+welcome tour follows it. Settings → Your role swaps it (`rolePanel`). A
 device whose welcome tour was done before roles came gets one card under the menu instead (`nudgeRole`, shown once:
 `tourbook-role-nudged`; closing the first-run question without a pick sets it too, so that person never sees the card).
 The question and the tour wait while a sheet (the sleeve, tapped in the first moment) is open. Their words, like the
@@ -193,6 +196,7 @@ roles' free days started, which a backup file carries beside the database once l
 | `tourbook-cal-view` | The calendar's view: `month`, `two`, `week`, `three` or `day`. Read and written only through `calMode()` / `saveCalMode()` (`js/bookings-kit.js`); only the calendar's view buttons save it. | kept |
 | `tourbook-role` | The role (`setRole`). | cleared |
 | `tourbook-ask-seen` | "Did you see them?" on or off (`setAskSetting`). | cleared |
+| `tourbook-start` | A start under way (`js/start.js`): its role and the ids of what its forms saved, `{ role, made }`; absent otherwise. | cleared |
 | `tourbook-licence` | The website's licence (`js/licence-state.js`, `js/licence-web.js`): `{ on?, statusAt?, first?, seen?, token?, licence?, via?, checked?, tried?, cancelled?, expired? }`. Its second copy of the free days is IndexedDB `tourbook` / `kv` / `licence-days` (`{ first, seen }`), which Erase does not touch either. | **kept** |
 | `tourbook-terms` | The terms agreed at the first working use: `{ v: TERMS_VERSION, at }` (`js/terms.js`). | **kept** |
 | `tourbook-licence-cache` | The desktop app only: the bridge's last licence state, to draw the menu before the bridge answers. | cleared |
@@ -693,7 +697,9 @@ may call it.
 | `js/bookings-kit.js` `calMode()` / `saveCalMode(mode)` / `CAL_MODES`; `isoOk`, `monthStart`, `addDays`, `daysBetween`, `multi`, `dateRange`, `safeColor`, `actOf`, `actStyle`, `tone`, `pill`, `plural`, `sortByName`, `capital`, `KIND_CHIP` | core | The calendar's view kept on the device; the small helpers the booking page and the calendar share. |
 | `js/acts-ask.js` `askAtOpen(ids)` / `askPref()` | acts | The "Did you see them?" sheet for the shows still waiting among `ids` (nothing when the person is not asked, none is left, or its sheet is already up: there are never two); it opens its sheet before it returns. `app.js` calls it at open and again after hours in the background / the control for Settings → Your role. It imports `pages/acts.js` (`logSighting`) and `acts-docs.js`, so Settings loads the acts page's code with it; `pages/acts.js` must not import it. |
 | `js/venues-rules.js` `rulesChip(b)` / `venueChip(v)` / `rulesFull(v, { where })` / `rulesEditor(v)` | venues | A show's house-rules chip, or `null` / the same for a venue / the full rules (`where: 'venue' \| 'show'`), or `null` / the House rules part of the venue form: `{ node, read() }`. It draws what `model.js` returns and imports `util.js` and `model.js` only. |
-| `pages/bookings.js` `newBooking(preset)` | bookings | Open the new-booking form, prefilled (`{ kind, actId, venueId, date, setlistId }`). |
+| `pages/bookings.js` `newBooking(preset, { onSaved })` | bookings | Open the new-booking form, prefilled (`{ kind, actId, venueId, date, setlistId }`; `blankAct: true` leaves the act box empty even when there is one act); `onSaved(record)` once the booking is stored. Inside the page, `editBooking(b, { focus, onSaved })` does the same for any booking. |
+| `pages/bookings.js` `showCalendar()` | bookings | The calendar in its saved view, on the day in view (from a booking's page). |
+| `js/start.js` `runStart(picked, then)` / `STARTS` | core | After "Who’s using Tourbook?": the start of the role picked (`picked`; none resumes a start under way), then `then(tour)` once, when it is over or there is none (`tour` false once its own shorter tour has run) / the roles with a start and their steps ("The start" below). |
 | `pages/bookings.js` `showWord()` | bookings | The role's word for a show: the singular of its name for Bookings when it has one of its own (Gigs: gig; Shows: show), else show. |
 | `pages/acts.js` `addActNamed(name)` / `eatSecondClick()` | acts | An act made from a name typed elsewhere (a booking's band box, a gig's score row): what the act form saves for a new act with only a name, in the next colour no other act uses; the stored record, or `null` when the licence refused it / for a moment after an answer that closes a sheet and saves the form under it, the second click of a double click is stopped before it reaches anything ("New name?", "Add to your lists?"). |
 | `pages/venues.js` `addVenueNamed({ name, address, kind })` | venues | A place made from a name typed in a booking's form: its name, the address typed with it and its kind, with the house-rules fields the venue form always stores (`rules: {}`); the stored record, or `null` when refused. |
@@ -720,7 +726,8 @@ may call it.
 | `js/licence-state.js` (the whole API is under "The licence" below) | licence | `mayOpen`, `mayWork`, `mayPickRole`, `gateWork`, `canWrite`, `licenceNow`, `onLicenceChange` / the window event `tourbook-licence`… |
 | `js/update.js` `desktop()` / `js/version.js` `shareBase()` / `publicHref()` | desktop | The desktop bridge when it has the update controls, else `null` / where share links and a calendar entry point: **an address someone else will open comes from `shareBase()` or `publicHref()`, never `location.href`**: in the desktop app they give `https://tourbook.crowmade.app/` (`PUBLIC_SITE`). |
 | `js/tour.js` `sheetTutorial(title, steps)` / `setSearchStep(step)` | core | Register walkthrough steps for a sheet by its title / the welcome tour's stop for the search box, just after the section menu (`js/search.js` gives it; the tour cannot import the search). |
-| `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. |
+| `js/tour.js` `startTour(from, { first })` / `runTour(steps, { onEnd, … })` | core | The welcome tour (the first-run one ends on the calendar; any other on the section it was started from) / any walkthrough; `onEnd` runs once it has gone, however it ended, and then the focus goes back to what had it as the walkthrough began (the ? button, a sheet's ?, Take the welcome tour; a page drawn again meanwhile gives it to the control with the same id), else to `#page`, unless something that opened as it ended has taken it. `forced: true`: no Skip, and Escape and the arrow keys do nothing (the start). A step may carry `count` (the words in place of "2 / 5"; `''` for none) and `button` (the primary button's words). The card is described by its words (`#tour-text`). |
+| `js/tour.js` `welcomeSteps({ skip })` | core | The welcome tour's steps for the role in use, without the sections' stops listed in `skip` (the start's shorter tour). |
 | `blocks/running.js` `sortedRows(b)` / `runningWarnings(b)` / `dayClock(b)` | show | The running order in the night's order (after-midnight aware) / its warnings / the day's clock. |
 | `blocks/guests.js` `guestCounts(b)`; `blocks/settlement.js` `isSettled(b)` / `settlementDoc(b)` | show | Names, heads and in / whether the night is settled / the printable settlement. |
 | `js/daysheet-doc.js` `cleanDaySheet(data)` / renderer | daysheet | Pure (no store): the whitelist and renderer shared by the app and `daysheet.html`. |
@@ -922,6 +929,49 @@ in memory only, by `Date.now()`), `app.js` works the list out again (`askSeen()`
 fresh load opens on the calendar. It asks nothing while the question's own sheet is still up, which it takes to be the
 sheet on screen straight after `askAtOpen` returns: so `askAtOpen` opens its sheet before it returns, and can be called
 more than once in a visit.
+
+At a first open the start comes before all of it (a role with a start of its own picked at "Who’s using Tourbook?" on a
+device with nothing in it: "The start" below): `app.js`'s `welcome` (the welcome tour, then `licenceThenAsk`: the licence's
+sheets, the free-days-over sheet and "Did you see them?") is what `runStart` calls once the start is over, so they all
+wait for it without a check of their own. A start under way comes back on every open, even after a welcome tour taken
+meanwhile (`startOn()`: `tourbook-start` is there, so the boot takes the first-run path).
+
+### The start (`js/start.js`)
+
+The owner (15 Nov 2026): "At the beginning, force a tutorial for users to add a band, venue, and then a show for the
+audiophiles role." A role's first steps, taken for real. Only the Audiophile has them so far (`STARTS`: `audiophile:
+['band', 'venue', 'gig']`).
+
+* **When.** Straight after a role with steps is picked at "Who’s using Tourbook?" (`askRole` calls `then(id)` with the
+  role picked), when that is the role in use, the welcome tour has not been seen and every list (`store.COLLECTIONS`) is
+  empty. Never on a device with any record, nor one whose welcome tour was done; never from Settings → Your role, the
+  role card (`nudgeRole`), the question closed without a pick (also when that leaves the Audiophile through Carry on
+  free), or any other role.
+* **What.** Each step is a card (`runTour`, `forced`: no Skip, Escape and the arrows do nothing) over the page's own add
+  button: Bands' `#ac-new-empty`, Venues' `#vn-first`, Gigs' `.bk-new`, counted "Step 1 of 3", its primary button
+  named for the step ("Add a band…") and opening that page's own form (`editAct`, `editVenue`, `newBooking({ kind:
+  'show', blankAct: true }, { onSaved })`), with the step's line at the form's top (`p.start-note#start-note`, which
+  describes the form's first box). The gig's card and line name the band and the venue just added, to be found by
+  typing. Cancel or ✕ brings the card back.
+* **Where it is** is never stored: it is the first step whose list (`acts`, `venues`, `bookings`) is still empty, so a
+  reload, a closed app or a cancelled form comes back at the step reached. `tourbook-start` (`{ role, made }`, the ids
+  of what the start's own forms saved; in memory only while storage refuses the write) says a start is under way; it
+  goes as the gig is saved. Not in the database or in backups; Erase this device clears it.
+* **The way out.** "I have a backup file or Google Drive…" on every card opens Backups; once data is brought in (any
+  record whose id is not in `made`: a backup file, Google Drive's `adopt`, another tab), the start ends and the welcome
+  tour runs from its first card. It is checked when a card is about to be drawn and on every store change while one is
+  up. An empty backup brings nothing: the start carries on.
+* **The end.** The gig saved, its page shows, then a shorter welcome tour (`remember`): "Your first gig is on your
+  calendar" over the gig's score row (else its top card), then the welcome tour without its welcome card and without
+  the stops of the sections the start went through (`welcomeSteps({ skip })`); Skip on every card. However it ends it
+  marks the welcome tour seen and leaves the person on the calendar (`showCalendar()`). A reload during it shows the
+  whole welcome tour instead.
+* **Licences, on and off.** The start calls nothing in `licence-*.js`: the Audiophile's own sections, writes through the
+  store's gate, nothing sent to the licence server, the free days not started, the terms not asked.
+* **Another role's start.** A line in `STARTS` (its steps in order) and, for a step it does not share, an entry in
+  `STEPS`: `list` (the collection its record goes in), `go` (the section), `target` (its card's selectors, best first),
+  `title`, `text`, `button` and `note` (functions of the start's state, in the role's words), `open(saved)` (opens the
+  form; `saved(record)` once it is stored) and `last` on the final step. Nothing else changes.
 
 ### The section menu (`js/deck.js`)
 
@@ -1742,6 +1792,9 @@ backline, take, comp, stems, split sheet.
 * `open({ touch: true })` emulates a touch screen (`page.touchscreen.tap`; the mouse still works).
 * `typePick(scope, key, text, name)` (`tests/helpers.cjs`) types in the booking form's band or venue box and taps the
   option named `name` (`null`: leaves the text as typed).
+* `passStart(page, { band, venue })` (`tests/helpers.cjs`) takes the Audiophile's start as a person does (a band, a
+  venue and a gig, each through its own form, the band and venue picked by typing), for a spec that picks the Audiophile
+  at "Who’s using Tourbook?" on a device with nothing in it; it resolves with the tour that follows at its first card.
 * `open()` marks the welcome tour done, dismisses the role card and turns "Did you see them?" off (`tourbook-ask-seen`
   `'off'`, set again on every load), so no sheet opens over a spec's own work. A spec about the question opens with
   `open({ ask: true })`, which leaves the key alone; it seeds its shows, then reloads.
@@ -1771,6 +1824,7 @@ backline, take, comp, stems, split sheet.
   | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
   | `14-typed-names` | its read-only check (free days over: Add brings the licence's sheet, no question) runs only in the on leg |
+  | `04-start` | its own contexts take no licence seed: the Audiophile's start must start nothing (unstarted all through, no terms, nothing sent) |
   | `90-drive` | its own contexts take the same seed |
   | `09-from-gdex` | seeds Gdex's keys, which the copy brings over: in the on leg also Gdex's free days under way, and checks that what it brings only ever moves the start of the free days earlier, never later, and that free days over under Gdex stay over |
   | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92`, `93` | set their own state, or none: the same in both legs |
@@ -1778,7 +1832,7 @@ backline, take, comp, stems, split sheet.
 * The licence's own specs stand the licence server in with Playwright routes (75-78, with a `Date` header and a
   throw-away Ed25519 key), or run the real one in Miniflare (79, 81: `npm ci --prefix cloudflare`; SKIP without it,
   FAIL under CI). Specs that read `cloudflare/` or `desktop/` read them from the repository, never the scratch copy.
-* Spec files by owner: `00-smoke` (core), `05-deck` and `06-roles` (core), `07-groundwork` (core: the model and the
+* Spec files by owner: `00-smoke` (core), `04-start` (core: the Audiophile's start), `05-deck` and `06-roles` (core), `07-groundwork` (core: the model and the
   contracts under the calendar, the question, the menus and house rules), `08-sheets` (core: a sheet's dim backdrop,
   tapped with a finger and clicked), `09-from-gdex` (core: the one-time copy from Gdex's names, and the old name nowhere
   else), `10-bookings`, `11-order` (same-day order and
@@ -1807,8 +1861,8 @@ backline, take, comp, stems, split sheet.
 
 Only edit files you own. Core files (`index.html`, `styles.css`, `js/app.js`, `js/store.js`, `js/model.js`,
 `js/util.js`, `js/form.js`, `js/deck.js`, `js/a11y.js`, `js/roles.js`, `js/role-pick.js`, `js/tour.js`, `js/tutorials.js`, `js/print.js`, `js/blocks/index.js`,
-`js/bookings-kit.js`, `js/combo.js`, `sw.js`, `tools/`, `tests/lib.mjs`, `tests/run.mjs`, `tests/helpers.cjs`, `tests/specs/00-smoke.cjs`,
-`tests/specs/07-groundwork.cjs`, `tests/specs/08-sheets.cjs`, `js/from-gdex.js`, `tests/specs/09-from-gdex.cjs`) belong to the integrator: if you
+`js/bookings-kit.js`, `js/combo.js`, `js/start.js`, `sw.js`, `tools/`, `tests/lib.mjs`, `tests/run.mjs`, `tests/helpers.cjs`, `tests/specs/00-smoke.cjs`,
+`tests/specs/04-start.cjs`, `tests/specs/07-groundwork.cjs`, `tests/specs/08-sheets.cjs`, `js/from-gdex.js`, `tests/specs/09-from-gdex.cjs`) belong to the integrator: if you
 need a change there, describe it in your report instead.
 
 | Feature | Files |

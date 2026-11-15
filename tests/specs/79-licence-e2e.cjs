@@ -20,6 +20,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const { chromium } = require('playwright');
+const { passStart } = require('../helpers.cjs');
 const ok = (name, cond, extra = '') => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : ''));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // cloudflare/ and desktop/ are read from the repository itself, never from the test's scratch copy ([S-26]).
@@ -216,7 +217,7 @@ const DAY = 864e5;
       const { ctx, page } = await open(box, { firstRun: true });
       await page.waitForSelector('.sheet[aria-label="Who’s using Tourbook?"]', { timeout: 8000 });
       await page.click('.rp-ask .rp-card[data-role="audiophile"]');
-      await page.waitForSelector('.tour-card'); await page.click('.tour-actions .btn.ghost');
+      await passStart(page); await page.click('.tour-actions .btn.ghost'); // the Audiophile's start (js/start.js), then Skip
       const own = [];
       for (const id of ['acts', 'venues', 'tools', 'card', 'settings', 'bookings']) { own.push(await go(page, id)); await sleep(250); }
       await go(page, 'settings'); await sleep(300); await page.evaluate(() => { document.getElementById('se-about').open = true; }); await sleep(600);
