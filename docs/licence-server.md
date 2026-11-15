@@ -196,9 +196,10 @@ name it. That is the Worker's `MAIL_FROM` default, so there is nothing to set fo
 allowed 3 verified domains since 25 August 2026 (resend.com/changelog/three-domains-on-the-free-tier; the plan today:
 resend.com/pricing), so tourbook.crowmade.app is a second domain on the same Resend account as Vdex, sharing its 100
 free emails a day: no paid plan is needed. Replies go to support@crowmade.app, the contact address the terms and the
-privacy policy give, as Vdex's and crowmade.app's do (your answer, `docs/go-live.md`, Answered): that is `REPLY_TO`,
-step 4. crowmade.app's mail goes through Cloudflare Email Routing (its MX records are route1–3.mx.cloudflare.net), so a
-reply reaches whatever inbox its routing rules send support@crowmade.app to; Part 7 checks one does.
+privacy policy give, as Vdex's and crowmade.app's do (your answer, decisions §23; `docs/go-live.md`, Answered): that is
+`REPLY_TO`, step 4. crowmade.app's mail goes through Cloudflare Email Routing (its MX records are
+route1–3.mx.cloudflare.net), so a reply reaches whatever inbox its routing rules send support@crowmade.app to; Part 7
+checks one does.
 
 1. Sign in at https://resend.com (or sign up).
 2. **Domains → Add domain** → `tourbook.crowmade.app` → **Sign in to Cloudflare** and allow it, so Resend adds its records
@@ -248,8 +249,8 @@ it.
 1. Open https://tourbook.crowmade.app/buy: it goes to your payment page (until `BUY_URL` is set it says the licence is not
    on sale yet).
 2. Buy a licence yourself. Check the thank-you page shows a code, the email arrives, a reply to it reaches the contact
-   address, support@crowmade.app (`REPLY_TO`, Part 5), and (once the desktop app is released, `docs/desktop.md`) **Enter licence code**
-   activates it.
+   address, support@crowmade.app (`REPLY_TO`, Part 5), and (once the desktop app is released, `docs/desktop.md`)
+   **Enter licence code** activates it.
 3. Refund yourself in Stripe. The code is cancelled within a minute: the generator's **Look up** says CANCELLED (refund),
    the thank-you page now says the order was refunded (and shows no code), and the website signs out at its next daily
    check. Stripe keeps its fee on a refund.
