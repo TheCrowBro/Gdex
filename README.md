@@ -212,7 +212,8 @@ found somewhere, in any order; capitals and accents don't matter.
 - [How it is built](docs/developers.md): the data, the sections, the booking boxes and who owns which file.
 - Tourbook does not share anything with Vdex: its own storage (`tourbook-…` keys), its own offline cache, its own files, its
   own licence server, keys, Stripe link, Google project, desktop app id, port and download bucket.
-- The licence server (`cloudflare/`), the desktop app (`desktop/`) and Google Drive are built and tested, switched off.
-  [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing is published until the
-  owner says so. `TOURBOOK_LICENCE=on node tests/run.mjs` runs the tests with the licence live; `npm ci --prefix cloudflare`
-  first lets the licence server's tests run.
+- The licence server (`cloudflare/`) and the desktop app (`desktop/`) are built and tested, switched off. Google Drive
+  is switched on (Tourbook's own Google sign-in client, since 15 November 2026: `docs/drive.md`); the desktop app gets
+  it with its first release. [The owner's go-live list](docs/go-live.md) says what to set up and in which order; nothing
+  is published until the owner says so. `TOURBOOK_LICENCE=on node tests/run.mjs` runs the tests with the licence live;
+  `npm ci --prefix cloudflare` first lets the licence server's tests run.

@@ -1,5 +1,6 @@
-// Google Drive, free for everyone (the build spec §8): not set up yet; connecting (Google contacted only once asked, a
-// cancelled sign-in leaves nothing linked, only drive.appdata asked, Google's script not loading and Try again); the
+// Google Drive, free for everyone (the build spec §8): the owner's client id in the repository; not set up yet (with an
+// empty id); connecting (Google contacted only once asked, a cancelled sign-in leaves nothing linked, only drive.appdata
+// asked, Google's script not loading and Try again); the
 // walkthroughs of the Backups sheet, the connect sheet and the daily copies; the first device writes the copy, a second
 // joins, edits and deletions travel, the hour running out and one tap to sign in again; status changes never redraw the
 // page; Drive keeps flowing while the store's gate refuses everything; the daily and monthly copies, bringing one back
@@ -234,6 +235,18 @@ setGate(() => canWrite());
 if (require.main === module) (async () => {
   const browser = await chromium.launch();
   const all = [];
+
+  /* ------------------------- the owner's client, in the repository ------------------------- */
+  // Google Drive is on: the owner made Tourbook's own Google client on 15 November 2026 (Google Cloud project Tourbook,
+  // docs/drive.md), and the repository's js/cloud-config.js carries exactly its public id, so an emptied or changed file
+  // fails here. The devices below stand in their own id for it (device() routes the file); Google is never contacted.
+  {
+    const OWNER = '41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com';
+    let cfg = null, src = '';
+    try { src = fs.readFileSync(path.join(ROOT, 'js', 'cloud-config.js'), 'utf8'); cfg = (await import(require('url').pathToFileURL(path.join(ROOT, 'js', 'cloud-config.js')).href)).CLOUD_APPS; } catch { /* none */ }
+    const id = cfg && cfg.google;
+    ok('the repository’s js/cloud-config.js carries the owner’s Google client id, and only it: a ….apps.googleusercontent.com id, exactly the owner’s', !!cfg && JSON.stringify(Object.keys(cfg)) === '["google"]' && typeof id === 'string' && /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(id) && id === OWNER && src.split(OWNER).length === 2, JSON.stringify(cfg));
+  }
 
   /* ------------------------------ not set up yet ------------------------------ */
   {

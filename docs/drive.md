@@ -10,14 +10,21 @@ Google Drive is free for everyone in Tourbook, whatever the role and whether or 
 Nothing goes to a Tourbook server. Tourbook talks to Google directly from the person's browser (or the desktop app), with a
 permission that reaches only Tourbook's own hidden folder.
 
-Until the owner has made Tourbook's Google sign-in client (below) and its id is in `js/cloud-config.js`, the Google Drive
-card in Backups says "Not set up yet" and nothing about Google is loaded.
+**Switched on, 15 November 2026.** The owner made Tourbook's own Google sign-in client that day, in the Google Cloud
+project **Tourbook** (steps 1 to 5 below): a Web application client whose public id,
+`41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com`, is in `js/cloud-config.js` as
+`CLOUD_APPS.google` (`90-drive` checks the repository carries exactly it). The website has Google Drive from the first
+publish with the id in; the desktop app, which carries its own copy of `js/cloud-config.js`, gets it with its first
+release (none has been released yet). A build whose id is empty says "Not set up yet" in the Google Drive card in Backups
+and loads nothing about Google.
 
 ---
 
 ## For the owner: switching Google Drive on
 
-Do this once, in the Google account that will own Tourbook's Google sign-in.
+Done on 15 November 2026 (steps 1 to 6; step 7 was under way as the id went in). The steps stay here as the record of
+how Tourbook's client is set up, and for checking it. They were done once, in the Google account that owns Tourbook's
+Google sign-in.
 
 1. **A new Google Cloud project named Tourbook** at <https://console.cloud.google.com/>. Make a new project, not a second
    client inside Vdex's: Google ties the hidden app folder, the consent screen's name and the branding check to the
@@ -38,7 +45,8 @@ Do this once, in the Google account that will own Tourbook's Google sign-in.
    Leave **Authorised redirect URIs** empty. Google also shows a client secret: Tourbook does not use it, and it must never
    be put anywhere in the repository.
 6. Copy the **Client ID** (it ends in `.apps.googleusercontent.com`) and give it to the developer. It goes in
-   `js/cloud-config.js` as `CLOUD_APPS.google`. It is a public id, not a secret.
+   `js/cloud-config.js` as `CLOUD_APPS.google`. It is a public id, not a secret. Tourbook's:
+   `41383784704-r4lhqli3p4e7bh66c7k5l2ala7t95r47.apps.googleusercontent.com` (15 November 2026).
 7. **Audience → Publish app.** Until the app is published only the test users listed there can sign in, and only for
    seven days at a time.
 8. Optional: **Branding → Verify branding**, so Google's sign-in window says "Tourbook" rather than the domain.
@@ -49,10 +57,19 @@ Then:
   update).
 - **The desktop app carries its own copy** of `js/cloud-config.js`: a new or changed id reaches desktop users only with a
   new desktop release.
-- **Try it once for real** after the first publish: connect Google Drive on tourbook.crowmade.app and in the desktop app.
+- **Try it once for real** after the first publish with the id in: connect Google Drive on tourbook.crowmade.app, and in
+  the desktop app after its first release.
   The tests stand in for Google, so they cannot prove that Google's real sign-in script loads under Tourbook's
   Content-Security-Policy (`index.html` allows `https://accounts.google.com` for scripts, styles and frames, and any
-  `https:` address for requests; `92-drive-desktop` checks those words are there).
+  `https:` address for requests; `92-drive-desktop` checks those words are there). On 15 November 2026, before that
+  publish and without signing in, the developer opened Google's real sign-in for this client from both origins: the
+  website's flow at `https://tourbook.crowmade.app` (the repository's files answered there by the browser test, so the
+  live site was not involved; Google's script loaded under the CSP once Connect Google Drive… was tapped, and Continue
+  with Google opened Google's "Sign in … to continue to crowmade.app") and the desktop app's own sign-in page at
+  `http://localhost:47861` ("to continue to Tourbook"). On the website Google names the domain until the branding is
+  verified (step 8). While its window is open, Google's script logs "Cross-Origin-Opener-Policy policy would block the
+  window.closed call." in the page's console: Chrome's words about Google's own page, not Tourbook's; a window closed
+  before signing in is still noticed ("The Google window was closed before you signed in.").
 
 ### If something goes wrong
 
@@ -122,7 +139,7 @@ that (when Tourbook opens, at the latest).
 | `js/sync.js` | Keeping this device and Drive the same: `sync`, the timed sync after a change, the daily copy, connect / disconnect / delete, the daily copies' list. The Drive state and `onDriveChange`. |
 | `js/backup.js` | The Drive card at the top of `backupPanel()`, the connect sheet, the daily copies' sheet, the chooser with Replace everywhere, the ☁ button (Drive and the file copy, the worse first), `health()`, `backupLine()`, `beforeErase()`. Loads `js/sync.js`, whose `initDrive()` runs when the backups module loads (at idle on every open). |
 | `js/store.js` | `mergeDb` joins an act's times seen (`acts[].seen`) and a take log's takes (`logs[].takes`) entry by entry; `adopt`, `afterWrite`, `replaceAll(…, { everywhere })` and `normalise` dropping `freeDaysFrom` are Part 0's seams. |
-| `js/cloud-config.js` | `CLOUD_APPS.google`: the owner's client id, `''` until set. |
+| `js/cloud-config.js` | `CLOUD_APPS.google`: the owner's client id (set on 15 November 2026; `''` would mean Not set up yet). |
 | `css/settings.css` | `.se-bk-drive*`, `.se-bk-connect*`, `.se-bk-copy*`. |
 
 ### The files in Drive (`spaces=appDataFolder`, scope `drive.appdata` only)
@@ -205,8 +222,9 @@ the desktop app refuses to sign in (Google knows only 47861).
 
 ### Tests (Google faked)
 
-- `90-drive`: not set up; connect (Google contacted only once asked; a cancelled sign-in; only `drive.appdata`; Google's
-  script not loading, then Try again); the walkthroughs of the Backups sheet, the connect sheet and the daily copies;
+- `90-drive`: the repository's `js/cloud-config.js` carries exactly the owner's id; not set up (an empty id); connect
+  (Google contacted only once asked; a cancelled sign-in; only `drive.appdata`; Google's script not loading, then Try
+  again); the walkthroughs of the Backups sheet, the connect sheet and the daily copies;
   first device, second device, edits and deletions travelling; the hour up and one tap; a 401; status changes not
   redrawing the page; the store's gate refusing; the daily and monthly copies; a failed sync and a failed daily copy;
   bringing a daily copy back and Replace on every device; a booking deleted by mistake brought back by Merge (Also bring

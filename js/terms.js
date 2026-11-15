@@ -7,10 +7,10 @@
 import { h, sheet } from './util.js';
 
 export const TERMS_SHEET = true;
-// The terms' date. A second change on the same day adds a count ('2026-11-14.2') once a device could have agreed to the
+// The terms' date. A second change on the same day adds a count ('2026-11-15.2') once a device could have agreed to the
 // first; before that (nothing published, and the sheet asks only while licences are on: termsDue below) the date stays
 // (docs/developers.md, the legal pages).
-export const TERMS_VERSION = '2026-11-14';
+export const TERMS_VERSION = '2026-11-15';
 const KEY = 'tourbook-terms';
 const read = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return v && typeof v === 'object' ? v : null; } catch { return null; } };
 let agreedNow = false; // agreed this visit where storage could not keep it
