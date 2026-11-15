@@ -92,6 +92,9 @@ const metaCsp = html => (html.match(/<meta http-equiv="Content-Security-Policy" 
     const mismatched = PAGES.filter(f => { const meta = metaCsp(read(f)); return !meta || !block('/' + f).includes(`Content-Security-Policy: ${meta.trim().replace(/;$/, '')}; frame-ancestors 'none'`); });
     ok('each page\'s Content-Security-Policy header is its own meta tag\'s, plus frame-ancestors', mismatched.length === 0, mismatched.join(', '));
     ok('"/" gets the start page\'s policy; pages, the service worker and the manifest are never cached stale', block('/').includes(`Content-Security-Policy: ${metaCsp(read('index.html')).trim().replace(/;$/, '')}; frame-ancestors 'none'`) && /Cache-Control: no-cache/.test(block('/sw.js')) && /no-cache/.test(block('/manifest.webmanifest')) && /application\/manifest\+json/.test(block('/manifest.webmanifest')) && PAGES.every(f => /Cache-Control: no-cache/.test(block('/' + f))));
+    // Cloudflare's zone-wide Web Analytics adds its beacon to HTML unless the page says no-transform (tools/stage-site.mjs).
+    const unmarked = ['/', ...PAGES.map(f => '/' + f)].filter(p => !/^ {2}Cache-Control: no-cache, no-transform$/m.test(block(p)));
+    ok('"/" and every page are no-cache, no-transform, so Cloudflare adds no analytics script to them', unmarked.length === 0, unmarked.join(', '));
     ok('every address is nosniff, and "/" shows index.html instead of redirecting', /X-Content-Type-Options: nosniff/.test(block('/*')) && redirects.trim() === '/ /index.html 200');
     ok('no _headers line is over Cloudflare\'s 2,000-character limit', headers.split('\n').every(l => l.length <= 2000));
     const cfFiles = walk(cf).map(f => path.relative(cf, f).split(path.sep).join('/'));

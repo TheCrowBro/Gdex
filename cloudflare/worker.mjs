@@ -79,7 +79,8 @@ button,.btn{display:inline-flex;align-items:center;min-height:44px;font:inherit;
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}p,li{overflow-wrap:anywhere}ol li{margin:6px 0}</style></head><body><main><p class="brand" aria-hidden="true"><i></i>TOURBOOK</p>${body}</main>${script ? `<script nonce="${nonce}">${script}</script>` : ''}</body></html>`, {
     status,
     headers: {
-      'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex',
+      // no-transform: Cloudflare adds nothing to the page (its zone-wide Web Analytics beacon), as tools/stage-site.mjs says.
+      'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex',
       'Content-Security-Policy': `default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
     },
   });

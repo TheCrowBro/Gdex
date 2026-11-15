@@ -80,7 +80,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
     ok('any other address is the static website', (await (await get('/index.html')).text()) === 'static file /index.html');
     { // An address that is none of the files: the files answer 404 with nothing, and the Worker gives it a page that says so.
       const nf = await get('/missing/page.html'), t = await nf.text(), hd = await get('/missing', { method: 'HEAD' }), po = await get('/missing', { method: 'POST', body: 'x' });
-      ok('an address that is none of the website\'s files is a 404 page in Tourbook\'s look (not an empty answer), with a link to Tourbook, its own strict policy, never cached, not indexed', nf.status === 404 && /<h1>There’s nothing at this address<\/h1>/.test(t) && /<a href="\/index\.html">Open Tourbook<\/a>/.test(t) && /^text\/html/.test(nf.headers.get('content-type')) && /default-src 'none'.*frame-ancestors 'none'/.test(nf.headers.get('content-security-policy')) && nf.headers.get('cache-control') === 'no-store' && nf.headers.get('x-robots-tag') === 'noindex', `${nf.status} ${t.slice(0, 80)}`);
+      ok('an address that is none of the website\'s files is a 404 page in Tourbook\'s look (not an empty answer), with a link to Tourbook, its own strict policy, never cached or changed on the way (no-transform), not indexed', nf.status === 404 && /<h1>There’s nothing at this address<\/h1>/.test(t) && /<a href="\/index\.html">Open Tourbook<\/a>/.test(t) && /^text\/html/.test(nf.headers.get('content-type')) && /default-src 'none'.*frame-ancestors 'none'/.test(nf.headers.get('content-security-policy')) && nf.headers.get('cache-control') === 'no-store, no-transform' && nf.headers.get('x-robots-tag') === 'noindex', `${nf.status} ${t.slice(0, 80)}`);
       ok('…HEAD too (404); any other method keeps the files\' own answer', hd.status === 404 && po.status === 404 && (await po.text()) === '', `${hd.status} ${po.status}`);
     }
     const buy = await get('/buy');
@@ -125,7 +125,7 @@ const refForSession = sessionId => { const h = crypto.createHash('sha256').updat
       await drop(both);
     }
     const csp = th.headers.get('content-security-policy') || '', nonce = (csp.match(/'nonce-([^']+)'/) || [])[1];
-    ok('the page carries its own strict security headers and is never cached', !!nonce && html.includes(`<script nonce="${nonce}">`) && /default-src 'none'/.test(csp) && /frame-ancestors 'none'/.test(csp) && th.headers.get('cache-control') === 'no-store' && th.headers.get('x-robots-tag') === 'noindex' && th.headers.get('referrer-policy') === 'no-referrer');
+    ok('the page carries its own strict security headers and is never cached or changed on the way (no-transform)', !!nonce && html.includes(`<script nonce="${nonce}">`) && /default-src 'none'/.test(csp) && /frame-ancestors 'none'/.test(csp) && th.headers.get('cache-control') === 'no-store, no-transform' && th.headers.get('x-robots-tag') === 'noindex' && th.headers.get('referrer-policy') === 'no-referrer');
     sessions.set('cs_test_vdexPayment000000001', session('cs_test_vdexPayment000000001', { payment_link: 'plink_vdex' }));
     sessions.set('cs_test_notPaidYet00000000001', session('cs_test_notPaidYet00000000001', { payment_status: 'unpaid' }));
     ok('a payment through another link on the same Stripe account (Vdex\'s) gets no Tourbook code', (await get('/licence/thanks?session_id=cs_test_vdexPayment000000001')).status === 404);
