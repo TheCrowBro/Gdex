@@ -336,11 +336,16 @@ export function startFreeDays() {
 // The terms, agreed from the read-only sheet after a Not now: this visit's refusal is over.
 export function termsAgreed() { declined = false; fire(); }
 
+// This device's start, for Google Drive's copies (js/sync.js) and the backup files (js/backup.js); 0 while licences are
+// off or paused, or before the free days start, so nothing is written then.
 export const freeDaysFrom = () => { const s = licenceNow(); return s.started && num(s.first) > 0 ? num(s.first) : 0; };
-// Google Drive's earliest start of any device on it ([S-39], js/sync.js): an earlier start is taken; never the terms sheet.
+// A start carried by a copy or a file counts only when it is a plausible time: from 2026 on, and at most a day ahead of
+// this device's clock ([S-39]; js/sync.js checks Google Drive's copies the same way, desktop/licence.cjs its adopt).
+const plausibleStart = t => typeof t === 'number' && Number.isFinite(t) && t >= EARLIEST && t <= Date.now() + DAY;
+// An earlier start from Google Drive (the earliest of any device on it, [S-39], js/sync.js) or from a backup file brought
+// back (js/backup.js) is taken; never the terms sheet.
 export async function adoptFreeDaysFrom(t) {
-  const now = Date.now();
-  if (typeof t !== 'number' || !Number.isFinite(t) || t < EARLIEST || t > now + DAY) return false;
+  if (!plausibleStart(t)) return false;
   if (bridge()) {
     const st = licenceNow();
     if (st.mode === 'off' || typeof bridge().adopt !== 'function' || (st.started && !(t < num(st.first)))) return false;
@@ -353,6 +358,21 @@ export async function adoptFreeDaysFrom(t) {
   if (num(s.first) > 0 && !(t < num(s.first))) return false;
   changeLicence(x => { x.first = t; x.seen = Math.max(num(x.seen), t); });
   return true;
+}
+// What taking start t would do here, said before a backup file is brought back (js/backup.js's chooser): null when it
+// would change nothing the person would notice (licences off, paused or away; a licence that works; the days already
+// over or the clock wrong; t not plausible, or not earlier than this device's own start; the same days left and the same
+// last day), else { first: t, started (whether they had started here), trialLeft, trialEnds } as they would then be.
+// The days are counted as licenceNow counts them, from the latest time seen (which taking t moves on to t at least).
+export function freeDaysWith(t) {
+  const s = licenceNow();
+  if (!plausibleStart(t) || s.mode === 'off' || s.mode === 'away' || hasLicence(s) || !s.canEdit) return null;
+  if (s.started && !(t < num(s.first))) return null;
+  const at = Math.max(Date.now(), bridge() ? 0 : num(read().seen), t);
+  const left = x => Math.max(0, TRIAL_DAYS - Math.floor((at - x) / DAY)), ends = x => localDay(x + TRIAL_DAYS * DAY);
+  // A start a few hours earlier can move the last day without changing the days left, so both are compared.
+  if (s.started && left(t) === left(num(s.first)) && ends(t) === ends(num(s.first))) return null;
+  return { first: t, started: !!s.started, trialLeft: left(t), trialEnds: ends(t) };
 }
 
 // The licence server's time (the Date header of a JSON answer) corrects a device clock that was wound on ([S-38]).

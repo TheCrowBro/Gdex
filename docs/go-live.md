@@ -101,12 +101,19 @@ the terms gained your rule that the Audiophile is for personal use, not for work
 section 3 and section 12, and the one-time terms sheet's first line): the date stayed 14 November 2026 and `TERMS_VERSION`
 `'2026-11-14'`, since no device had agreed to the earlier words. On 15 November 2026, after the terms were published,
 Google Drive was switched on (step 6): section 7 lost its sentence "Google Drive works once Tourbook’s Google sign-in is
-switched on; until then Tourbook says Google Drive isn’t set up yet.", and nothing else in the terms changed. Since the
+switched on; until then Tourbook says Google Drive isn’t set up yet.", and nothing else changed then. Since the
 terms had been published the day before, their date moved to 15 November 2026 and `TERMS_VERSION` to `'2026-11-15'`
 (`docs/developers.md`, the legal pages; while licences are off the one-time terms sheet asks no one, so nobody is asked
 again now; section 18’s “Tourbook shows you the new terms the next time you use a working role” works only once licences
-are on, one more thing for the lawyer to look at). The privacy policy is dated the same day: its section 7 now says Google’s sign-in script runs only once you
-tap Connect Google Drive…, as its section 3 says, rather than once you connect. Tell the developer anything to change.
+are on, one more thing for the lawyer to look at). Later the same day, with your answer that backups should carry the
+free days (Answered, below), section 3 gained one point: "A backup file carries the day the free days started on the
+device it was saved on. Bringing it back on a device counts that device’s free days from that day, or from the device’s
+own start if that was earlier." Nothing else in the terms changed that day. The date stayed 15 November 2026 and
+`TERMS_VERSION` `'2026-11-15'`: no device could have agreed to the morning's words (the one-time terms sheet asks no one
+while licences are off), so nobody needs asking again (`js/terms.js`). The privacy
+policy is dated the same day: its section 7 now says Google’s sign-in script runs only once you tap Connect Google
+Drive…, as its section 3 says, rather than once you connect; and its sections 2 and 3 say what a backup file carries
+about the free days. Tell the developer anything to change.
 **Before licences are switched on (9(d)), a lawyer you choose reads the terms and the privacy policy** (you said you
 would find one); the developer makes the changes they ask for, dated the day they are made (with `TERMS_VERSION`).
 
@@ -349,6 +356,15 @@ Answered:
   every role from the next publish.
 - **A lawyer:** "I'll find a lawyer": a lawyer you choose reads the terms and the privacy policy before licences are
   switched on (step 1 and 9(d)).
+- **Backup files and the free days:** "Backups should carry the free days" (15 November 2026). Once licences are on, a
+  backup file (a plain one, a locked one inside its encryption, and the copy kept in a file) carries the day the working
+  roles' free days started on the device it was saved on, as Google Drive's copy does. Bringing it back counts this
+  device's free days from the earlier of its own start and the file's (a device that has not started takes the file's),
+  and before anything is brought back the chooser says so in one line when that changes the count: from which day, how
+  many days are left and until when, or that they are over. So a backup brought back in a private window keeps its free
+  days' start. While licences are off nothing is written into a file and nothing is taken from one. A plain backup is a
+  text file anyone can edit, so this stops the easy way round the free days, not a determined one. The terms (section 3)
+  and the privacy policy (sections 2 and 3) say so.
 
 Still open (the build goes ahead with these defaults meanwhile):
 
@@ -356,7 +372,4 @@ Still open (the build goes ahead with these defaults meanwhile):
    *Default: the workflow signs only when the secrets exist.*
 2. **The contact address** in Tourbook's terms, privacy page and emails, and so where replies to the emails go
    (`REPLY_TO`): the same as Vdex's? *Default: copied from Vdex's terms (support@crowmade.app), and `REPLY_TO` set to
-   it.*
-3. **Backup files and the free days:** someone can save a backup file, open Tourbook in a private window (fresh free days)
-   and bring the backup back there. Accept that, or make a backup file carry the free-days start too? *Default: accept
    it.*

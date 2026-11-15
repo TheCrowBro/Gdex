@@ -182,7 +182,8 @@ player is described under "The section menu" below.
 
 ### Device preferences
 
-Kept in `localStorage` on the device, never in the database, so backups do not carry them:
+Kept in `localStorage` on the device, never in the database, so backups do not carry them (but for the day the working
+roles' free days started, which a backup file carries beside the database once licences are on: "The licence", below):
 
 | Key | What | Erase this device |
 |---|---|---|
@@ -266,7 +267,8 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 * **Google Drive's seams.** `afterWrite(fn)` runs after `update`, `replaceAll` and `mergeIn`, never after
   `adopt(data)`, which takes in a merged copy from Drive without a new `updatedAt`, without `afterWrite` and without
   asking the gate (it redraws with reason `'sync'`). `replaceAll(data, { everywhere: true })` restamps and tombstones
-  so every connected device follows (below). `normalise` drops a top-level `freeDaysFrom`. Removing an act's time seen
+  so every connected device follows (below). `normalise` drops a top-level `freeDaysFrom` (the free days' start that
+  Google Drive's copies and backup files carry beside the database). Removing an act's time seen
   or a take writes `db.deleted[entryId]`.
 * **Every change goes through the store**: `upsert(list, record)` (new id if none; stamps `updatedAt`, `createdAt`;
   returns the stored record), `patch(list, id, fields)`, `remove(list, id)` (also removes references elsewhere: see the
@@ -1347,7 +1349,7 @@ the sheets at opening and `startFreeDays()` wait for it.
 | `canWrite()` | The store gate's answer: a working role after its free days, or after this visit's terms sheet was closed (`termsDeclined()`, only while the terms are still due), may not change things; the Audiophile's own writes always pass. |
 | `workMark()` / `sectionMark(id)` / `roleBadge(id)` | The marks and words of §9.2-9.3 ("30 days free", "🔒 Licence"), `null` or `''` while off. |
 | `startFreeDays()` / `toastStarted()` | Starts the free days (after the status, so a pause is respected; the terms sheet first) / says so once per start. Once they have started, or with a licence, it asks the terms again of a working role in use while they are due (changed since they were agreed: "The terms have changed"); the role picker asks them before a working role is set. Not now: read-only for the visit. |
-| `freeDaysFrom()` / `adoptFreeDaysFrom(t)` | This device's start, for Google Drive / an earlier start from Drive, taken without asking the terms ([S-39]); they are asked at the next opening in a working role. |
+| `freeDaysFrom()` / `adoptFreeDaysFrom(t)` / `freeDaysWith(t)` | This device's start, for Google Drive's copies and backup files (0 while off, paused or not started) / an earlier start from Drive or from a backup file brought back, taken without asking the terms ([S-39]); they are asked at the next opening in a working role / what taking `t` would do here, for the bring-back chooser's line: `null` when nothing the person would notice changes, else `{ first, started, trialLeft, trialEnds }`. |
 | `serverTime(ms)` / `refreshLicence()` / `onLicenceChange(fn)` / `LICENCE_EVENT` | The licence server's time from a JSON answer's `Date` header / recompute now / every change, also as the window event `tourbook-licence`. |
 
 Rules: a page never compares `roleId()` to decide the licence: it asks these. `window.logiGo(id)` resolves `true` once
@@ -1372,6 +1374,21 @@ right; the `Date` header of the licence server's JSON answers puts the stored va
 key 2 from `js/licence-keys.js`) verifies it and its `ref` and email match; one that fails is removed ([S-40]). A page
 on `localhost` at a port in 47861-47880 without `window.tourbookDesktop` is the desktop app's files in a browser: mode
 `away`, every working section and role locked, Google Drive refused ([S-42]).
+
+**Backup files carry the free days** (the owner, 15 November 2026: "Backups should carry the free days"; `docs/go-live.md`,
+Answered). A whole-database file Tourbook writes (Save a backup, the locked one inside its encryption, the copy kept in
+a file: `fileText()` in `js/backup.js`) is the database's own keys, then `freeDaysFrom`, this device's start, as Google
+Drive's copy is; while licences are off or paused, or before the days start, there is none and the file is exactly
+`store.exportJSON()`. The copy kept in a file is written again when the start changes with no change to the data. Bringing
+a file back (the chooser, for a backup file and a daily copy alike) takes the field out first, only from a file that says
+`app: 'tourbook'` (a Gdex-era file never carried one; anything else's is dropped unread). When `freeDaysWith(t)` says the
+count changes, a line under the file's card says so before anything is chosen (`.se-imp-days`: from which day, the days
+left and the last day, or a warning that they are over and the working roles become read-only). Once the person has
+merged or replaced, the start goes to `adoptFreeDaysFrom` (the same plausibility rules as Drive's: from 2026, at most a
+day ahead): never on Cancel or Escape, a refused file, a change the gate refuses or Drive unread. With Drive linked, the
+next sync carries the earlier start to every connected device. `normalise` drops the field, so the database never holds
+it. A plain backup is text anyone can edit: this stops the easy way round the free days (a private window with a backup
+brought back), not a determined one. Checks in `93-backup-days`, `70-settings`, `78-licence-desktop-ui` and `09-from-gdex`.
 
 **When the licence server is asked** ([S-43]), and only where licences are live: the status at most every 6 hours, and
 only while a working role is in use, the free days have started, or the browser is signed in; the price only where a
@@ -1414,7 +1431,8 @@ contract is in `docs/licence-server.md` (for the developer).
   behind or ahead, what that can undo (a slow clock: what is changed or deleted here; a fast one: what is changed on the
   other devices), and to let the date and time set themselves. Checks in `90-drive`.
 * `freeDaysFrom` is taken out of every copy read and handed to `adoptFreeDaysFrom`; it is written back as the earliest
-  known; `normalise` drops it, so it never enters the database, a backup file or a restore.
+  known; `normalise` drops it, so it never enters the database. A backup file carries this device's start the same way
+  ("Backup files carry the free days", under "The licence").
 * Drive's state goes to `onDriveChange(fn)` listeners only (`js/backup.js`: the ☁ button and the panels), never
   through the store's redraw, so a sync never redraws the page or moves the focus.
 * Erase this device first syncs from the tap (`driveBehind()` in `js/backup.js`: `syncNow({ ask: true })`, so a sign-in
@@ -1447,7 +1465,7 @@ caller tests for the member it uses, because specs stand in for parts of it):
 | `checkForUpdates()`, `updateState()`, `installUpdate()`, `openDownload()`, `onStatus(cb)` | the update state `{ status, version, available, progress, url, error }` (`js/update.js` `desktop()`) |
 | `googleSignIn({ client, scope, hint })` | Google's token answer, or `{ error: 'access_denied' \| 'popup_closed' \| 'timed_out' \| 'replaced' \| 'address_taken' \| 'failed' \| 'refused' }`; only `drive.appdata` with a `….apps.googleusercontent.com` client |
 | `licence.state()` | the state with `kind: 'desktop'`, `enabled`, `buyUrl`, `os`, `seats`, `mode`, `canEdit`, `started`, `first`, `trialLeft`, `trialEnds` and `licence` (null without a code, else with `issued`); a pending state adds `daysLeft`; `'off'` has `started: false`, `first: 0`; in mode `clock`, decide by the mode, not `trialLeft` |
-| `licence.start()`, `licence.adopt(t)` | start the free days / take an earlier start from Drive: the new state, also sent as `licence:changed` |
+| `licence.start()`, `licence.adopt(t)` | start the free days / take an earlier start from Drive or from a backup file brought back: the new state, also sent as `licence:changed` |
 | `licence.enter(code, { release })` | the state (with `offline: true` when the server did not answer), `{ error }`, `{ error: 'expired', expires }` (an ended code: the page writes the date as About does), or `{ error: 'full', computers, swapsLeft, seats }`; while off `{ error: 'This version of Tourbook does not use licence codes yet: every role is free.' }` |
 | `licence.recheck()`, `licence.release()`, `licence.code()`, `licence.buy()`, `licence.localPrice()`, `licence.onChange(cb)` | as Vdex's; `localPrice()` is `null` while off and asks nothing; `release()` while off keeps the code and asks nothing |
 
@@ -1568,7 +1586,7 @@ backline, take, comp, stems, split sheet.
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
   | `90-drive` | its own contexts take the same seed |
   | `09-from-gdex` | seeds Gdex's keys, which the copy brings over: in the on leg also Gdex's free days under way, and checks that what it brings only ever moves the start of the free days earlier, never later, and that free days over under Gdex stay over |
-  | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92` | set their own state, or none: the same in both legs |
+  | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92`, `93` | set their own state, or none: the same in both legs |
 
 * The licence's own specs stand the licence server in with Playwright routes (75-78, with a `Date` header and a
   throw-away Ed25519 key), or run the real one in Miniflare (79, 81: `npm ci --prefix cloudflare`; SKIP without it,
@@ -1588,7 +1606,7 @@ backline, take, comp, stems, split sheet.
   and the real desktop licence against it); the server's `80-licence-codes`, `81-licence-worker`, `82-site-publish`,
   `83-legal-pages`; the desktop's `85-desktop-licence`, `86-download-page` and `tests/desktop.mjs` (Electron under
   xvfb, behind a recording proxy that fails on any outside host); Drive's `90-drive`, `91-drive-merge`,
-  `92-drive-desktop`.
+  `92-drive-desktop`; and `93-backup-days` (backup files carry the free days: licence and backups).
 * Test what a person does: open the section, tap the buttons, fill the forms, check what shows and what is stored.
 * `window.tourbookAudioState()` (from `js/audio.js`) reports live audio (context, microphone tracks, tuner, metronome,
   meter, timer, wake lock): a spec can check that leaving a page leaves nothing listening.
@@ -1617,7 +1635,7 @@ need a change there, describe it in your report instead.
 | settings | `js/pages/settings.js`, `js/backup.js`, `css/settings.css`, `tests/specs/70-settings.cjs` |
 | search | `js/search.js`, `css/search.css`, `tests/specs/46-search.cjs` |
 | card | `js/pages/card.js`, `css/card.css`, `tests/specs/49-my-card.cjs` |
-| licence | `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `css/licence.css`, and the licence's lines in the pages it gates; `tests/specs/75`–`79`. Nobody but the owner's publish changes `js/licence-config.js` or `desktop/licence-on.json`. |
+| licence | `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `css/licence.css`, and the licence's lines in the pages it gates (the free days in `js/backup.js`'s files and chooser among them); `tests/specs/75`–`79`, `93`. Nobody but the owner's publish changes `js/licence-config.js` or `desktop/licence-on.json`. |
 | server | `cloudflare/*`, `tools/stage-site.mjs`, `tools/build-generator.mjs`, `tools/licence-generator*.html`, `docs/licence-server.md`, `docs/go-live.md`, `.github/workflows/publish.yml`, `terms.html`, `privacy.html`; `tests/specs/80`–`83` |
 | desktop | `desktop/*`, `.github/workflows/desktop.yml` and the tests workflow's `desktop` job, `package.json`, `package-lock.json`, `js/version.js`, `js/update.js`, `js/install.js`, `js/daysheet-page.js`, `download.html`, `docs/desktop.md`, `tests/desktop.mjs`; `tests/specs/85`, `86` |
 | drive | `js/drive.js`, `js/sync.js`, `js/cloud-config.js`, the Drive parts of `js/backup.js` and `css/settings.css` (`.se-bk-drive*`, `.se-bk-connect*`, `.se-bk-copy*`), `store.mergeDb`, `docs/drive.md`; `tests/specs/90`–`92` |

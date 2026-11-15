@@ -249,6 +249,24 @@ const OLD_KV = [['licence-days', { first: T - 864e5, seen: T }], ['note', 'kept 
     ok('…and a locked one ({ gdex: "encrypted-backup" }) asks for its passphrase and opens', /In the file:\s*1 act\b/.test(await page.innerText(BRING)));
     await page.click(`${BRING} .btn.ghost`); await sleep(250);
     ok('…both only offered: nothing was changed until asked', (await page.evaluate(() => import('./js/store.js').then(s => s.db.acts.length))) === 0);
+    // A Gdex-era file carrying a free days' start (Gdex never wrote one: licences were off) is brought back without it. Only
+    // a file saved as Tourbook's carries one (js/backup.js): no line in the chooser and, after Merge, this device's start is
+    // as it was (none in the off leg; the licence leg's seed in the other), and the database never holds it.
+    const firstNow = () => page.evaluate(() => (JSON.parse(localStorage.getItem('tourbook-licence') || 'null') || {}).first || 0);
+    const startBefore = await firstNow(), earlier = Date.now() - 9 * 864e5, lines = [];
+    const lockedDays = await page.evaluate(([db, from]) => import('./js/crypto.js').then(async C => {
+      const salt = C.bytes(16), iter = 1000, box = await C.encrypt(await C.pbkdf2Key('old gdex passphrase', salt, iter), JSON.stringify({ ...db, freeDaysFrom: from }));
+      return JSON.stringify({ gdex: 'encrypted-backup', v: 1, exported: new Date().toISOString(), kdf: { salt: C.toB64(salt), iter }, iv: box.iv, ct: box.ct });
+    }), [OLD_DB, earlier]);
+    for (const [name, body] of [['gdex-backup-2026-11-02.json', JSON.stringify({ ...noSongs, freeDaysFrom: earlier })], ['gdex-backup-2026-11-02.locked.json', lockedDays]]) {
+      await pick(name, body);
+      if (/locked/.test(name)) { await page.waitForSelector(LOCKED, { timeout: 15000 }); await page.fill('#se-pass-1', 'old gdex passphrase'); await page.click(`${LOCKED} button[type=submit]`); }
+      await page.waitForSelector(BRING, { timeout: 15000 });
+      lines.push(await page.locator(`${BRING} .se-imp-days`).count());
+      await page.click(`${BRING} .se-imp-merge`); await page.waitForSelector(BRING, { state: 'detached', timeout: 10000 }); await sleep(500);
+    }
+    const daysAfter = await firstNow(), inDb = await page.evaluate(() => 'freeDaysFrom' in JSON.parse(localStorage.getItem('tourbook-db-v1') || '{}'));
+    ok('…a Gdex-era file (plain or locked) carrying a free days\' start: no line, and after Merge this device\'s start is as it was', lines.every(n => n === 0) && daysAfter === startBefore && !inDb && (await page.evaluate(() => import('./js/store.js').then(s => s.db.acts.length))) === 1, JSON.stringify({ lines, startBefore, daysAfter, inDb }));
     errors.push(...e2);
     await b2.close();
   }

@@ -149,7 +149,9 @@ that (when Tourbook opens, at the latest).
 
 - `tourbook-db.json`: the shared copy, the database as JSON with two-space indent, plus one top-level field after the
   database's own, `freeDaysFrom` (ms): the earliest day any device on that Drive started its free days (the build
-  spec [S-39]). `normalise` drops it, so it never enters the local database, a backup file or a restore.
+  spec [S-39]). `normalise` drops it, so it never enters the local database. A backup file carries this device's start
+  the same way (`docs/developers.md`, "Backup files carry the free days"), and a daily copy brought back with the
+  chooser hands its start over as a backup file does.
 - `tourbook-backup-mon.json` … `tourbook-backup-sun.json` (overwritten each week) and `tourbook-backup-YYYY-MM.json` (written when
   that month has none; monthly files beyond the last 12 are deleted). They carry `freeDaysFrom` too.
 - `tourbook-db-unreadable-YYYY-MM-DD.json`: a shared copy Tourbook could not read, kept as it was when the person chose Put

@@ -123,6 +123,11 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   ok('a backup downloads as tourbook-backup-YYYY-MM-DD.json', /^tourbook-backup-\d{4}-\d{2}-\d{2}\.json$/.test(bk.name), bk.name);
   ok('the backup is a Tourbook file with the records', saved.app === 'tourbook' && saved.bookings.some(b => b.id === 's-show1') && saved.songs.length === 10 && saved.profile.name === 'Maya Brooks');
   ok('the time of the backup is remembered', Number(await run(page, () => localStorage.getItem('tourbook-backup-at'))) > Date.now() - 60000);
+  // Backups carry the free days (js/backup.js), only once licences are live and the free days have started: none in the
+  // off leg; in the licence leg the start tests/helpers.cjs seeded, as the file's last key, after the database's own.
+  const leg = process.env.TOURBOOK_LICENCE === 'on' ? 'on' : 'off';
+  const seeded = await run(page, () => (JSON.parse(localStorage.getItem('tourbook-licence') || 'null') || {}).first || 0);
+  ok(`the backup carries freeDaysFrom only with licences live and started (${leg} leg: ${leg === 'on' ? 'the seeded start, as the last key' : 'none'})`, leg === 'on' ? seeded > 0 && saved.freeDaysFrom === seeded && Object.keys(saved).pop() === 'freeDaysFrom' : !('freeDaysFrom' in saved) && seeded === 0, JSON.stringify({ leg, seeded, field: saved.freeDaysFrom }));
   await sleep(200);
   ok('the panel says when the last backup was', /Last backup just now/.test(await text(page, '#page .se-bk-status')) && (await page.getAttribute('#page .se-bk-status', 'data-level')) === 'ok');
   ok('the section line follows without a redraw', /Last backup just now/.test(await text(page, '#se-backups .se-sub')));
@@ -159,6 +164,7 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   d = await data(page);
   ok('replace makes this device like the file', !d.venues.some(v => v.id === 't-local') && !d.songs.some(s => s.id === 't-new') && d.songs.find(s => s.id === 's-song1').title === 'Harbour Lights' && d.bookings.length === saved.bookings.length);
   ok('replace keeps the details from the file', d.profile.name === 'Maya Brooks' && d.profile.currency === '£');
+  ok('…and the database never holds freeDaysFrom, whatever the file carried', !('freeDaysFrom' in d) && !('freeDaysFrom' in JSON.parse(await run(page, () => localStorage.getItem('tourbook-db-v1')))));
 
   // Files that are not Tourbook backups are refused, and nothing changes.
   const before = (await data(page)).bookings.length;
