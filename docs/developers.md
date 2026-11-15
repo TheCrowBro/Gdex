@@ -274,7 +274,8 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   returns the stored record), `patch(list, id, fields)`, `remove(list, id)` (also removes references elsewhere: see the
   code), or `update(d => { …mutate d…; rec.updatedAt = Date.now(); })` for anything else. A change saves and redraws.
 * Ids: `uid()` from `util.js`. Dates: `'YYYY-MM-DD'`. Times of day: `'HH:MM'`. Instants (clocks, takes): ms epoch.
-  Durations of songs: seconds. Money: plain numbers (the currency symbol is `db.profile.currency`).
+  Durations of songs: seconds. Money: plain numbers, in your currency (`db.profile.currency`, the symbol) unless a quote
+  or an invoice carries its own ("The currency" below).
   Whatever is loaded or brought back from a backup goes through `normalise`: a booking's `date` and `endDate` are text
   or `''`, and its `title`, `client`, `venueName` and `address` text (a number becomes text, anything else `''`).
 * Numbers typed in forms arrive as numbers from `type: 'number'` fields but as **strings** from `rows` columns:
@@ -317,7 +318,8 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
 
 ### Records
 
-`db.profile`: `{ name, business, role, phone, email, website, location, address, currency, bio, updatedAt }`
+`db.profile`: `{ name, business, role, phone, email, website, location, address, currency, currencyCode, currencyCountry, bio, updatedAt }`
+(`currency`, `currencyCode`, `currencyCountry`: your currency, set together; "The currency, chosen by country" below)
 
 `bookings`:
 ```js
@@ -340,7 +342,7 @@ import { db, update, upsert, patch, remove, byId, subscribe } from '../store.js'
   people: [personId], gear: [gearId], gearQty: { gearId: n }, kits: [kitId],
   checks: { checkId: true },                       // advance / session checklist (js/blocks/advance.js)
   budget: [{ id, cat, desc, amount }],             // our costs (travel, hotel, hire…)
-  quote, invoice,                                  // documents, owned by js/money.js
+  quote, invoice,                                  // documents, owned by js/money.js; each with its currency, code, country
   daySheet: { sentAt, sig },                       // when the day sheet was last sent, and a fingerprint of it (daysheet)
   went,                                            // 'no' = "Didn’t go" (shows); the key is absent otherwise: test b.went === 'no'
   notes, createdAt, updatedAt }
@@ -424,6 +426,63 @@ own `title` (and `duration`). `isBreak` is a set break ("SET 2", "ENCORE" headin
 `db.templates[kind]`: the person's own checklist lines per kind (advance block). `db.billing`, `db.priceList`: owned
 by `js/money.js`.
 
+### The currency, chosen by country (`js/money-currency.js`)
+
+The owner's words (15 Nov 2026): "Quote's and invoices should let you choose your country currency".
+
+* **Yours** is three fields of the one record `db.profile`, so a merge of two devices always takes them together:
+  `currency` (the symbol on every amount, `model.currency()`, `$` on a new device), `currencyCode` (the ISO 4217 code
+  payment links and the bank QR use) and `currencyCountry` (the country picked, ISO 3166 alpha-2, so the chooser shows it
+  again); `''` until a country is picked. `mine()` reads them; for a profile from before (a symbol and no code) the code is
+  the old "Currency for payment links" (`db.billing.currencyCode`, still read, never written), else the one the symbol
+  stands for (`money-pay.js` `knownCode`; `'kr'` with no code is the device's krone or krona, NOK, DKK or ISK, else
+  SEK; `'$'` stays USD everywhere). `applyMine` never writes `db.billing`: a currency picked on a new device leaves its
+  billing untouched, so it never becomes the newer copy that would replace another device's numbering, tax and bank
+  details in a merge (and a profile holding only a currency still counts as empty there, so a filled-in one wins). One
+  chooser sets the three together, in one `update` (`applyMine`): at the top
+  of Settings → Quotes & invoices (`myCurrencySelect`, saved on change), in Your details (the form's select, filled by
+  `onReady`; saved with the form) and in the welcome tour's details card (saved on Next). The old "Currency for payment
+  links" select is gone: there is no second setting. A role without money has no Quotes & invoices and sets it in Your
+  details. Settings → Quotes & invoices' closed line starts with it (`£ GBP · …`).
+* **The chooser** (`currencySelect(cur, { sel, id, prefer, suggest, onchange })`): every country in `COUNTRY_CURRENCY`
+  (a compact table in the module: 244 countries and territories people live in, by currency; 2026: Croatia and Bulgaria
+  in euros, Curaçao and Sint Maarten in XCG, Zimbabwe in ZWG), labelled `United Kingdom — £ GBP` (`Switzerland — CHF`
+  when the symbol is the code), sorted by the name in the device's language (`Intl.DisplayNames`, `Intl.Collator`); under
+  an optgroup "Suggested" first, the device's own country (`deviceRegion()`, from `navigator.languages` through
+  `Intl.Locale`, a language alone maximized) and any `suggest` (a document's editor adds yours), then "Every country".
+  The symbol is `Intl.NumberFormat('en', { currencyDisplay: 'narrowSymbol' })` (`symbolFor`: the same on every device;
+  the code where Intl has none or one over 6 characters). Its value is a country, or `'keep'` for the currency as it is
+  when no country fits it: `curLabel` says "Other — Fr." (a symbol typed by hand), "Other — A$ AUD" (an older symbol
+  with a known code), or "Euro — € EUR" (a known currency with no country picked and none to prefer). Which country is
+  shown (`countryOf`): the one stored, then those preferred, then the device's, then the one the code is named after
+  (USD → US), then the only one using it, only while the symbol is that code's own. `picked(sel)` is the choice, or `null` when it was left as
+  it was: **nothing stored changes unless a country is picked**, and a new device stays `$` / USD (the region is only
+  suggested).
+* **A quote or an invoice** carries its own: `currency` (symbol), `code` and `country` (`docFields(c)`), picked in its
+  editor (`#mn-ed-currency`, starting as yours, saved only when picked), or yours stamped on it by `saveDoc` the moment it
+  leaves draft (sent, accepted, paid…), so a document that went to a client never changes currency; an invoice made from
+  a quote takes the quote's. A draft with none follows yours (set your currency after making one and it follows), as
+  does a document from before: read it only through `docCur(doc)`. The box, the editor, payments, the snapshot
+  (`currency`, `code`, and `showCode` when it is not in your currency and its symbol alone could be another, `'$'`: the
+  document then says "Total (USD)", and the client's page and the email "$1,500.00 USD", `money-doc.js` `docAmount`),
+  the Pay buttons and the bank QR all use it, each only in a currency it takes: PayPal with the code, Venmo and Cash App
+  the amount in US dollars only, Monzo in pounds only (else no amount, the reference kept), the bank QR the amount in
+  euros only, as before, and a payment page with `{amount}` only on a document in your own currency (the snapshot's
+  `own`; it is left off one in another). Its editor's walkthrough has a Currency step.
+* **Never added across currencies:** `sums()` keeps one total per currency (`curKey`: the code, else the symbol) and
+  lists yours first; `sumsText` is `£1,200` for one and `£1,200 GBP + €800 EUR` for several, and keeps the code on one
+  alone that is not yours when its symbol is shared (`symShared`: `$400 USD` for someone in Canadian dollars). A
+  document's amount in a list (the unpaid list, the box's line, the search's Money tab) is `docMoney(n, doc)`: in its
+  currency, with its code when `codeNeeded(doc)`. The Money page's stats are
+  one line per currency (`.mn-cur-line`), a month's bar is drawn in yours with any other currency named beside it, an
+  act's earnings and profit are per currency (merch and costs are yours), the unpaid list shows each invoice in its own,
+  and both spreadsheets end with a Currency column (the shows': the fee's). What a booking brings in is in its
+  invoice's currency when `model.incomeInvoice(b)` gives the invoice `bookingIncome` reads. The Costs box shows such
+  income in its currency and works out no profit across currencies. The search reads a document's amounts in its own.
+* Normalise (`blank()` has `currencyCode` and `currencyCountry` in the profile), backups, Drive's merge (each document
+  with its booking; your currency with the profile, by its rules) and the share page (`cleanSnapshot` keeps `showCode` and
+  `own`; a link from before has no `own` and counts as in the sender's currency) keep every field. Checks: `26-currency`.
+
 ## The music model (`js/model.js`)
 
 Constants: `KINDS`, `STATUSES`, `statusesFor`, `statusLabel`, `statusTone`, `kindLabel`, `kindIcon`, `SHOW_TIMES`,
@@ -432,7 +491,8 @@ Constants: `KINDS`, `STATUSES`, `statusesFor`, `statusLabel`, `statusTone`, `kin
 Helpers: `seenOf(a)`, `seenStats(a)`, `seenWhere(s)`, `ratingOf(s)`, `seenEntryFor(a, b)`, `actShowsOn(actId, iso)`, `onlyShowOn(actId, iso)`, `actUpcoming(a)`, `bookingTitle(b)`, `actName(id)`, `venueOf(b)`, `firstTime(b)`, `lastDate(b)`, `coversDay(b, iso)`, `fmtDur(sec)`,
 `parseDur(text)`, `fmtMin(min)`, `addMinutes('HH:MM', min)`, `minutesBetween(a, b)`, `setlistLength(list)`,
 `itemTitle(item)`, `fmtMoney(n, sym?)`, `currency()`, `dealPays(deal, gross)`, `dealSummary(deal)`, `dealBest(deal)`,
-`settle(b)`, `sessionFee(b, hours?)`, `sessionHoursPlanned(b)`, `bookingIncome(b)`.
+`settle(b)`, `sessionFee(b, hours?)`, `sessionHoursPlanned(b)`, `bookingIncome(b)`, `incomeInvoice(b)` (the invoice
+`bookingIncome` reads, or `null`: its currency is the income's).
 
 Gear by band: `PAID_BY` (`['me', 'band']`), `gearActId(g)` (the act's id when it is in Acts, else `''`),
 `gearPaidBy(g)` (`'me'`, `'band'`, a person's id when they are in People, else `''`: not known), `gearWorth(list)` (the
@@ -640,7 +700,8 @@ may call it.
 | `pages/venues.js` `openVenue(id)` / `editVenue(v, onSaved)` / `venueWarnings(b)` | venues | View sheet / edit form / warnings for a booking at that venue (curfew before the set ends, noise limit, capacity < tickets…) as strings. |
 | `js/daysheet.js` `openDaySheet(bookingId)` / `printDaySheet(bookingId)` | daysheet | Preview sheet / print. |
 | `js/money.js` `docOf(b, 'quote'|'invoice')` / `docTotals(doc)` / `isOverdue(b)` | money | The document or null / `{ net, tax, total, paid, due }` / unpaid past due. |
-| `js/money.js` `billingPanel()` / `priceListPanel()` | money | Nodes for Settings: numbering, tax, payment details; the person's price list. |
+| `js/money.js` `billingPanel()` / `priceListPanel()` | money | Nodes for Settings: your currency (at the top), numbering, tax, payment details; the person's price list. |
+| `js/money-currency.js` `mine()` / `docCur(doc)` / `currencySelect(cur, opts)` / `picked(sel)` / `applyMine(d, c)` / `setMine(c)` / `sums()` / `sumsText(list)` / `docMoney(n, doc)` / `curLabel(c)` | money | Your currency and a document's (`{ sym, code, country }`) / the country chooser and what was picked in it / set yours inside an update (in the profile), or on its own / totals kept per currency / a document's amount in a list, with its code where its symbol could be yours / a currency in words ("The currency, chosen by country" above). |
 | `js/clock.js` `initClockBar(el)` / `clockCard(b)` | studio | The strip under the section menu while a clock runs / start-stop card. |
 | `js/clock.js` `clockHours(bookingId)` / `runningShift()` | studio | Hours worked by the clock, breaks taken off (money bills them) / the running shift or null. |
 | `js/backup.js` `openBackupSheet()` / `nudgeIfStale()` / `backupPanel()` | settings | ☁ sheet / an occasional reminder / the panel used in Settings. |
@@ -1623,7 +1684,9 @@ backline, take, comp, stems, split sheet.
   contracts under the calendar, the question, the menus and house rules), `08-sheets` (core: a sheet's dim backdrop,
   tapped with a finger and clicked), `09-from-gdex` (core: the one-time copy from Gdex's names, and the old name nowhere
   else), `10-bookings`, `11-order` (same-day order and
-  the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `30-studio`,
+  the overlap note), `12-roles-bookings`, `13-calendar`, `15-show`, `20-daysheet`, `25-money`, `26-currency` (the
+  currency by country: the chooser, the region first, what was stored before, a document's own, totals per currency),
+  `30-studio`,
   `35-songs`, `40-acts`, `41-seen`, `42-roles-acts`, `43-ask`, `44-formerly` (a renamed act), `45-people`,
   `46-search`, `47-genres` (main genres: the model's table and the list in groups), `48-song-folds` (a song's album
   and the songs list in folds), `49-my-card`, `50-backline`, `50-sample-qr` (an act's sample work: the model's
@@ -1654,7 +1717,7 @@ need a change there, describe it in your report instead.
 | bookings | `js/pages/bookings.js`, `js/bookings-cal.js` (the calendar's views), `js/blocks/advance.js`, `js/blocks/lineup.js`, `js/blocks/notes.js`, `js/ics.js`, `css/bookings.css`, `tests/specs/10-bookings.cjs`, `tests/specs/11-order.cjs`, `tests/specs/12-roles-bookings.cjs`, `tests/specs/13-calendar.cjs` |
 | show | `js/blocks/deal.js`, `js/blocks/running.js`, `js/blocks/guests.js`, `js/blocks/settlement.js`, `css/show.css`, `tests/specs/15-show.cjs` |
 | daysheet | `js/daysheet.js`, `js/blocks/daysheet.js`, `daysheet.html`, `js/daysheet-page.js`, `css/daysheet.css`, `tests/specs/20-daysheet.cjs` |
-| money | `js/money.js`, `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs` |
+| money | `js/money.js`, `js/money-currency.js` (the currency, chosen by country), `js/blocks/money.js`, `js/blocks/budget.js`, `js/pages/money.js`, `invoice.html`, `js/invoice-page.js`, `css/money.css`, `tests/specs/25-money.cjs`, `tests/specs/26-currency.cjs` |
 | studio | `js/clock.js`, `js/blocks/clock.js`, `js/blocks/takes.js`, `js/blocks/worksongs.js`, `js/blocks/deliverables.js`, `js/pages/sessions.js`, `css/studio.css`, `tests/specs/30-studio.cjs` |
 | songs | `js/pages/songs.js`, `js/setlist.js`, `js/blocks/setlist.js`, `css/songs.css`, `tests/specs/35-songs.cjs`, `tests/specs/48-song-folds.cjs` |
 | acts | `js/pages/acts.js`, `js/acts-ask.js` ("Did you see them?"), `js/acts-sample.js` (sample work), `css/acts.css`, `tests/specs/40-acts.cjs`, `tests/specs/41-seen.cjs`, `tests/specs/42-roles-acts.cjs`, `tests/specs/43-ask.cjs`, `tests/specs/44-formerly.cjs`, `tests/specs/47-genres.cjs`, `tests/specs/50-sample-qr.cjs` |

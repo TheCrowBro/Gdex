@@ -111,6 +111,16 @@ form has the two boxes, and the item's sheet says what they hold; the figures sh
 Money in and out stays on the Money page, and the inventory, stage packs and everything printed are as they were. Search
 finds an item by its band's name too.
 
+**Your currency, chosen by country.** At the top of **Settings → Quotes & invoices** (and in Your details and the welcome
+tour) one list holds every country with its currency, "United Kingdom — £ GBP", A to Z, with the country your device is
+set to first. Picking one sets the symbol on every amount and the code your Pay buttons and bank QR code use, together.
+Each quote and invoice has its own **Currency** in its editor, from the same list and starting as yours, for work
+abroad: an invoice in euros has € on it and asks for euros with its Pay buttons and bank QR code (Venmo, Cash App and
+Monzo, which take only dollars or pounds, open without the amount, and a card page with {amount} is left off), and once
+sent a document keeps its currency whatever you change yours to. The Money page never
+adds two currencies together: it shows a total for each ("£900 GBP + €400 EUR"). A new device starts in US dollars until
+you pick, and a currency typed by hand in an older version stays as it is until you pick a country.
+
 ## The calendar
 
 - **Five views:** Month, 2 weeks, Week, 3 days and Day, from the row of buttons above the calendar. Month, 2 weeks
@@ -173,7 +183,7 @@ found somewhere, in any order; capitals and accents don't matter.
 5. **Day sheet:** print it, or send the band a link with the times, address, line-up and setlist. It never shows money.
 6. **On the night: Settlement.** Tickets, comps, merch counts and costs; Tourbook works out what the band made and each
    person's share.
-7. **Quote & invoice:** made from the booking, with Pay buttons in the link you send.
+7. **Quote & invoice:** made from the booking, in your currency or the client's, with Pay buttons in the link you send.
 
 ## Your first studio session
 

@@ -5,7 +5,10 @@
 // live in db.billing, the price list in db.priceList (Settings shows billingPanel() and priceListPanel()).
 //
 // A document: { number, status, issued, due, lines: [{ id, desc, qty, unit, price }], taxRate, taxName, notes,
-//   payments: [{ id, date, amount, method }], sentAt, acceptedAt, paidAt, createdAt, updatedAt }.
+//   payments: [{ id, date, amount, method }], currency, code, country, sentAt, acceptedAt, paidAt, createdAt, updatedAt }.
+// currency, code and country are its own currency (js/money-currency.js): picked in its editor, or yours, kept from the
+// moment it is sent, so a document that went to a client never changes currency. A draft with none is in yours, as is a
+// document from before.
 // Quote statuses: draft, sent, accepted, declined. Invoice statuses: draft, sent, paid, void.
 import { h, sheet, toast, uid, todayISO, parseISO, ymd, fmtLong } from './util.js';
 import { db, byId, update, canChange } from './store.js';
@@ -15,8 +18,9 @@ import { clockHours, plannedHours } from './clock.js';
 import { sheetTutorial } from './tour.js';
 import { printElement, docPage, saveFile, fileName } from './print.js';
 import { shareBase } from './version.js';
-import { KINDS, calc, renderDoc, docText, docTitle, statusLabel, fmtDoc, dateText, qtyText, isPaidDoc } from './money-doc.js';
-import { CURRENCIES, codeFor } from './money-pay.js';
+import { KINDS, calc, renderDoc, docText, docTitle, statusLabel, fmtDoc, docAmount, dateText, qtyText, isPaidDoc } from './money-doc.js';
+import { codeFor } from './money-pay.js';
+import { mine, docCur, docFields, codeNeeded, sameCur, currencySelect, myCurrencySelect, picked, curLabel } from './money-currency.js';
 export { KINDS, statusLabel, calc, qtyText };
 // The QR maker and the link packer load only when a document with a bank QR is drawn or a link is made.
 const qrSvg = (text, opts) => import('./qr.js').then(m => m.qrSvg(text, opts));
@@ -38,7 +42,7 @@ const DEF = {
 };
 export const billing = () => ({ ...DEF, ...(db.billing && typeof db.billing === 'object' ? db.billing : {}) });
 export function setBilling(patch) { update(d => { d.billing = { ...DEF, ...(d.billing && typeof d.billing === 'object' ? d.billing : {}), ...patch, updatedAt: Date.now() }; }); }
-export const currencyCode = () => billing().currencyCode || codeFor(currency());
+export const currencyCode = () => mine().code || codeFor(mine().sym);
 
 /* ------------------------------- documents ------------------------------- */
 // The document on a booking, with its lists always present, or null.
@@ -81,6 +85,8 @@ export function saveDoc(bookingId, kind, next) {
   if (!b) { toast('That booking has been deleted.'); return false; }
   const prev = docOf(b, kind) || {}, now = Date.now(), doc = { ...next, updatedAt: now };
   if (doc.status !== 'draft' && !doc.sentAt) doc.sentAt = now;
+  // Sent (or past it) with no currency of its own: it keeps the one it went out in, yours now.
+  if (doc.status !== 'draft' && !(typeof doc.currency === 'string' && doc.currency.trim())) Object.assign(doc, docFields(mine()));
   if (kind === 'quote' && doc.status === 'accepted' && !doc.acceptedAt) doc.acceptedAt = now;
   // An invoice whose payments already cover it (the deposit and the night's takings came in) is paid, not just sent.
   if (kind === 'invoice' && doc.status === 'sent' && Array.isArray(doc.payments) && doc.payments.length && calc({ ...doc, status: 'sent' }).total > 0 && calc({ ...doc, status: 'sent' }).due <= 0.005) doc.status = 'paid';
@@ -170,16 +176,17 @@ export function createDoc(bookingId, kind, source = 'booking') {
   if (!b) { toast('That booking has been deleted.'); return null; }
   if (docOf(b, kind)) return docOf(b, kind);
   const bl = billing(), today = todayISO(), now = Date.now();
-  let lines = [], payments = [], notes = '', taxRate = num(bl.taxRate), taxName = String(bl.taxName || 'Tax');
+  let lines = [], payments = [], notes = '', taxRate = num(bl.taxRate), taxName = String(bl.taxName || 'Tax'), cur = null;
   if (source === 'quote' && docOf(b, 'quote')) {
     const q = docOf(b, 'quote');
     lines = q.lines.map(l => ({ ...l, id: uid() })); taxRate = num(q.taxRate); taxName = q.taxName || taxName;
+    if (typeof q.currency === 'string' && q.currency.trim()) cur = docCur(q); // the invoice is in the quote's own currency
     payments = suggestLines(b, kind).payments; // a deposit already paid comes off the invoice
   } else if (source === 'booking') ({ lines, payments, notes } = suggestLines(b, kind));
   let doc = null;
   update(d => {
     const x = d.bookings.find(r => r.id === bookingId); if (!x || x[kind]) return;
-    doc = { number: takeNumber(d, kind), status: 'draft', issued: today, due: addDays(today, kind === 'quote' ? num(bl.validDays) || 30 : Math.max(0, num(bl.dueDays))), lines, taxRate, taxName, notes, payments: kind === 'invoice' ? payments : [], createdAt: now, updatedAt: now };
+    doc = { number: takeNumber(d, kind), status: 'draft', issued: today, due: addDays(today, kind === 'quote' ? num(bl.validDays) || 30 : Math.max(0, num(bl.dueDays))), lines, taxRate, taxName, notes, payments: kind === 'invoice' ? payments : [], ...(cur ? docFields(cur) : {}), createdAt: now, updatedAt: now };
     x[kind] = doc; x.updatedAt = now;
   });
   return doc;
@@ -209,13 +216,13 @@ const methodOptions = () => {
 };
 export function recordPayment(bookingId) {
   const b = byId('bookings', bookingId), doc = docOf(b, 'invoice'); if (!doc) return;
-  const t = calc(doc), opts = methodOptions();
+  const t = calc(doc), opts = methodOptions(), sym = docCur(doc).sym, money = n => fmtMoney(n, sym);
   openForm({
     title: 'Record a payment', saveLabel: 'Record',
     values: { date: todayISO(), amount: t.due > 0 ? r2(t.due) : '', method: opts[0] },
     fields: [
       { key: 'date', label: 'Date received', type: 'date', required: true },
-      { key: 'amount', label: `Amount (${currency()})`, type: 'number', min: 0, step: '0.01', required: true, hint: t.due > 0 ? `${fmtMoney(t.due)} still due on ${doc.number}.` : 'Nothing is due on this invoice.' },
+      { key: 'amount', label: `Amount (${sym})`, type: 'number', min: 0, step: '0.01', required: true, hint: t.due > 0 ? `${money(t.due)} still due on ${doc.number}.` : 'Nothing is due on this invoice.' },
       { key: 'method', label: 'How it was paid', type: 'select', options: opts },
     ],
     onSave: v => {
@@ -225,14 +232,14 @@ export function recordPayment(bookingId) {
       const left = calc({ ...cur, payments, status: 'sent' }).due, all = left <= 0.005;
       saveDoc(bookingId, 'invoice', { ...cur, payments, status: all ? 'paid' : cur.status === 'draft' ? 'sent' : cur.status, paidAt: all ? parseISO(v.date || todayISO()).getTime() : null });
       const over = r2(calc({ ...cur, payments, status: 'sent' }).received - calc(cur).total);
-      toast(all ? (over > 0.005 ? `Paid in full: ${cur.number}, with ${fmtMoney(over)} more than the total.` : `Paid in full: ${cur.number}`) : `Payment recorded. ${fmtMoney(left)} still due.`);
+      toast(all ? (over > 0.005 ? `Paid in full: ${cur.number}, with ${money(over)} more than the total.` : `Paid in full: ${cur.number}`) : `Payment recorded. ${money(left)} still due.`);
     },
   });
 }
 export function removePayment(bookingId, paymentId) {
   const cur = docOf(byId('bookings', bookingId), 'invoice'); if (!cur) return;
   const p = cur.payments.find(x => x.id === paymentId); if (!p) return;
-  if (!confirm(`Remove the payment of ${fmtMoney(p.amount)}${p.date ? ' on ' + dateText(p.date) : ''}?`)) return;
+  if (!confirm(`Remove the payment of ${fmtMoney(p.amount, docCur(cur).sym)}${p.date ? ' on ' + dateText(p.date) : ''}?`)) return;
   const payments = cur.payments.filter(x => x.id !== paymentId), open = calc({ ...cur, payments, status: 'sent' }).due > 0.005;
   saveDoc(bookingId, 'invoice', { ...cur, payments, status: open && cur.status === 'paid' ? 'sent' : cur.status });
   toast('Payment removed');
@@ -251,14 +258,14 @@ const payInfo = bl => { const out = {}; for (const [k, src] of [['accountName'],
 // A self-contained copy of the document: the preview, print, web page, text and the client's link all come from it.
 export function snapshot(b, kind) {
   const doc = docOf(b, kind); if (!doc) return null;
-  const bl = billing(), sym = currency(), p = db.profile || {};
+  const bl = billing(), cur = docCur(doc), p = db.profile || {};
   return {
     v: 1, kind, number: String(doc.number || ''), status: doc.status || 'draft', issued: doc.issued || '', due: doc.due || '',
     title: bookingTitle(b), when: whenLong(b), from: profileLines(), to: partyTo(b),
     lines: doc.lines.map(({ desc, qty, unit, price }) => ({ desc: desc || '', qty: qty ?? '', unit: unit || '', price: price ?? '' })),
     taxRate: num(doc.taxRate), taxName: doc.taxName || bl.taxName || 'Tax', notes: doc.notes || '',
     payments: kind === 'invoice' ? doc.payments.map(({ date, amount, method }) => ({ date: date || '', amount: num(amount), method: method || '' })) : [],
-    currency: sym, code: currencyCode(), email: p.email || '',
+    currency: cur.sym, code: cur.code || codeFor(cur.sym), showCode: codeNeeded(doc), own: sameCur(cur, mine()), email: p.email || '',
     pay: kind === 'invoice' ? payInfo(bl) : {},
   };
 }
@@ -302,10 +309,11 @@ export function mailtoFor(bookingId, kind, url = '') {
   const first = String((b.contact && b.contact.name) || '').trim().split(/\s+/)[0];
   // An overdue invoice gets a polite reminder instead of the first letter.
   const remind = kind === 'invoice' && isOverdue(b);
-  const subject = remind ? `Reminder: invoice ${doc.number} – ${fmtDoc(t.due, snap.currency)} due` : `${K.label} ${doc.number} – ${snap.title}`;
+  const money = n => docAmount(n, snap); // in the document's currency, with its code when a client abroad needs it
+  const subject = remind ? `Reminder: invoice ${doc.number} – ${money(t.due)} due` : `${K.label} ${doc.number} – ${snap.title}`;
   const intro = remind
-    ? `Hi${first ? ' ' + first : ''},\n\nA friendly reminder that invoice ${doc.number} for ${snap.title} was due on ${dateText(doc.due)}, and ${fmtDoc(t.due, snap.currency)} is still open.`
-    : `Hi${first ? ' ' + first : ''},\n\nHere is ${K.label.toLowerCase()} ${doc.number} for ${snap.title}: ${fmtDoc(t.total, snap.currency)}${kind === 'invoice' && t.paid > 0 && t.due > 0 ? `, with ${fmtDoc(t.due, snap.currency)} still due` : ''}${doc.due && !(kind === 'invoice' && t.due <= 0) ? `, ${K.dueLabel.toLowerCase()} ${dateText(doc.due)}` : ''}.`;
+    ? `Hi${first ? ' ' + first : ''},\n\nA friendly reminder that invoice ${doc.number} for ${snap.title} was due on ${dateText(doc.due)}, and ${money(t.due)} is still open.`
+    : `Hi${first ? ' ' + first : ''},\n\nHere is ${K.label.toLowerCase()} ${doc.number} for ${snap.title}: ${money(t.total)}${kind === 'invoice' && t.paid > 0 && t.due > 0 ? `, with ${money(t.due)} still due` : ''}${doc.due && !(kind === 'invoice' && t.due <= 0) ? `, ${K.dueLabel.toLowerCase()} ${dateText(doc.due)}` : ''}.`;
   const text = docText(snap);
   const link = url ? `\n\nYou can see it${kind === 'invoice' && t.due > 0 ? ' and pay' : ''} here:\n${url}` : '';
   const body = `${intro}${link}${!url || url.length + text.length < 1800 ? '\n\n' + text : ''}\n\nThanks${sign ? ',\n' + sign : ''}`;
@@ -341,7 +349,8 @@ export const UNITS = ['show', 'set', 'hour', 'half day', 'day', 'song', 'track',
 export function openEditor(bookingId, kind) {
   const b = current(bookingId), doc = docOf(b, kind); if (!doc) return;
   const K = KINDS[kind];
-  const w = { lines: doc.lines.map(l => ({ id: l.id || uid(), desc: l.desc ?? '', qty: l.qty ?? '', unit: l.unit ?? '', price: l.price ?? '' })) };
+  const w = { lines: doc.lines.map(l => ({ id: l.id || uid(), desc: l.desc ?? '', qty: l.qty ?? '', unit: l.unit ?? '', price: l.price ?? '' })), cur: docCur(doc) };
+  const money = n => fmtMoney(n, w.cur.sym);
   const field = (id, label, control, cls = '') => h('div', { class: 'field ' + cls }, h('label', { for: id }, label), control);
   const number = h('input', { id: 'mn-ed-number', type: 'text', value: doc.number || '', required: true, autocomplete: 'off', spellcheck: false });
   const status = h('select', { id: 'mn-ed-status' }, K.statuses.map(([v, l]) => h('option', { value: v, selected: v === (doc.status || 'draft') }, l)));
@@ -349,18 +358,21 @@ export function openEditor(bookingId, kind) {
   const due = h('input', { id: 'mn-ed-due', type: 'date', value: doc.due || '' });
   const taxName = h('input', { id: 'mn-ed-taxname', type: 'text', value: doc.taxName || billing().taxName || 'Tax', placeholder: 'VAT, GST, sales tax…', autocomplete: 'off' });
   const taxRate = h('input', { id: 'mn-ed-taxrate', type: 'number', min: 0, max: 100, step: 'any', inputMode: 'decimal', value: doc.taxRate ?? '' });
+  // Its currency, from the same list as yours (for work abroad): the prices, the totals, the Pay buttons and the bank QR
+  // follow it. Saved only when another one is picked.
+  const curSel = currencySelect(w.cur, { id: 'mn-ed-currency', prefer: [mine().country], suggest: [mine().country], onchange: c => { w.cur = c || docCur(doc); drawLines(); drawTotals(); } });
   const notes = h('textarea', { id: 'mn-ed-notes', rows: 3, placeholder: kind === 'quote' ? 'What is included, how long it is valid, the deposit…' : 'Thanks, payment terms, anything the client should know…' }, doc.notes || '');
   const linesBox = h('div', { class: 'mn-lines' }), totals = h('div', { class: 'mn-ed-totals', 'aria-live': 'polite' });
   const unitList = h('datalist', { id: 'mn-units' }, UNITS.map(u => h('option', { value: u })));
   const drawTotals = () => {
     const t = calc({ lines: w.lines, taxRate: taxRate.value, payments: doc.payments, status: 'sent' }), kv = (k, v, cls = '') => h('div', { class: cls }, h('span', null, k), h('b', null, v));
     // replaceChildren() would write a false out as the word "false", so the rows left out are filtered first.
-    totals.replaceChildren(...[kv('Subtotal', fmtMoney(t.net)), t.rate > 0 && kv(`${taxName.value.trim() || 'Tax'} ${t.rate}%`, fmtMoney(t.tax)), kv('Total', fmtMoney(t.total), 'mn-strong'),
-      kind === 'invoice' && t.received > 0 && kv('Paid so far', fmtMoney(t.received)), kind === 'invoice' && t.received > 0 && kv('Still due', fmtMoney(t.due), 'mn-strong')].filter(Boolean));
+    totals.replaceChildren(...[kv('Subtotal', money(t.net)), t.rate > 0 && kv(`${taxName.value.trim() || 'Tax'} ${t.rate}%`, money(t.tax)), kv('Total', money(t.total), 'mn-strong'),
+      kind === 'invoice' && t.received > 0 && kv('Paid so far', money(t.received)), kind === 'invoice' && t.received > 0 && kv('Still due', money(t.due), 'mn-strong')].filter(Boolean));
   };
   const lineRow = (l, i) => {
-    const n = i + 1, amount = h('b', { 'aria-live': 'off' }, fmtMoney(r2(num(l.qty) * num(l.price))));
-    const set = (k, el) => { el.addEventListener('input', () => { l[k] = el.value; amount.textContent = fmtMoney(r2(num(l.qty) * num(l.price))); drawTotals(); }); return el; };
+    const n = i + 1, amount = h('b', { 'aria-live': 'off' }, money(r2(num(l.qty) * num(l.price))));
+    const set = (k, el) => { el.addEventListener('input', () => { l[k] = el.value; amount.textContent = money(r2(num(l.qty) * num(l.price))); drawTotals(); }); return el; };
     const part = (label, el) => h('label', { class: 'mn-lf' }, h('span', { 'aria-hidden': 'true' }, label), el);
     return h('div', { class: 'mn-line', 'data-line': l.id },
       h('div', { class: 'mn-line-top' },
@@ -369,7 +381,7 @@ export function openEditor(bookingId, kind) {
       h('div', { class: 'mn-line-nums' },
         part('Qty', set('qty', h('input', { type: 'number', id: `mn-l${n}-qty`, value: l.qty, step: 'any', inputMode: 'decimal', 'aria-label': `Line ${n}: quantity` }))),
         part('Unit', set('unit', h('input', { type: 'text', id: `mn-l${n}-unit`, value: l.unit, list: 'mn-units', placeholder: 'hour, show…', 'aria-label': `Line ${n}: unit (hour, show, song…)`, autocomplete: 'off' }))),
-        part(`Price (${currency()})`, set('price', h('input', { type: 'number', id: `mn-l${n}-price`, value: l.price, step: 'any', inputMode: 'decimal', 'aria-label': `Line ${n}: price each (${currency()})` }))),
+        part(`Price (${w.cur.sym})`, set('price', h('input', { type: 'number', id: `mn-l${n}-price`, value: l.price, step: 'any', inputMode: 'decimal', 'aria-label': `Line ${n}: price each (${w.cur.sym})` }))),
         h('div', { class: 'mn-lf mn-line-amt', 'aria-label': `Line ${n} amount` }, h('span', { 'aria-hidden': 'true' }, 'Amount'), amount)));
   };
   const drawLines = focusAt => {
@@ -392,7 +404,7 @@ export function openEditor(bookingId, kind) {
       return { id: l.id || uid(), desc: String(l.desc || '').trim(), qty, unit: String(l.unit || '').trim(), price };
     }).filter(l => l.desc || (l.price !== '' && l.price !== 0));
     const rate = Math.max(0, Math.min(100, num(taxRate.value)));
-    const next = { ...cur, number: nb, status: status.value, issued: issued.value, due: due.value, lines, taxRate: rate, taxName: taxName.value.trim() || 'Tax', notes: notes.value.trim() };
+    const next = { ...cur, number: nb, status: status.value, issued: issued.value, due: due.value, lines, taxRate: rate, taxName: taxName.value.trim() || 'Tax', notes: notes.value.trim(), ...(picked(curSel) ? docFields(w.cur) : {}) };
     // Payments that cover the total make it paid; and an invoice the payments had paid in full opens again when the
     // edit raises the total above them (one marked paid by hand without the payments to match stays paid).
     const open = kind === 'invoice' ? calc({ ...next, status: 'sent' }).due : 0;
@@ -402,10 +414,11 @@ export function openEditor(bookingId, kind) {
     // Read-only (the licence): the editor stays open with what was typed, and the licence's sheet says why.
     if (!canChange()) return;
     close();
-    if (saveDoc(bookingId, kind, next)) toast(reopened ? `${K.label} ${nb} saved. It is not paid in full any more: ${fmtMoney(open)} still due.` : `${K.label} ${nb} saved`);
+    if (saveDoc(bookingId, kind, next)) toast(reopened ? `${K.label} ${nb} saved. It is not paid in full any more: ${money(open)} still due.` : `${K.label} ${nb} saved`);
   };
   const box = h('form', { class: 'stack mn-editor', novalidate: true, onsubmit: e => { e.preventDefault(); save(); } },
     h('div', { class: 'mn-pair' }, field('mn-ed-number', `${K.label} number`, number), field('mn-ed-status', 'Status', status), field('mn-ed-issued', 'Date', issued), field('mn-ed-due', K.dueLabel, due)),
+    h('div', { class: 'field wide mn-ed-cur' }, h('label', { for: 'mn-ed-currency' }, 'Currency'), curSel, h('small', { class: 'muted' }, `Yours is ${curLabel(mine())}. For work abroad, pick the client’s: the Pay buttons and the bank QR code use it.`)),
     h('h4', { class: 'mn-ed-head' }, 'Lines'),
     unitList, linesBox,
     h('div', { class: 'actions mn-ed-add' },
@@ -502,9 +515,9 @@ export function pickFromPriceList(b, onPick) {
 }
 
 /* ------------------------------- settings ------------------------------- */
-// Numbering, tax, terms and payment details: one panel for Settings. Every box saves as it changes.
+// Your currency, numbering, tax, terms and payment details: one panel for Settings. Every box saves as it changes.
 export function billingPanel() {
-  const bl = billing(), sym = currency();
+  const bl = billing();
   // need: a number box that cannot be left blank (the numbering counters: a blank would start them again at 1).
   const input = (key, label, type = 'text', { hint, whole, need, ...attrs } = {}) => {
     const id = 'mn-bl-' + key;
@@ -525,10 +538,10 @@ export function billingPanel() {
       } });
     return h('div', { class: 'field' + (type === 'textarea' ? ' wide' : '') }, h('label', { for: id }, label), el, hint && h('small', { class: 'muted' }, hint));
   };
-  const cur = bl.currencyCode, auto = codeFor(sym);
-  const codeSel = h('select', { id: 'mn-bl-currencyCode', onchange: e => setBilling({ currencyCode: e.target.value }) },
-    h('option', { value: '', selected: !cur }, `From my currency symbol (${auto})`), ...CURRENCIES.map(([c, s]) => h('option', { value: c, selected: c === cur }, `${c} ${s}`)));
   return h('div', { class: 'stack mn-billing' },
+    // Your currency, by country: the symbol on every amount and the code for payment links and the bank QR, together.
+    h('div', { class: 'field mn-bl-cur' }, h('label', { for: 'mn-bl-currency' }, 'Your currency'), myCurrencySelect('mn-bl-currency'),
+      h('small', { class: 'muted' }, 'Pick your country. Its currency is on every fee, deal, settlement, quote and invoice, and payment links use it. A quote or an invoice for work abroad can have its own.')),
     h('p', { class: 'small muted' }, 'Your name, business, address, phone and email on quotes and invoices come from your profile.'),
     h('h4', { class: 'mn-bl-head' }, 'Numbering'),
     h('div', { class: 'mn-pair' },
@@ -551,14 +564,14 @@ export function billingPanel() {
     h('div', { class: 'mn-pair' }, input('paypal', 'PayPal.me username', 'text', { placeholder: 'yourname' }), input('venmo', 'Venmo username', 'text', { placeholder: 'yourname' })),
     h('div', { class: 'grid2' },
       input('cashapp', 'Cash App $cashtag', 'text', { placeholder: '$yourname' }), input('revolut', 'Revolut or Monzo link', 'text', { placeholder: 'https://revolut.me/yourname' }),
-      input('payLink', 'Payment page link', 'text', { inputMode: 'url', placeholder: 'https://…', hint: 'A card payment page (Stripe, Square…). {amount} and {reference} in it are filled in.' }), input('payLinkLabel', 'Its button says', 'text', { placeholder: 'Pay by card' }),
-      h('div', { class: 'field' }, h('label', { for: 'mn-bl-currencyCode' }, 'Currency for payment links'), codeSel)),
+      input('payLink', 'Payment page link', 'text', { inputMode: 'url', placeholder: 'https://…', hint: 'A card payment page (Stripe, Square…). {amount} and {reference} in it are filled in; one with {amount} is left off an invoice in another currency.' }), input('payLinkLabel', 'Its button says', 'text', { placeholder: 'Pay by card' })),
     input('payNote', 'Payment note (on every invoice)', 'textarea', { placeholder: 'e.g. Thank you! Payment within 14 days, please.' }));
 }
 
 /* ------------------------------- walkthroughs for the sheets ------------------------------- */
 const editorSteps = kind => [
   { title: `${KINDS[kind].label} number and dates`, text: 'The number comes from your numbering in Settings and is used only once. The status changes as you send it and get paid.', target: ['#mn-ed-number'] },
+  { title: 'Currency', text: 'Yours to start with. For work abroad, pick the client’s country: the prices, the Pay buttons and the bank QR code follow it. Once sent, it keeps its currency.', target: ['#mn-ed-currency'] },
   { title: 'Lines', text: 'What you charge for: a description, how many, the unit (hour, show, song…) and the price each. The amount adds up as you type.', target: ['.mn-lines'] },
   { title: 'Add more', text: 'Add a blank line, or pick from your price list: the hours, days and songs fill in from the booking.', target: ['.mn-ed-add'] },
   { title: 'Tax', text: 'The tax name and rate go on the document. Leave the rate at 0 if you don’t charge it.', target: ['.mn-ed-tax'] },

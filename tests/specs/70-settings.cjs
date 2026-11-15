@@ -85,12 +85,12 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   const fill = async (key, v) => page.fill(`${sheetOf('Your details')} [data-key="${key}"]`, v);
   await fill('name', 'Maya Brooks'); await fill('business', 'Night Owls, Ltd'); await fill('role', 'Band leader');
   await fill('phone', '+1 555 0141'); await fill('email', 'maya@example.com'); await fill('website', 'nightowls.example.com');
-  await fill('location', 'Harbourtown'); await fill('address', '12 Quay Street\nHarbourtown HT1 2AB'); await fill('currency', ' £ '); await fill('bio', 'Singer and band leader.');
+  await fill('location', 'Harbourtown'); await fill('address', '12 Quay Street\nHarbourtown HT1 2AB'); await page.selectOption(`${sheetOf('Your details')} [data-key="currency"]`, 'GB'); await fill('bio', 'Singer and band leader.');
   await page.click(`${sheetOf('Your details')} button[type=submit]`);
   await sleep(300);
   let d = await data(page);
   ok('the profile is stored', d.profile.name === 'Maya Brooks' && d.profile.business === 'Night Owls, Ltd' && d.profile.role === 'Band leader' && d.profile.address === '12 Quay Street\nHarbourtown HT1 2AB' && d.profile.website === 'nightowls.example.com', JSON.stringify(d.profile));
-  ok('the currency symbol is stored trimmed', d.profile.currency === '£', d.profile.currency);
+  ok('the currency is picked by country: its symbol, code and country are stored together, in the profile', d.profile.currency === '£' && d.profile.currencyCode === 'GBP' && d.profile.currencyCountry === 'GB' && !d.billing.currencyCode, JSON.stringify([d.profile, d.billing]));
   ok('the details show on the page', /Maya Brooks/.test(await text(page, '#se-profile .se-kv')) && /12 Quay Street/.test(await text(page, '#se-profile .se-kv')));
   ok('the section line shows the name and business', (await text(page, '#se-profile .se-sub')) === 'Maya Brooks · Night Owls, Ltd');
   ok('the edit button now says Edit', (await text(page, '#se-edit-profile')).includes('Edit your details'));
@@ -107,14 +107,14 @@ const sheetOf = title => `.sheet[aria-label="${title}"]`;
   ok('the .vcf is a vCard with the details', /^BEGIN:VCARD\r\nVERSION:3\.0\r\n/.test(vcf.text) && vcf.text.includes('N:Brooks;Maya;;;') && vcf.text.includes('FN:Maya Brooks') && vcf.text.includes('TEL;TYPE=CELL:+1 555 0141') && vcf.text.includes('EMAIL;TYPE=INTERNET:maya@example.com') && vcf.text.includes('URL:https://nightowls.example.com') && /END:VCARD$/.test(vcf.text), JSON.stringify(vcf.text));
   ok('commas and new lines are escaped in the vCard', vcf.text.includes('ORG:Night Owls\\, Ltd') && vcf.text.includes('ADR;TYPE=WORK:;;12 Quay Street\\nHarbourtown HT1 2AB;;;;'), JSON.stringify(vcf.text));
 
-  // A blank currency falls back to $
+  // The form shows the country picked, and saving it again without picking another leaves the currency as it is.
   await tap(page, '#se-edit-profile');
   await page.waitForSelector(sheetOf('Your details'));
-  await fill('currency', '');
+  ok('the details form shows the country picked', (await page.inputValue(`${sheetOf('Your details')} [data-key="currency"]`)) === 'GB');
   await page.click(`${sheetOf('Your details')} button[type=submit]`);
   await sleep(250);
-  ok('a blank currency becomes $', (await data(page)).profile.currency === '$');
-  await tap(page, '#se-edit-profile'); await page.waitForSelector(sheetOf('Your details')); await fill('currency', '£'); await page.click(`${sheetOf('Your details')} button[type=submit]`); await sleep(250);
+  d = await data(page);
+  ok('saving the details again keeps the currency', d.profile.currency === '£' && d.profile.currencyCode === 'GBP' && d.profile.currencyCountry === 'GB', JSON.stringify(d.profile));
 
   // Sample data: a device that loaded the sample before (the tests' fixture loads it as Settings once did).
   await run(page, () => import('./js/store.js').then(s => s.loadSample()));

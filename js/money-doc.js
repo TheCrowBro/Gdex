@@ -13,6 +13,10 @@ export const statusLabel = (kind, s) => ((KINDS[kind] || KINDS.invoice).statuses
 
 // Money on a document: always two decimals and a plain minus, so it reads the same on paper, in an email and in a PDF.
 export const fmtDoc = (n, sym = '$') => { const v = Number(n) || 0; return (v < 0 ? '-' : '') + sym + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+// A document in a currency that is not the sender's own, whose symbol alone could be another one ('$'), names its code
+// by the total and the balance (snap.showCode, set by the app): "Total (CAD)", "$170.00 CAD due".
+const codeTag = snap => (snap.showCode && snap.code ? ` (${snap.code})` : '');
+export const docAmount = (n, snap) => fmtDoc(n, snap.currency || '$') + (snap.showCode && snap.code ? ' ' + snap.code : '');
 const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
 const num = v => (v === '' || v == null || !Number.isFinite(Number(v)) ? 0 : Number(v));
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -34,7 +38,8 @@ export function calc(doc = {}) {
 }
 export const isPaidDoc = snap => snap.kind === 'invoice' && snap.status !== 'void' && (snap.status === 'paid' || (calc(snap).total > 0 && calc(snap).due <= 0));
 export const docTitle = snap => `${KINDS[snap.kind].label} ${snap.number}${snap.title ? ' – ' + snap.title : ''}`;
-const payCtx = snap => ({ amount: calc(snap).due, code: snap.code || codeFor(snap.currency), reference: snap.number });
+// own: the document is in the sender's own currency (a link from before always was), so a payment page set up in it fits.
+const payCtx = snap => ({ amount: calc(snap).due, code: snap.code || codeFor(snap.currency), reference: snap.number, own: snap.own !== false });
 
 // "How to pay": Pay buttons for the balance, bank details with a QR, the person's own note, the reference to quote.
 // opts.qr(text) → Promise<svg markup>; opts.pending collects those promises (printing waits for them).
@@ -57,7 +62,7 @@ function paySection(snap, opts) {
     }
   }
   if (note) kids.push(h('p', { class: 'cs-pre' }, note));
-  if (t.due > 0) kids.push(h('p', { class: 'pay-ref' }, `Balance due ${fmtDoc(t.due, snap.currency || '$')}${snap.due ? ' by ' + dateText(snap.due) : ''} · please quote ${snap.number} as the reference.`));
+  if (t.due > 0) kids.push(h('p', { class: 'pay-ref' }, `Balance due ${docAmount(t.due, snap)}${snap.due ? ' by ' + dateText(snap.due) : ''} · please quote ${snap.number} as the reference.`));
   return h('section', { class: 'cs-sec pay-sec' }, h('h4', null, 'How to pay'), ...kids);
 }
 
@@ -79,9 +84,9 @@ export function renderDoc(snap, opts = {}) {
         : [h('tr', null, h('td', { colSpan: 4 }, 'No lines yet.'))]))),
     h('div', { class: 'money-totals' },
       t.tax > 0 || t.rate > 0 ? [kv('Subtotal', m(t.net)), kv(`${snap.taxName || 'Tax'} ${t.rate}%`, m(t.tax))] : null,
-      kv('Total', m(t.total), 'total'),
+      kv('Total' + codeTag(snap), m(t.total), 'total'),
       isInv ? (snap.payments || []).map(p => kv(['Paid', p.date && dateText(p.date), p.method].filter(Boolean).join(' · '), '-' + m(p.amount))) : null,
-      isInv && t.paid > 0 && snap.status !== 'void' && kv('Balance due', m(t.due), 'total')),
+      isInv && t.paid > 0 && snap.status !== 'void' && kv('Balance due' + codeTag(snap), m(t.due), 'total')),
     snap.notes && h('section', { class: 'cs-sec' }, h('h4', null, 'Notes'), h('p', { class: 'cs-pre' }, snap.notes)),
     paySection(snap, opts),
     h('footer', { class: 'cs-foot' }, [...(snap.from || []).slice(0, 2), `${K.label} ${snap.number}`, 'Made with Tourbook'].join(' · ')));
@@ -103,9 +108,9 @@ export function docText(snap) {
     '',
     t.rate > 0 ? `Subtotal: ${m(t.net)}` : null,
     t.rate > 0 ? `${snap.taxName || 'Tax'} ${t.rate}%: ${m(t.tax)}` : null,
-    `Total: ${m(t.total)}`,
+    `Total${codeTag(snap)}: ${m(t.total)}`,
     ...(isInv ? (snap.payments || []).map(p => `Paid${p.date ? ' ' + dateText(p.date) : ''}${p.method ? ' (' + p.method + ')' : ''}: ${m(p.amount)}`) : []),
-    isInv && t.paid > 0 && snap.status !== 'void' ? `Balance due: ${m(t.due)}` : null,
+    isInv && t.paid > 0 && snap.status !== 'void' ? `Balance due${codeTag(snap)}: ${m(t.due)}` : null,
     snap.status === 'void' && isInv ? '\nThis invoice is void: nothing is owed.' : null,
     isPaidDoc(snap) ? '\nPaid, thank you.' : null,
     snap.notes ? '\n' + snap.notes : null,
@@ -140,7 +145,7 @@ export function cleanSnapshot(raw) {
     taxRate: Math.max(0, Math.min(100, Number(fin(raw.taxRate, 100)) || 0)), taxName: str(raw.taxName, 30),
     notes: str(raw.notes, 4000),
     payments: kind === 'invoice' && Array.isArray(raw.payments) ? raw.payments.slice(0, 200).filter(p => p && typeof p === 'object').map(p => ({ date: iso(p.date), amount: Number(fin(p.amount)) || 0, method: str(p.method, 60) })) : [],
-    currency: str(raw.currency, 6) || '$', code: /^[A-Z]{3}$/.test(raw.code || '') ? raw.code : '',
+    currency: str(raw.currency, 6) || '$', code: /^[A-Z]{3}$/.test(raw.code || '') ? raw.code : '', showCode: raw.showCode === true, own: raw.own !== false,
     email: /^[^\s@<>"]+@[^\s@<>"]+$/.test(str(raw.email, 200)) ? str(raw.email, 200) : '',
     pay,
   };

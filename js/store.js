@@ -9,7 +9,7 @@ const KEY = 'tourbook-db-v1';
 export const COLLECTIONS = ['bookings', 'acts', 'people', 'gear', 'kits', 'venues', 'songs', 'setlists', 'logs', 'shifts', 'insurance'];
 const blank = () => ({
   app: 'tourbook', version: 1, updatedAt: 0,
-  profile: { name: '', business: '', role: '', phone: '', email: '', website: '', location: '', address: '', currency: '$', bio: '', updatedAt: 0 },
+  profile: { name: '', business: '', role: '', phone: '', email: '', website: '', location: '', address: '', currency: '$', currencyCode: '', currencyCountry: '', bio: '', updatedAt: 0 }, // your currency: js/money-currency.js
   ...Object.fromEntries(COLLECTIONS.map(c => [c, []])),
   deleted: {},              // id -> time deleted: a merge with an older backup does not bring records back
   templates: {},            // the person's own checklist lines per booking kind (js/blocks/advance.js)

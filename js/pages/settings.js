@@ -9,7 +9,8 @@
 import { h, toast, announce, safeUrl, telUrl, nodes } from '../util.js';
 import * as store from '../store.js';
 import { db, update } from '../store.js';
-import { fmtMoney, currency } from '../model.js';
+import { fmtMoney } from '../model.js';
+import { mine, curLabel, currencySelect, picked, applyMine } from '../money-currency.js';
 import { openForm } from '../form.js';
 import { qrSvg, loadQR } from '../qr.js';
 import { saveFile, fileName } from '../print.js';
@@ -131,13 +132,13 @@ export async function openSettingsSection(id) {
 
 /* ------------------------------- your details ------------------------------- */
 const PROFILE_KEYS = ['name', 'business', 'role', 'phone', 'email', 'website', 'location', 'address', 'bio'];
-const CURRENCIES = ['$', '£', '€', '¥', '₹', 'A$', 'C$', 'NZ$', 'kr', 'R', 'CHF', 'zł'];
 
 // The one place your name, business and contact details are changed.
 export function editProfile() {
+  let pick = null;
   openForm({
     title: 'Your details',
-    values: { ...db.profile, currency: currency() },
+    values: { ...db.profile },
     fields: [
       { key: 'name', label: 'Your name', placeholder: 'Alex Rivera' },
       { key: 'business', label: 'Business, band or project name', placeholder: 'Rivera Sound' },
@@ -147,14 +148,16 @@ export function editProfile() {
       { key: 'website', label: 'Website', type: 'url', placeholder: 'yourname.com' },
       { key: 'location', label: 'Based in', placeholder: 'City' },
       { key: 'address', label: 'Postal address', type: 'textarea', rows: 3, hint: 'For invoices: some clients need it there to pay.' },
-      { key: 'currency', label: 'Currency symbol', list: CURRENCIES, placeholder: '$', hint: 'Used for every fee, deal, settlement, quote and invoice.' },
+      // The same chooser as Quotes & invoices (js/money-currency.js), drawn into the form's select by onReady.
+      { key: 'currency', label: 'Currency', type: 'select', options: [], hint: 'Pick your country. Its currency is used for every fee, deal, settlement, quote and invoice.' },
       { key: 'bio', label: 'Short bio', type: 'textarea', rows: 3, hint: 'A line or two about you.' },
     ],
+    // The currency changes only when another country is picked: what was stored (a symbol typed by hand) stays.
+    onReady: form => { pick = currencySelect(mine(), { sel: form.querySelector('select[data-key="currency"]') }); },
     onSave: v => {
-      const out = {};
+      const out = {}, cur = picked(pick);
       for (const k of PROFILE_KEYS) out[k] = String(v[k] ?? '').trim();
-      out.currency = String(v.currency ?? '').trim().slice(0, 6) || '$';
-      update(d => { d.profile = { ...d.profile, ...out, updatedAt: Date.now() }; });
+      update(d => { d.profile = { ...d.profile, ...out, updatedAt: Date.now() }; if (cur) applyMine(d, cur); });
       toast('Your details are saved');
     },
   });
@@ -239,7 +242,7 @@ function profileBody() {
         p.website && line('Website', site ? h('a', { href: site, target: '_blank', rel: 'noopener noreferrer' }, p.website) : p.website),
         line('Based in', p.location),
         p.address && line('Postal address', h('span', { class: 'prewrap' }, p.address)),
-        line('Currency', `${currency()}  (e.g. ${fmtMoney(1250)})`))
+        line('Currency', `${curLabel(mine())}  (e.g. ${fmtMoney(1250)})`))
       : h('div', { class: 'empty se-empty' }, h('p', null, moneyShown() ? 'Add your name, business and contact details. They go on your day sheets, quotes and invoices.' : 'Add your name and contact details. They go on your day sheets and your contact card.')),
     p.bio && h('p', { class: 'small prewrap se-bio' }, p.bio),
     h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn primary', id: 'se-edit-profile', onclick: editProfile }, has ? '✎ Edit your details' : '+ Add your details')),
@@ -269,7 +272,7 @@ function billingBody() {
   moneySlot = slot;
   const fill = m => {
     if (!m) return slot.replaceChildren(h('p', { class: 'small muted' }, 'Quotes & invoices could not be loaded. Check the connection and open Settings again.'));
-    const kids = [h('p', { class: 'small muted' }, 'How your quotes and invoices are numbered, tax, the payment details printed on them, and the prices you pick lines from.')];
+    const kids = [h('p', { class: 'small muted' }, 'Your currency, how your quotes and invoices are numbered, tax, the payment details printed on them, and the prices you pick lines from.')];
     for (const [make, head] of [[m.billingPanel, ''], [m.priceListPanel, 'Your price list']]) {
       try {
         const out = typeof make === 'function' ? make() : null, node = out && out.nodeType ? out : out && out.el && out.el.nodeType ? out.el : null;
@@ -282,7 +285,9 @@ function billingBody() {
   else { slot.append(h('p', { class: 'small muted' }, 'Loading…')); moneyReady.then(m => { if (slot.isConnected) fill(m); }); }
   return slot;
 }
-const billingSummary = () => { const list = db.priceList && Array.isArray(db.priceList.list) ? db.priceList.list.length : 0; return list ? `${plural(list, 'price')} on your list · numbering, tax, payment details` : 'Numbering, tax, payment details and your prices'; };
+// The closed line starts with your currency (£ GBP), which is chosen at the top of the section.
+const curWords = () => { const c = mine(); return c.code && c.code !== c.sym ? `${c.sym} ${c.code}` : c.code || c.sym; };
+const billingSummary = () => { const list = db.priceList && Array.isArray(db.priceList.list) ? db.priceList.list.length : 0; return `${curWords()} · ` + (list ? `${plural(list, 'price')} on your list · numbering, tax, payment details` : 'numbering, tax, payment details and your prices'); };
 
 /* ------------------------------- the sample ------------------------------- */
 // While licences are on, the role's line also says where its licence stands: free (the Audiophile), the free days left, or read-only.
@@ -443,7 +448,7 @@ function eraseBody() {
 const SECTIONS = [
   ['role', 'Your role', 'Jack of Trades, producer, manager, band, solo artist, scout or audiophile: it sets the section menu and the pages for the way you work. Change it any time; nothing is removed. The “Did you see them?” question is turned on or off here too.'],
   ['profile', 'Your details', () => (moneyShown() ? `Your name, business and contact details: they go on day sheets, quotes and invoices. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.` : `Your name and contact details: they go on day sheets. Under them, the way to ${sectionName('card', 'My card')}, your contact card as a big QR code to scan, and the card as a file to send.`)],
-  ['billing', 'Quotes & invoices', 'How quotes and invoices are numbered, tax, your payment details, and your price list.'],
+  ['billing', 'Quotes & invoices', 'Your currency, how quotes and invoices are numbered, tax, your payment details, and your price list.'],
   ['backups', 'Backups', 'Save a backup file, bring one back, keep a copy in a file in a synced folder, or connect Google Drive to share Tourbook between your devices with a dated copy each day.'],
   ['display', 'Display & accessibility', 'The section menu (record player, tape deck or digital player), colour theme, light or dark, text size, bigger buttons, contrast, animation and vibration.'],
   ['help', 'Help', 'A walkthrough for any page, and the welcome tour.'],
@@ -508,5 +513,5 @@ sheetTutorial('Your details', [
   { title: 'Who you are', text: 'Your name, and your business, band or project name, as they should read on day sheets and invoices.', target: ['[data-key="name"]'] },
   { title: 'How to reach you', text: 'Phone, email and website go on your contact card and on your documents.', target: ['[data-key="phone"]'] },
   { title: 'Postal address', text: 'For invoices: some clients need it there before they can pay.', target: ['[data-key="address"]'] },
-  { title: 'Currency', text: 'The symbol for every fee, deal, settlement, quote and invoice: $, £, €…', target: ['[data-key="currency"]'] },
+  { title: 'Currency', text: 'Pick your country: its currency is used for every fee, deal, settlement, quote and invoice. The country this device is set to comes first.', target: ['[data-key="currency"]'] },
 ]);

@@ -5,7 +5,8 @@
 import { h, sheet, toast, uid } from '../util.js';
 import { byId, update } from '../store.js';
 import { openForm } from '../form.js';
-import { fmtMoney, bookingIncome, settle, venueOf, daysSpan, minutesBetween } from '../model.js';
+import { fmtMoney, bookingIncome, incomeInvoice, settle, venueOf, daysSpan, minutesBetween } from '../model.js';
+import { docCur, mine, sameCur } from '../money-currency.js';
 import { plannedHours } from '../clock.js';
 import { sheetTutorial } from '../tour.js';
 
@@ -91,11 +92,14 @@ export default {
   render(b, ctx = {}) {
     b = byId('bookings', b.id) || b;
     const lines = costLines(b).slice().sort((x, y) => catIndex(x.cat) - catIndex(y.cat)), total = costTotal(b), income = bookingIncome(b), profit = r2(income - total);
+    // Costs are in your currency; income from an invoice in another one is shown in its own, with no profit worked out.
+    const inv = incomeInvoice(b), cur = inv ? docCur(inv) : mine(), abroad = !sameCur(cur, mine());
     const stat = (v, l, cls = '') => h('div', { class: 'stat ' + cls }, h('b', null, v), h('span', null, l));
     const ideas = suggestCosts(b);
     const s = b.kind === 'show' && b.settlement && (num(b.settlement.tickets) > 0 || b.settlement.received != null && b.settlement.received !== '') ? settle(b) : null;
     return h('div', { class: 'mn-costs stack' },
-      h('div', { class: 'stats mn-cost-stats' }, stat(fmtMoney(total), 'costs'), stat(fmtMoney(income), b.status === 'cancelled' ? 'income (cancelled)' : 'income'), stat(fmtMoney(profit), 'expected profit', profit < 0 ? 'bad' : '')),
+      h('div', { class: 'stats mn-cost-stats' }, stat(fmtMoney(total), 'costs'), stat(fmtMoney(income, cur.sym), b.status === 'cancelled' ? 'income (cancelled)' : 'income'), !abroad && stat(fmtMoney(profit), 'expected profit', profit < 0 ? 'bad' : '')),
+      abroad && h('p', { class: 'small muted mn-cost-abroad' }, `The invoice is in ${cur.code || cur.sym} and your costs in ${mine().code || mine().sym}: Tourbook doesn’t change one currency into the other, so there is no profit to show.`),
       s && h('p', { class: 'small muted' }, `With the settlement (merch ${fmtMoney(s.merch)}, the night’s costs ${fmtMoney(s.nightCosts)}), the show made ${fmtMoney(s.profit)}.`, ctx.open && ' ', ctx.open && h('button', { class: 'btn ghost small', type: 'button', onclick: () => ctx.open('settlement') }, 'Open the settlement')),
       lines.length
         ? h('div', { class: 'mn-cost-list' }, ...lines.map(c => h('button', { class: 'mn-cost', type: 'button', 'data-fk': 'cost-' + c.id, 'aria-label': `${c.cat}${c.desc ? ': ' + c.desc : ''}, ${fmtMoney(num(c.amount))}. Edit`, onclick: () => editCost(b.id, c) },

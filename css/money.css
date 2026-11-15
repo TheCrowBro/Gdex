@@ -127,3 +127,11 @@
 
 /* A show counted but not marked settled yet, in Settled shows. */
 .pill.mn-unsettled { margin-left: 6px; color: var(--muted); border-color: var(--line); font-size: .7rem; vertical-align: middle; }
+
+/* The currency, chosen by country (js/money-currency.js): your own at the top of Quotes & invoices, a document's in its
+   editor, and in the welcome tour. A total kept per currency puts each on a line of its own. */
+.mn-bl-cur, .mn-ed-cur { margin: 0; }
+.tour-field .mn-currency { font-size: 1rem; }
+.stat .mn-cur-line, .mn-amt .mn-cur-line { display: block; font-size: inherit; color: inherit; }
+.mn-amt .mn-cur-line { text-align: right; }
+.mn-bar-v .mn-bar-else { white-space: normal; }

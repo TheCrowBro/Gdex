@@ -28,6 +28,7 @@ import { personText, openPerson } from './pages/people.js';
 import { gearText, openGear, gearCard } from './pages/backline.js';
 import { setlistWords, openSetlist } from './setlist.js';
 import { docOf, docTotals } from './money.js'; // loaded with the app too: a booking's Quote & invoice box imports it
+import { docCur, docMoney } from './money-currency.js';
 import { statusPill } from './blocks/money.js';
 import { venueChip } from './venues-rules.js';
 import { readDate } from './search-dates.js';
@@ -253,7 +254,7 @@ function buildOthers() {
       const doc = docOf(b, kind);
       if (!doc) continue;
       const t = docTotals(doc), client = clean((b.contact && b.contact.name) || b.client || model.actName(b.actId)), state = statusPill(b, kind, doc).textContent;
-      const amounts = [t.total, t.due].filter(n => Number.isFinite(n) && n > 0).flatMap(n => [String(n), n.toFixed(2), model.fmtMoney(n)]);
+      const amounts = [t.total, t.due].filter(n => Number.isFinite(n) && n > 0).flatMap(n => [String(n), n.toFixed(2), model.fmtMoney(n, docCur(doc).sym)]); // in the document's own currency
       const issued = isoOk(doc.issued) ? doc.issued : isoOk(b.date) ? b.date : '', spans = [issued, isoOk(doc.due) ? doc.due : ''].filter(Boolean).map(d => [d, d]);
       out.money.push({ ...record('money', { id: kind + ':' + b.id }, `${KINDS_MONEY[kind]} ${clean(doc.number)}`, [doc.number, client, KINDS_MONEY[kind]],
         [KINDS_MONEY[kind], doc.number, state, kind === 'invoice' && doc.status === 'sent' && t.due > 0 ? 'unpaid' : '', client, ...actNames(byId('acts', b.actId)), model.bookingTitle(b), ...amounts].join('\n'),
@@ -451,7 +452,7 @@ const ROW = {
   logs: r => { const l = r.x, b = l.bookingId && byId('bookings', l.bookingId), d = r.spans[0][0], songs = [...new Set(someOf(l.takes).filter(Boolean).map(t => t.songId).filter(Boolean))].map(id => (byId('songs', id) || {}).title).filter(Boolean);
     return { title: r.title, sub: [dayText(d), songs.slice(0, 3).join(', ') + (songs.length > 3 ? ` +${songs.length - 3}` : ''), b && model.bookingTitle(b)] }; },
   money: (r, tab) => ({ title: r.title, sub: [clean((r.b.contact && r.b.contact.name) || r.b.client || model.actName(r.b.actId)), model.bookingTitle(r.b), dayText(r.issued)],
-    more: [h('span', { class: 'srch-money' }, tab === 'money' && h('b', { class: 'srch-amt' }, model.fmtMoney(r.total)), statusPill(r.b, r.kind, r.doc))],
+    more: [h('span', { class: 'srch-money' }, tab === 'money' && h('b', { class: 'srch-amt' }, docMoney(r.total, r.doc)), statusPill(r.b, r.kind, r.doc))],
     style: actStyle(r.b) }),
 };
 // A row: the small word for its kind on All, the name, a line of what it is, anything its kind adds, and why it was

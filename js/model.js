@@ -725,13 +725,16 @@ export function playersFee(b, hours) {
   }
   return t;
 }
+// The invoice a booking's income is read from (not void, with lines), or null: its income is then in the invoice's
+// currency (js/money-currency.js docCur), not always yours.
+export const incomeInvoice = b => { const inv = b && b.invoice; return inv && typeof inv === 'object' && inv.status !== 'void' && Array.isArray(inv.lines) && inv.lines.length ? inv : null; };
 // What a booking brings in (before costs and tax), for the money page and the calendar: what its invoice bills when it
 // has one (not void), else a show's deal (at the counted door when settled, else at the guarantee) or a session's fee;
 // nothing for a cancelled booking.
 export function bookingIncome(b) {
   if (!isLive(b)) return 0;
-  const inv = b.invoice;
-  if (inv && inv.status !== 'void' && Array.isArray(inv.lines) && inv.lines.length) return Math.round(inv.lines.reduce((t, l) => t + num(l && l.qty) * num(l && l.price), 0) * 100) / 100;
+  const inv = incomeInvoice(b);
+  if (inv) return Math.round(inv.lines.reduce((t, l) => t + num(l && l.qty) * num(l && l.price), 0) * 100) / 100;
   if (b.kind === 'show') return b.settlement && b.settlement.tickets ? settle(b).fee : dealPays(b.deal || {}, 0);
   if (b.kind === 'session') { const hours = sessionHoursEstimate(b); return sessionFee(b, b.rateUnit === 'hour' ? hours : undefined) + playersFee(b, hours); }
   return num(b.fee);
