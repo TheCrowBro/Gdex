@@ -402,13 +402,14 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       await ctx.close();
     }
 
-    /* ---------------- 19: the words the start walks through: the Audiophile's own, every other role's as before ---------------- */
+    /* ---------------- 19: the words the start walks through, every role's own ---------------- */
     {
       const { browser: b2, page, errors } = await open();
       const role = id => page.evaluate(x => import('./js/roles.js').then(m => m.setRole(x)), id).then(() => sleep(400));
       const closeAll = () => page.evaluate(() => import('./js/util.js').then(u => u.closeSheets())).then(() => sleep(250));
-      const WORDS = { audiophile: ['band', 'bands', 'gig', 'gig'], band: ['act', 'bands', 'show', 'booking'], producer: ['act', 'artists', 'show', 'booking'],
-        manager: ['act', 'acts', 'show', 'booking'], scout: ['act', 'acts', 'show', 'booking'], solo: ['act', 'acts', 'show', 'booking'], all: ['act', 'acts', 'show', 'booking'] };
+      // [an act, acts, a show, what the question's walkthrough says the name stays on]: actWord() and showWord() in every role.
+      const WORDS = { audiophile: ['band', 'bands', 'gig', 'gig'], band: ['band', 'bands', 'show', 'show'], producer: ['artist', 'artists', 'show', 'show'],
+        manager: ['act', 'acts', 'show', 'show'], scout: ['act', 'acts', 'show', 'show'], solo: ['act', 'acts', 'show', 'show'], all: ['act', 'acts', 'show', 'show'] };
       for (const [id, [act, many, show, booking]] of Object.entries(WORDS)) {
         await role(id);
         await page.evaluate(() => window.logiGo('acts')); await page.waitForSelector('#ac-new-empty'); await sleep(200);

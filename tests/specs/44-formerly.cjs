@@ -41,7 +41,8 @@ const openAct = async (page, id) => { await page.evaluate(i => import('./js/page
 // The acts list, whichever act's page was open last.
 const toList = async page => { await go(page, 'acts'); if (await page.locator('.ac-view').count()) { await page.click('.ac-view .back-btn'); await sleep(250); } await page.waitForSelector('.ac-page'); };
 const openB = async (page, id) => { await page.evaluate(x => import('./js/pages/bookings.js').then(m => m.openBooking(x)), id); await page.waitForSelector('.bk-page'); await sleep(300); };
-const editForm = async page => { await page.click('#ac-edit'); await page.waitForSelector('.sheet[aria-label="Edit act"]'); await sleep(200); return page.locator('.sheet[aria-label="Edit act"]'); };
+// The act's ✎ Edit form, titled in the role's word for an act (Edit act, Edit band, Edit artist).
+const editForm = async (page, title = 'Edit act') => { await page.click('#ac-edit'); await page.waitForSelector(`.sheet[aria-label="${title}"]`); await sleep(200); return page.locator(`.sheet[aria-label="${title}"]`); };
 const PROMPT = '.sheet[aria-label="New name?"]';
 const noSheet = page => page.waitForSelector('.sheet', { state: 'detached' });
 const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other people may match
@@ -727,7 +728,7 @@ const OLD = /Night Owls|The Owls|formerly|Owlets/i; // nothing sent to other peo
     for (const id of ['solo', 'band', 'manager', 'scout']) {
       await role(page, id);
       await openAct(page, 'f-solo');
-      const form = await editForm(page);
+      const form = await editForm(page, id === 'band' ? 'Edit band' : 'Edit act');
       const part = await form.locator('.ac-was').innerText();
       await form.locator('input[data-key=name]').fill('Sable Reed Trio');
       await form.locator('button[type=submit]').click();

@@ -9,7 +9,7 @@ import { VENUE_KINDS, venueKindLabel, RATE_UNITS, rateUnitLabel, fmtMoney, fmtMi
 import { openForm } from '../form.js';
 import { miniMap, mapButtons } from '../map.js';
 import { sheetTutorial } from '../tour.js';
-import { sectionName, moneyShown } from '../roles.js';
+import { sectionName, moneyShown, pageOpt } from '../roles.js';
 import { workMark } from '../licence-state.js';
 import { venueChip, rulesFull, rulesEditor } from '../venues-rules.js';
 import { formerlyNote } from '../model.js'; // "formerly The Night Owls": a booking from before its act changed its name
@@ -142,6 +142,8 @@ function listView(draw) {
   if (S.kind && !counts.has(S.kind)) S.kind = ''; // the last place of that kind is gone
   const q = S.q.trim().toLowerCase();
   const shown = all.filter(v => (!S.kind || kindOf(v) === S.kind) && (!q || matches(v, q))).sort((a, b) => venueName(a).localeCompare(venueName(b)));
+  // The empty page's button adds the place the role books first: a studio for a producer (pages.venues.first), else a venue.
+  const first = pageOpt('venues', 'first', 'venue') === 'studio' ? 'studio' : 'venue';
   const chip = (key, label, n) => h('button', { type: 'button', id: 'vn-kind-' + (key || 'all'), class: 'chip' + (S.kind === key ? ' on' : ''), 'aria-pressed': String(S.kind === key),
     onclick: () => { S.kind = key; draw(); } }, label, h('span', { class: 'vn-n' }, ' ' + n));
   return [
@@ -157,7 +159,7 @@ function listView(draw) {
         ? empty('No place matches that. Try another word or kind.', h('button', { type: 'button', class: 'btn ghost', id: 'vn-clear', onclick: () => { S.q = ''; S.kind = ''; draw(); } }, 'Show every place'))
         : empty(moneyShown() ? 'Save the clubs, halls, studios and rehearsal rooms you play and record in. Shows there warn you if a set would run past curfew.'
           : `Save the rooms you go to, with capacity, PA, noise limit and a map. Each lists the ${sectionName('bookings', 'Bookings').toLowerCase()} you’ve been to there.`,
-          h('button', { type: 'button', class: 'btn primary', id: 'vn-first', onclick: () => editVenue({ kind: 'venue' }) }, 'Add a venue')),
+          h('button', { type: 'button', class: 'btn primary', id: 'vn-first', onclick: () => editVenue({ kind: first }) }, `Add a ${first}`)),
   ];
 }
 
@@ -264,9 +266,10 @@ export function editVenue(v = {}, onSaved) {
   const cur = (v && v.id && byId('venues', v.id)) || v || {};
   const had = rulesOf(cur);         // the rules as stored, cleaned: junk reads as nothing
   const editor = rulesEditor(cur);  // the House rules part: it keeps its own answers until Save reads them
+  const noun = !cur.id && kindOf(cur) === 'studio' ? 'studio' : 'venue'; // a new place opened as a studio is called one (the producer's start, the Studio chip's + Add)
   openForm({
-    title: cur.id ? 'Edit venue' : 'Add venue',
-    saveLabel: cur.id ? 'Save' : 'Add venue',
+    title: cur.id ? 'Edit venue' : `Add ${noun}`,
+    saveLabel: cur.id ? 'Save' : `Add ${noun}`,
     values: { rateUnit: 'hour', ...cur, kind: kindOf(cur), rulesNote: had.note, rulesTone: had.tone }, // a tone that is not one of RULE_TONES shows as Automatic
     fields: [
       { key: 'name', label: 'Name', required: true, placeholder: 'e.g. The Lantern Rooms' },
@@ -349,4 +352,5 @@ const FORM_STEPS = () => [
   { title: 'House rules', text: 'Tap what you know and type anything unusual. They appear on every show here in green, amber or red. How strict sets the colour by hand.', target: ['.vn-rules-edit .vn-rule', '.vn-rules-edit'] }, // one rule with its two buttons: the whole block is taller than a phone, and the card would be cut short over its middle
 ];
 sheetTutorial('Add venue', FORM_STEPS);
+sheetTutorial('Add studio', FORM_STEPS);
 sheetTutorial('Edit venue', FORM_STEPS);

@@ -17,9 +17,9 @@ export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'bac
 //   hide       booking boxes (js/blocks) the role keeps under "More boxes" on a booking's page.
 //   money      false: the deal, settlement, quote & invoice and costs boxes are left off booking pages altogether (their
 //              data stays, and comes back with a role that uses money); new shows start Confirmed, not on Hold.
-//   ownWords   true: an act and a show on the add buttons, new forms and their toasts are in the role's words too ("+ New
-//              band", "New gig", "Gig added": actWord() and the singular of its name for Bookings). The Audiophile's alone,
-//              whose start walks through them; without it they say act and show, whatever the role.
+//   (words)    not a key: an act and a show on the add buttons, the new and edit forms, their toasts and a booking page's
+//              kind line are in the role's words in every role, actWord() and pages/bookings.js showWord() ("+ New band",
+//              "Edit artist", "New gig", "Gig added", "Gig · Sat 21 Nov"); a role whose words are act and show reads them so.
 //   welcome, tour   the welcome tour's first card and its stops ({ id, text }, at most five, in menu order).
 //   pages      small defaults on existing pages, read with pageOpt(page, key, fallback):
 //              bookings.open { kind: [box ids open at first] }, bookings.score (Score this show on a show you went to),
@@ -31,7 +31,8 @@ export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'bac
 //              on the act's form, nor its QR code on the act's card; without the key, as for a producer, a manager and
 //              Jack of Trades, both show), people.group (+ Add starts there),
 //              songs.view ('setlists' to open there when there are songs and setlists), tools.tool (the first tool while none is
-//              remembered), money.earned (the label of the year's income).
+//              remembered), money.earned (the label of the year's income), venues.first ('studio': the empty Venues page's
+//              button adds a studio, "Add a studio"; the producer's).
 const HIDE_ALL = ['lineup', 'advance', 'deal', 'running', 'guests', 'settlement', 'daysheet', 'setlist', 'money', 'budget', 'clock', 'takes', 'worksongs', 'deliverables'];
 export const ROLES = [
   { id: 'producer', label: 'Producer', icon: '🎛️', what: 'Producer',
@@ -47,7 +48,7 @@ export const ROLES = [
       { id: 'acts', text: 'The artists you produce: contacts, links, members, the tech rider, and their sessions coming up.' },
       { id: 'money', text: 'Invoices from your rate or the clock’s hours, what’s unpaid or overdue, and the year’s totals.' },
     ],
-    pages: { bookings: { open: { session: ['clock', 'takes'] } }, acts: { seen: 'logged', empty: 'Add an artist you produce: their name, links and members. Their page keeps the tech rider and their sessions coming up.' }, people: { group: 'session' }, tools: { tool: 'tempo' } } },
+    pages: { bookings: { open: { session: ['clock', 'takes'] } }, acts: { seen: 'logged', empty: 'Add an artist you produce: their name, links and members. Their page keeps the tech rider and their sessions coming up.' }, people: { group: 'session' }, venues: { first: 'studio' }, tools: { tool: 'tempo' } } },
   { id: 'manager', label: 'Manager', icon: '💼', what: 'Artist manager',
     blurb: 'Your acts’ dates, deals and deposits, advancing, settlements and the people around them.',
     sections: ['bookings', 'acts', 'backline', 'money', 'people', 'venues', 'insurance'], start: 'bookings', names: { acts: 'Roster' },
@@ -106,7 +107,7 @@ export const ROLES = [
   { id: 'audiophile', label: 'Audiophile', icon: '🎧', what: '',
     blurb: 'Bands you’ve seen with a score each time, gigs coming up, the rooms and the sound meter. For personal use, not for work.',
     sections: ['bookings', 'acts', 'venues', 'tools'], start: 'bookings', names: { acts: 'Bands', bookings: 'Gigs' },
-    newKind: 'show', kinds: ['show', 'other', 'session', 'rehearsal'], hide: HIDE_ALL, money: false, ownWords: true,
+    newKind: 'show', kinds: ['show', 'other', 'session', 'rehearsal'], hide: HIDE_ALL, money: false,
     kindHelp: { show: 'A gig you’re going to (an in-store or a listening session too): the band, the venue, doors and set time. Score it on the night or after.', other: 'A record fair or anything else in the diary.', session: 'A studio visit or a playback.', rehearsal: 'An open rehearsal or soundcheck.' },
     welcome: 'Tourbook is set up for a gig-goer who listens closely: bands you’ve seen with a score out of 100 each time, gigs coming up, the rooms you go to and a sound level meter. This takes about a minute. Tap Skip any time.',
     tour: [
@@ -146,8 +147,6 @@ export const startSection = (r = role()) => (clean(r).includes(r.start) ? r.star
 export const sectionName = (id, fallback) => role().names[id] || fallback;
 // One act in the role's words, for labels like "Artist" on the booking form: 'artist', 'band' or 'act'.
 export const actWord = () => ({ producer: 'artist', band: 'band', audiophile: 'band' })[roleId()] || 'act';
-// Whether the add buttons, new forms and their toasts say an act and a show in the role's words (ownWords above).
-export const ownWords = () => !!role().ownWords;
 // Who the person shows their contact card to (My card, js/pages/card.js), in the role's words.
 export const cardAudience = () => ({ producer: 'the artists you record, and the engineers and studios you work with', manager: 'promoters, agents and venues', band: 'promoters, venues and fans at the merch desk', solo: 'promoters, venues and fans at the merch table', scout: 'the acts you’re watching and the managers and agents around them', audiophile: 'the bands and people you meet at gigs' })[roleId()] || 'the artists, promoters, venues and crew you work with';
 // The boxes that never show for a role without money, whatever its hide list says.

@@ -23,6 +23,8 @@ const newForm = async (page, kind, title) => {
 const box = (scope, key) => scope.locator(`input[role=combobox][data-key="${key}"]`);
 const optNames = (scope, key) => scope.locator(`[id$="-${key}-list"] .cb-opt .cb-name`).allTextContents();
 const listShown = (scope, key) => scope.locator(`[id$="-${key}-list"]`).isVisible();
+// A sheet's own walkthrough (its ? button), by the sheet's title: its steps' words, joined.
+const helpOf = (page, t) => page.evaluate(t => import('./js/tour.js').then(m => { const s = m.sheetSteps(t); return (typeof s === 'function' ? s() : s || []).map(x => x.text).join(' '); }), t);
 const stateOf = (scope, key) => box(scope, key).evaluate(el => document.getElementById(el.getAttribute('aria-describedby')).innerText);
 const counts = page => store(page, s => ({ acts: s.db.acts.length, venues: s.db.venues.length, bookings: s.db.bookings.length }));
 const byTitle = (page, t) => page.evaluate(t => Promise.all([import('./js/store.js'), import('./js/model.js')]).then(([s, m]) => { const b = s.db.bookings.find(x => m.bookingTitle(x) === t); return b ? JSON.parse(JSON.stringify(b)) : null; }), t);
@@ -191,10 +193,10 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   f = await newForm(page, 'session', 'New studio session');
   await box(f, 'actId').fill('Juno'); await box(f, 'venueId').fill('Studio Nine');
   await f.locator('button[type="submit"]').click(); q = sheetNamed(page, 'Add to your lists?'); await q.waitFor();
-  ok('a session’s question names the studio session', (await q.locator('#bk-add-why').textContent()) === 'Once added, they’re there to pick next time. Whatever you choose, the studio session keeps both names.');
+  ok('a session’s question names the studio session, and its place the studio: “Just the studio”', (await q.locator('#bk-add-why').textContent()) === 'Once added, they’re there to pick next time. Whatever you choose, the studio session keeps both names.' && (await q.locator('#bk-add-venue').textContent()) === 'Just the studio', await q.locator('#bk-add-venue').textContent());
   await q.locator('#bk-add-venue').click(); await page.waitForSelector('.bk-page .bk-hero'); await sleep(250);
   const v9 = await venueNamed(page, 'Studio Nine'); rec = await byTitle(page, 'Juno @ Studio Nine');
-  ok('Just the venue on a session: a studio, linked, and the artist kept as typed', v9 && v9.kind === 'studio' && rec && rec.venueId === v9.id && rec.client === 'Juno' && !rec.actId && !(await actNamed(page, 'Juno')), JSON.stringify(v9 && v9.kind));
+  ok('Just the studio on a session: a studio, linked, and the artist kept as typed', v9 && v9.kind === 'studio' && rec && rec.venueId === v9.id && rec.client === 'Juno' && !rec.actId && !(await actNamed(page, 'Juno')), JSON.stringify(v9 && v9.kind));
   /* ---- 9. one new ---- */
   f = await newForm(page, 'rehearsal', 'New rehearsal');
   await typePick(f, 'actId', 'owl', 'The Night Owls'); await box(f, 'venueId').fill('Room Nine');
@@ -299,7 +301,7 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   await setRole(page, 'audiophile');
   const PAST = await store(page, (s, d) => s.upsert('bookings', { kind: 'show', status: 'confirmed', date: d, client: 'The Moths', venueName: 'The Moth Club', address: '' }).id, dayIso(-3));
   await page.evaluate(id => import('./js/pages/bookings.js').then(m => m.openBooking(id)), PAST); await page.waitForSelector('.bk-page .bk-hero'); await sleep(250);
-  ok('a past gig with a band typed: “The Moths isn’t in your bands yet. Add them to score this show.” and “+ Add to Bands”', (await page.locator('.bk-score-typed .bk-score-text').innerText()) === 'The Moths isn’t in your bands yet. Add them to score this show.' && (await page.locator('#bk-score-add').innerText()) === '+ Add to Bands' && (await page.locator('#bk-score-add').getAttribute('aria-label')) === 'Add The Moths to your bands');
+  ok('a past gig with a band typed: “The Moths isn’t in your bands yet. Add them to score this gig.” and “+ Add to Bands”', (await page.locator('.bk-score-typed .bk-score-text').innerText()) === 'The Moths isn’t in your bands yet. Add them to score this gig.' && (await page.locator('#bk-score-add').innerText()) === '+ Add to Bands' && (await page.locator('#bk-score-add').getAttribute('aria-label')) === 'Add The Moths to your bands');
   const step = await page.evaluate(() => import('./js/pages/bookings.js').then(m => (m.bookings.tutorial().find(s => s.title === 'Score this show') || {}).text || ''));
   ok('…and its walkthrough step says to add them', step === 'Add them to your bands, then score the night here. It goes on their card.', step);
   await page.click('#bk-score-add'); await sleep(500);
@@ -378,9 +380,23 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
     const words = { label: (await f.locator('label[for$="-actId"]').innerText()).trim(), all: await f.locator('input[data-key="actId"] + .cb-all').getAttribute('aria-label'), line: await stateOf(f, 'actId') };
     ok(`${role}: while the list shows saved names (“owl”) the line says “Pick one from the list, or keep typing for a new name.”`, picking === 'Pick one from the list, or keep typing for a new name.', picking);
     await f.locator('button[type="submit"]').click(); q = sheetNamed(page, 'Add to your lists?'); await q.waitFor();
-    Object.assign(words, { just: await q.locator('#bk-add-act').textContent(), why: await q.locator('#bk-add-why').textContent() });
-    ok(`${role}: the box, its ▾, its line and the question in the role’s words (${label}, ${many}, “Just the ${word}”, “the ${noun} keeps…”)`, words.label === label && words.all === `All your ${many}` && words.line === `Not in your ${many} yet. You’ll be asked whether to add it.` && words.just === `Just the ${word}` && words.why === `Once added, they’re there to pick next time. Whatever you choose, the ${noun} keeps both names.`, JSON.stringify(words));
+    Object.assign(words, { just: await q.locator('#bk-add-act').textContent(), place: await q.locator('#bk-add-venue').textContent(), why: await q.locator('#bk-add-why').textContent(), help: await helpOf(page, 'Add to your lists?') });
+    ok(`${role}: the box, its ▾, its line and the question in the role’s words (${label}, ${many}, “Just the ${word}”, “Just the venue”, “the ${noun} keeps…”)`, words.label === label && words.all === `All your ${many}` && words.line === `Not in your ${many} yet. You’ll be asked whether to add it.` && words.just === `Just the ${word}` && words.place === 'Just the venue' && words.why === `Once added, they’re there to pick next time. Whatever you choose, the ${noun} keeps both names.`, JSON.stringify(words));
+    ok(`${role}: …and its walkthrough says a name not added “stays on the ${noun} as typed”`, words.help === `Added, a name goes on its list, ready to pick next time you type it. A name you don’t add stays on the ${noun} as typed. Back to the form, or ✕, saves nothing.`, words.help);
   }
+  // A producer's studio session: the artist and the studio, in the producer's words, wherever the question names them.
+  await closeSheets(page);
+  await setRole(page, 'producer');
+  f = await newForm(page, 'session', 'New studio session');
+  const sess = { label: (await f.locator('label[for$="-actId"]').innerText()).trim(), all: await f.locator('input[data-key="actId"] + .cb-all').getAttribute('aria-label'),
+    place: (await f.locator('label[for$="-venueId"]').innerText()).trim(), placeAll: await f.locator('input[data-key="venueId"] + .cb-all').getAttribute('aria-label') };
+  ok('producer: a studio session’s boxes are Artist (▾ “All your artists”) and Studio (▾ “All your venues”)', sess.label === 'Artist' && sess.all === 'All your artists' && sess.place === 'Studio' && sess.placeAll === 'All your venues', JSON.stringify(sess));
+  await box(f, 'actId').fill('Kit Juno'); await box(f, 'venueId').fill('Studio Ten'); await page.keyboard.press('Tab'); await sleep(60);
+  await f.locator('button[type="submit"]').click(); q = sheetNamed(page, 'Add to your lists?'); await q.waitFor(); await sleep(150);
+  const sq = await q.evaluate(el => ({ q: el.querySelector('#bk-add-q').textContent, why: el.querySelector('#bk-add-why').textContent, btns: [...el.querySelectorAll('.bk-add-answers button')].map(b => b.textContent) }));
+  ok('producer: both new on a studio session: “Add both | Just the artist | Just the studio | Neither”, the studio session keeps both names', sq.q === '“Kit Juno” and “Studio Ten” aren’t in your lists yet. Add them?' && sq.why === 'Once added, they’re there to pick next time. Whatever you choose, the studio session keeps both names.' && JSON.stringify(sq.btns) === JSON.stringify(['Add both', 'Just the artist', 'Just the studio', 'Neither']), JSON.stringify(sq));
+  const sHelp = await helpOf(page, 'Add to your lists?');
+  ok('producer: …and its walkthrough says “stays on the studio session as typed”', sHelp === 'Added, a name goes on its list, ready to pick next time you type it. A name you don’t add stays on the studio session as typed. Back to the form, or ✕, saves nothing.', sHelp);
   await closeSheets(page);
   await setRole(page, 'all');
 

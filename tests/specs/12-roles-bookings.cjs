@@ -176,7 +176,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   ok('with the act picked, ★ Score The Night Owls is there, with the focus on it', /Score The Night Owls/.test(await page.locator('#bk-score').textContent()) && (await focused(page)) === 'bk-score', await focused(page));
   await page.evaluate(id => import('./js/store.js').then(s => s.patch('bookings', id, { actId: '' })), noAct); await sleep(300);
   await setRole(page, 'audiophile');
-  ok('audiophile: the line and the button speak of the band', (await page.locator('.bk-score-noact .bk-score-text').innerText()) === 'Pick the band you saw to score this show.' && /Pick the band/.test(await page.locator('#bk-score-act').textContent()));
+  ok('audiophile: the line and the button speak of the band and the gig', (await page.locator('.bk-score-noact .bk-score-text').innerText()) === 'Pick the band you saw to score this gig.' && /Pick the band/.test(await page.locator('#bk-score-act').textContent()));
   await setRole(page, 'scout');
   for (const [what, b] of [['to come', { date: dayIso(3) }], ['cancelled', { date: dayIso(-2), status: 'cancelled' }]]) {
     await page.evaluate(([id, x]) => import('./js/store.js').then(s => s.patch('bookings', id, x)), [noAct, b]); await sleep(300);
@@ -214,7 +214,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
   await form.waitFor();
   ok('a scout’s new show starts confirmed', (await form.locator('select[data-key=status]').inputValue()) === 'confirmed');
   ok('…with no Paid / settled to pick', JSON.stringify(await form.locator('select[data-key=status] option').allTextContents()) === JSON.stringify(['Hold', 'Offer in', 'Confirmed', 'Advanced', 'Done', 'Cancelled']));
-  ok('…and the act box says the act is the one that gets scored', /The act you’re going to see\. On the night or after, Score this show logs your score on their card\./.test(await form.locator('input[id$="-actId"]').locator('xpath=ancestor::div[contains(@class,"field")][1]').innerText()));
+  ok('…and the act box says the act is the one that gets scored', /The act you’re going to see\. On the night or after, Score on the show’s page logs it on their card\./.test(await form.locator('input[id$="-actId"]').locator('xpath=ancestor::div[contains(@class,"field")][1]').innerText()));
   ok('…its act box is labelled Act, a box to type in whose list is “Your acts”', (await form.locator('label[for$="-actId"]').innerText()).trim() === 'Act' && (await form.locator('input[id$="-actId"]').getAttribute('role')) === 'combobox' && (await form.locator('ul[id$="-actId-list"]').getAttribute('aria-label')) === 'Your acts' && !/Not in my/.test(await form.innerText()));
   ok('…and no hint that the members join the line-up', !/line-up/.test(await form.locator('input[id$="-actId"]').locator('xpath=ancestor::div[contains(@class,"field")][1]').innerText()));
   await typePick(form, 'actId', 'owl', 'The Night Owls');
@@ -381,7 +381,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     const help = await page.$$eval('.bk-kinds .bk-kind .muted', s => s.map(x => x.textContent));
     ok(`${r.id}: the kinds in its order, with its words or the usual ones`, JSON.stringify(order) === JSON.stringify(r.kinds) && help.every((t, i) => t === ((r.kindHelp || {})[order[i]] || DEF[order[i]])), order.join(','));
     await page.click('.bk-kind[data-kind="show"]');
-    await sheetNamed(page, r.ownWords ? 'New gig' : 'New show').waitFor(); // the Audiophile's “New gig” (ownWords)
+    await sheetNamed(page, r.id === 'audiophile' ? 'New gig' : 'New show').waitFor(); // the Audiophile's “New gig” (its word for a show)
     const label = (await page.locator('.sheet label[for$="-actId"]').innerText()).trim(), none = await page.locator('.sheet ul[id$="-actId-list"]').getAttribute('aria-label');
     ok(`${r.id}: the act box is labelled ${words[r.id][0]}, its list “Your ${words[r.id][1]}”`, label === words[r.id][0] && none === `Your ${words[r.id][1]}`, `${label} / ${none}`);
     ok(`${r.id}: the field key is still actId`, (await page.locator('.sheet input[data-key=actId]').count()) === 1);

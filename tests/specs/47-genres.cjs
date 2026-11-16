@@ -397,7 +397,7 @@ const SEED = [
     const order = await cardsIn(page, 'rock');
     const want = { scout: ['t-rye', 's-owls', 't-two'], audiophile: ['s-owls', 't-rye', 't-two'] }[id] || ['t-two', 't-rye', 's-owls'];
     const st = (await tutorial(page)).find(s => s[0] === 'Main genres');
-    const formTitle = id === 'audiophile' ? 'New band' : 'New act'; // the Audiophile's own words (ownWords)
+    const formTitle = { audiophile: 'New band', band: 'New band', producer: 'New artist' }[id] || 'New act'; // the role's word for an act
     await page.click('#ac-new');
     await page.waitForSelector(`.sheet[aria-label="${formTitle}"] select[data-key=mainGenre]`);
     const hint = await topSheet(page).locator('select[data-key=mainGenre]').evaluate(s => s.closest('.field').querySelector('small').textContent);

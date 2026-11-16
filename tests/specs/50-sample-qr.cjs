@@ -51,7 +51,7 @@ const editForm = async (page, id) => {
   await page.evaluate(i => import('./js/pages/acts.js').then(m => m.openAct(i)), id);
   await page.waitForSelector('.ac-view .ac-title');
   await page.click('#ac-edit');
-  await page.waitForSelector('.sheet[aria-label="Edit act"]');
+  await page.waitForSelector('.sheet[aria-label="Edit act"], .sheet[aria-label="Edit band"], .sheet[aria-label="Edit artist"]'); // the role's word for an act
   return topSheet(page);
 };
 const save = async page => { await topSheet(page).locator('button[type=submit]').click(); await page.waitForSelector('.sheet', { state: 'detached' }); await sleep(300); };
@@ -419,7 +419,7 @@ const save = async page => { await topSheet(page).locator('button[type=submit]')
     await p2.evaluate(() => import('./js/pages/acts.js').then(m => m.openAct('t-long')));
     await p2.waitForSelector('#ac-edit');
     await p2.click('#ac-edit');
-    await p2.waitForSelector('.sheet[aria-label="Edit act"] input[data-key=sampleWork]');
+    await p2.waitForSelector('.sheet[aria-label="Edit artist"] input[data-key=sampleWork]'); // the producer's word for an act
     await topSheet(p2).locator('input[data-key=sampleWork]').fill('this is not a web address at all, just words');
     await topSheet(p2).locator('input[data-key=sampleWork]').scrollIntoViewIfNeeded();
     const fits = await p2.evaluate(() => { const b = [...document.querySelectorAll('.sheet-body')].pop(), s = b.querySelector('input[data-key=sampleWork]').getBoundingClientRect(), c = b.querySelector('#ac-sample-check').getBoundingClientRect(), o = b.getBoundingClientRect(); return b.scrollWidth <= b.clientWidth + 1 && s.right <= o.right + 0.5 && c.right <= o.right + 0.5; });

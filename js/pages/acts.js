@@ -23,11 +23,9 @@ import { gateWork } from '../licence-state.js'; // + Add member makes People's r
 import { earlierNames, earlierSpans, formerName, nameSince, formerlyOn, formerlyOf, cleanFormer, sameName } from '../model.js';
 // Main genres (the list's fold-down groups, the form's Main genre): every reading of them is the model's too.
 import { MAIN_GENRES, genreOf, mainGenreOf, mainGenreLabel } from '../model.js';
-import { actWord, ownWords } from '../roles.js';
+import { actWord } from '../roles.js';
 // Sample work (item 15): its link on the act's form and its QR code on the act's card (a producer, a manager, Jack of Trades).
 import { sampleField, sampleFormReady, sampleSave, samplePart, sampleStep, sampleFormStep } from '../acts-sample.js';
-// An act on the add buttons and the new act's form: the role's word with ownWords ("+ New band"), else act.
-const newWord = () => (ownWords() ? actWord() : 'act');
 
 // View state survives the redraw after every change: which act is open, which part of it, the search.
 const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set(), // open: the act cards dropped open on the list
@@ -106,13 +104,13 @@ export function editAct(a = {}, onSaved) {
   const fresh = freshColor();
   let names = null, pick = null; // the form's Earlier names (names.read()); the answer to "New name?" while its save runs
   openForm({
-    title: isNew ? `New ${newWord()}` : 'Edit act',
+    title: isNew ? `New ${actWord()}` : `Edit ${actWord()}`, // in the role's words: New band, Edit artist, New act…
     values: { ...cur, color: isNew && cur.color == null ? fresh : colorOf(cur) || cur.color || '', mainGenre: mainGenreOf(cur).auto ? '' : mainGenreOf(cur).id },
     fields: [
       { key: 'name', label: 'Name', required: true, placeholder: 'Band or artist name' },
       { key: 'genre', label: 'Genre', list: GENRES, placeholder: 'e.g. Indie rock' },
       { key: 'mainGenre', label: 'Main genre', type: 'select', options: [['', autoGenre(cur.genre)], ...MAIN_GENRES], hint: `The heading it’s listed under in ${secName()}. Automatic goes by the genre above.` },
-      { key: 'color', label: 'Colour', type: 'select', options: colors, hint: 'The stripe on the act’s cards.' },
+      { key: 'color', label: 'Colour', type: 'select', options: colors, hint: 'The stripe on its cards.' },
       { key: 'email', label: 'Email', type: 'email', placeholder: 'band@…' },
       { key: 'phone', label: 'Phone', type: 'tel' },
       { key: 'links', label: 'Links', type: 'textarea', rows: 4, placeholder: 'Website: https://…\nSpotify: https://…\nInstagram: https://…', hint: 'One per line: a name, a colon, then the address.' + (hasTab('epk') ? ' The first one is the QR code on the press kit.' : '') },
@@ -120,7 +118,7 @@ export function editAct(a = {}, onSaved) {
       { key: 'bio', label: 'Bio', type: 'textarea', rows: 5, placeholder: hasTab('epk') ? 'Two or three sentences for promoters and press: who you are, what you sound like, where you’ve played.' : 'A few lines on who they are, what they sound like and where they’ve played.' },
       { key: 'notes', label: 'Notes', type: 'textarea', rows: 3, placeholder: 'Only you see these.' },
     ],
-    saveLabel: isNew ? `Add ${newWord()}` : 'Save',
+    saveLabel: isNew ? `Add ${actWord()}` : 'Save',
     onReady: form => {
       const name = form.querySelector('input[data-key=name]');
       names = namesEditor(cur);
@@ -519,9 +517,9 @@ function listView() {
   };
   if (all.length) fill();
   return h('div', { class: 'ac-page' },
-    h('div', { class: 'page-head' }, h('h1', null, secName()), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, `+ New ${newWord()}`)),
+    h('div', { class: 'page-head' }, h('h1', null, secName()), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, `+ New ${actWord()}`)),
     all.length > 5 && h('input', { class: 'search', id: 'ac-search', type: 'search', placeholder: 'Search acts, genres, members…', 'aria-label': 'Search acts', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; S.shut.clear(); fill(); } }),
-    all.length ? listBox : empty(emptyText(), h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, `+ New ${newWord()}`)));
+    all.length ? listBox : empty(emptyText(), h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, `+ New ${actWord()}`)));
 }
 
 /* ------------------------------- one act ------------------------------- */
@@ -745,7 +743,7 @@ const listSteps = () => {
   const inGroups = grouped(db.acts), w = actWord(); // the list in main genres: the cards' step opens the first group when none is open
   return [
     { title: secName(), text: follows ? 'The bands and artists you go to see. Each keeps its links, members, notes and a log of each time you saw them. Bookings point back to it.' : 'The bands and artists you play with, manage or produce. Each keeps its members, links, press kit and tech rider; bookings and songs point back to it.', target: ['.ac-page .page-head'] },
-    { title: 'Add an act', text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] },
+    { title: `Add ${/^[aeiou]/.test(w) ? 'an' : 'a'} ${w}`, text: 'A name, a genre, a colour for its stripe, a contact, and its links, one per line like “Spotify: https://…”.', target: ['#ac-new'] }, // it names the button: “Add an artist” over “+ New artist”
     { title: yours(), text: (logged ? 'Each card shows their dates coming up on the calendar and, once you log a time you saw them play, how many times, your average and latest score out of 100.' : 'Each card shows how many times you have seen them play, your average and latest score out of 100, and their dates coming up on the calendar.')
       + (db.acts.some(x => formerName(x)) ? ' “formerly …” under a name is the name they had before.' : '')
       + (how === 'latest' ? ' The best latest score comes first.' : how === 'recent' ? ' The ones you saw last come first.' : ''), target: ['.ac-card', '.ac-page .empty'], before: inGroups ? openFirstGroup : undefined },
@@ -806,17 +804,17 @@ export const acts = {
 // Changing a name is asked about only in the Edit form (a new act has no name to change).
 const RENAME_HELP = ' Change it and Tourbook asks whether it is a new name or a spelling fix: a new name keeps the old one, shown as “formerly …”.';
 const formSteps = () => [
-  { title: 'Name', text: (hasTab('epk') ? 'The band or artist name, as it goes on posters and the press kit.' : 'The band or artist name, as it goes on posters.') + (document.querySelector('.sheet[aria-label="Edit act"]') ? RENAME_HELP : ''), target: ['input[data-key=name]'] },
+  { title: 'Name', text: (hasTab('epk') ? 'The band or artist name, as it goes on posters and the press kit.' : 'The band or artist name, as it goes on posters.') + (document.querySelector(`.sheet[aria-label="Edit ${actWord()}"]`) ? RENAME_HELP : ''), target: ['input[data-key=name]'] },
   { title: 'Earlier names', text: 'Names the act had before, each with its last day. The latest shows as “formerly …”, and earlier bookings and scores show the name it had. Add one if the name changed before you kept the act here. ✕ takes one away.', target: ['.ac-was'] },
   // In words that fit a band and a solo artist alike, as the rest of the form's walkthrough (the hint names the list).
   { title: 'Main genre', text: 'Its heading on the list. Automatic works it out from the genre: indie rock is Rock, and a genre Tourbook doesn’t know is Unique. Or pick one yourself.', target: ['select[data-key=mainGenre]'] },
-  { title: 'Colour', text: 'The stripe on the act’s cards, so its bookings and songs are quick to tell apart.', target: ['select[id$="-color"]'] },
+  { title: 'Colour', text: 'The stripe on its cards, so its bookings and songs are quick to tell apart.', target: ['select[id$="-color"]'] },
   { title: 'Links', text: hasTab('epk') ? 'One per line: a name, a colon, the address. They become buttons on the act and lines on the press kit; the first is its QR code.' : 'One per line: a name, a colon, the address. They become buttons on the act.', target: ['textarea[data-key=links]'] },
   sampleFormStep(), // Sample work, for the roles that have it
   { title: 'Bio', text: hasTab('epk') ? 'Two or three sentences for promoters and press. It heads the press kit.' : 'A few lines on who they are, what they sound like and where they’ve played.', target: ['textarea[data-key=bio]'] },
 ].filter(Boolean);
-sheetTutorial('New act', formSteps);
-sheetTutorial('New band', formSteps); // the Audiophile's (ownWords)
+// The form's title is in the role's word for an act (roles.js actWord): act, band, artist.
+for (const w of ['act', 'band', 'artist']) { sheetTutorial(`New ${w}`, formSteps); sheetTutorial(`Edit ${w}`, formSteps); }
 const seenSteps = [
   { title: 'When and where', text: 'The date, and one of your venues or any other place typed in.', target: ['input[data-key=date]'] },
   { title: 'Score', text: 'Out of 100: type it or slide it. The card shows the average and the latest, so you can see whether they are getting better.', target: ['input[data-key=rating]'] },
@@ -824,7 +822,6 @@ const seenSteps = [
 ];
 sheetTutorial('Log a time seen', seenSteps);
 sheetTutorial('Edit a time seen', seenSteps);
-sheetTutorial('Edit act', formSteps);
 sheetTutorial(RENAME, [
   { title: 'Old and new', text: 'The name as it was saved, and the name you typed.', target: ['.ac-rename-names'] },
   { title: 'Since when?', text: 'The day the new name began: today, unless you move it back. Bookings and scores from before that day say “formerly …”.', target: ['#ac-rename-since'] },
