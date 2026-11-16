@@ -14,13 +14,15 @@ const ASK = 'Who’s using Tourbook?';
 const LICENCE_SHEETS = ['Before you use the working roles', 'Read-only until there is a licence', 'Did you see them?'];
 
 // Every sheet that opens, across reloads (kept in the tab's sessionStorage): the licence's and "Did you see them?" must
-// not come up at any point of the start.
+// not come up at any point of the start. Every toast too ("Gig added").
 const sheetLog = () => {
-  const seen = () => { try { return JSON.parse(sessionStorage.getItem('t-sheets') || '[]'); } catch (e) { return []; } };
+  const seen = k => { try { return JSON.parse(sessionStorage.getItem(k) || '[]'); } catch (e) { return []; } };
+  const log = (k, v) => { const l = seen(k); l.push(v); try { sessionStorage.setItem(k, JSON.stringify(l)); } catch (e) { /* ignore */ } };
   new MutationObserver(ms => {
     for (const m of ms) for (const n of m.addedNodes) {
       const s = n.nodeType === 1 && (n.matches('.sheet') ? n : n.querySelector('.sheet'));
-      if (s) { const l = seen(); l.push(s.getAttribute('aria-label')); try { sessionStorage.setItem('t-sheets', JSON.stringify(l)); } catch (e) { /* ignore */ } }
+      if (s) log('t-sheets', s.getAttribute('aria-label'));
+      if (n.nodeType === 1 && n.matches('.toast')) log('t-toasts', n.textContent);
     }
   }).observe(document, { childList: true, subtree: true });
 };
@@ -38,12 +40,12 @@ async function fresh(browser, { viewport = { width: 420, height: 900 }, prefs = 
   const net = { licence: [] };
   ctx.on('request', r => { try { const p = new URL(r.url()).pathname; if (p.startsWith('/licence/')) net.licence.push(p); } catch (e) { /* ignore */ } });
   const page = await ctx.newPage();
-  const errors = [];
+  const errors = [], said = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
+  page.on('console', m => { said.push(m.text()); if (m.type() === 'error' || /Content Security Policy|Refused to/.test(m.text())) errors.push(m.text()); });
   page.on('dialog', d => d.accept());
   await page.goto(BASE);
-  return { ctx, page, errors, net };
+  return { ctx, page, errors, net, said };
 }
 const pick = async (page, id) => { await page.waitForSelector(`.sheet[aria-label="${ASK}"] .rp-card[data-role="${id}"]`, { timeout: 8000 }); await sleep(200); await page.click(`.rp-ask .rp-card[data-role="${id}"]`); };
 // The card with that title (and count) is up, no sheet over it, and its spotlight has stopped moving.
@@ -54,6 +56,9 @@ const cardIs = (page, title, count = null) => page.waitForFunction(([t, n]) => {
 const title = page => page.evaluate(() => (document.querySelector('.tour-card #tour-title') || {}).textContent || null);
 const key = page => page.evaluate(() => localStorage.getItem('tourbook-start'));
 const sheets = page => page.evaluate(() => JSON.parse(sessionStorage.getItem('t-sheets') || '[]'));
+const toasts = page => page.evaluate(() => JSON.parse(sessionStorage.getItem('t-toasts') || '[]'));
+// A sheet's own walkthrough (its ? button), by the sheet's title: the steps' titles and words.
+const sheetSteps = (page, t) => page.evaluate(t => import('./js/tour.js').then(m => { const s = m.sheetSteps(t); return (typeof s === 'function' ? s() : s || []).map(x => [x.title, x.text]); }), t);
 const mode = page => page.evaluate(() => import('./js/licence-state.js').then(m => m.licenceNow().mode));
 const db = page => page.evaluate(() => import('./js/store.js').then(s => JSON.parse(s.serialize())));
 const where = page => page.evaluate(() => window.logiPage());
@@ -91,6 +96,7 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       ok('1. picking the Audiophile brings Step 1’s card over Bands: “Add a band”, “Step 1 of 3”', await cardIs(page, 'Add a band', 'Step 1 of 3') && (await where(page)) === 'acts', `${await title(page)} on ${await where(page)}`);
       modes.push(await mode(page));
       ok('…its spotlight over Bands’ own add button', await spotOver(page, '#ac-new-empty'));
+      ok('…which says “+ New band”, in the Audiophile’s words', (await page.textContent('#ac-new-empty')) === '+ New band', await page.textContent('#ac-new-empty'));
       const c1 = await page.evaluate(() => {
         const c = document.querySelector('.tour-card'), a = document.activeElement;
         return { skip: [...c.querySelectorAll('button')].some(b => b.textContent.trim() === 'Skip'), out: (document.getElementById('start-backup') || {}).textContent, primary: (c.querySelector('.tour-actions .btn.primary') || {}).textContent,
@@ -105,23 +111,25 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       ok('2. Escape, ← and → change nothing: still Step 1’s card, still on Bands', (await title(page)) === 'Add a band' && (await where(page)) === 'acts' && (await key(page)) === '{"role":"audiophile","made":[]}');
       /* 3 */
       await primary(page);
-      let f = await form(page, 'New act');
+      let f = await form(page, 'New band');
       const note = await f.evaluate(s => { const fm = s.querySelector('form.form'), first = fm.firstElementChild, name = fm.querySelector('[data-key=name]'); return { is: first.matches('p.start-note#start-note'), text: first.textContent, by: (name.getAttribute('aria-describedby') || '').split(' ') }; });
       ok('3. “Add a band…” opens the act form, its first line the start’s: “Only the name is needed. The rest can wait.”', note.is && note.text === 'Only the name is needed. The rest can wait.', JSON.stringify(note));
       ok('…and the name box is described by it', note.by.includes('start-note'), JSON.stringify(note.by));
-      await close(page, 'New act');
+      const bandSteps = await sheetSteps(page, 'New band');
+      ok('…the form is “New band”, its button “Add band”, and its ? walkthrough is the act form’s', (await f.locator('button[type=submit]').textContent()) === 'Add band' && bandSteps.length > 0 && bandSteps[0][0] === 'Name', JSON.stringify(bandSteps.slice(0, 1)));
+      await close(page, 'New band');
       ok('…✕ brings the card back, at Step 1, the focus on its primary', await cardIs(page, 'Add a band', 'Step 1 of 3') && await page.evaluate(() => document.activeElement.matches('.tour-actions .btn.primary')));
-      await primary(page); f = await form(page, 'New act'); await f.locator('.form-actions .btn.ghost', { hasText: 'Cancel' }).click();
+      await primary(page); f = await form(page, 'New band'); await f.locator('.form-actions .btn.ghost', { hasText: 'Cancel' }).click();
       ok('…so does Cancel', await cardIs(page, 'Add a band', 'Step 1 of 3'));
-      await primary(page); f = await form(page, 'New act'); await page.keyboard.press('Escape');
+      await primary(page); f = await form(page, 'New band'); await page.keyboard.press('Escape');
       ok('…and Escape in the form', await cardIs(page, 'Add a band', 'Step 1 of 3'));
       /* 4 */
       await page.reload();
       ok('4. a reload brings Step 1’s card back, with no “Who’s using Tourbook?”', await cardIs(page, 'Add a band', 'Step 1 of 3') && (await sheets(page)).filter(s => s === ASK).length === 1 && (await page.locator('.rp-ask').count()) === 0);
       /* 5 */
-      await primary(page); f = await form(page, 'New act');
+      await primary(page); f = await form(page, 'New band');
       await f.locator('[data-key=name]').fill('The Moths'); await f.locator('button[type=submit]').click();
-      ok('5. “The Moths”, Add act: Step 2’s card over Venues, “Add a venue”, “Step 2 of 3”', await cardIs(page, 'Add a venue', 'Step 2 of 3') && (await where(page)) === 'venues');
+      ok('5. “The Moths”, Add band: Step 2’s card over Venues, “Add a venue”, “Step 2 of 3”', await cardIs(page, 'Add a venue', 'Step 2 of 3') && (await where(page)) === 'venues');
       ok('…its spotlight over Venues’ own add button', await spotOver(page, '#vn-first'));
       let data = await db(page);
       ok('…the act is stored, and tourbook-start holds its id', data.acts.length === 1 && data.acts[0].name === 'The Moths' && (await key(page)) === JSON.stringify({ role: 'audiophile', made: [data.acts[0].id] }), await key(page));
@@ -139,12 +147,16 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       ok('…and its primary is “Add a gig…”', (await page.textContent('.tour-actions .btn.primary')) === 'Add a gig…');
       await shot(page, 'step3-light');
       /* 7 */
-      await primary(page); f = await form(page, 'New show');
+      await primary(page); f = await form(page, 'New gig');
       data = await db(page);
       const gf = await f.evaluate(s => { const a = s.querySelector('input[data-key=actId]'), v = s.querySelector('input[data-key=venueId]'); return { line: (s.querySelector('form.form > p.start-note:first-child') || {}).textContent, actId: a.dataset.id, act: a.value, venueId: v.dataset.id, venue: v.value, focus: document.activeElement === a, by: (a.getAttribute('aria-describedby') || '').split(' ') }; });
       ok('7. “Add a gig…” opens the show form with its line', gf.line === 'Type the first letters of “The Moths” in the Band box and pick it from the list, then “The Lantern Rooms” in the Venue box. The rest can wait.' && gf.by.includes('start-note'), JSON.stringify(gf));
       ok('…the band box empty though there is one band, the venue box empty, the focus in the band box', gf.actId === '' && gf.act === '' && gf.venueId === '' && gf.venue === '' && gf.focus, JSON.stringify(gf));
+      const gigSteps = await sheetSteps(page, 'New gig');
+      ok('…the form is “New gig”, and its ? walkthrough is the show form’s', gigSteps.length > 0 && gigSteps[0][0] === 'The band', JSON.stringify(gigSteps.slice(0, 1)));
       await page.keyboard.type('mo'); await sleep(250);
+      const moLine = await f.evaluate(s => { const a = s.querySelector('input[data-key=actId]'); return { line: document.getElementById(a.getAttribute('aria-describedby').split(' ')[0]).innerText, list: [...document.getElementById(a.getAttribute('aria-controls')).querySelectorAll('.cb-name')].map(x => x.textContent) }; });
+      ok('…“mo” lists The Moths, and the line under the box asks for a pick, not that it is new: “Pick one from the list, or keep typing for a new name.”', JSON.stringify(moLine.list) === '["The Moths"]' && moLine.line === 'Pick one from the list, or keep typing for a new name.', JSON.stringify(moLine));
       await page.keyboard.press('ArrowDown'); await sleep(150);
       await shot(page, 'gig-form-light');
       await page.keyboard.press('Enter'); await sleep(250);
@@ -157,6 +169,7 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       data = await db(page);
       ok('…no “Add to your lists?”; the gig stored with the band and the venue', !(await sheets(page)).includes('Add to your lists?') && data.bookings.length === 1 && data.bookings[0].kind === 'show' && data.bookings[0].actId === data.acts[0].id && data.bookings[0].venueId === data.venues[0].id && !data.bookings[0].client, JSON.stringify(data.bookings[0]));
       ok('…tourbook-start is gone', (await key(page)) === null);
+      ok('…and the toast said “Gig added”', (await toasts(page)).includes('Gig added'), JSON.stringify(await toasts(page)));
       const last = await page.evaluate(() => ({ skip: [...document.querySelectorAll('.tour-actions button')].some(b => b.textContent.trim() === 'Skip'), text: document.getElementById('tour-text').textContent }));
       ok('…the card is over the gig’s score row on its page, says what to do there, and has Skip', await spotOver(page, '.bk-page .bk-hero .bk-score') && last.skip && last.text === 'On the night or after, score the band out of 100 on this page. Next, a quick look around. Tap Skip any time.', JSON.stringify(last));
       modes.push(await mode(page));
@@ -167,7 +180,7 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       await sleep(2500); // the sheets at an opening have their turn
       ok('…Done: the welcome tour is marked seen, and Tourbook is on the calendar', (await page.evaluate(() => localStorage.getItem('tourbook-tour'))) === 'done' && (await where(page)) === 'bookings' && (await page.locator('.bk-calview').count()) === 1);
       const all = await sheets(page);
-      ok('…and no “Did you see them?” or licence sheet came up at any point', !all.some(s => LICENCE_SHEETS.includes(s)) && JSON.stringify(all.filter(s => s !== ASK)) === JSON.stringify(['New act', 'New act', 'New act', 'New act', 'Add venue', 'New show']), JSON.stringify(all));
+      ok('…and no “Did you see them?” or licence sheet came up at any point', !all.some(s => LICENCE_SHEETS.includes(s)) && JSON.stringify(all.filter(s => s !== ASK)) === JSON.stringify(['New band', 'New band', 'New band', 'New band', 'Add venue', 'New gig']), JSON.stringify(all));
       /* 9 */
       modes.push(await mode(page));
       const terms = await page.evaluate(() => localStorage.getItem('tourbook-terms'));
@@ -182,19 +195,21 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       const { ctx, page, errors, net } = await fresh(browser, { prefs: { scheme: 'dark' } });
       await pick(page, 'audiophile');
       await cardIs(page, 'Add a band', 'Step 1 of 3'); await shot(page, 'step1-dark');
-      await primary(page); let f = await form(page, 'New act'); await shot(page, 'band-form-dark');
+      await primary(page); let f = await form(page, 'New band'); await shot(page, 'band-form-dark');
       await f.locator('[data-key=name]').fill('The Moths'); await f.locator('button[type=submit]').click();
       await cardIs(page, 'Add a venue', 'Step 2 of 3'); await shot(page, 'step2-dark');
       await primary(page); f = await form(page, 'Add venue'); await shot(page, 'venue-form-dark');
       await f.locator('[data-key=name]').fill('The Lantern Rooms'); await f.locator('button[type=submit]').click();
       await cardIs(page, 'Add a gig', 'Step 3 of 3'); await shot(page, 'step3-dark');
-      await primary(page); f = await form(page, 'New show');
+      await primary(page); f = await form(page, 'New gig');
       await page.keyboard.type('mo'); await sleep(250); await page.keyboard.press('ArrowDown'); await sleep(150); await shot(page, 'gig-form-dark');
       await f.locator('input[data-key=actId]').fill('New Band'); await f.locator('input[data-key=venueId]').fill('New Hall'); await page.keyboard.press('Tab'); await sleep(150);
       await f.locator('button[type=submit]').click();
       await page.waitForSelector('.sheet[aria-label="Add to your lists?"] #bk-add-both', { timeout: 6000 }); await sleep(250);
+      const addSteps = (await sheetSteps(page, 'Add to your lists?')).map(x => x[1]).join(' ');
+      ok('10. “Add to your lists?”: its ? walkthrough in the Audiophile’s words (“stays on the gig as typed”)', addSteps === 'Added, a name goes on its list, ready to pick next time you type it. A name you don’t add stays on the gig as typed. Back to the form, or ✕, saves nothing.', addSteps);
       await page.click('#bk-add-both');
-      ok('10. new names typed at Step 3 are asked about; Add both: “Your first gig is on your calendar”', await cardIs(page, 'Your first gig is on your calendar'));
+      ok('…new names typed at Step 3 are asked about; Add both: “Your first gig is on your calendar”', await cardIs(page, 'Your first gig is on your calendar'));
       const data = await db(page), b = data.bookings[0] || {}, act = data.acts.find(a => a.name === 'New Band'), ven = data.venues.find(v => v.name === 'New Hall');
       ok('…the gig linked to the band and the venue just made, the start’s own two kept', data.acts.length === 2 && data.venues.length === 2 && act && ven && b.actId === act.id && b.venueId === ven.id && (await key(page)) === null, JSON.stringify(b));
       await shot(page, 'done-dark');
@@ -239,7 +254,7 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       const { ctx, page, errors } = await fresh(browser);
       await pick(page, 'audiophile');
       await cardIs(page, 'Add a band', 'Step 1 of 3');
-      await primary(page); const f = await form(page, 'New act');
+      await primary(page); const f = await form(page, 'New band');
       await f.locator('[data-key=name]').fill('The Moths'); await f.locator('button[type=submit]').click();
       await cardIs(page, 'Add a venue', 'Step 2 of 3');
       await page.evaluate(() => import('./js/store.js').then(s => s.adopt({ ...JSON.parse(s.serialize()), venues: [{ id: 'd-ven', name: 'Drive Hall', kind: 'venue', address: '' }] })));
@@ -318,7 +333,7 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       let f1 = await fit(page);
       ok(`16. ${at}: Step 1’s words in view, the card and its primary on the screen, the way out under the words, no sideways scroll`, up && good(f1), JSON.stringify(f1));
       await shot(page, `step1-${w}x${h}-${prefs ? prefs.scheme : 'light'}`);
-      await primary(page); let f = await form(page, 'New act');
+      await primary(page); let f = await form(page, 'New band');
       await f.locator('[data-key=name]').fill('The Moths'); await f.locator('button[type=submit]').click();
       const up2 = await cardIs(page, 'Add a venue', 'Step 2 of 3'); f1 = await fit(page);
       ok(`…Step 2 (${at})`, up2 && good(f1), JSON.stringify(f1));
@@ -345,19 +360,81 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
         return { steps: a.steps, was };
       }));
       ok('17. STARTS.audiophile: its steps (band, venue, gig) and its last card (done: “Your first gig is on your calendar” over the score row)', JSON.stringify(entry.steps) === '["band","venue","gig"]' && entry.was.title === 'Your first gig is on your calendar' && entry.was.text === 'On the night or after, score the band out of 100 on this page. Next, a quick look around. Tap Skip any time.' && entry.was.target[0] === '.bk-page .bk-hero .bk-score', JSON.stringify(entry));
-      await primary(page); let f = await form(page, 'New act');
+      await primary(page); let f = await form(page, 'New band');
       await f.locator('[data-key=name]').fill('The Moths'); await f.locator('button[type=submit]').click();
       await cardIs(page, 'Add a venue', 'Step 2 of 3');
       await primary(page); f = await form(page, 'Add venue');
       await f.locator('[data-key=name]').fill('The Lantern Rooms'); await f.locator('button[type=submit]').click();
       await cardIs(page, 'Add a gig', 'Step 3 of 3');
-      await primary(page); f = await form(page, 'New show');
+      await primary(page); f = await form(page, 'New gig');
       await typePick(f, 'actId', 'mo', 'The Moths'); await typePick(f, 'venueId', 'lan', 'The Lantern Rooms');
       await f.locator('button[type=submit]').click();
       const own = await cardIs(page, 'A last card of its own');
       ok('…and the start ends on the role’s own last card, its words and its target', own && (await page.textContent('#tour-text')) === 'Its words, for the show just added.' && await spotOver(page, '.bk-page .bk-hero'), await page.textContent('#tour-text').catch(() => ''));
       ok('no errors in the console (a last card of its own)', errors.length === 0, errors.slice(0, 5).join(' | '));
       await ctx.close();
+    }
+
+    /* ---------------- 18: Tourbook opened afresh at Step 1 or 2, with no tap yet ---------------- */
+    // A new page (the app closed and opened again), its state put in before it loads, and no click, key or evaluate until
+    // the card is up (Playwright's evaluate and waits count as a tap): the card's move to Bands or Venues through the
+    // section menu must ask for no vibration, which Chrome refuses before a tap with an error in the console. The page
+    // itself says when the card is up, and whether it had been tapped (navigator.userActivation). A reload in the same
+    // tab keeps its activation, so the start's other checks never see it.
+    const stepAt = made => () => {
+      try {
+        localStorage.setItem('tourbook-role', 'audiophile'); localStorage.setItem('tourbook-start', JSON.stringify({ role: 'audiophile', made }));
+        if (made.length && !localStorage.getItem('tourbook-db-v1')) localStorage.setItem('tourbook-db-v1', JSON.stringify({ acts: [{ id: made[0], name: 'The Moths', color: '', members: [] }] }));
+      } catch (e) { /* ignore */ }
+      new MutationObserver((ms, o) => {
+        const t = document.querySelector('.tour-card #tour-title');
+        if (t && t.textContent) { o.disconnect(); console.log(`t-card|${t.textContent}|${navigator.userActivation ? navigator.userActivation.hasBeenActive : 'none'}`); }
+      }).observe(document, { childList: true, subtree: true });
+    };
+    for (const [at, cardTitle, where0, made] of [[1, 'Add a band', 'acts', []], [2, 'Add a venue', 'venues', ['m-act']]]) {
+      const { ctx, page, errors, said } = await fresh(browser, { init: `(${stepAt.toString()})(${JSON.stringify(made)})()` });
+      let up = null;
+      for (let i = 0; i < 150 && !up; i++) { up = said.find(t => t.startsWith('t-card|')); if (!up) await sleep(100); }
+      await sleep(800); // anything the move logs after the card
+      const [, shown, active] = (up || '||').split('|');
+      ok(`18. a new page at Step ${at}, no tap yet (no user activation): Step ${at}’s card over ${where0 === 'acts' ? 'Bands' : 'Venues'}`, shown === cardTitle && active === 'false' && (await where(page)) === where0, String(up));
+      ok(`no errors in the console (opened afresh at Step ${at}: no vibration asked for before a tap)`, errors.length === 0, errors.slice(0, 5).join(' | '));
+      await ctx.close();
+    }
+
+    /* ---------------- 19: the words the start walks through: the Audiophile's own, every other role's as before ---------------- */
+    {
+      const { browser: b2, page, errors } = await open();
+      const role = id => page.evaluate(x => import('./js/roles.js').then(m => m.setRole(x)), id).then(() => sleep(400));
+      const closeAll = () => page.evaluate(() => import('./js/util.js').then(u => u.closeSheets())).then(() => sleep(250));
+      const WORDS = { audiophile: ['band', 'bands', 'gig', 'gig'], band: ['act', 'bands', 'show', 'booking'], producer: ['act', 'artists', 'show', 'booking'],
+        manager: ['act', 'acts', 'show', 'booking'], scout: ['act', 'acts', 'show', 'booking'], solo: ['act', 'acts', 'show', 'booking'], all: ['act', 'acts', 'show', 'booking'] };
+      for (const [id, [act, many, show, booking]] of Object.entries(WORDS)) {
+        await role(id);
+        await page.evaluate(() => window.logiGo('acts')); await page.waitForSelector('#ac-new-empty'); await sleep(200);
+        const button = await page.textContent('#ac-new-empty');
+        await page.click('#ac-new-empty'); await page.waitForSelector('.sheet form.form'); await sleep(200);
+        const actForm = await page.evaluate(() => { const s = [...document.querySelectorAll('.sheet')].pop(); return [s.getAttribute('aria-label'), s.querySelector('button[type=submit]').textContent]; });
+        await closeAll();
+        await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.newBooking({ kind: 'show' }))); await page.waitForSelector('.sheet form.form'); await sleep(200);
+        const showForm = await page.evaluate(() => [...document.querySelectorAll('.sheet')].pop().getAttribute('aria-label'));
+        const f = page.locator('.sheet').last();
+        await f.locator('input[data-key=actId]').fill('Nobody Yet'); await f.locator('button[type=submit]').click();
+        await page.waitForSelector('.sheet[aria-label="Add to your lists?"] #bk-add-no'); await sleep(200);
+        const q = await page.evaluate(() => [document.getElementById('bk-add-q').textContent, document.getElementById('bk-add-why').textContent]);
+        const steps = (await sheetSteps(page, 'Add to your lists?')).map(x => x[1]).join(' ');
+        await page.evaluate(() => document.querySelectorAll('.toast').forEach(t => t.remove())); // the last role's
+        await page.click('#bk-add-no'); await page.waitForSelector('.bk-page .bk-hero'); await sleep(150);
+        const toast = await page.locator('.toast').allTextContents();
+        const want = { button: `+ New ${act}`, actForm: [`New ${act}`, `Add ${act}`], showForm: `New ${show}`, q: [`“Nobody Yet” isn’t in your ${many} yet. Add it?`, `Once added, it’s there to pick next time. Whatever you choose, the ${show} keeps the name.`],
+          steps: `Added, a name goes on its list, ready to pick next time you type it. A name you don’t add stays on the ${booking} as typed. Back to the form, or ✕, saves nothing.`, toast: `${show[0].toUpperCase()}${show.slice(1)} added` };
+        const got = { button, actForm, showForm, q, steps, toast: toast.find(t => / added$/.test(t)) || toast.join(' | ') };
+        ok(`19. ${id}: “${want.button}”, “${want.actForm.join('” / “')}”, “${want.showForm}”, “${want.toast}”, the question in its words and “stays on the ${booking} as typed”`, JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got));
+        await closeAll();
+        await page.evaluate(() => import('./js/store.js').then(s => s.replaceAll({}))); await sleep(200); // the next role starts with nothing again
+      }
+      ok('no errors in the console (the roles’ words)', errors.length === 0, errors.slice(0, 5).join(' | '));
+      await b2.close();
     }
   } finally {
     await browser.close();

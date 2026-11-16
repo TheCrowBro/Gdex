@@ -17,6 +17,9 @@ export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'bac
 //   hide       booking boxes (js/blocks) the role keeps under "More boxes" on a booking's page.
 //   money      false: the deal, settlement, quote & invoice and costs boxes are left off booking pages altogether (their
 //              data stays, and comes back with a role that uses money); new shows start Confirmed, not on Hold.
+//   ownWords   true: an act and a show on the add buttons, new forms and their toasts are in the role's words too ("+ New
+//              band", "New gig", "Gig added": actWord() and the singular of its name for Bookings). The Audiophile's alone,
+//              whose start walks through them; without it they say act and show, whatever the role.
 //   welcome, tour   the welcome tour's first card and its stops ({ id, text }, at most five, in menu order).
 //   pages      small defaults on existing pages, read with pageOpt(page, key, fallback):
 //              bookings.open { kind: [box ids open at first] }, bookings.score (Score this show on a show you went to),
@@ -103,7 +106,7 @@ export const ROLES = [
   { id: 'audiophile', label: 'Audiophile', icon: '🎧', what: '',
     blurb: 'Bands you’ve seen with a score each time, gigs coming up, the rooms and the sound meter. For personal use, not for work.',
     sections: ['bookings', 'acts', 'venues', 'tools'], start: 'bookings', names: { acts: 'Bands', bookings: 'Gigs' },
-    newKind: 'show', kinds: ['show', 'other', 'session', 'rehearsal'], hide: HIDE_ALL, money: false,
+    newKind: 'show', kinds: ['show', 'other', 'session', 'rehearsal'], hide: HIDE_ALL, money: false, ownWords: true,
     kindHelp: { show: 'A gig you’re going to (an in-store or a listening session too): the band, the venue, doors and set time. Score it on the night or after.', other: 'A record fair or anything else in the diary.', session: 'A studio visit or a playback.', rehearsal: 'An open rehearsal or soundcheck.' },
     welcome: 'Tourbook is set up for a gig-goer who listens closely: bands you’ve seen with a score out of 100 each time, gigs coming up, the rooms you go to and a sound level meter. This takes about a minute. Tap Skip any time.',
     tour: [
@@ -143,6 +146,8 @@ export const startSection = (r = role()) => (clean(r).includes(r.start) ? r.star
 export const sectionName = (id, fallback) => role().names[id] || fallback;
 // One act in the role's words, for labels like "Artist" on the booking form: 'artist', 'band' or 'act'.
 export const actWord = () => ({ producer: 'artist', band: 'band', audiophile: 'band' })[roleId()] || 'act';
+// Whether the add buttons, new forms and their toasts say an act and a show in the role's words (ownWords above).
+export const ownWords = () => !!role().ownWords;
 // Who the person shows their contact card to (My card, js/pages/card.js), in the role's words.
 export const cardAudience = () => ({ producer: 'the artists you record, and the engineers and studios you work with', manager: 'promoters, agents and venues', band: 'promoters, venues and fans at the merch desk', solo: 'promoters, venues and fans at the merch table', scout: 'the acts you’re watching and the managers and agents around them', audiophile: 'the bands and people you meet at gigs' })[roleId()] || 'the artists, promoters, venues and crew you work with';
 // The boxes that never show for a role without money, whatever its hide list says.

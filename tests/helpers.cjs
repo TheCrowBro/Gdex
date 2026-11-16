@@ -74,11 +74,11 @@ async function passStart(page, { band = 'The Moths', venue = 'The Lantern Rooms'
   const card = async title => { await page.waitForFunction(t => (document.querySelector('.tour-card #tour-title') || {}).textContent === t && !document.querySelector('.sheet-back'), title, { timeout: 10000 }); await sleep(300); await page.click('.tour-actions .btn.primary'); };
   const form = async label => { const f = page.locator(`.sheet[aria-label="${label}"]`); await f.waitFor({ timeout: 8000 }); await sleep(150); return f; };
   await card('Add a band');
-  let f = await form('New act'); await f.locator('[data-key=name]').fill(band); await f.locator('button[type=submit]').click();
+  let f = await form('New band'); await f.locator('[data-key=name]').fill(band); await f.locator('button[type=submit]').click();
   await card('Add a venue');
   f = await form('Add venue'); await f.locator('[data-key=name]').fill(venue); await f.locator('button[type=submit]').click();
   await card('Add a gig');
-  f = await form('New show');
+  f = await form('New gig');
   await typePick(f, 'actId', band.slice(0, 3), band); await typePick(f, 'venueId', venue.slice(0, 4), venue);
   await f.locator('button[type=submit]').click();
   await page.waitForFunction(() => (document.querySelector('.tour-card #tour-title') || {}).textContent === 'Your first gig is on your calendar', null, { timeout: 10000 });

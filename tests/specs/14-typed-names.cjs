@@ -50,18 +50,23 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   }));
   ok('the band box is a text box with a list: labelled Act, aria-autocomplete list, closed, its list a hidden listbox “Your acts”, described by its line, no spell-check, ▾ out of the Tab order', JSON.stringify(marks[0]) === JSON.stringify({ label: 'Act', auto: 'list', exp: 'false', role: 'listbox', hidden: true, listName: 'Your acts', line: true, spell: 'false', spellOn: false, tab: '-1', all: 'All your acts' }), JSON.stringify(marks[0]));
   ok('…and the venue box the same, its list “Your venues”', JSON.stringify(marks[1]) === JSON.stringify({ label: 'Venue', auto: 'list', exp: 'false', role: 'listbox', hidden: true, listName: 'Your venues', line: true, spell: 'false', spellOn: false, tab: '-1', all: 'All your venues' }), JSON.stringify(marks[1]));
-  const loose = [];
+  const loose = [], picking = [];
   for (const [kind, title] of [['show', 'New show'], ['session', 'New studio session'], ['rehearsal', 'New rehearsal'], ['other', 'New diary entry']]) {
     const g = await newForm(page, kind, title);
     loose.push(await g.evaluate(form => form.querySelectorAll('[data-key="venueName"], [data-key="client"], select[data-key="actId"], select[data-key="venueId"]').length));
+    await box(g, 'venueId').fill('harb'); await sleep(80); const venueLine = await stateOf(g, 'venueId');
+    await box(g, 'actId').fill('owl'); await sleep(80);
+    picking.push([venueLine, await stateOf(g, 'actId')]);
   }
   ok('no form of any kind has a box of its own for a venue’s name or a client, nor a list to pick from', loose.every(n => n === 0), loose.join(','));
+  ok('in every kind, while the list shows saved names (“harb”, “owl”) the line asks for a pick, not that the name is new: “Pick one from the list, or keep typing for a new name.”', picking.every(l => l.every(x => x === 'Pick one from the list, or keep typing for a new name.')), JSON.stringify(picking));
 
   /* ---- 2. matching ---- */
   f = await newForm(page, 'show', 'New show');
   await box(f, 'actId').fill('sa'); await sleep(80);
   let names = await optNames(f, 'actId');
   ok('“sa” lists Sable and Sabre, A to Z: the names that start with it', JSON.stringify(names) === JSON.stringify(['Sable', 'Sabre']), names.join(' | '));
+  ok('…and while the list shows them, the line says “Pick one from the list, or keep typing for a new name.”, not that “sa” is new', (await stateOf(f, 'actId')) === 'Pick one from the list, or keep typing for a new name.', await stateOf(f, 'actId'));
   await box(f, 'actId').fill('motor'); await sleep(80);
   ok('“motor” finds Motörhead Tribute (no accents counted)', JSON.stringify(await optNames(f, 'actId')) === JSON.stringify(['Motörhead Tribute']));
   await box(f, 'actId').fill('OLD OWLS'); await sleep(80);
@@ -74,6 +79,7 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   ok('“owls night” finds The Night Owls: every word, in any order', JSON.stringify(await optNames(f, 'actId')) === JSON.stringify(['The Night Owls']));
   await box(f, 'actId').fill('zzz'); await sleep(80);
   ok('“zzz” closes the list', !(await listShown(f, 'actId')) && (await box(f, 'actId').getAttribute('aria-expanded')) === 'false');
+  ok('…and with nothing listed the line says “Not in your acts yet. You’ll be asked whether to add it.”', (await stateOf(f, 'actId')) === 'Not in your acts yet. You’ll be asked whether to add it.', await stateOf(f, 'actId'));
   /* ---- 5. the count said aloud ---- */
   await box(f, 'actId').fill('sa'); await sleep(700);
   const liveId = (await box(f, 'actId').getAttribute('id')) + '-live';
@@ -98,6 +104,7 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   await box(f, 'actId').fill('sa'); await sleep(80);
   await page.keyboard.press('Escape'); await sleep(120);
   ok('Escape with the list open closes the list and leaves the sheet up', !(await listShown(f, 'actId')) && await f.isVisible());
+  ok('…and with the list closed, “sa” is a name of its own: “Not in your acts yet. You’ll be asked whether to add it.”', (await stateOf(f, 'actId')) === 'Not in your acts yet. You’ll be asked whether to add it.', await stateOf(f, 'actId'));
   await page.keyboard.press('Escape'); await sleep(250);
   ok('…a second Escape closes the sheet', (await f.count()) === 0);
   f = await newForm(page, 'show', 'New show');
@@ -311,7 +318,7 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
     s.upsert('venues', { id: 'v-o2b', name: 'O2 Academy', kind: 'venue', address: '55 Cookridge Street, Leeds', rules: {} });
   });
   await sleep(200);
-  f = await newForm(page, 'show', 'New show');
+  f = await newForm(page, 'show', 'New gig'); // the Audiophile's words
   const boxNow = async key => ({ id: await box(f, key).getAttribute('data-id'), tied: await box(f, key).getAttribute('data-tied'), line: await stateOf(f, key), list: await listShown(f, key) });
   await box(f, 'actId').fill('SABLÉ'); await sleep(100);
   let cb = await boxNow('actId');
@@ -338,7 +345,7 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   ok('…Add with both tied: no “Add to your lists?”, nothing added to the lists, the gig kept with both names as typed', (await sheetNamed(page, 'Add to your lists?').count()) === 0 && rec && rec.actId === '' && rec.client === 'SABLE' && rec.venueId === '' && rec.venueName === 'O2 Academy' && n1.acts === n0.acts && n1.venues === n0.venues && n1.bookings === n0.bookings + 1, JSON.stringify({ rec: rec && [rec.actId, rec.client, rec.venueId, rec.venueName], n0, n1 }));
   await page.waitForSelector('.bk-page .bk-hero'); await sleep(250);
   ok('…its score row says “Pick the band”: two of the bands have that name', (await page.locator('#bk-score-act').count()) === 1 && (await page.locator('#bk-score-add').count()) === 0);
-  f = await newForm(page, 'show', 'New show');
+  f = await newForm(page, 'show', 'New gig');
   await typePick(f, 'venueId', 'o2', 'O2 Academy, 55 Cookridge Street, Leeds'); await sleep(120);
   cb = await boxNow('venueId');
   ok('a pick from the list links the one picked (Leeds), “✓ In your venues”', cb.id === 'v-o2b' && cb.tied === null && cb.line === '✓ In your venues' && /Leeds/.test(await f.locator('.bk-venue-note').innerText()), JSON.stringify(cb));
@@ -348,7 +355,7 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   ok('…a band picked stays picked while its name is still what is typed, and the line names it (“✓ In your bands, as SABLÉ”)', cb.id === 'c-sable2' && cb.line === '✓ In your bands, as SABLÉ', JSON.stringify(cb));
   // A double click on Add on a wide screen: the second click lands on the question's backdrop, which leaves it up.
   await page.setViewportSize({ width: 1280, height: 800 }); await sleep(200);
-  f = await newForm(page, 'show', 'New show');
+  f = await newForm(page, 'show', 'New gig');
   await box(f, 'actId').fill('Dbl Band'); await sleep(80);
   n0 = await counts(page);
   const add = await f.locator('button[type="submit"]').boundingBox();
@@ -362,11 +369,14 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   await page.setViewportSize({ width: 420, height: 900 }); await sleep(200);
 
   /* ---- 15. the role's words ---- */
-  for (const [role, label, many, word, noun] of [['audiophile', 'Band', 'bands', 'band', 'gig'], ['producer', 'Artist', 'artists', 'artist', 'show'], ['all', 'Act', 'acts', 'act', 'show'], ['scout', 'Act', 'acts', 'act', 'show']]) {
+  for (const [role, label, many, word, noun] of [['audiophile', 'Band', 'bands', 'band', 'gig'], ['producer', 'Artist', 'artists', 'artist', 'show'], ['band', 'Band', 'bands', 'band', 'show'], ['manager', 'Act', 'acts', 'act', 'show'], ['solo', 'Act', 'acts', 'act', 'show'], ['all', 'Act', 'acts', 'act', 'show'], ['scout', 'Act', 'acts', 'act', 'show']]) {
     await setRole(page, role);
-    f = await newForm(page, 'show', 'New show');
+    f = await newForm(page, 'show', `New ${noun}`); // the Audiophile's “New gig”, everyone else’s “New show”
+    await box(f, 'actId').fill('owl'); await sleep(60);
+    const picking = await stateOf(f, 'actId');
     await box(f, 'actId').fill('Nobody Yet'); await box(f, 'venueId').fill('Nowhere Yet'); await sleep(60);
     const words = { label: (await f.locator('label[for$="-actId"]').innerText()).trim(), all: await f.locator('input[data-key="actId"] + .cb-all').getAttribute('aria-label'), line: await stateOf(f, 'actId') };
+    ok(`${role}: while the list shows saved names (“owl”) the line says “Pick one from the list, or keep typing for a new name.”`, picking === 'Pick one from the list, or keep typing for a new name.', picking);
     await f.locator('button[type="submit"]').click(); q = sheetNamed(page, 'Add to your lists?'); await q.waitFor();
     Object.assign(words, { just: await q.locator('#bk-add-act').textContent(), why: await q.locator('#bk-add-why').textContent() });
     ok(`${role}: the box, its ▾, its line and the question in the role’s words (${label}, ${many}, “Just the ${word}”, “the ${noun} keeps…”)`, words.label === label && words.all === `All your ${many}` && words.line === `Not in your ${many} yet. You’ll be asked whether to add it.` && words.just === `Just the ${word}` && words.why === `Once added, they’re there to pick next time. Whatever you choose, the ${noun} keeps both names.`, JSON.stringify(words));
@@ -392,7 +402,13 @@ const focusedIs = (page, sel) => page.evaluate(sel => !!document.activeElement &
   f = await newForm(page, 'show', 'New show');
   await box(f, 'actId').fill('A band with a rather long name indeed'); await box(f, 'venueId').fill('o'); await sleep(150);
   const narrow = await f.evaluate(form => { const s = form.closest('.sheet').getBoundingClientRect(); return [...form.querySelectorAll('.cb input, .cb-list, .cb-opt')].filter(el => el.offsetParent).every(el => el.getBoundingClientRect().right <= s.right + 0.5 && el.getBoundingClientRect().left >= s.left - 0.5); });
+  const px = el => parseFloat(getComputedStyle(el).fontSize);
+  const sized = await f.evaluate(form => { const px = el => parseFloat(getComputedStyle(el).fontSize), name = form.querySelector('[id$="-venueId-list"] .cb-name'), sub = form.querySelector('.cb-state');
+    return { rem: px(document.documentElement), name: name ? px(name) : 0, line: sub ? px(sub) : 0 }; });
   await f.locator('button[type="submit"]').click(); q = sheetNamed(page, 'Add to your lists?'); await q.waitFor(); await sleep(150);
+  sized.q = await q.locator('#bk-add-q').evaluate(px);
+  sized.answers = await q.locator('.bk-add-answers .btn').evaluateAll(els => els.map(el => parseFloat(getComputedStyle(el).fontSize)));
+  ok('extra-large text: an option’s name, the question “…aren’t in your lists yet. Add them?” and its answers are 1rem, so they grow with the lines under them (Settings → Text size)', sized.rem > 20 && sized.name === sized.rem && sized.q === sized.rem && sized.answers.length === 4 && sized.answers.every(x => x === sized.rem) && sized.line > 16, JSON.stringify(sized));
   const wrap = await q.evaluate(el => { const s = el.getBoundingClientRect(); return [...el.querySelectorAll('.bk-add-answers .btn, #bk-add-q')].every(b => b.getBoundingClientRect().right <= s.right + 0.5) && document.documentElement.scrollWidth <= innerWidth; });
   ok('at 320 px with extra-large text: no box or list wider than the sheet, the answers wrap, no sideways scroll', narrow && wrap && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await closeSheets(page);

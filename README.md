@@ -46,8 +46,8 @@ on the calendar, the first track on every menu:
 | 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Tourbook asks if you saw them and takes your score; Tools opens on the sound meter; no fees. Free, for personal use, not for work. |
 
 **The Audiophile starts with a gig.** Pick Audiophile the first time Tourbook opens and it walks you through adding a
-band, then a venue, then a gig at them, each with its own form; a short tour of the app follows. Bringing back a backup
-or connecting Google Drive, as on a new phone, takes you straight in instead.
+band, then a venue, then a gig at them, each with its own form; a short tour of the app follows. Bringing your records
+back from a backup or Google Drive, as on a new phone, takes you straight in instead.
 
 Every menu ends with **My card** and **Settings**, whoever you are. Nothing is ever deleted or out of reach: the
 sections a role doesn't use are **bonus tracks** on the sleeve (tap the record), and the booking boxes it doesn't use

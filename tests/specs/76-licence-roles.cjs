@@ -278,7 +278,7 @@ const sampleIn = async page => { await page.evaluate(() => import('./js/store.js
       const vbtn = await page.textContent('#vn-book');
       await page.click('#vn-book'); await sleep(500);
       const t3 = await sheets(page); await closeTop(page);
-      ok('+ New, a new session asked for by a link, and a studio’s button all make a show', t1.join() === 'New show' && t2.join() === 'New show' && t3.join() === 'New show' && vbtn === '+ Add a show here', JSON.stringify([t1, t2, t3, vbtn]));
+      ok('+ New, a new session asked for by a link, and a studio’s button all make a show (“New gig”, in the Audiophile’s words)', t1.join() === 'New gig' && t2.join() === 'New gig' && t3.join() === 'New gig' && vbtn === '+ Add a show here', JSON.stringify([t1, t2, t3, vbtn]));
       // A studio session already here: shown, not changed, with the licence offered.
       await page.evaluate(() => import('./js/pages/bookings.js').then(m => m.openBooking('s-sess1'))); await sleep(500);
       const note = await page.evaluate(() => ({ note: (document.querySelector('.lic-work-note') || {}).textContent || '', area: document.querySelectorAll('#bk-notes-text').length, ro: document.querySelectorAll('.bk-notes-ro').length }));

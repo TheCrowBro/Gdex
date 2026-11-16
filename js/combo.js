@@ -96,13 +96,14 @@ export function comboBox({ id, key, items, value = '', text = '', words = {}, pl
     if (was !== input.dataset.id) input.dispatchEvent(new CustomEvent('combochange', { bubbles: true, detail: { id: input.dataset.id } }));
   };
   // The line under the box (read with it): saved (its name when typed otherwise), two saved by that name, new in this
-  // form, or typed before.
+  // form (while the list shows saved names, a pick is asked for instead: the name typed so far may be one of them), or
+  // typed before.
   const sayState = () => {
     const t = textNow(), cur = input.dataset.id ? all().find(it => it.id === input.dataset.id) : null;
     if (!t) state.replaceChildren();
     else if (cur) state.replaceChildren(h('span', { class: 'cb-yes', 'aria-hidden': 'true' }, '✓ '), toLetter(t) === toLetter(cur.name) ? `In your ${many}` : `In your ${many}, as ${cur.name}`);
     else if (tied.length) state.replaceChildren(`${tied.length === 2 ? 'Two' : tied.length} of your ${many} have this name. Pick the one you mean from the list.`);
-    else if (boxKey(t) !== boxKey(input.dataset.was || '')) state.replaceChildren(`Not in your ${many} yet. You’ll be asked whether to add it.`);
+    else if (boxKey(t) !== boxKey(input.dataset.was || '')) state.replaceChildren(isOpen() ? 'Pick one from the list, or keep typing for a new name.' : `Not in your ${many} yet. You’ll be asked whether to add it.`);
     else state.replaceChildren(`Typed, not picked from your ${many}.`);
   };
   const sayCount = n => {
@@ -160,10 +161,10 @@ export function comboBox({ id, key, items, value = '', text = '', words = {}, pl
   const open = (matches, at = -1) => {
     opts = matches; draw();
     if (!opts.length) return close();
-    setExpanded(true); setActive(at < 0 ? -1 : Math.min(at, opts.length - 1));
+    setExpanded(true); setActive(at < 0 ? -1 : Math.min(at, opts.length - 1)); sayState();
     fit(); watch();
   };
-  const close = () => { if (isOpen()) setExpanded(false); setActive(-1); unwatch(); };
+  const close = () => { if (isOpen()) { setExpanded(false); sayState(); } setActive(-1); unwatch(); };
   const matchesNow = () => rankMatches(all(), textNow()); // nothing typed: every item
 
   const pick = (it, how = 'keys') => {

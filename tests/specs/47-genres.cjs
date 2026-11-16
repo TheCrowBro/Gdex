@@ -397,10 +397,11 @@ const SEED = [
     const order = await cardsIn(page, 'rock');
     const want = { scout: ['t-rye', 's-owls', 't-two'], audiophile: ['s-owls', 't-rye', 't-two'] }[id] || ['t-two', 't-rye', 's-owls'];
     const st = (await tutorial(page)).find(s => s[0] === 'Main genres');
+    const formTitle = id === 'audiophile' ? 'New band' : 'New act'; // the Audiophile's own words (ownWords)
     await page.click('#ac-new');
-    await page.waitForSelector('.sheet[aria-label="New act"] select[data-key=mainGenre]');
+    await page.waitForSelector(`.sheet[aria-label="${formTitle}"] select[data-key=mainGenre]`);
     const hint = await topSheet(page).locator('select[data-key=mainGenre]').evaluate(s => s.closest('.field').querySelector('small').textContent);
-    const fstep = (await formSteps(page, 'New act')).find(s => s[0] === 'Main genre');
+    const fstep = (await formSteps(page, formTitle)).find(s => s[0] === 'Main genre');
     await page.keyboard.press('Escape'); await sleep(250);
     ok(`${id}: “${name}” in groups, read out in its words, in its own order inside a group, with its words in the list’s walkthrough and the form’s hint (the form’s walkthrough fits a band and a solo artist alike)`,
       (await page.textContent('#page .page-head h1')) === name && (await spoken(page, '#ac-grp-rock')) === `Rock, 3 ${w}s` && same(order, want)

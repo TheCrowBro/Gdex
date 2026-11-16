@@ -23,9 +23,11 @@ import { gateWork } from '../licence-state.js'; // + Add member makes People's r
 import { earlierNames, earlierSpans, formerName, nameSince, formerlyOn, formerlyOf, cleanFormer, sameName } from '../model.js';
 // Main genres (the list's fold-down groups, the form's Main genre): every reading of them is the model's too.
 import { MAIN_GENRES, genreOf, mainGenreOf, mainGenreLabel } from '../model.js';
-import { actWord } from '../roles.js';
+import { actWord, ownWords } from '../roles.js';
 // Sample work (item 15): its link on the act's form and its QR code on the act's card (a producer, a manager, Jack of Trades).
 import { sampleField, sampleFormReady, sampleSave, samplePart, sampleStep, sampleFormStep } from '../acts-sample.js';
+// An act on the add buttons and the new act's form: the role's word with ownWords ("+ New band"), else act.
+const newWord = () => (ownWords() ? actWord() : 'act');
 
 // View state survives the redraw after every change: which act is open, which part of it, the search.
 const S = { view: 'list', id: null, tab: 'about', q: '', allBk: false, open: new Set(), // open: the act cards dropped open on the list
@@ -104,7 +106,7 @@ export function editAct(a = {}, onSaved) {
   const fresh = freshColor();
   let names = null, pick = null; // the form's Earlier names (names.read()); the answer to "New name?" while its save runs
   openForm({
-    title: isNew ? 'New act' : 'Edit act',
+    title: isNew ? `New ${newWord()}` : 'Edit act',
     values: { ...cur, color: isNew && cur.color == null ? fresh : colorOf(cur) || cur.color || '', mainGenre: mainGenreOf(cur).auto ? '' : mainGenreOf(cur).id },
     fields: [
       { key: 'name', label: 'Name', required: true, placeholder: 'Band or artist name' },
@@ -118,7 +120,7 @@ export function editAct(a = {}, onSaved) {
       { key: 'bio', label: 'Bio', type: 'textarea', rows: 5, placeholder: hasTab('epk') ? 'Two or three sentences for promoters and press: who you are, what you sound like, where you’ve played.' : 'A few lines on who they are, what they sound like and where they’ve played.' },
       { key: 'notes', label: 'Notes', type: 'textarea', rows: 3, placeholder: 'Only you see these.' },
     ],
-    saveLabel: isNew ? 'Add act' : 'Save',
+    saveLabel: isNew ? `Add ${newWord()}` : 'Save',
     onReady: form => {
       const name = form.querySelector('input[data-key=name]');
       names = namesEditor(cur);
@@ -517,9 +519,9 @@ function listView() {
   };
   if (all.length) fill();
   return h('div', { class: 'ac-page' },
-    h('div', { class: 'page-head' }, h('h1', null, secName()), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, '+ New act')),
+    h('div', { class: 'page-head' }, h('h1', null, secName()), h('button', { type: 'button', class: 'btn primary', id: 'ac-new', onclick: newAct }, `+ New ${newWord()}`)),
     all.length > 5 && h('input', { class: 'search', id: 'ac-search', type: 'search', placeholder: 'Search acts, genres, members…', 'aria-label': 'Search acts', value: S.q, autocomplete: 'off', oninput: e => { S.q = e.target.value; S.shut.clear(); fill(); } }),
-    all.length ? listBox : empty(emptyText(), h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, '+ New act')));
+    all.length ? listBox : empty(emptyText(), h('button', { type: 'button', class: 'btn primary', id: 'ac-new-empty', onclick: newAct }, `+ New ${newWord()}`)));
 }
 
 /* ------------------------------- one act ------------------------------- */
@@ -814,6 +816,7 @@ const formSteps = () => [
   { title: 'Bio', text: hasTab('epk') ? 'Two or three sentences for promoters and press. It heads the press kit.' : 'A few lines on who they are, what they sound like and where they’ve played.', target: ['textarea[data-key=bio]'] },
 ].filter(Boolean);
 sheetTutorial('New act', formSteps);
+sheetTutorial('New band', formSteps); // the Audiophile's (ownWords)
 const seenSteps = [
   { title: 'When and where', text: 'The date, and one of your venues or any other place typed in.', target: ['input[data-key=date]'] },
   { title: 'Score', text: 'Out of 100: type it or slide it. The card shows the average and the latest, so you can see whether they are getting better.', target: ['input[data-key=rating]'] },

@@ -15,7 +15,7 @@ import { blocksFor, foldedFor } from '../blocks/index.js';
 import { bookingIcs, allIcs, runOfDay } from '../ics.js';
 import { openAct, logSighting } from './acts.js';
 import { venueChecks, openVenue } from './venues.js';
-import { kindHelp, kindOrder, moneyShown, blockShown, pageOpt, sectionName, actWord, offMenu, askSeen } from '../roles.js'; // askSeen: for the score row (who is asked "Did you see them?")
+import { kindHelp, kindOrder, moneyShown, blockShown, pageOpt, sectionName, actWord, offMenu, askSeen, ownWords } from '../roles.js'; // askSeen: for the score row (who is asked "Did you see them?")
 import { isoOk, addDays, daysBetween, actOf, actStyle, tone, multi, dateRange, plural, sortByName, capital, KIND_CHIP, calMode } from '../bookings-kit.js';
 import { calendarView, calendarSteps } from '../bookings-cal.js';
 import { rulesFull } from '../venues-rules.js';
@@ -263,7 +263,7 @@ function editBookingNow(b, { focus = '', onSaved = null } = {}) {
   if (!model.statusesFor(kind).some(s => s[0] === values.status)) values.status = model.statusesFor(kind)[0][0];
   let adding = null, asking = false; // the answer to "Add to your lists?" while its save runs ({ act, venue }); a question up
   openForm({
-    title: `${isNew ? 'New' : 'Edit'} ${NOUN[kind]}`,
+    title: isNew ? `New ${newNoun(kind)}` : `Edit ${NOUN[kind]}`,
     values, fields: fieldsFor(kind, values.status), saveLabel: isNew ? 'Add' : 'Save',
     // A band or venue typed that is in no list, and new to this booking, is asked about before the save (the act form's
     // "New name?" does the same): the sheet's body hears the submit first and holds it; an answer sends it again, and that
@@ -290,7 +290,7 @@ function editBookingNow(b, { focus = '', onSaved = null } = {}) {
       const stored = upsert('bookings', rec);
       if (!stored) return; // refused by the licence (read-only): nothing was stored, and the licence's sheet says so
       haptic();
-      if (isNew) { toast(`${model.kindLabel(kind)} added`); openBooking(stored.id); } else toast('Saved');
+      if (isNew) { toast(`${kind === 'show' && ownWords() ? capital(showWord()) : model.kindLabel(kind)} added`); openBooking(stored.id); } else toast('Saved');
       if (onSaved) onSaved(stored);
     },
     onDelete: isNew ? null : () => { if (remove('bookings', b.id) !== false) { toast('Booking deleted'); haptic(30); } },
@@ -391,8 +391,10 @@ function wireForm(kind) {
 // kept as typed. ✕, Escape and Back to the form save nothing and put the focus back in the form (back()). No answer
 // takes the focus (the sheet takes it), so the Enter that sent the form, held or repeated, answers nothing.
 const ADD_TITLE = 'Add to your lists?';
+let addNoun = 'booking'; // the booking it asks about, in its walkthrough's words: the role's own with ownWords ("gig")
 function askAdd(fresh, kind, { answer, back }) {
   const word = actWord(), noun = kind === 'show' ? showWord() : NOUN[kind] || 'booking', both = !!(fresh.act && fresh.venue);
+  addNoun = ownWords() ? noun : 'booking';
   let done = false, close = () => {};
   const btn = (id, text, want, primary = false) => h('button', { type: 'button', class: `btn ${primary ? 'primary' : 'ghost'}`, id,
     onclick: e => { if (e.detail > 1) return; done = true; close(); eatSecondClick(); answer(want); } }, text);
@@ -414,6 +416,9 @@ function askAdd(fresh, kind, { answer, back }) {
 // The role's word for a show: the singular of its name for Bookings when it has one of its own (Gigs: gig; Shows:
 // show), else show.
 export const showWord = () => { const w = sectionName('bookings', 'Bookings').toLowerCase().replace(/s$/, ''); return w === 'booking' ? 'show' : w; };
+// A kind on a new booking's form and its toast: a show in the role's words with ownWords ("New gig", "Gig added"), else
+// as for an edit.
+const newNoun = kind => (kind === 'show' && ownWords() ? showWord() : NOUN[kind]);
 
 /* ------------------------------- status, duplicate, delete ------------------------------- */
 const settledNow = x => !!(x && (x.status === 'settled' || (x.settlement && x.settlement.settledAt)));
@@ -831,8 +836,9 @@ const formSteps = kind => () => [
   kind !== 'rehearsal' && kind !== 'other' && { title: 'Contact', text: 'The promoter, agent or studio contact. Their phone and email add Call, Text and Email buttons to the booking.', target: ['[data-key="contactName"]'] },
 ].filter(Boolean);
 for (const [kind] of model.KINDS) { sheetTutorial(`New ${NOUN[kind]}`, formSteps(kind)); sheetTutorial(`Edit ${NOUN[kind]}`, formSteps(kind)); }
+sheetTutorial('New gig', formSteps('show')); // the Audiophile's (ownWords)
 sheetTutorial('What are you booking?', () => [{ title: 'Pick a kind', text: moneyShown() ? 'Each kind has its own form and boxes: a show has a deal and a guest list, a session a rate and takes.' : 'Each kind has its own form and boxes. The one you add most is first.', target: ['.bk-kinds'] }]);
 sheetTutorial('Booking status', () => [{ title: 'Status', text: moneyShown() ? 'Tap one to set it. Hold and offer show hollow on the calendar; a cancelled one stays in your records, out of clashes and money.' : 'Tap one to set it. Hold and offer show hollow on the calendar; a cancelled one stays in your records, out of clashes.', target: ['.bk-status-list'] }]);
 sheetTutorial('Duplicate booking', () => [{ title: 'New date', text: moneyShown() ? 'The copy goes on this date, on hold, with the same act, venue, times, people and gear.' : 'The copy goes on this date, confirmed, with the same act, venue, times and notes.', target: ['#bk-dup-date'] }]);
-sheetTutorial(ADD_TITLE, [{ title: 'Add to your lists', text: 'Added, a name goes on its list, ready to pick next time you type it. A name you don’t add stays on the booking as typed. Back to the form, or ✕, saves nothing.', target: ['.bk-add-answers'] }]);
+sheetTutorial(ADD_TITLE, () => [{ title: 'Add to your lists', text: `Added, a name goes on its list, ready to pick next time you type it. A name you don’t add stays on the ${addNoun} as typed. Back to the form, or ✕, saves nothing.`, target: ['.bk-add-answers'] }]);
 sheetTutorial('Delete this booking?', [{ title: 'Delete', text: 'Deleting cannot be undone. Keep it closes this without changing anything.', target: ['.btn.danger'] }]);

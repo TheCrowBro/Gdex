@@ -381,7 +381,7 @@ const closedLine = t => (t.length <= 3 ? (t.length < 2 ? t.join('') : `${t.slice
     const help = await page.$$eval('.bk-kinds .bk-kind .muted', s => s.map(x => x.textContent));
     ok(`${r.id}: the kinds in its order, with its words or the usual ones`, JSON.stringify(order) === JSON.stringify(r.kinds) && help.every((t, i) => t === ((r.kindHelp || {})[order[i]] || DEF[order[i]])), order.join(','));
     await page.click('.bk-kind[data-kind="show"]');
-    await sheetNamed(page, 'New show').waitFor();
+    await sheetNamed(page, r.ownWords ? 'New gig' : 'New show').waitFor(); // the Audiophile's “New gig” (ownWords)
     const label = (await page.locator('.sheet label[for$="-actId"]').innerText()).trim(), none = await page.locator('.sheet ul[id$="-actId-list"]').getAttribute('aria-label');
     ok(`${r.id}: the act box is labelled ${words[r.id][0]}, its list “Your ${words[r.id][1]}”`, label === words[r.id][0] && none === `Your ${words[r.id][1]}`, `${label} / ${none}`);
     ok(`${r.id}: the field key is still actId`, (await page.locator('.sheet input[data-key=actId]').count()) === 1);

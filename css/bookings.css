@@ -367,6 +367,6 @@ html[data-text=xlarge] .bk-calview .cal-title { order: -1; flex-basis: 100%; }
 @media (max-width: 479px) { .bk-dayview .cal-nav { flex-wrap: wrap; justify-content: space-between; } .bk-dayview .cal-title { order: -1; flex-basis: 100%; } }
 
 /* "Add to your lists?" (askAdd): the question, then its answers one under the other, full width. */
-.bk-add-q { margin: 0; font-weight: 600; }
+.bk-add-q { margin: 0; font-weight: 600; font-size: 1rem; } /* in rem, as the line under it: it follows the Text size setting */
 .bk-add-answers { display: grid; gap: 8px; }
-.bk-add-answers .btn { width: 100%; }
+.bk-add-answers .btn { width: 100%; font-size: 1rem; } /* never smaller than Back to the form (.small, in rem) under them */

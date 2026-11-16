@@ -38,8 +38,11 @@ export function applyPrefs() {
 }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch { /* ignore */ } applyPrefs(); window.dispatchEvent(new Event('tourbook-prefs')); };
 
+// Never before the first tap: the browser refuses a vibration then, with an error in the console (the start's card
+// moves to its section through the section menu as Tourbook opens).
 export function haptic(ms = 12) {
   if (!prefs.haptics) return;
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
   if (navigator.vibrate) { try { navigator.vibrate(ms); } catch { /* ignore */ } }
 }
 
