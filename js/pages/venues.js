@@ -266,13 +266,13 @@ export function editVenue(v = {}, onSaved) {
   const cur = (v && v.id && byId('venues', v.id)) || v || {};
   const had = rulesOf(cur);         // the rules as stored, cleaned: junk reads as nothing
   const editor = rulesEditor(cur);  // the House rules part: it keeps its own answers until Save reads them
-  const noun = !cur.id && kindOf(cur) === 'studio' ? 'studio' : 'venue'; // a new place opened as a studio is called one (the producer's start, the Studio chip's + Add)
+  const noun = kindOf(cur) === 'studio' ? 'studio' : 'venue'; // a studio is called one, new (the producer's start, the Studio chip's + Add) or saved
   openForm({
-    title: cur.id ? 'Edit venue' : `Add ${noun}`,
+    title: cur.id ? `Edit ${noun}` : `Add ${noun}`,
     saveLabel: cur.id ? 'Save' : `Add ${noun}`,
     values: { rateUnit: 'hour', ...cur, kind: kindOf(cur), rulesNote: had.note, rulesTone: had.tone }, // a tone that is not one of RULE_TONES shows as Automatic
     fields: [
-      { key: 'name', label: 'Name', required: true, placeholder: 'e.g. The Lantern Rooms' },
+      { key: 'name', label: 'Name', required: true, placeholder: noun === 'studio' ? 'e.g. Echo Chamber Studios' : 'e.g. The Lantern Rooms' },
       { key: 'kind', label: 'Kind of place', type: 'select', options: VENUE_KINDS },
       { key: 'address', label: 'Address', type: 'textarea', rows: 2, placeholder: 'Street, town, postcode' },
       { key: 'geo', label: 'Map location', type: 'place', hint: 'For the map and directions: find it from the address, paste a map link, or use where you are now.' },
@@ -354,3 +354,4 @@ const FORM_STEPS = () => [
 sheetTutorial('Add venue', FORM_STEPS);
 sheetTutorial('Add studio', FORM_STEPS);
 sheetTutorial('Edit venue', FORM_STEPS);
+sheetTutorial('Edit studio', FORM_STEPS);

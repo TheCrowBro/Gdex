@@ -57,6 +57,13 @@ let toastsOffUntil = 0;
 export const muteToasts = ms => { toastsOffUntil = Date.now() + ms; };
 export function toast(msg) {
   if (Date.now() < toastsOffUntil) return;
+  // Never over a forced card (the start's steps, js/start.js): on a phone a toast covers the card's buttons and the
+  // button it points at. It waits until the card has gone (the free days' toast, which follows the licence server's
+  // answer to a working role picked on a new device).
+  if (document.querySelector('.tour-forced')) { const wait = () => (document.querySelector('.tour-forced') ? setTimeout(wait, 250) : show(msg)); setTimeout(wait, 250); return; }
+  show(msg);
+}
+function show(msg) {
   const t = h('div', { class: 'toast', role: 'status' }, msg);
   document.body.append(t);
   setTimeout(() => t.classList.add('out'), 2200);

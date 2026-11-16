@@ -239,7 +239,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 fieldset { border: 0; margin: 0; padding: 0; } legend { font-size: .75rem; color: var(--accent); font-weight: 700; padding: 4px 0; }
 .check { display: flex; gap: 12px; align-items: center; padding: 6px 4px; min-height: var(--hit); cursor: pointer; } .check input { width: 26px; height: 26px; accent-color: var(--accent); flex: none; } .check em { color: var(--muted); font-style: normal; font-size: .85rem; }
 .form-actions { display: flex; gap: 8px; position: sticky; bottom: -20px; background: var(--bg); padding: 10px 0; }
-.toast { pointer-events: none; position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px; z-index: 320; font-size: .9rem; animation: rise .25s; max-width: 90vw; } .toast.out { opacity: 0; transition: opacity .4s; }
+.toast { pointer-events: none; position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100% - 32px); bottom: calc(24px + env(safe-area-inset-bottom)); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 1.25em; text-align: center; z-index: 320; font-size: .9rem; animation: rise .25s; } /* its own width, centred, up to the screen's less 16 px a side: a short line stays one line, a long one wraps across the screen */ .toast.out { opacity: 0; transition: opacity .4s; }
 .stack { display: grid; gap: 8px; } .storage hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
  
  .note { color: var(--muted); font-size: .9rem; }
@@ -392,9 +392,10 @@ html[data-motion=off] *, html[data-motion=off] *::before, html[data-motion=off] 
 
 /* tour */
 .tour { position: fixed; inset: 0; z-index: 150; }
-/* A forced card (the start, js/start.js) has no Skip: the bars at the foot of the screen (a new version, the licence's free
-   days) sit over it (z-index 250) and could take a tap meant for it, so they stand aside until it has gone. */
-body:has(.tour-forced) .update-bar { display: none; }
+/* While a walkthrough's card is up (the start's, js/start.js, and every tour), the bars at the foot of the screen (a new
+   version, the licence's free days) would sit over it (z-index 250) and take a tap meant for it (Next, Skip, the start's
+   two buttons) or land it on Buy, so they stand aside until it has gone. */
+body:has(.tour) .update-bar { display: none; }
 .tour-spot { position: fixed; border-radius: 14px; box-shadow: 0 0 0 9999px #000a; transition: top .4s cubic-bezier(.2, .8, .2, 1), left .4s cubic-bezier(.2, .8, .2, 1), width .4s cubic-bezier(.2, .8, .2, 1), height .4s cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
 .tour-spot.center { top: 50%; left: 50%; width: 0; height: 0; border-radius: 50%; }
 .tour-spot.tour-pulse::after { content: ''; position: absolute; inset: -4px; border-radius: inherit; border: 2px solid var(--accent); animation: tourPulse 1.4s ease-out 2; }

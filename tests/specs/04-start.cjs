@@ -36,6 +36,27 @@ const sheetLog = () => {
     }
   }).observe(document, { childList: true, subtree: true });
 };
+// Every frame while a walkthrough's card is up: a toast that shows over its spotlight or one of its buttons (the start's
+// two, Skip, Back, Next) is logged (sessionStorage t-cover). A toast is never to hide what the card asks for.
+const coverLog = () => {
+  const log = v => { try { const l = JSON.parse(sessionStorage.getItem('t-cover') || '[]'); if (l.length < 20 && !l.some(x => x.card === v.card && x.toast === v.toast && x.over === v.over)) { l.push(v); sessionStorage.setItem('t-cover', JSON.stringify(l)); } } catch (e) { /* ignore */ } };
+  const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+  const look = () => {
+    const card = document.querySelector('.tour .tour-card'), title = card && card.querySelector('#tour-title');
+    if (title) {
+      for (const t of document.querySelectorAll('.toast')) {
+        if (parseFloat(getComputedStyle(t).opacity) < 0.15) continue;
+        const r = t.getBoundingClientRect(), spot = document.querySelector('.tour-spot');
+        const parts = [...card.querySelectorAll('.tour-actions .btn, #start-backup')].map(b => [b.textContent.trim(), b.getBoundingClientRect()]);
+        if (spot && !spot.classList.contains('center')) parts.push(['the spotlight', spot.getBoundingClientRect()]);
+        for (const [over, p] of parts) if (hit(r, p)) log({ card: title.textContent, toast: t.textContent, over });
+      }
+    }
+    requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+};
+const covered = page => page.evaluate(() => JSON.parse(sessionStorage.getItem('t-cover') || '[]'));
 // A fresh device: no welcome tour seen, no role, no licence seed. Every request to the licence server counted.
 async function fresh(browser, { viewport = { width: 420, height: 900 }, prefs = null, init = null, seed = false } = {}) {
   const ctx = await browser.newContext({ viewport, serviceWorkers: 'block', hasTouch: true, acceptDownloads: true });
@@ -43,6 +64,7 @@ async function fresh(browser, { viewport = { width: 420, height: 900 }, prefs = 
   if (prefs) await ctx.addInitScript(p => { try { if (!localStorage.getItem('tourbook-prefs')) localStorage.setItem('tourbook-prefs', p); } catch (e) { /* ignore */ } }, JSON.stringify(prefs));
   if (init) await ctx.addInitScript(init);
   await ctx.addInitScript(sheetLog);
+  await ctx.addInitScript(coverLog);
   const tile = { status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') };
   await ctx.route('https://*.tile.openstreetmap.org/**', r => r.fulfill(tile));
   await ctx.route('https://tile.openstreetmap.org/**', r => r.fulfill(tile));
@@ -93,9 +115,9 @@ async function walk(page) {
   }
   return titles;
 }
-// After a start: the booking's page (its kind line, its ✎ Edit form's title) and the act's ✎ Edit form (its title and
-// the colour's hint), each form closed again.
-async function afterWords(page, bookingId, actId) {
+// After a start: the booking's page (its kind line, its ✎ Edit form's title), the act's ✎ Edit form (its title and the
+// colour's hint) and the place's ✎ Edit form (its title), each form closed again.
+async function afterWords(page, bookingId, actId, venueId) {
   const shut = () => page.evaluate(() => import('./js/util.js').then(u => u.closeSheets())).then(() => sleep(250));
   const sheetTitle = () => page.evaluate(() => { const s = [...document.querySelectorAll('.sheet')].pop(); return s ? s.getAttribute('aria-label') : null; });
   await page.evaluate(id => import('./js/pages/bookings.js').then(m => m.openBooking(id)), bookingId); await page.waitForSelector('.bk-page .bk-when'); await sleep(250);
@@ -107,7 +129,10 @@ async function afterWords(page, bookingId, actId) {
   const actEdit = await sheetTitle();
   const colour = await page.evaluate(() => { const s = [...document.querySelectorAll('.sheet')].pop(), c = s && s.querySelector('select[data-key=color]'); return c ? (c.closest('.field').querySelector('small') || {}).textContent : null; });
   await shut();
-  return { when, edit, actEdit, colour };
+  await page.evaluate(id => import('./js/pages/venues.js').then(m => m.openVenue(id)), venueId); await page.waitForSelector('#vn-edit'); await sleep(250);
+  await page.click('#vn-edit'); await page.waitForSelector('.sheet form.form'); await sleep(200);
+  const placeEdit = await sheetTitle(); await shut();
+  return { when, edit, actEdit, colour, placeEdit };
 }
 const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ app: 'tourbook', version: 1, updatedAt: Date.now() - 864e5, ...data })) });
 
@@ -179,7 +204,7 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       ok('7. “Add a gig…” opens the show form with its line', gf.line === 'Type the first letters of “The Moths” in the Band box and pick it from the list, then “The Lantern Rooms” in the Venue box. The rest can wait.' && gf.by.includes('start-note'), JSON.stringify(gf));
       ok('…the band box empty though there is one band, the venue box empty, the focus in the band box', gf.actId === '' && gf.act === '' && gf.venueId === '' && gf.venue === '' && gf.focus, JSON.stringify(gf));
       const hintA = await f.evaluate(s => (s.querySelector('input[data-key=actId]').closest('.field').querySelector(':scope > small.muted') || {}).textContent);
-      ok('…the band box’s hint names what is there: “The band you’re going to see. On the night or after, Score on the gig’s page logs it on their card.”', hintA === 'The band you’re going to see. On the night or after, Score on the gig’s page logs it on their card.', hintA);
+      ok('…the band box’s hint names what is there: “The band you’re going to see. Score them on the gig’s page, on the night or after; the score goes on their card.”', hintA === 'The band you’re going to see. Score them on the gig’s page, on the night or after; the score goes on their card.', hintA);
       const gigSteps = await sheetSteps(page, 'New gig');
       ok('…the form is “New gig”, and its ? walkthrough is the show form’s', gigSteps.length > 0 && gigSteps[0][0] === 'The band', JSON.stringify(gigSteps.slice(0, 1)));
       await page.keyboard.type('mo'); await sleep(250);
@@ -215,8 +240,8 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       if (LEG === 'on') ok('9. licences live: nothing started all through (unstarted), no terms asked or stored, nothing asked of the licence server', modes.every(m => m === 'unstarted') && terms === null && net.licence.length === 0, JSON.stringify({ modes, terms, asked: net.licence }));
       else ok('9. licences off all through, and nothing asked of the licence server', modes.every(m => m === 'off') && net.licence.length === 0, JSON.stringify({ modes, asked: net.licence }));
       // The Audiophile's words after the start: the gig's page and forms, the band's form.
-      const said = await afterWords(page, data.bookings[0].id, data.acts[0].id);
-      ok('…afterwards the gig’s page says “Gig · …” and its ✎ Edit is “Edit gig”; the band’s ✎ Edit is “Edit band”, its colour “The stripe on its cards.”', said.when.startsWith('Gig · ') && said.edit === 'Edit gig' && said.actEdit === 'Edit band' && said.colour === 'The stripe on its cards.', JSON.stringify(said));
+      const said = await afterWords(page, data.bookings[0].id, data.acts[0].id, data.venues[0].id);
+      ok('…afterwards the gig’s page says “Gig · …” and its ✎ Edit is “Edit gig”; the band’s ✎ Edit is “Edit band”, its colour “The stripe on its cards.”; the venue’s “Edit venue”', said.when.startsWith('Gig · ') && said.edit === 'Edit gig' && said.actEdit === 'Edit band' && said.colour === 'The stripe on its cards.' && said.placeEdit === 'Edit venue', JSON.stringify(said));
       ok('no errors in the console (the whole start)', errors.length === 0, errors.slice(0, 5).join(' | '));
       await ctx.close();
     }
@@ -379,6 +404,8 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       const top = await onTop(page, '.bk-new');
       ok(`…Step 3’s spotlight over + New, and + New not under the section menu (${at})`, await spotOver(page, '.bk-new') && top === true, String(top));
       await shot(page, `step3-${w}x${h}-${prefs ? prefs.scheme : 'light'}`);
+      const cov16 = await covered(page);
+      ok(`…no toast over a card’s spotlight or its buttons (“The Moths added” waits its turn) (${at})`, cov16.length === 0, JSON.stringify(cov16));
       ok(`no errors in the console (${at})`, errors.length === 0, errors.slice(0, 5).join(' | '));
       await ctx.close();
     }
@@ -511,7 +538,7 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
           'Next, a venue you play. Save it once and it’s there to pick for every show there.', named('The Moths', 'you’re playing')],
         buttons: ['+ New band', 'Add a venue'], forms: ['New band', 'Add venue', 'New show'], adds: ['Add band', 'Add venue', 'Add'], labels: ['Band', 'Venue'],
         notes: [NOTE_ACT, NOTE_PLACE, 'Type the first letters of “The Moths” in the Band box and pick it from the list, then “The Lantern Rooms” in the Venue box. The rest can wait.'],
-        done: ['Your first show is on your calendar', `Start the night’s setlist here: Tourbook checks it fits your set. ${LOOK}`], target: '#blk-setlist .sg-blk .btn.primary',
+        done: ['Your first show is on your calendar', `Start the night’s setlist here: Tourbook checks it fits your set length. ${LOOK}`], target: '#blk-setlist .sg-blk .btn.primary',
         tour: ['Your first show is on your calendar', 'Your details', 'Your sections are tracks', 'Search', 'Songs', 'Backline', 'Money', 'Settings'], word: 'band' },
       solo: { ...SHOW, act: 'Mara Vale', cards: ['Add your act', 'Add a venue', 'Add a show'],
         texts: ['Three steps put your first show on your calendar. First, your act: the name you play under. Its page keeps your press kit and tech rider to send ahead.',
@@ -575,13 +602,17 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       /* 3 */
       if (!quick) {
         if (LEG === 'on') {
-          await page.waitForFunction(re => JSON.parse(sessionStorage.getItem('t-toasts') || '[]').some(t => new RegExp(re).test(t)), FREE_TOAST.source, { timeout: 4000 }).catch(() => {});
-          const st = { mode: await mode(page), terms: !!(await page.evaluate(() => localStorage.getItem('tourbook-terms'))), told: (await toasts(page)).filter(t => FREE_TOAST.test(t)).length, asked: [...net.licence] };
-          ok(`20.3 ${at}: licences live: the pick agreed the terms and started the free days (trial), said once; only the status (and the price) asked of the licence server`, st.mode === 'trial' && st.terms && st.told === 1 && st.asked.includes('/licence/web/status') && st.asked.every(x => x === '/licence/web/status' || x === '/licence/price'), JSON.stringify(st));
+          await page.waitForFunction(() => import('./js/licence-state.js').then(m => m.licenceNow().mode === 'trial'), null, { timeout: 4000 }).catch(() => {});
+          const st = { mode: await mode(page), terms: !!(await page.evaluate(() => localStorage.getItem('tourbook-terms'))), asked: [...net.licence] };
+          ok(`20.3 ${at}: licences live: the pick agreed the terms and started the free days (trial); only the status (and the price) asked of the licence server`, st.mode === 'trial' && st.terms && st.asked.includes('/licence/web/status') && st.asked.every(x => x === '/licence/web/status' || x === '/licence/price'), JSON.stringify(st));
         } else ok(`20.3 ${at}: licences off: nothing started, no terms, nothing asked of the licence server`, (await mode(page)) === 'off' && net.licence.length === 0 && !(await page.evaluate(() => localStorage.getItem('tourbook-terms'))), JSON.stringify(net.licence));
       }
       /* 4 */
       await primary(page); let f = await form(page, r.forms[0]);
+      if (!quick && LEG === 'on') {
+        await page.waitForFunction(re => JSON.parse(sessionStorage.getItem('t-toasts') || '[]').some(t => new RegExp(re).test(t)), FREE_TOAST.source, { timeout: 4000 }).catch(() => {});
+        ok(`…by the time its form is open, the free days’ toast, said once (never over the card: below) (${at})`, (await toasts(page)).filter(t => FREE_TOAST.test(t)).length === 1, JSON.stringify(await toasts(page)));
+      }
       let line = await lineOf(f), steps = await sheetSteps(page, r.forms[0]);
       ok(`20.4 ${at}: “${r.cards[0]}…” opens “${r.forms[0]}”, its first line the start’s (describing its name box), its button “${r.adds[0]}”, its ? walkthrough the act form’s`, line.is && line.text === r.notes[0] && line.by && line.add === r.adds[0] && steps.length > 0 && steps[0][0] === 'Name', JSON.stringify(line));
       await shot(page, `${tag}-form1`);
@@ -611,8 +642,9 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       /* 8 */
       await primary(page); f = await form(page, r.forms[1]);
       line = await lineOf(f);
-      const kindNow = await f.locator('select[id$="-kind"]').inputValue();
-      ok(`20.8 ${at}: “${r.cards[1]}…” opens “${r.forms[1]}” as a ${r.placeKind}, with its line, its button “${r.adds[1]}”`, line.is && line.text === r.notes[1] && line.by && line.add === r.adds[1] && kindNow === r.placeKind, JSON.stringify({ line, kindNow }));
+      const kindNow = await f.locator('select[id$="-kind"]').inputValue(), example = await f.locator('[data-key=name]').getAttribute('placeholder');
+      const wantEx = r.placeKind === 'studio' ? 'e.g. Echo Chamber Studios' : 'e.g. The Lantern Rooms';
+      ok(`20.8 ${at}: “${r.cards[1]}…” opens “${r.forms[1]}” as a ${r.placeKind}, with its line, its button “${r.adds[1]}”, its name box’s example “${wantEx}”`, line.is && line.text === r.notes[1] && line.by && line.add === r.adds[1] && kindNow === r.placeKind && example === wantEx, JSON.stringify({ line, kindNow, example }));
       await shot(page, `${tag}-form2`);
       await f.locator('[data-key=name]').fill(r.place); await f.locator('[data-key=address]').fill('12 Lamp Lane, Leeds');
       await f.locator('button[type=submit]').click();
@@ -645,6 +677,8 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       const last = await page.evaluate(() => ({ skip: [...document.querySelectorAll('.tour-actions button')].some(b => b.textContent.trim() === 'Skip'), text: document.getElementById('tour-text').textContent }));
       ok(`20.10 ${at}: the last card, “${r.done[0]}”, over what comes next on its page (${r.target}), with Skip`, last.text === r.done[1] && last.skip && await spotOver(page, r.target), JSON.stringify(last));
       await shot(page, `${tag}-done`);
+      const cov = await covered(page);
+      ok(`…no toast over a card’s spotlight or its buttons, from the pick to the last card${LEG === 'on' ? ' (the free days’ toast included)' : ''}`, cov.length === 0, JSON.stringify(cov));
       if (quick) { await page.click('.tour-actions .btn.ghost'); await sleep(400); ok(`no errors in the console (${at})`, errors.length === 0, errors.slice(0, 5).join(' | ')); await ctx.close(); continue; }
       /* 11 */
       const titles = await walk(page);
@@ -655,8 +689,10 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
       const all = await sheets(page);
       ok(`20.12 ${at}: no licence sheet but the terms at the pick${LEG === 'on' ? '' : ' (none here)'}, and no “Did you see them?”`, !all.some(NEVER) && all.filter(x => x === TERMS).length === (LEG === 'on' ? 1 : 0), JSON.stringify(all));
       /* 13 */
-      const said = await afterWords(page, bk.id, data.acts[0].id);
-      ok(`20.13 ${at}: afterwards, in the role’s words: “${r.when}…”, “${r.edit}”, “Edit ${r.word}”, the colour “The stripe on its cards.”`, said.when.startsWith(r.when) && said.edit === r.edit && said.actEdit === `Edit ${r.word}` && said.colour === 'The stripe on its cards.', JSON.stringify(said));
+      const said = await afterWords(page, bk.id, data.acts[0].id, data.venues[0].id), placeEdit = `Edit ${r.placeKind}`;
+      ok(`20.13 ${at}: afterwards, in the role’s words: “${r.when}…”, “${r.edit}”, “Edit ${r.word}”, the colour “The stripe on its cards.”, the ${r.placeKind}’s “${placeEdit}”`, said.when.startsWith(r.when) && said.edit === r.edit && said.actEdit === `Edit ${r.word}` && said.colour === 'The stripe on its cards.' && said.placeEdit === placeEdit, JSON.stringify(said));
+      const cov13 = await covered(page);
+      ok(`…no toast over a card in the tour that follows either (${at})`, cov13.length === 0, JSON.stringify(cov13));
       ok(`no errors in the console (${at})`, errors.length === 0, errors.slice(0, 5).join(' | '));
       await ctx.close();
     }
@@ -722,19 +758,73 @@ const backupFile = data => ({ name: 'tourbook-backup-2026-11-15.json', mimeType:
         await ctx.close();
       }
       {
-        // (f) a few free days left: the licence bar stands aside while a card is up, so a tap meant for it cannot land on Buy
-        const { ctx, page, errors } = await fresh(browser, { init: days(25) });
-        await pick(page, 'manager');
-        const up = await cardIs(page, 'Add an act', 'Step 1 of 3');
+        // (f) a few free days left, on a small phone: the licence bar stands aside while any card is up (the start's steps,
+        // its last card and the tour that follows), so a tap meant for the card cannot land on the bar or on Buy
+        const { ctx, page, errors } = await fresh(browser, { init: days(25), viewport: { width: 320, height: 568 } });
+        const barShown = () => page.evaluate(() => { const b = document.querySelector('.licence-bar'); return !!b && getComputedStyle(b).display !== 'none'; });
+        // Each of the card's buttons is what a tap at its middle lands on.
+        const hits = () => page.evaluate(() => [...document.querySelectorAll('.tour-card .tour-actions .btn')].map(b => { const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return [b.textContent, !!at && (at === b || b.contains(at)) ? 'itself' : at ? `${at.tagName}.${at.className}` : 'nothing']; }));
+        const allMine = x => x.length > 0 && x.every(([, at]) => at === 'itself');
+        await pick(page, 'band');
+        const up = await cardIs(page, 'Add your band', 'Step 1 of 3');
         const bar = await page.waitForSelector('.licence-bar', { state: 'attached', timeout: 8000 }).then(() => true, () => false);
         const hid = await page.evaluate(() => { const b = document.querySelector('.licence-bar'); return b ? { shown: getComputedStyle(b).display !== 'none', text: b.textContent } : null; });
-        ok('21f. 5 free days left: the licence bar is there, and hidden while the start’s card is up', up && bar && !!hid && !hid.shown && /5 free days left/.test(hid.text), JSON.stringify(hid));
-        await passStart(page, { role: 'manager' });
-        const shown = await page.evaluate(() => { const b = document.querySelector('.licence-bar'); return !!b && getComputedStyle(b).display !== 'none'; });
-        ok('…and back once the start’s own cards are done (its last card has Skip)', shown);
+        ok('21f. 5 free days left, 320×568: the licence bar is there, and hidden while the start’s card is up', up && bar && !!hid && !hid.shown && /5 free days left/.test(hid.text), JSON.stringify(hid));
+        await passStart(page, { role: 'band' });
+        await sleep(700);
+        const last = { bar: await barShown(), spot: await onTop(page, '#blk-setlist .sg-blk .btn.primary'), hits: await hits() };
+        ok('…the start’s last card: the bar still aside, the setlist’s button under the spotlight and Skip and Next themselves where they are drawn', !last.bar && last.spot === true && allMine(last.hits), JSON.stringify(last));
+        await primary(page);
+        await page.waitForFunction(() => (document.querySelector('.tour-card #tour-title') || {}).textContent === 'Your details', null, { timeout: 6000 }).catch(() => {}); await sleep(700);
+        const next = { title: await title(page), bar: await barShown(), hits: await hits() };
+        ok('…Next: “Your details”, the bar still aside, Skip, Back and Next themselves where they are drawn', next.title === 'Your details' && !next.bar && allMine(next.hits) && next.hits.length === 3, JSON.stringify(next));
+        await page.click('.tour-actions .btn.ghost:text-is("Skip")'); await sleep(600);
+        ok('…and the bar back once the tour is over', (await page.locator('.tour').count()) === 0 && await barShown());
         ok('no errors in the console (21f)', errors.length === 0, errors.slice(0, 5).join(' | '));
         await ctx.close();
       }
+      {
+        // (g) the terms come due while a step card is up (a working role's free days under way, the terms changed since
+        // they were agreed: the desktop app's bridge answering late, or a licence change): they are asked on their own,
+        // never under the card. Agreed, the card comes back. Not now, read-only for this visit: the start waits for the
+        // next opening, which brings it back, rather than ending for good.
+        const old = () => { try { if (!localStorage.getItem('tourbook-role')) { const t = Date.now(); localStorage.setItem('tourbook-role', 'manager'); localStorage.setItem('tourbook-start', JSON.stringify({ role: 'manager', made: [] })); localStorage.setItem('tourbook-licence', JSON.stringify({ on: true, statusAt: t, first: t, seen: t })); localStorage.setItem('tourbook-terms', JSON.stringify({ v: '2026-01-01', at: t })); } } catch (e) { /* ignore */ } };
+        const { ctx, page, errors } = await fresh(browser, { init: old });
+        const CHANGED = 'The terms have changed', START = '{"role":"manager","made":[]}';
+        const due = () => page.evaluate(() => { import('./js/licence-state.js').then(m => m.startFreeDays()); }); // what app.js noteUse does on a licence change
+        const up = await cardIs(page, 'Add an act', 'Step 1 of 3');
+        await due();
+        const asked = await sheetUp(page, CHANGED); await sleep(700);
+        ok('21g. the terms come due while Step 1’s card is up: “The terms have changed” on its own, the card gone from over it', up && asked && (await page.locator('.tour').count()) === 0, String(await title(page)));
+        await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree');
+        ok('…agreed: Step 1’s card comes back, the start as it was', await cardIs(page, 'Add an act', 'Step 1 of 3') && (await key(page)) === START);
+        // Another opening, the terms changed again since: Not now
+        await page.evaluate(() => localStorage.setItem('tourbook-terms', JSON.stringify({ v: '2026-01-01', at: Date.now() })));
+        await page.reload();
+        const up2 = await cardIs(page, 'Add an act', 'Step 1 of 3');
+        await due(); await sheetUp(page, CHANGED); await sleep(400);
+        await page.click('#lic-terms-later'); await sleep(2500);
+        const st = { up2, card: await page.locator('.tour-card').count(), sheets: await page.evaluate(() => [...document.querySelectorAll('.sheet')].map(x => x.getAttribute('aria-label'))), key: await key(page), tour: await page.evaluate(() => localStorage.getItem('tourbook-tour')), where: await where(page),
+          canWrite: await page.evaluate(() => import('./js/licence-state.js').then(m => m.canWrite())) };
+        ok('…Not now: read-only for this visit, on the calendar; no card, the start kept for the next opening (no welcome tour yet)', st.up2 && st.card === 0 && !st.sheets.length && st.key === START && st.tour === null && st.where === 'bookings' && st.canWrite === false, JSON.stringify(st));
+        await page.reload();
+        ok('…the next opening: Step 1’s card again', await cardIs(page, 'Add an act', 'Step 1 of 3') && (await key(page)) === START);
+        ok('no errors in the console (21g)', errors.length === 0, errors.slice(0, 5).join(' | '));
+        await ctx.close();
+      }
+    }
+
+    /* ---------------- 22: README's start paragraph, in the cards' words ---------------- */
+    {
+      const md = require('fs').readFileSync(require('path').resolve(__dirname, '../../README.md'), 'utf8');
+      const para = md.slice(md.indexOf('**Every role starts with its first booking.**'), md.indexOf('Every menu ends with'));
+      const texts = { ...Object.fromEntries(Object.entries(R).map(([id, x]) => [id, x.texts])),
+        audiophile: ['Three steps put your first gig on your calendar. First, a band you’ve seen or want to see: their card keeps your score each time you see them.', 'Next, a venue you go to. Save it once and it’s there to pick for every gig there.', 'Last, a gig you’re going to.'] };
+      const NAMES = { Producer: 'producer', Manager: 'manager', Band: 'band', 'Solo artist': 'solo', Scout: 'scout', Audiophile: 'audiophile', 'Jack of Trades': 'all' };
+      const rows = para.split('\n').filter(l => /^\| [A-Z]/.test(l) && !/^\| Role /.test(l)).map(l => l.split('|').slice(1, -1).map(x => x.trim().replace(/'/g, '’')));
+      const off = rows.filter(([role, ...cols]) => !NAMES[role] || cols.length !== 3 || cols.some((c, i) => !texts[NAMES[role]][i].includes(c)));
+      const last = (/For the last one[^.]*\./.exec(para) || [''])[0];
+      ok('22. README: each role’s row of the start’s table in its own cards’ words; Tourbook walks you through, for the role you pick; the last step’s line fits every role (no “act” or “venue”: a producer saves an artist and a studio)', rows.length === 7 && off.length === 0 && /it walks you through three things for the role you pick/.test(para) && !!last && !/\b(act|venue)\b/.test(last), JSON.stringify({ rows: rows.length, off, last }));
     }
   } finally {
     await browser.close();

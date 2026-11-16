@@ -127,7 +127,7 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   };
   const spot = h('div', { class: 'tour-spot', 'aria-hidden': 'true' });
   const card = h('div', { class: 'tour-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'tour-title', 'aria-describedby': 'tour-text' });
-  const layer = h('div', { class: 'tour' + (forced ? ' tour-forced' : '') }, spot, card); // forced: the bars at the foot of the screen stand aside (styles.css)
+  const layer = h('div', { class: 'tour' + (forced ? ' tour-forced' : '') }, spot, card); // forced: a toast waits until it has gone (util.js); under any card the bars at the foot of the screen stand aside (styles.css)
   const wasInert = !!(app && app.inert);
   window.logiShowNav?.(); // the section menu may be slid away: the tour points at it
   document.body.append(layer); if (app) app.inert = true;

@@ -876,13 +876,14 @@ const all = []; // every console error of every browser below
     ok('…and its words show whole (the card is not cut short over a block taller than the screen)', !!step && step.whole, JSON.stringify(step));
     await page.keyboard.press('Escape'); await sleep(200); await page.keyboard.press('Escape'); await sleep(200);
     /* ---------------- Delete in a venue's form: the focus is not lost ---------------- */
-    const delVenue = async () => { await page.focus('#vn-edit'); await page.keyboard.press('Enter'); await page.waitForSelector(FORM.edit + ' .vn-rules-edit'); await sleep(250); await page.focus(FORM.edit + ' .form-actions .btn.danger'); await page.keyboard.press('Enter'); await sleep(600); };
+    // The place's own form: "Edit venue", or "Edit studio" for a studio (Echo Chamber Studios).
+    const delVenue = async (form = FORM.edit) => { await page.focus('#vn-edit'); await page.keyboard.press('Enter'); await page.waitForSelector(form + ' .vn-rules-edit'); await sleep(250); await page.focus(form + ' .form-actions .btn.danger'); await page.keyboard.press('Enter'); await sleep(600); };
     const focusNow = () => page.evaluate(() => { const a = document.activeElement; return { tag: a.tagName, id: a.id, head: a.hasAttribute('data-view-head'), sheets: document.querySelectorAll('.sheet').length }; });
     await go(page, 'venues'); await page.waitForSelector('#vn-s-echo');
     await page.focus('#vn-s-echo'); await page.keyboard.press('Enter'); await page.waitForSelector('.vn-sheet'); await sleep(250);
-    await delVenue();
+    await delVenue(sheetOf('Edit studio'));
     let lost = await focusNow();
-    ok('Delete in a venue’s form, from the Venues page: the venue is gone and the focus is on the page, not lost', lost.id === 'page' && lost.sheets === 0 && (await page.locator('#vn-s-echo').count()) === 0, JSON.stringify(lost));
+    ok('Delete in a venue’s form (a studio’s, “Edit studio”), from the Venues page: the venue is gone and the focus is on the page, not lost', lost.id === 'page' && lost.sheets === 0 && (await page.locator('#vn-s-echo').count()) === 0, JSON.stringify(lost));
     await page.keyboard.press('Tab');
     ok('…so the next Tab carries on in the page, not from Skip to content', await page.evaluate(() => !!document.activeElement.closest('#page')));
     await openB(page, 's-show2');

@@ -45,12 +45,12 @@ on the calendar, the first track on every menu:
 | 🔭 Scout | Shows · Acts · People · Venues | Acts sorted by your latest score; after a show Tourbook asks if you saw them and takes your score; no fees or settlements. |
 | 🎧 Audiophile | Gigs · Bands · Venues · Tools | Bands you've seen, most recent first; after a gig Tourbook asks if you saw them and takes your score; Tools opens on the sound meter; no fees. Free, for personal use, not for work. |
 
-**Every role starts with its first booking.** The first time Tourbook opens, on a phone or computer with nothing in it
-yet, the role you pick walks you through three things, each with its own form, then a short tour of the app:
+**Every role starts with its first booking.** The first time Tourbook opens on a phone or computer with nothing in it
+yet, it walks you through three things for the role you pick, each with its own form, then a short tour of the app:
 
 | Role | First | Then | Last |
 |---|---|---|---|
-| Producer | an artist you produce | the studio you record in | a studio session |
+| Producer | an artist you produce | a studio you record in | a studio session |
 | Manager | an act on your roster | a venue | a show they're playing |
 | Band | your band | a venue you play | a show |
 | Solo artist | your act | a venue you play | a show |
@@ -58,7 +58,7 @@ yet, the role you pick walks you through three things, each with its own form, t
 | Audiophile | a band you've seen or want to see | a venue you go to | a gig you're going to |
 | Jack of Trades | an act | a venue | a show |
 
-For the last one, type the first letters of the act and the venue you've just saved and pick each from the list.
+For the last one, type the first letters of the two names you've just saved and pick each from the list.
 Bringing your records back from a backup or Google Drive, as on a new phone, takes you straight in instead.
 
 Every menu ends with **My card** and **Settings**, whoever you are. Nothing is ever deleted or out of reach: the

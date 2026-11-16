@@ -151,7 +151,9 @@ show on the add buttons, the new and edit forms, their toasts and a booking page
 every role: `actWord()` and `pages/bookings.js` `showWord()` (`+ New band`, `Edit artist`, `New gig`, `Gig added`, `Gig ·
 <day>` on its page); a role whose words are act and show (the manager, the solo artist, the scout, Jack of Trades)
 reads them so. Each title has its `sheetTutorial` (`New act` / `band` / `artist`, `Edit act` / `band` / `artist`, `New
-gig`, `Edit gig`, `Add studio`).
+gig`, `Edit gig`, `Add studio`, `Edit studio`). A place of the kind Studio is a studio in its own form, new or saved (`Add
+studio`, `Edit studio`, "e.g. Echo Chamber Studios" in its name box); any other place is a venue (`Add venue`, `Edit
+venue`, "e.g. The Lantern Rooms").
 
 | Helper | Use |
 |---|---|
@@ -1002,9 +1004,17 @@ stand in when it is not there (the box's heading, the booking's top card).
   by typing. Cancel or ✕ brings the card back. The way out (below) is under the card's words, not beside its primary,
   so a card cut short on a small screen (a phone on its side) keeps its room for the words. On a short phone the add
   button is brought to the middle of the room under the section menu, which stays at the top as the page scrolls
-  (`runTour`). While a forced card is up the bars at the foot of the screen (a new version, the licence's free days
-  left) stand aside (`body:has(.tour-forced) .update-bar`), so a tap meant for the card cannot land on Buy; a page drawn
-  again under the card (a licence change) keeps the spotlight on the same button (`runTour`'s `place()` finds it again).
+  (`runTour`). While any card is up (the start's steps, its last card and the tour after it, and every other
+  walkthrough) the bars at the foot of the screen (a new version, the licence's free days left) stand aside
+  (`body:has(.tour) .update-bar`), so on a small phone a tap meant for the card's buttons cannot land on the bar or on
+  Buy; they come back once it ends. A page drawn again under the card (a licence change) keeps the spotlight on the
+  same button (`runTour`'s `place()` finds it again).
+* **Toasts.** No toast is over a card: the start draws its next card, or its last, only once the save's toast ("The
+  Moths added", "Show added") has gone (`whenClear` waits for `.toast:not(.out)`, at most 2.5 s once nothing else is on
+  screen), and a toast that comes while a forced card is up (the free days' toast, which follows the licence server's
+  answer to a working role picked on a new device) waits until the card has gone (`util.js` `toast`): it shows before
+  the first card, or over the step's form. A toast is its own width, up to the screen's less 16 px a side, so a short
+  one stays on one line (Styles).
 * **The words agree with the pages'.** A card never says "artist" over "+ New act": the role's words reach its pages
   ("Roles"): `+ New <actWord>`, `New / Add / Edit <actWord>`, `New / Edit <showWord>` (a session: `New studio
   session`), `<Kind> added`, `<Kind> · <day>`; the producer's empty Venues page says "Add a studio" and opens "Add
@@ -1032,12 +1042,17 @@ stand in when it is not there (the box's heading, the booking's top card).
   always: Not now picks nothing) and starts its free days (`app.js` `noteUse`, as for any working role picked there, with
   their toast), so its forms store; the Audiophile's starts nothing, sends nothing and asks no terms. The start reads
   `canWrite()` before it begins, before each card, before each form, and on every licence change while a card is up;
-  when it is false (the free days over, or the terms refused) the start is over for good (the key goes) and `then(false)`
-  brings the licence's sheets at once ("Your 30 free days are over"); the welcome tour waits for the next opening. A
+  when it is false the start ends, on the calendar, and the welcome tour waits for the next opening. The free days over
+  (or a licence that no longer works): the start is over for good (the key goes) and `then(false)` brings the licence's
+  sheet at once ("Your 30 free days are over"). The terms refused this visit (Not now on "The terms have changed", while
+  the free days still run: `termsDeclined()` with `licenceNow().canEdit`): read-only for this visit as anywhere else after
+  Not now, with no sheet of its own (a refused change brings "Read-only for now", whose Read and agree lets it change
+  things again); the key stays, so the next opening brings the step back, and asks the terms once the start is over. A
   working role whose free days are over cannot be picked at all (`mayPickRole` `'locked'`, "<Role> needs a licence");
   the Audiophile's start runs whatever the free days (its sections always write). The free days survive Erase this
   device, so a device with nothing in it can have them over: `04-start` 21 checks every case. A sheet that opens while a
-  forced card is up (a terms sheet the desktop app asks once its bridge answers) is under the card until it ends.
+  step's card is up (a terms sheet the desktop app asks once its bridge answers, or one a licence change brings) ends
+  the card: it would be under it, out of reach. The card comes back once the sheet has closed (`04-start` 21g).
 * **Another role's start**, or a role's words changed: its entry in `STARTS` (`placeKind`, `kind`; `act`, `place` and
   `booking`, each `title`, `text` and `note`, strings or functions of the act's and the place's names: `booking()`
   builds the booking's from its noun, who it is for and the boxes' words; `done`: `title`, `text`, strings or functions
@@ -1835,7 +1850,10 @@ venue's map or Find from address is used, and its update checks once installed (
   `scroll-padding-bottom`, so a control reached with Tab is scrolled clear of it (a tall notes box at least to its
   first line). At 340 px and narrower Delete, Cancel and Save share the row instead of forcing the form wider.
 * A toast (`util.js` `toast()`) sits at the foot of the screen for nearly three seconds and lets taps through to
-  what is under it (`pointer-events: none`): the next row's Yes and No in "Did you see them?", a card.
+  what is under it (`pointer-events: none`): the next row's Yes and No in "Did you see them?", a card. It is as wide as
+  its words, centred, up to the screen's width less 16 px a side (`width: max-content`), so a short one stays on one line
+  and a long one wraps across the screen rather than into a tall blob. While a forced card is up (the start's) a toast
+  waits until it has gone.
 * A name beside a status pill (a Coming up card, a booking's header) lets the pill drop under it where
   the name would be squeezed, so no word is broken in two. The display choices (`.pref > .seg.wide`) do the same on a
   narrow phone with large text: a row that cannot hold every choice puts the last on a line of its own.
@@ -1899,7 +1917,7 @@ backline, take, comp, stems, split sheet.
   | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
   | `14-typed-names` | its read-only check (free days over: Add brings the licence's sheet, no question) runs only in the on leg |
-  | `04-start` | its own contexts take no licence seed: the Audiophile's start must start nothing (unstarted all through, no terms, nothing sent); a working role's pick asks the terms and starts its free days, and its start then adds freely (20); its "never a trap" checks (free days over before or during a start, the terms refused, the licence bar standing aside: 21) run only in the on leg; its check of every role's words (19) opens with the leg's seed (`open()`), so the working roles can add |
+  | `04-start` | its own contexts take no licence seed: the Audiophile's start must start nothing (unstarted all through, no terms, nothing sent); a working role's pick asks the terms and starts its free days, and its start then adds freely (20); its "never a trap" checks (free days over before or during a start, the terms refused at the pick, the terms asked while a card is up and refused for the visit, the licence bar standing aside at 320 px through the tour after the start: 21) run only in the on leg; no toast is ever over a card's spotlight or buttons (`t-cover`, both legs: 16, 20); README's start paragraph is held to the cards' words (22); its check of every role's words (19) opens with the leg's seed (`open()`), so the working roles can add |
   | `90-drive` | its own contexts take the same seed |
   | `09-from-gdex` | seeds Gdex's keys, which the copy brings over: in the on leg also Gdex's free days under way, and checks that what it brings only ever moves the start of the free days earlier, never later, and that free days over under Gdex stay over |
   | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92`, `93` | set their own state, or none: the same in both legs |

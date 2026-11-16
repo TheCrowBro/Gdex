@@ -7,13 +7,13 @@
 // a backup file or Google Drive. Kept on this device under tourbook-start ({ role, made }: the ids its forms saved).
 // Every role has one (the owner, 15 Nov 2026: "Then do this for the other roles"): the same three steps, an act, a
 // place and a booking, in the role's own words (STARTS). It never runs while Tourbook may not change things (the
-// licence: canWrite).
+// licence: canWrite); the terms refused for this visit only (Not now) keep it for the next opening.
 import { h } from './util.js';
 import { db, subscribe, COLLECTIONS } from './store.js';
 import { runTour, tourSeen, welcomeSteps } from './tour.js';
 import { roleId, startSection } from './roles.js';
 import { capital } from './bookings-kit.js';
-import { canWrite, onLicenceChange } from './licence-state.js';
+import { canWrite, onLicenceChange, termsDeclined, licenceNow } from './licence-state.js';
 import { editAct } from './pages/acts.js';
 import { editVenue } from './pages/venues.js';
 import { newBooking, openBooking, showCalendar } from './pages/bookings.js';
@@ -69,7 +69,7 @@ export const STARTS = {
     act: { title: 'Add your band', text: 'Three steps put your first show on your calendar. First, your band: its page keeps the members, the press kit and the tech rider.', note: NOTE_ACT },
     place: { title: 'Add a venue', text: 'Next, a venue you play. Save it once and it’s there to pick for every show there.', note: NOTE_PLACE },
     booking: booking({ noun: 'show', what: 'you’re playing', act: 'band', place: 'venue' }),
-    done: { title: 'Your first show is on your calendar', text: `Start the night’s setlist here: Tourbook checks it fits your set. ${LOOK}`,
+    done: { title: 'Your first show is on your calendar', text: `Start the night’s setlist here: Tourbook checks it fits your set length. ${LOOK}`,
       target: ['#blk-setlist .sg-blk .btn.primary', '#blk-setlist > summary', '.bk-page .bk-hero'] } },
   solo: { placeKind: 'venue', kind: 'show',
     act: { title: 'Add your act', text: 'Three steps put your first show on your calendar. First, your act: the name you play under. Its page keeps your press kit and tech rider to send ahead.', note: 'Only the name you play under is needed. The rest can wait.' },
@@ -116,8 +116,22 @@ function clear() { try { localStorage.removeItem(KEY); kept = undefined; } catch
 const placeOf = st => stepsOf(st.role).findIndex(id => !db[STEPS[id].list].length);
 // Data brought in (a backup file, Google Drive, another tab): any record the start's own forms did not save.
 const brought = st => COLLECTIONS.some(c => db[c].some(r => !st.made.includes(r.id)));
-// Every 250 ms until no sheet or walkthrough is on screen.
-const whenClear = fn => { const t = () => (document.querySelector('.sheet-back, .tour') ? setTimeout(t, 250) : fn()); setTimeout(t, 250); };
+// Every 250 ms until no sheet or walkthrough is on screen, and no toast either (a save's "… added"): a toast is over
+// the foot of the screen, where the next card's buttons and the button it points at can be. A toast is waited for at
+// most 2.5 s from the moment the screen is otherwise clear.
+const whenClear = fn => {
+  let clearSince = 0;
+  const t = () => {
+    if (document.querySelector('.sheet-back, .tour')) { clearSince = 0; setTimeout(t, 250); return; }
+    clearSince = clearSince || Date.now();
+    if (Date.now() - clearSince < 2500 && document.querySelector('.toast:not(.out)')) { setTimeout(t, 250); return; }
+    fn();
+  };
+  setTimeout(t, 250);
+};
+// The licence refuses changes only for this visit: its terms sheet closed with Not now while the free days (or a licence)
+// still let this device change things. The next opening may agree to them.
+const forNow = () => termsDeclined() && licenceNow().canEdit;
 
 // After "Who’s using Tourbook?" (picked: the role picked there; none when it was closed without a pick, or when
 // Tourbook opens with a start under way). then(tour) runs once, when the start is over or there is none: app.js's
@@ -135,9 +149,15 @@ export function runStart(picked, then = () => {}) {
     const st = read();
     if (!st) return end(true);
     if (st.role !== roleId() || !STARTS[st.role] || brought(st)) { clear(); return end(true); } // brought in (or another role): the welcome tour from its first card
-    // The licence refuses changes now (the free days over, or the terms refused): the start is over, never a trap. Its
-    // sheets say why at once (the free-days-over sheet); the welcome tour waits for the next opening.
-    if (!canWrite()) { clear(); return end(false); }
+    // The licence refuses changes now: the start is over, never a trap, and leaves the person on the calendar. The free days
+    // over (or no licence): for good, the free-days-over sheet saying why at once (then(false)). The terms refused this
+    // visit (Not now): only for this visit, read-only as anywhere else after Not now; the key stays, so the next opening
+    // brings the step back. The welcome tour waits for that opening either way.
+    if (!canWrite()) {
+      if (!forNow()) clear();
+      if (window.logiPage() !== startSection()) window.logiGo(startSection());
+      return end(false);
+    }
     const ids = stepsOf(st.role), at = placeOf(st);
     if (at < 0) { clear(); return end(true); }
     const s = STEPS[ids[at]], w = STARTS[st.role][ids[at]], [b, v] = names(st);
@@ -146,7 +166,11 @@ export function runStart(picked, then = () => {}) {
     const unsub = subscribe(() => { const now = read(); if (!now || brought(now) || placeOf(now) !== at) again(); });
     const unlic = onLicenceChange(() => { if (!canWrite()) again(); }); // the free days ran out while the card is up
     window.addEventListener('tourbook-role', again); // another role chosen meanwhile (nothing on screen can, under the card)
-    const off = () => { unsub(); unlic(); window.removeEventListener('tourbook-role', again); };
+    // A sheet that opens while the card is up (the terms sheet, which the desktop app's bridge or a licence change can
+    // bring) would be under it, out of reach: the card steps aside, and comes back once the sheet has closed.
+    const sheets = new MutationObserver(ms => { if (ms.some(m => [...m.addedNodes].some(n => n.nodeType === 1 && n.matches('.sheet-back')))) again(); });
+    sheets.observe(document.body, { childList: true });
+    const off = () => { unsub(); unlic(); sheets.disconnect(); window.removeEventListener('tourbook-role', again); };
     // The way out is under the words, not beside the primary, so a card cut short on a small screen keeps its room for them.
     stop = runTour([{ go: s.go, target: s.target, count: `Step ${at + 1} of ${ids.length}`, title: w.title, text: say(w.text, b, v), button: `${w.title}…`,
       body: ({ stop: leave }) => h('button', { type: 'button', class: 'btn ghost small start-backup', id: 'start-backup', onclick: () => { why = 'backup'; leave(); } }, 'I have a backup file or Google Drive…') }], {

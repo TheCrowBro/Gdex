@@ -220,7 +220,7 @@ function fieldsFor(kind, cur = '') {
   // The members join an empty line-up (tidy), except for a role that keeps the line-up out of the way.
   const joins = kind !== 'other' && blockShown('lineup') ? 'Its members join the line-up when it is empty.' : '';
   // A role that scores the shows it goes to scores the act picked here (Score this show on the booking).
-  const scores = kind === 'show' && pageOpt('bookings', 'score', false) ? `The ${word} you’re going to see. On the night or after, Score on the ${showWord()}’s page logs it on their card.` : '';
+  const scores = kind === 'show' && pageOpt('bookings', 'score', false) ? `The ${word} you’re going to see. Score them on the ${showWord()}’s page, on the night or after; the score goes on their card.` : '';
   // A box to type the act in, its saved acts listed under it as it is typed (by any name each has had); a name that is
   // none of them is kept as typed (client) and asked about on Add or Save.
   const act = (label = capital(word)) => ({ key: 'actId', textKey: 'client', label, type: 'combo', items: actItems, words: { many: word + 's' }, placeholder: kind === 'session' ? 'Who the session is for' : 'Type a name', hint: noActs || scores || joins });
