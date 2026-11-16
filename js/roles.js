@@ -19,7 +19,7 @@ export const SECTIONS = ['bookings', 'acts', 'people', 'songs', 'sessions', 'bac
 //              data stays, and comes back with a role that uses money); new shows start Confirmed, not on Hold.
 //   (words)    not a key: an act and a show on the add buttons, the new and edit forms, their toasts and a booking page's
 //              kind line are in the role's words in every role, actWord() and pages/bookings.js showWord() ("+ New band",
-//              "Edit artist", "New gig", "Gig added", "Gig · Sat 21 Nov"); a role whose words are act and show reads them so.
+//              "Edit artist", "New gig", "Gig added", "Gig · <day>"); a role whose words are act and show reads them so.
 //   welcome, tour   the welcome tour's first card and its stops ({ id, text }, at most five, in menu order).
 //   pages      small defaults on existing pages, read with pageOpt(page, key, fallback):
 //              bookings.open { kind: [box ids open at first] }, bookings.score (Score this show on a show you went to),

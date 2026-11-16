@@ -72,7 +72,7 @@ Set `ELECTRON_SKIP_BINARY_DOWNLOAD=1` before `npm ci` unless you need the deskto
 | `js/bookings-cal.js`, `js/bookings-kit.js` | The calendar's views (drawn for `pages/bookings.js`), and the helpers the two share. |
 | `js/acts-ask.js`, `js/venues-rules.js`, `js/acts-sample.js` | "Did you see them?" after a show; a venue's house rules wherever they are drawn; an act's Sample work (its link on the act form, its QR code on the act's card). |
 | `js/combo.js` | The type-and-pick box: the booking form's band and venue boxes (`js/form.js` type `combo`; "The band and venue boxes" below). |
-| `js/start.js` | The start: the Audiophile's first steps (a band, a venue, then a gig), taken straight after it is picked on a device with nothing in it ("The start" below). |
+| `js/start.js` | The start: every role's first steps (an act, a place, then a booking, in the role's words), taken straight after it is picked on a device with nothing in it ("The start" below). |
 | `js/search.js`, `js/search-dates.js` | The search: the box at the top of every page (in the section menu's bar), the `/` key and the results it opens over the page; the dates it reads. |
 | `js/licence-state.js`, `js/licence.js`, `js/licence-web.js`, `js/licence-note.js`, `js/terms.js`, `js/licence-config.js`, `js/licence-keys.js`, `js/tax.js`, `css/licence.css` | The licence (below): the state every module asks, its sheets, panel and bar, the website's talk with the licence server, the sign-in's signature check, the one-time terms sheet, the owner's switch, the public keys (generated), the price with tax. |
 | `js/drive.js`, `js/sync.js`, `js/cloud-config.js`, `js/kv.js` | Google Drive (below): Google's sign-in and the Drive files, keeping this device and Drive the same, the owner's Google client id; the IndexedDB store both the backup file and the licence use. |
@@ -114,8 +114,8 @@ lists; `askRole`, then the welcome tour
 for that role, `startTour(0, { first: true })`, which ends on the calendar however it ends, so "Did you see them?" is
 asked there; taken again later, from ?, Aa or Settings, the
 tour ends on the section it was started from: `runTour(steps, { onEnd })`). A role with a start of its own (`STARTS` in
-`js/start.js`: the Audiophile) picked there on a device with nothing in it takes it first ("The start" below); a shorter
-welcome tour follows it. Settings → Your role swaps it (`rolePanel`). A
+`js/start.js`: every role, Jack of Trades included) picked there on a device with nothing in it, while Tourbook may
+change things, takes it first ("The start" below); a shorter welcome tour follows it. Settings → Your role swaps it (`rolePanel`). A
 device whose welcome tour was done before roles came gets one card under the menu instead (`nudgeRole`, shown once:
 `tourbook-role-nudged`; closing the first-run question without a pick sets it too, so that person never sees the card).
 The question and the tour wait while a sheet (the sleeve, tapped in the first moment) is open. Their words, like the
@@ -146,22 +146,23 @@ pick. Within a visit, leaving Bookings and coming back keeps the view, the day a
 Bookings and Acts are renamed: Artists, Roster, Bands, My act, Shows, Gigs), `what` (fills What you do in the tour), `newKind`, `kinds` and
 `kindHelp` (the What are you booking? sheet), `hide` (booking boxes kept under More boxes), `money` (`false` leaves
 the deal, settlement, quote & invoice and costs boxes off booking pages altogether and starts new shows Confirmed),
-`ownWords` (`true`, the Audiophile's alone: the add buttons, new forms and their toasts for an act and a show say the
-role's words, `+ New band`, `New band` / `Add band`, `New gig`, `Gig added`; without it they say act and show in every
-role, the Band's and the Producer's included), `welcome` and `tour` (the welcome tour, at most five stops), and `pages`
-(defaults read with `pageOpt`).
+`welcome` and `tour` (the welcome tour, at most five stops), and `pages` (defaults read with `pageOpt`). An act and a
+show on the add buttons, the new and edit forms, their toasts and a booking page's kind line are in the role's words in
+every role: `actWord()` and `pages/bookings.js` `showWord()` (`+ New band`, `Edit artist`, `New gig`, `Gig added`, `Gig ·
+<day>` on its page); a role whose words are act and show (the manager, the solo artist, the scout, Jack of Trades)
+reads them so. Each title has its `sheetTutorial` (`New act` / `band` / `artist`, `Edit act` / `band` / `artist`, `New
+gig`, `Edit gig`, `Add studio`).
 
 | Helper | Use |
 |---|---|
 | `role()`, `roleId()`, `roleChosen()`, `setRole(id, { start })` | The current role; `setRole` saves it and fires `tourbook-role` (the app redraws the menu and the page). |
 | `menuSections(r)`, `offMenu(r)`, `startSection(r)` | The menu (always ending with Settings), the bonus tracks, where a fresh start opens. |
-| `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act). |
-| `ownWords()` | The role's `ownWords`: Acts' `#ac-new` / `#ac-new-empty` and the act form's title and Add (`acts.js` `newWord()`), and a new show's form title and toast (`bookings.js` `newNoun()`) in its words. Each title has its `sheetTutorial` (`New band`, `New gig`). |
+| `sectionName(id, fallback)`, `actWord()` | The role's name for a section (menu, page heading, tour); one act in its words (artist, band, act): on Acts' add buttons (`#ac-new`, `#ac-new-empty`), the act form's titles and Add (`New band`, `Add band`, `Edit band`), the booking form's act box. |
 | `cardAudience()` | Who the person shows their contact card to, in the role's words ("promoters, venues and fans at the merch desk"): My card's lead line, its empty state and its walkthrough. |
 | `blockShown(id)`, `blockFolded(id)`, `MONEY_BLOCKS` | A booking box shown, under More boxes, or (a money box for a role without money) neither. `blocksFor(kind)` already leaves the others out. |
 | `moneyShown()`, `newKind()`, `kindOrder()`, `kindHelp(kind)` | Money on or off; the kinds of booking in the role's order and words. |
 | `gearByBand()` | Backline in a fold per act, with what you put in (item 17): true for a producer, a manager and Jack of Trades (the roles that invest in the acts they work with; Backline is on the producer's and the manager's menus, right after their acts). Kept in a list of its own in `js/roles.js`, so the roles' lines are not touched. |
-| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `acts.sampleWork`, `people.group`, `songs.view`, `tools.tool`, `money.earned`. A default applies only while the person has not chosen otherwise. |
+| `pageOpt(page, key, fallback)` | A page's default for the role: `bookings.open`, `bookings.score`, `bookings.noActs`, `bookings.ask`, `acts.order`, `acts.seen`, `acts.tabs`, `acts.empty`, `acts.sampleWork`, `people.group`, `songs.view`, `tools.tool`, `money.earned`, `venues.first` (`'studio'`, the producer's: the empty Venues page's button is "Add a studio", and opens the form as a studio, "Add studio"). A default applies only while the person has not chosen otherwise. |
 | `askSeen()`, `askDefault(r)`, `askSetting()`, `setAskSetting(v)` | Whether this person is asked "Did you see them?" after a show: the device setting `tourbook-ask-seen` (`'on'`, `'off'`; `''` / unset follows the role) when there is one, else the role's own answer (`pages.bookings.ask: false` on band and solo artist; everyone else, and Jack of Trades, is asked). |
 
 Pages: Acts sorts by `acts.order` (`latest`: latest score, then average, then name; `recent`: last seen first; never
@@ -713,7 +714,7 @@ may call it.
 | `js/venues-rules.js` `rulesChip(b)` / `venueChip(v)` / `rulesFull(v, { where })` / `rulesEditor(v)` | venues | A show's house-rules chip, or `null` / the same for a venue / the full rules (`where: 'venue' \| 'show'`), or `null` / the House rules part of the venue form: `{ node, read() }`. It draws what `model.js` returns and imports `util.js` and `model.js` only. |
 | `pages/bookings.js` `newBooking(preset, { onSaved })` | bookings | Open the new-booking form, prefilled (`{ kind, actId, venueId, date, setlistId }`; `blankAct: true` leaves the act box empty even when there is one act); `onSaved(record)` once the booking is stored. Inside the page, `editBooking(b, { focus, onSaved })` does the same for any booking. |
 | `pages/bookings.js` `showCalendar()` | bookings | The calendar in its saved view, on the day in view (from a booking's page). |
-| `js/start.js` `runStart(picked, then)` / `STARTS` | core | After "Who’s using Tourbook?": the start of the role picked (`picked`; none resumes a start under way), then `then(tour)` once, when it is over or there is none (`tour` false once its own shorter tour has run) / the roles with a start and their steps ("The start" below). |
+| `js/start.js` `runStart(picked, then)` / `STARTS` | core | After "Who’s using Tourbook?": the start of the role picked (`picked`; none resumes a start under way), then `then(tour)` once, when it is over or there is none (`tour` false once its own shorter tour has run, or when the licence ended it) / every role's start: its words and its last card ("The start" below). |
 | `pages/bookings.js` `showWord()` | bookings | The role's word for a show: the singular of its name for Bookings when it has one of its own (Gigs: gig; Shows: show), else show. |
 | `pages/acts.js` `addActNamed(name)` / `eatSecondClick()` | acts | An act made from a name typed elsewhere (a booking's band box, a gig's score row): what the act form saves for a new act with only a name, in the next colour no other act uses; the stored record, or `null` when the licence refused it / for a moment after an answer that closes a sheet and saves the form under it, the second click of a double click is stopped before it reaches anything ("New name?", "Add to your lists?"). |
 | `pages/venues.js` `addVenueNamed({ name, address, kind })` | venues | A place made from a name typed in a booking's form: its name, the address typed with it and its kind, with the house-rules fields the venue form always stores (`rules: {}`); the stored record, or `null` when refused. |
@@ -921,11 +922,13 @@ that has an act or a venue box, every role) has two type-and-pick boxes, `form.j
   the act form's "New name?" is: the sheet's body hears the submit in the capture phase and holds it; an answer sends
   it again (`form.requestSubmit()`), and that one saves. The sheet "Add to your lists?" (`div.bk-add`: `#bk-add-q`,
   `#bk-add-why`, which describe the dialog, `div.bk-add-answers`, `#bk-add-back`): both new, `#bk-add-both` Add both,
-  `#bk-add-act` Just the band, `#bk-add-venue` Just the venue, `#bk-add-none` Neither; one new, `#bk-add-yes` Yes, add it,
+  `#bk-add-act` Just the band (the role's word), `#bk-add-venue` Just the venue (on a session Just the studio, a
+  rehearsal Just the room, anything else Just the place: the form's box), `#bk-add-none` Neither; one new, `#bk-add-yes`
+  Yes, add it,
   `#bk-add-no` No, keep it as typed. The question (`.bk-add-q`), its answers and an option's name in the list
   (`.cb-name`) are 1rem, so they grow with the grey lines under them at Settings → Text size. The sheet's ? walkthrough
-  says what is not added "stays on the booking as typed" (`stays on the gig as typed` for a role with `ownWords`, the
-  kind asked about in its words). The booking is saved whatever the answer; ✕, Escape and Back to the form save
+  says what is not added "stays on the <booking> as typed", the booking in the role's words (`stays on the gig as
+  typed`, `…on the show…`, `…on the studio session…`). The booking is saved whatever the answer; ✕, Escape and Back to the form save
   nothing and put the focus back in the first new box. Its backdrop does not close it (on a wide screen the second click
   of a double click on Add lands there). No answer takes the focus, so a held Enter answers nothing (nor
   asks again), and a double click answers once. `addTyped` makes what was asked for (`acts.js` `addActNamed`, `venues.js` `addVenueNamed`: a venue for a
@@ -939,7 +942,8 @@ that has an act or a venue box, every role) has two type-and-pick boxes, `form.j
   in Money. A quote or invoice is addressed the same, typed or picked (`money.js` `partyTo`): a session's to its artist
   and contact, a rehearsal's or diary entry's to its contact alone. For a role that scores its shows (the Audiophile), a
   gig over with a typed band that is none of the acts has
-  "<name> isn’t in your bands yet. Add them to score this show." and `#bk-score-add` "+ Add to Bands" on its score row,
+  "<name> isn’t in your bands yet. Add them to score this gig." ("this show" for a scout) and `#bk-score-add` "+ Add to
+  Bands" on its score row,
   which makes the act and links the gig (the focus then on ★ Score); with a saved act (or two) of exactly that name the
   row stays "Pick the band".
 
@@ -958,58 +962,87 @@ fresh load opens on the calendar. It asks nothing while the question's own sheet
 sheet on screen straight after `askAtOpen` returns: so `askAtOpen` opens its sheet before it returns, and can be called
 more than once in a visit.
 
-At a first open the start comes before all of it (a role with a start of its own picked at "Who’s using Tourbook?" on a
-device with nothing in it: "The start" below): `app.js`'s `welcome` (the welcome tour, then `licenceThenAsk`: the licence's
-sheets, the free-days-over sheet and "Did you see them?") is what `runStart` calls once the start is over, so they all
-wait for it without a check of their own. A start under way comes back on every open, even after a welcome tour taken
-meanwhile (`startOn()`: `tourbook-start` is there, so the boot takes the first-run path).
+At a first open the start comes before all of it (the role picked at "Who’s using Tourbook?" on a device with nothing in
+it: "The start" below): `app.js`'s `welcome` (the welcome tour, then `licenceThenAsk`: the licence's sheets, the
+free-days-over sheet and "Did you see them?") is what `runStart` calls once the start is over, so they all wait for it
+without a check of their own. A start under way comes back on every open, even after a welcome tour taken meanwhile
+(`startOn()`: `tourbook-start` is there, so the boot takes the first-run path).
 
 ### The start (`js/start.js`)
 
 The owner (15 Nov 2026): "At the beginning, force a tutorial for users to add a band, venue, and then a show for the
-audiophiles role." A role's first steps, taken for real. Only the Audiophile has them so far (`STARTS`: `audiophile:
-{ steps: ['band', 'venue', 'gig'], done }`).
+audiophiles role. Do something similar after this has been added and published. Then do this for the other roles". A
+role's first steps, taken for real. Every role has them, in one shape: three steps (`STEPS`: `act`, `place`, `booking`,
+each with its list, section, target and form) and each role's words and last card (`STARTS[role]`):
 
-* **When.** Straight after a role with steps is picked at "Who’s using Tourbook?" (`askRole` calls `then(id)` with the
-  role picked), when that is the role in use, the welcome tour has not been seen and every list (`store.COLLECTIONS`) is
-  empty. Never on a device with any record, nor one whose welcome tour was done; never from Settings → Your role, the
-  role card (`nudgeRole`), the question closed without a pick (also when that leaves the Audiophile through Carry on
-  free), or any other role.
+| Role | Step 1: Acts | Step 2: Venues | Step 3: the calendar | Its last card, on the booking's page, over |
+|---|---|---|---|---|
+| Producer | an artist you produce | a studio (`placeKind: 'studio'`) | a studio session (`kind: 'session'`) | the session clock (`.sd-clock`): start it on the day; the take log is further down |
+| Manager | an act on your roster | a venue | a show they’re playing | + Add the deal (`#sh-deal-add`), the advance checklist under it |
+| Band | your band | a venue you play | a show you’re playing | + New setlist for this show |
+| Solo artist | your act (the name you play under) | a venue you play | a show you’re playing | + Add the deal; the setlist further down |
+| Scout | an act you’re watching | a venue you scout in | a show you’re going to | the score row |
+| Audiophile | a band you’ve seen or want to see | a venue you go to | a gig you’re going to | the score row |
+| Jack of Trades | an act | a venue you play or go to | a show they’re playing | the Deal & fee box (its first) |
+
+Each last card's target is a box the role opens at first (`roles.js` `pages.bookings.open`), with later selectors that
+stand in when it is not there (the box's heading, the booking's top card).
+
+* **When.** Straight after a role is picked at "Who’s using Tourbook?" (`askRole` calls `then(id)` with the role picked),
+  when that is the role in use, the welcome tour has not been seen, every list (`store.COLLECTIONS`) is empty and
+  Tourbook may change things (`canWrite()`). Never on a device with any record, nor one whose welcome tour was done;
+  never from Settings → Your role, the role card (`nudgeRole`), or the question closed without a pick (Jack of Trades
+  unpicked, or the Audiophile left by Carry on free: a person who closed the question chose not to be walked through,
+  and gets the welcome tour, which has Skip).
 * **What.** Each step is a card (`runTour`, `forced`: no Skip, Escape and the arrows do nothing) over the page's own add
-  button: Bands' `#ac-new-empty`, Venues' `#vn-first`, Gigs' `.bk-new`, counted "Step 1 of 3", its primary button
-  named for the step ("Add a band…") and opening that page's own form (`editAct`, `editVenue`, `newBooking({ kind:
-  'show', blankAct: true }, { onSaved })`), with the step's line at the form's top (`p.start-note#start-note`, which
-  describes the form's first box). What it walks through is in the Audiophile's words (`ownWords`, "Roles"): `+ New
-  band`, `New band` / `Add band`, `New gig`, `Gig added`, and the question's "stays on the gig as typed". The gig's
-  card and line name the band and the venue just added, to be found by typing. Cancel or ✕ brings the card back. The
-  way out (below) is under the card's words, not beside its primary, so a card cut short on a small screen (a phone on
-  its side) keeps its room for the words. On a short phone the add button is brought to the middle of the room under
-  the section menu, which stays at the top as the page scrolls (`runTour`).
+  button: Acts' `#ac-new-empty`, Venues' `#vn-first`, the calendar's `.bk-new`, counted "Step 1 of 3", its primary button
+  its title with "…" ("Add an artist…") and opening that page's own form (`editAct`, `editVenue({ kind: placeKind })`,
+  `newBooking({ kind, blankAct: true }, { onSaved })`), with the step's line at the form's top (`p.start-note#start-note`,
+  which describes the form's first box). The booking's card and line name the act and the place just added, to be found
+  by typing. Cancel or ✕ brings the card back. The way out (below) is under the card's words, not beside its primary,
+  so a card cut short on a small screen (a phone on its side) keeps its room for the words. On a short phone the add
+  button is brought to the middle of the room under the section menu, which stays at the top as the page scrolls
+  (`runTour`). While a forced card is up the bars at the foot of the screen (a new version, the licence's free days
+  left) stand aside (`body:has(.tour-forced) .update-bar`), so a tap meant for the card cannot land on Buy; a page drawn
+  again under the card (a licence change) keeps the spotlight on the same button (`runTour`'s `place()` finds it again).
+* **The words agree with the pages'.** A card never says "artist" over "+ New act": the role's words reach its pages
+  ("Roles"): `+ New <actWord>`, `New / Add / Edit <actWord>`, `New / Edit <showWord>` (a session: `New studio
+  session`), `<Kind> added`, `<Kind> · <day>`; the producer's empty Venues page says "Add a studio" and opens "Add
+  studio"; the booking form's boxes are Artist, Band or Act, and Studio or Venue, as the third step's line says; "Add to
+  your lists?" says "Just the artist", "Just the studio", "stays on the studio session as typed". `04-start` 20 checks
+  each role's.
 * **Where it is** is never stored: it is the first step whose list (`acts`, `venues`, `bookings`) is still empty, so a
   reload, a closed app or a cancelled form comes back at the step reached. Opened afresh there (a new page, no tap
   yet), the card's move through the section menu asks for no vibration (`haptic()`; `04-start` checks it on a new page
   with no evaluate before the card is up, since Playwright's evaluate and waits count as a tap). `tourbook-start`
   (`{ role, made }`, the ids of what the start's own forms saved; in memory only while storage refuses the write) says
-  a start is under way; it goes as the gig is saved. Not in the database or in backups; Erase this device clears it.
+  a start is under way; it goes as the booking is saved. Not in the database or in backups; Erase this device clears it.
 * **The way out.** "I have a backup file or Google Drive…" on every card opens Backups; once data is brought in (any
   record whose id is not in `made`: a backup file, Google Drive's `adopt`, another tab), the start ends and the welcome
   tour runs from its first card. It is checked when a card is about to be drawn and on every store change while one is
-  up. An empty backup brings nothing: the start carries on.
-* **The end.** The gig saved, its page shows, then a shorter welcome tour (`remember`): the role's last card (`done`;
-  the Audiophile's "Your first gig is on your calendar" over the gig's score row, else its top card), then the welcome
-  tour without its welcome card and without the stops of the sections the start went through (`welcomeSteps({ skip })`); Skip on every card. However it ends it
-  marks the welcome tour seen and leaves the person on the calendar (`showCalendar()`). A reload during it shows the
-  whole welcome tour instead.
-* **Licences, on and off.** The start calls nothing in `licence-*.js`: the Audiophile's own sections, writes through the
-  store's gate, nothing sent to the licence server, the free days not started, the terms not asked.
-* **Another role's start.** An entry in `STARTS`: `steps` (its steps in order) and `done` (its last card, over the page
-  of what the last step added: `title` and `text`, functions of that record, and `target`, its selectors best first);
-  and, for a step it does not share, an entry in `STEPS`: `list` (the collection its record goes in), `go` (the
-  section), `target` (its card's selectors, best first), `title`, `text`, `button` and `note` (functions of the start's
-  state, in the role's words), `open(saved)` (opens the form; `saved(record)` once it is stored) and `last` on the final
-  step. `band`, `venue` and `gig` are in the Audiophile's words (a band you’ve seen, a venue you go to, a gig you’re
-  going to): a role that would say them otherwise has steps of its own, which may share a list and a form with these.
-  Nothing else changes.
+  up. An empty backup brings nothing: the start carries on. Another role in use (a role change while a card is up, or a
+  start under way for a role no longer in use) ends it the same way.
+* **The end.** The booking saved, its page shows, then a shorter welcome tour (`remember`): the role's last card (`done`)
+  over what the role does there next, then the welcome tour without its welcome card and without the stops of the
+  sections the start went through (`welcomeSteps({ skip })`); Skip on every card. However it ends it marks the welcome
+  tour seen and leaves the person on the calendar (`showCalendar()`). A reload during it shows the whole welcome tour
+  instead.
+* **Licences, on and off.** Off, nothing is asked or sent. On, the start calls nothing in `licence-*.js` but
+  `canWrite()` and `onLicenceChange`: picking a working role on a fresh device asks the terms (before the pick, as
+  always: Not now picks nothing) and starts its free days (`app.js` `noteUse`, as for any working role picked there, with
+  their toast), so its forms store; the Audiophile's starts nothing, sends nothing and asks no terms. The start reads
+  `canWrite()` before it begins, before each card, before each form, and on every licence change while a card is up;
+  when it is false (the free days over, or the terms refused) the start is over for good (the key goes) and `then(false)`
+  brings the licence's sheets at once ("Your 30 free days are over"); the welcome tour waits for the next opening. A
+  working role whose free days are over cannot be picked at all (`mayPickRole` `'locked'`, "<Role> needs a licence");
+  the Audiophile's start runs whatever the free days (its sections always write). The free days survive Erase this
+  device, so a device with nothing in it can have them over: `04-start` 21 checks every case. A sheet that opens while a
+  forced card is up (a terms sheet the desktop app asks once its bridge answers) is under the card until it ends.
+* **Another role's start**, or a role's words changed: its entry in `STARTS` (`placeKind`, `kind`; `act`, `place` and
+  `booking`, each `title`, `text` and `note`, strings or functions of the act's and the place's names: `booking()`
+  builds the booking's from its noun, who it is for and the boxes' words; `done`: `title`, `text`, strings or functions
+  of the record, and `target`, its selectors best first). Its words must agree with its pages' (above), and `04-start`
+  20's table and `tests/helpers.cjs` `START_WORDS` with them.
 
 ### The section menu (`js/deck.js`)
 
@@ -1832,9 +1865,11 @@ backline, take, comp, stems, split sheet.
 * `open({ touch: true })` emulates a touch screen (`page.touchscreen.tap`; the mouse still works).
 * `typePick(scope, key, text, name)` (`tests/helpers.cjs`) types in the booking form's band or venue box and taps the
   option named `name` (`null`: leaves the text as typed).
-* `passStart(page, { band, venue })` (`tests/helpers.cjs`) takes the Audiophile's start as a person does (a band, a
-  venue and a gig, each through its own form, the band and venue picked by typing), for a spec that picks the Audiophile
-  at "Who’s using Tourbook?" on a device with nothing in it; it resolves with the tour that follows at its first card.
+* `passStart(page, { role, band, venue })` (`tests/helpers.cjs`) takes a role's start as a person does (the act, the
+  place and the booking, each through its own form, the act and the place picked by typing; the terms sheet agreed
+  first when a working role's pick brought it), for a spec that picks the role at "Who’s using Tourbook?" on a device
+  with nothing in it (the Audiophile when no role is given); it resolves with the tour that follows at its first card.
+  `START_WORDS` holds each role's cards' titles, forms' names and last card's title.
 * `open()` marks the welcome tour done, dismisses the role card and turns "Did you see them?" off (`tourbook-ask-seen`
   `'off'`, set again on every load), so no sheet opens over a spec's own work. A spec about the question opens with
   `open({ ask: true })`, which leaves the key alone; it seeds its shows, then reloads.
@@ -1860,11 +1895,11 @@ backline, take, comp, stems, split sheet.
 
   | Spec | In the on leg |
   |---|---|
-  | `06-roles`, `26-currency`, `43-ask`, `47-genres`, `70-settings` | their own contexts take `licenceLeg`; only in the on leg, 26 checks that a read-only role's currency chooser changes nothing, and 70 that a saved backup carries `freeDaysFrom` (none in the off leg) |
+  | `06-roles`, `26-currency`, `43-ask`, `47-genres`, `70-settings` | their own contexts take `licenceLeg`; only in the on leg, 26 checks that a read-only role's currency chooser changes nothing, and 70 that a saved backup carries `freeDaysFrom` (none in the off leg). 06's welcome-tour contexts have a person on them (`used`), so the role's start does not come first |
   | `13-calendar`, `46-search`, `43-ask` | Playwright's clock puts the page years on: the free days are seeded again in the page's own time (`licenceAt`, which 43's `setClock` calls the first time it sets the clock, and checks) |
   | `07-groundwork` | its checks that nothing is asked or shown while off run only in the off leg (`LEG`) |
   | `14-typed-names` | its read-only check (free days over: Add brings the licence's sheet, no question) runs only in the on leg |
-  | `04-start` | its own contexts take no licence seed: the Audiophile's start must start nothing (unstarted all through, no terms, nothing sent); its check of every role's words opens with the leg's seed (`open()`), so the working roles can add |
+  | `04-start` | its own contexts take no licence seed: the Audiophile's start must start nothing (unstarted all through, no terms, nothing sent); a working role's pick asks the terms and starts its free days, and its start then adds freely (20); its "never a trap" checks (free days over before or during a start, the terms refused, the licence bar standing aside: 21) run only in the on leg; its check of every role's words (19) opens with the leg's seed (`open()`), so the working roles can add |
   | `90-drive` | its own contexts take the same seed |
   | `09-from-gdex` | seeds Gdex's keys, which the copy brings over: in the on leg also Gdex's free days under way, and checks that what it brings only ever moves the start of the free days earlier, never later, and that free days over under Gdex stay over |
   | `75`-`79`, `80`-`83`, `85`, `86`, `91`, `92`, `93` | set their own state, or none: the same in both legs |
@@ -1872,7 +1907,7 @@ backline, take, comp, stems, split sheet.
 * The licence's own specs stand the licence server in with Playwright routes (75-78, with a `Date` header and a
   throw-away Ed25519 key), or run the real one in Miniflare (79, 81: `npm ci --prefix cloudflare`; SKIP without it,
   FAIL under CI). Specs that read `cloudflare/` or `desktop/` read them from the repository, never the scratch copy.
-* Spec files by owner: `00-smoke` (core), `04-start` (core: the Audiophile's start), `05-deck` and `06-roles` (core), `07-groundwork` (core: the model and the
+* Spec files by owner: `00-smoke` (core), `04-start` (core: every role's start), `05-deck` and `06-roles` (core), `07-groundwork` (core: the model and the
   contracts under the calendar, the question, the menus and house rules), `08-sheets` (core: a sheet's dim backdrop,
   tapped with a finger and clicked), `09-from-gdex` (core: the one-time copy from Gdex's names, and the old name nowhere
   else), `10-bookings`, `11-order` (same-day order and
