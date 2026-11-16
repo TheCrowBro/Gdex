@@ -248,8 +248,9 @@ const licenceThenAsk = () => {
 // The tour is on screen at once, so the question waits for it to end; the first-run tour ends on the calendar, so the
 // question is asked there.
 // The welcome tour (when not seen yet), then the sheets at an opening (licence, then "Did you see them?"). A role with a
-// start of its own (js/start.js: the Audiophile, picked on a device with nothing in it) takes its first steps before
-// them; runStart calls welcome once they are over, with tour false when its own shorter tour has just run.
+// start of its own (js/start.js: every role, picked on a device with nothing in it, while Tourbook may change things) takes
+// its first steps before them; runStart calls welcome once they are over, with tour false when its own shorter tour has
+// just run, or when the licence ended the start (its sheets first; the welcome tour at the next opening).
 const welcome = (tour = true) => { if (tour && !tourSeen()) startTour(0, { first: true }); licenceThenAsk(); };
 const tourThenAsk = picked => import('./start.js').then(m => m.runStart(picked, welcome)).catch(e => { console.error(e); welcome(); });
 // Coming back counts as opening, for the question only. An installed app is seldom loaded afresh: it is brought back from

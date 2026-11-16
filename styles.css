@@ -392,6 +392,9 @@ html[data-motion=off] *, html[data-motion=off] *::before, html[data-motion=off] 
 
 /* tour */
 .tour { position: fixed; inset: 0; z-index: 150; }
+/* A forced card (the start, js/start.js) has no Skip: the bars at the foot of the screen (a new version, the licence's free
+   days) sit over it (z-index 250) and could take a tap meant for it, so they stand aside until it has gone. */
+body:has(.tour-forced) .update-bar { display: none; }
 .tour-spot { position: fixed; border-radius: 14px; box-shadow: 0 0 0 9999px #000a; transition: top .4s cubic-bezier(.2, .8, .2, 1), left .4s cubic-bezier(.2, .8, .2, 1), width .4s cubic-bezier(.2, .8, .2, 1), height .4s cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
 .tour-spot.center { top: 50%; left: 50%; width: 0; height: 0; border-radius: 50%; }
 .tour-spot.tour-pulse::after { content: ''; position: absolute; inset: -4px; border-radius: inherit; border: 2px solid var(--accent); animation: tourPulse 1.4s ease-out 2; }

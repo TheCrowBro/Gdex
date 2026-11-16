@@ -127,7 +127,7 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   };
   const spot = h('div', { class: 'tour-spot', 'aria-hidden': 'true' });
   const card = h('div', { class: 'tour-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'tour-title', 'aria-describedby': 'tour-text' });
-  const layer = h('div', { class: 'tour' }, spot, card);
+  const layer = h('div', { class: 'tour' + (forced ? ' tour-forced' : '') }, spot, card); // forced: the bars at the foot of the screen stand aside (styles.css)
   const wasInert = !!(app && app.inert);
   window.logiShowNav?.(); // the section menu may be slid away: the tour points at it
   document.body.append(layer); if (app) app.inert = true;
@@ -143,6 +143,8 @@ export function runTour(steps, { remember = false, from = 0, footer = null, root
   // A card cut short fades out at the foot of its words while there is more to read (scrolling them clears it).
   const moreCue = b => { if (b) b.classList.toggle('tour-more', b.scrollTop + b.clientHeight < b.scrollHeight - 2); };
   const place = () => {
+    // The page drawn again under the card (a licence change redraws it): the same thing on the new page.
+    if (target && !target.isConnected) target = find(STEPS[i]);
     Object.assign(card.style, { top: '', bottom: '', maxHeight: '' });
     card.classList.remove('tour-docked');
     if (!target) { spot.classList.add('center'); card.classList.add('center'); moreCue(card.querySelector('.tour-body')); return; }

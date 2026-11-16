@@ -2,18 +2,23 @@
 // section menu (the calendar first, and where Tourbook opens every time, whatever was open last), the welcome tour that
 // follows it, Settings → Your role to swap, bonus tracks for the sections off the menu (on the sleeve or the track list,
 // as a tab on the digital player, and from any link), the booking boxes a role hides, and that nothing is lost.
+// A device with nothing in it takes its role's start first (04-start): the welcome-tour checks here run on one with a
+// person on it.
 const { chromium } = require('playwright');
 const { open, ok, sleep, go, topSheet, BASE, licenceLeg } = require('../helpers.cjs');
 
 const roles = page => page.evaluate(() => import('./js/roles.js').then(m => JSON.parse(JSON.stringify({ roles: m.ROLES, all: m.EVERYTHING, menus: Object.fromEntries([...m.ROLES, m.EVERYTHING].map(r => [r.id, m.menuSections(r)])) }))));
 const menuIds = page => page.evaluate(() => [...document.querySelectorAll('.dk-sheet .dk-sides .dk-track')].map(b => b.dataset.section));
+// A device with something on it (one person in People): the welcome tour runs in full. On a device with nothing in it,
+// the role's start comes first (04-start).
+const used = ctx => ctx.addInitScript(() => { try { if (!localStorage.getItem('tourbook-db-v1')) localStorage.setItem('tourbook-db-v1', JSON.stringify({ people: [{ id: 'r-pat', name: 'Pat Example' }] })); } catch (e) { /* ignore */ } });
 const sleeve = async page => { await page.click('#deck .dk-list'); await page.waitForSelector('.dk-sheet'); const ids = await menuIds(page); const bonus = await page.evaluate(() => [...document.querySelectorAll('.dk-sheet .dk-bonus .dk-track')].map(b => b.dataset.section)); await page.keyboard.press('Escape'); await page.waitForSelector('.dk-sheet', { state: 'detached' }); return { ids, bonus }; };
 
 (async () => {
   /* ---------------- the first open ---------------- */
   {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx);
+    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx); await used(ctx);
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -102,7 +107,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- picking Jack of Trades: every section, and the tour and Settings call it by its name ---------------- */
   for (const [label, vp, prefs] of [['', { width: 420, height: 900 }, null], [' (320px, extra large text, large buttons)', { width: 320, height: 700 }, '{"text":"xlarge","targets":"large"}']]) {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' }); await licenceLeg(ctx);
+    const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' }); await licenceLeg(ctx); await used(ctx);
     if (prefs) await ctx.addInitScript(p => { try { localStorage.setItem('tourbook-prefs', p); } catch (e) { /* ignore */ } }, prefs);
     const page = await ctx.newPage();
     const errors = [];
@@ -147,7 +152,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- the sleeve opened in the first moment: the question waits for it ---------------- */
   {
     const browser = await chromium.launch();
-    const ctx0 = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx0); const page = await ctx0.newPage();
+    const ctx0 = await browser.newContext({ viewport: { width: 420, height: 900 }, serviceWorkers: 'block' }); await licenceLeg(ctx0); await used(ctx0); const page = await ctx0.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
@@ -361,7 +366,7 @@ const sleeve = async page => { await page.click('#deck .dk-list'); await page.wa
   /* ---------------- the welcome tour on a small screen: the card never hides what it points at ---------------- */
   for (const [label, prefs] of [['standard text', null], ['extra large text', '{"text":"xlarge"}'], ['the digital player, extra large text', '{"menu":"digital","text":"xlarge"}']]) {
     const browser = await chromium.launch();
-    const ctx = await browser.newContext({ viewport: { width: 320, height: 640 }, serviceWorkers: 'block' }); await licenceLeg(ctx);
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 640 }, serviceWorkers: 'block' }); await licenceLeg(ctx); await used(ctx);
     if (prefs) await ctx.addInitScript(p => { try { localStorage.setItem('tourbook-prefs', p); } catch (e) { /* ignore */ } }, prefs);
     const page = await ctx.newPage();
     const errors = [];

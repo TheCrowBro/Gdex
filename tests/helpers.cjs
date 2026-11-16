@@ -68,20 +68,35 @@ async function typePick(scope, key, text, name = text) {
   const list = `#${await box.getAttribute('id')}-list`; // an option's aria-label is its name, then ", " and its second line
   await scope.locator(`${list} .cb-opt[aria-label="${name}"], ${list} .cb-opt[aria-label^="${name}, "]`).first().click();
 }
-// The Audiophile's start (js/start.js) as a person takes it: a band, a venue and a gig, each through its own form, the
-// band and venue picked by typing. Resolves with the tour that follows up at its first card.
-async function passStart(page, { band = 'The Moths', venue = 'The Lantern Rooms' } = {}) {
+// The words of each role's start (js/start.js STARTS), for a spec that takes one: its cards' titles, its forms' names
+// and its last card's title.
+const START_WORDS = {
+  producer: { cards: ['Add an artist', 'Add a studio', 'Add a studio session'], forms: ['New artist', 'Add studio', 'New studio session'], done: 'Your first studio session is on your calendar' },
+  manager: { cards: ['Add an act', 'Add a venue', 'Add a show'], forms: ['New act', 'Add venue', 'New show'], done: 'Your first show is on your calendar' },
+  band: { cards: ['Add your band', 'Add a venue', 'Add a show'], forms: ['New band', 'Add venue', 'New show'], done: 'Your first show is on your calendar' },
+  solo: { cards: ['Add your act', 'Add a venue', 'Add a show'], forms: ['New act', 'Add venue', 'New show'], done: 'Your first show is on your calendar' },
+  scout: { cards: ['Add an act', 'Add a venue', 'Add a show'], forms: ['New act', 'Add venue', 'New show'], done: 'Your first show is on your calendar' },
+  audiophile: { cards: ['Add a band', 'Add a venue', 'Add a gig'], forms: ['New band', 'Add venue', 'New gig'], done: 'Your first gig is on your calendar' },
+  all: { cards: ['Add an act', 'Add a venue', 'Add a show'], forms: ['New act', 'Add venue', 'New show'], done: 'Your first show is on your calendar' },
+};
+// A role's start (js/start.js) as a person takes it, once the role is picked: its act, its place and its booking, each
+// through its own form, the act and the place picked by typing. The terms sheet, when a working role's pick brought it
+// (licences live, not yet agreed), is agreed first. Resolves with the tour that follows up at its first card.
+async function passStart(page, { role = 'audiophile', band = 'The Moths', venue = 'The Lantern Rooms' } = {}) {
+  const w = START_WORDS[role];
   const card = async title => { await page.waitForFunction(t => (document.querySelector('.tour-card #tour-title') || {}).textContent === t && !document.querySelector('.sheet-back'), title, { timeout: 10000 }); await sleep(300); await page.click('.tour-actions .btn.primary'); };
   const form = async label => { const f = page.locator(`.sheet[aria-label="${label}"]`); await f.waitFor({ timeout: 8000 }); await sleep(150); return f; };
-  await card('Add a band');
-  let f = await form('New band'); await f.locator('[data-key=name]').fill(band); await f.locator('button[type=submit]').click();
-  await card('Add a venue');
-  f = await form('Add venue'); await f.locator('[data-key=name]').fill(venue); await f.locator('button[type=submit]').click();
-  await card('Add a gig');
-  f = await form('New gig');
+  await page.waitForFunction(t => !!document.getElementById('lic-terms-ok') || (document.querySelector('.tour-card #tour-title') || {}).textContent === t, w.cards[0], { timeout: 10000 });
+  if (await page.locator('#lic-terms-ok').count()) { await page.check('#lic-terms-ok'); await page.click('#lic-terms-agree'); }
+  await card(w.cards[0]);
+  let f = await form(w.forms[0]); await f.locator('[data-key=name]').fill(band); await f.locator('button[type=submit]').click();
+  await card(w.cards[1]);
+  f = await form(w.forms[1]); await f.locator('[data-key=name]').fill(venue); await f.locator('button[type=submit]').click();
+  await card(w.cards[2]);
+  f = await form(w.forms[2]);
   await typePick(f, 'actId', band.slice(0, 3), band); await typePick(f, 'venueId', venue.slice(0, 4), venue);
   await f.locator('button[type=submit]').click();
-  await page.waitForFunction(() => (document.querySelector('.tour-card #tour-title') || {}).textContent === 'Your first gig is on your calendar', null, { timeout: 10000 });
+  await page.waitForFunction(t => (document.querySelector('.tour-card #tour-title') || {}).textContent === t, w.done, { timeout: 10000 });
   await sleep(300);
 }
-module.exports = { open, ok, sleep, go, topSheet, toMonth, BASE, licenceLeg, licenceAt, typePick, passStart };
+module.exports = { open, ok, sleep, go, topSheet, toMonth, BASE, licenceLeg, licenceAt, typePick, passStart, START_WORDS };
